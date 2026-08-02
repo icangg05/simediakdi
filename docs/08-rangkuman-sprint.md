@@ -166,17 +166,137 @@ daftar itu dalam keadaan apa pun:
 5. Backup dan satu kali uji restore
 6. Responsivitas dashboard eksekutif di layar ponsel
 
+### Penarikan arsip (`crawl:backfill`)
+
+Ditambahkan di luar rencana sprint karena kelas negatif tidak bisa diukur tanpa
+korpus yang jauh lebih besar. Setelah pengetat relevansi, artikel yang ditebak
+negatif di konteks utama tinggal empat — dan semuanya sudah dilabeli. Pada laju
+crawler RSS, mengumpulkan 40 negatif butuh sekitar dua pekan.
+
+Hasil satu kali jalan, empat halaman per media: **4.415 artikel baru**, total
+4.720, dalam hitungan menit. Enam media memberi nol — Telisik, Sibernas, dan
+Sultra TV memblokir `/wp-json/` lewat robots, sedangkan Tempo, Detik, dan
+Portal.id bukan WordPress atau nasional.
+
+Inilah pemakaian WP REST yang tepat. Untuk artikel tunggal ia justru tiga kali
+lebih lambat daripada mengunduh halamannya, tapi di sini satu permintaan
+menggantikan lima puluh — dan itu jauh lebih ringan bagi situs medianya.
+
+Dua hal yang muncul saat membangunnya:
+
+1. **Logika pasca-ekstraksi dipindah ke `PenyelesaiArtikel`.** Sidik jari,
+   deduplikasi, dan penerusan ke analisis dulu hanya ada di `AmbilIsiArtikel`.
+   Menyalinnya ke backfill berarti dua jalur yang bisa menyimpang diam-diam —
+   dan deduplikasi ada di daftar yang tidak boleh dipangkas.
+2. **Bug transaksi PostgreSQL.** Menangkap pelanggaran unique lalu melanjutkan
+   hanya bekerja di luar transaksi: begitu ada transaksi pembungkus, satu
+   statement gagal meracuni seluruhnya dan penarikan berhenti di URL duplikat
+   pertama. Diperbaiki dengan membungkus penyisipan dalam transaksi bersarang
+   (SAVEPOINT).
+
+## Yang masih menunggu pekerjaan manusia
+
+1. **F1 negatif diukur dari tiga sampel.** Perlu tambahan label lewat mode
+   terarah "ditebak negatif" di `/admin/pelabelan` sampai terkumpul minimal 40
+   negatif, dilaporkan terpisah dari akurasi keseluruhan. Sampai itu ada, F1
+   macro 0,7998 harus disebut bersama peringatannya.
+2. **Ronde 2 gold set.** 40 baris acak dilabeli ulang seminggu setelah ronde 1
+   tanpa melihat label lama, untuk mengukur konsistensi pelabel. Angkanya
+   adalah batas atas yang wajar diminta dari model, dan tampil sendiri di
+   `/admin/evaluasi`.
+3. **Evaluasi ulang setelah pengetat relevansi.** Gold set yang sudah ada tetap
+   sah — yang berubah tebakan model, bukan label manusia — jadi cukup
+   menjalankan `evaluasi:model` lagi setelah analisis ulang selesai.
+
 ## Posisi saat ini
 
-Sprint 0 sampai 3 selesai, kecuali dua hal di sprint 3 yang butuh pekerjaan
-manusia: **400 baris gold set belum dilabeli**, dan karena itu **ambang
-keyakinan belum dikalibrasi dari data**. Ruang kerja pelabelan dan panduannya
-sudah siap.
+**Sprint 0 sampai 3 selesai.** Definition of done sprint 3 tercapai: seluruh
+artikel punya skor sentimen per konteks relevan, ada baris `evaluasi_model`
+dengan F1 macro terukur (0,7998), dan ambang keyakinan ditetapkan dari data.
+
+Gold set ronde 1 berisi 254 label — 200 di konteks utama, 27 di masing-masing
+konteks lain. Cukup untuk akurasi keseluruhan; belum cukup untuk F1 negatif.
+
+Yang belum: **ronde 2 (40 baris ulang untuk mengukur konsistensi pelabel)** dan
+**suplemen kelas negatif**. Keduanya butuh pekerjaan manusia.
 
 Layanan NLP (`nlp/`) sudah ada dan berjalan. Dokumen `05-spesifikasi-nlp.md`
 tetap tidak ada; panduan pelabelan ditulis ulang sebagai
 `09-panduan-pelabelan.md`, tapi rencana alternatif kalau F1 macro di bawah 0,65
 belum ada penggantinya.
+
+### Hasil evaluasi pertama (254 label gold set, ronde 1)
+
+**Sentimen — lolos gerbang.** F1 macro **0,7998**, akurasi 81,3%, dari 48 sampel
+relevan di konteks utama.
+
+| Kelas | F1 | Sampel |
+|-------|-----|--------|
+| Negatif | 1,000 | **3** |
+| Netral | 0,526 | 5 |
+| Positif | 0,873 | 40 |
+
+Angka 0,7998 harus dibaca dengan dua peringatan:
+
+1. **F1 negatif sempurna dari tiga sampel bukan pengukuran.** Ia menaikkan F1
+   macro yang merata-ratakan tiga kelas dengan bobot sama. Tanpa kelas itu,
+   rata-rata netral dan positif hanya **0,70** — masih lolos, tapi marginnya
+   jauh lebih tipis daripada yang terlihat.
+2. **Kesalahan utama model: 9 artikel positif ditebak netral.** Model cenderung
+   meredam, bukan melebih-lebihkan. Untuk sistem peringatan dini itu arah yang
+   relatif aman, tapi berarti angka positif di dashboard cenderung dikecilkan.
+
+**Relevansi — sempat tidak terukur sama sekali, lalu diperbaiki.**
+
+| Metrik | Model saja | Setelah pengetat |
+|--------|-----------|------------------|
+| Presisi | 46,6% | **75,4%** |
+| Recall | 92,3% | 88,5% |
+| F1 | 0,619 | **0,814** |
+| Salah dianggap relevan | 55 dari 254 | **15** |
+| Relevan yang terlewat | 4 dari 254 | 6 |
+
+Sebelum diperbaiki, separuh artikel yang masuk grafik sebenarnya tidak membahas
+konteksnya. Biayanya dua artikel relevan tambahan yang terlewat — pertukaran
+yang sepadan, tapi perlu diingat: artikel yang terlewat hilang dari analisis
+tanpa jejak, sedangkan artikel yang lolos keliru masih bisa dikoreksi admin
+lewat halaman detail.
+
+**Menaikkan ambang keyakinan tidak menolong.** Diuji 0,55 sampai 0,999: presisi
+hanya bergerak 47,4% → 48,1%. Median keyakinan pada keputusan yang benar dan
+yang salah sama-sama 1,000 — model sama yakinnya saat keliru.
+
+Penyebabnya definisi, bukan kalibrasi: model menganggap artikel yang menyebut
+Kendari sekali lewat sebagai relevan, sedangkan panduan pelabelan menghitungnya
+tidak relevan (pertanyaan nomor 1).
+
+**Sudah diperbaiki dengan pengetat berbasis frekuensi kata kunci.** Sepuluh
+varian diuji terhadap 254 label manusia, dengan **separuh data ditahan dan tidak
+pernah dilihat saat memilih**:
+
+| Aturan | Presisi | Recall | F1 |
+|--------|---------|--------|-----|
+| Model apa adanya | 54,2% | 100% | 0,703 |
+| Kata kunci di judul saja | 92,3% | 46,2% | 0,615 |
+| Kata kunci di judul ATAU 400 huruf awal | 65,1% | 78,8% | 0,713 |
+| **Kata kunci di judul ATAU ≥3× di isi** | **80,0%** | **92,3%** | **0,857** |
+| Kata kunci di judul ATAU ≥4× di isi | 80,0% | 76,9% | 0,784 |
+
+Varian ≥4× terlihat lebih baik pada separuh yang dipakai memilih (F1 0,830) tapi
+lebih buruk pada data tahan (0,784) — overfit. Tanpa data tahan, varian yang
+salah yang akan dipasang.
+
+Hipotesis awal "kata kunci di paragraf pertama" juga kalah (0,713). Frekuensi
+lebih menentukan daripada posisi.
+
+Disetel lewat `RELEVANSI_MINIMAL_SEBUTAN`, bawaan 3. Konteks tanpa kata kunci
+tidak diketatkan sama sekali.
+
+**Bug yang ditemukan bersamaan:** `RELEVANSI_AMBANG_KEYAKINAN` ada di `.env`,
+di `config/nlp.php`, di dokumen 02, dan ditampilkan di halaman detail artikel —
+tapi tidak pernah diterapkan di mana pun. Relevansi diputuskan argmax murni.
+Karena pengujian menunjukkan ambang tidak berpengaruh pada model ini, nilainya
+dibiarkan tapi statusnya dicatat di sini agar tidak dikira sudah bekerja.
 
 ### Audit feed 30 media (tugas sprint 0)
 
@@ -189,22 +309,27 @@ Telisik yang memakai `/feed/rss`. Daftarnya disimpan di `SumberFeedSeeder`.
 | Detikcom | Tidak ada feed yang bisa dipakai | Belum ada — lihat catatan Google News |
 | Sibernas | Tidak ada feed di jalur lazim maupun tautan halaman depan | Portal pelaporan mandiri (sprint 5) |
 
-**F-05 belum terpenuhi dan butuh keputusan.** `news.google.com/robots.txt`
-melarang seluruh path untuk `User-agent: *`, termasuk `/rss/search`. Dokumen 02
-bagian 8 dan dokumen 06 mewajibkan menghormati robots.txt, jadi jalur Google
-News ditutup selama aturan itu dipegang. Sumbernya sudah dibuat tapi
-dinonaktifkan beserta alasannya.
+**F-05 terpenuhi lewat jalur lain.** `news.google.com/robots.txt` melarang
+seluruh path untuk `User-agent: *`, termasuk `/rss/search`, sehingga jalur
+Google News tertutup selama kewajiban menghormati robots dipegang. Sumbernya
+tetap ada di database tapi dinonaktifkan beserta alasannya.
 
-Tiga pilihan, semuanya perlu diputuskan manusia:
+Penggantinya: **feed milik media nasional sendiri, disaring kata kunci sebelum
+artikel disimpan** — cara yang sudah diantisipasi dokumen 01 lampiran A catatan
+1. Keduanya diuji dan tidak melarang bot ini:
 
-1. Terima F-05 tidak terpenuhi. 27 feed langsung sudah menutup seluruh daftar
-   media partner; yang hilang hanya media di luar daftar.
-2. Tarik feed kanal daerah milik Tempo dan Detik sendiri, lalu saring dengan
-   kata kunci sebelum disimpan — dokumen 01 lampiran A catatan 1 sudah
-   mengantisipasi cara ini.
-3. Kecualikan news.google.com dari pemeriksaan robots. Ini melanggar aturan
-   yang ditulis sendiri di dokumen 02, jadi harus jadi keputusan sadar dan
-   tercatat, bukan diam-diam.
+| Sumber | Item per tarikan | Saringan |
+|--------|------------------|----------|
+| `rss.tempo.co/nasional` | 50 | `Kendari` |
+| `news.detik.com/rss` | 100 | `Kendari` |
+
+Penyaringan dilakukan dari judul dan ringkasan feed, bukan dari isi halaman:
+mengunduh seratus artikel nasional untuk membuang sembilan puluh delapan justru
+banjir yang mau dihindari. Feed yang seluruh isinya tersaring tidak dihitung
+sebagai kegagalan — hari tanpa liputan Kendari itu wajar, dan menghitungnya
+gagal akan menonaktifkan sumbernya setelah lima hari sepi.
+
+Sibernas tetap tanpa feed; jalurnya portal pelaporan mandiri di sprint 5.
 
 Temuan pengukuran yang mengubah nilai awal di dokumen:
 

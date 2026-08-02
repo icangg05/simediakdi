@@ -88,13 +88,18 @@ class EkstraktorWordPress
             return null;
         }
 
-        return $this->keHasil($json[0]);
+        return $this->dariPos($json[0]);
     }
 
     /**
+     * Satu pos WP REST menjadi hasil ekstraksi.
+     *
+     * Publik karena dipakai juga oleh penarikan arsip massal, yang mengambil
+     * puluhan pos sekaligus dari endpoint daftar alih-alih satu per slug.
+     *
      * @param  array<string, mixed>  $pos
      */
-    private function keHasil(array $pos): HasilEkstraksi
+    public function dariPos(array $pos): HasilEkstraksi
     {
         $isi = $this->pembersih->keTeks($pos['content']['rendered'] ?? '');
         $ringkasan = $this->pembersih->rapikan($pos['excerpt']['rendered'] ?? '');

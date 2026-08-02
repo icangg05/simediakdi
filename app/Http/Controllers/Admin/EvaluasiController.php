@@ -24,6 +24,9 @@ class EvaluasiController extends Controller
                 'relevan' => GoldSet::where('ronde', 1)->where('relevan_gold', true)->count(),
             ],
             'konsistensiPelabel' => $evaluator->konsistensiPelabel(),
+            // Penyaring relevansi menentukan artikel mana yang masuk grafik,
+            // jadi angkanya sama menentukannya dengan F1 sentimen.
+            'relevansi' => $evaluator->metrikRelevansi(),
             'ambangGerbang' => 0.65,
         ]);
     }

@@ -27,6 +27,14 @@ const props = defineProps<{
     riwayat: Evaluasi[];
     goldSet: { ronde1: number; ronde2: number; relevan: number };
     konsistensiPelabel: number | null;
+    relevansi: {
+        jumlah_sampel: number;
+        presisi: number;
+        recall: number;
+        f1: number;
+        salah_dianggap_relevan: number;
+        relevan_yang_terlewat: number;
+    } | null;
     ambangGerbang: number;
 }>();
 
@@ -93,6 +101,53 @@ const waktu = (nilai: string) => format(new Date(nilai), 'd MMM yyyy, HH:mm', { 
                 </CardContent>
             </Card>
         </div>
+
+        <Card v-if="relevansi">
+            <CardHeader class="pb-2">
+                <CardTitle class="text-base">Penyaring relevansi</CardTitle>
+            </CardHeader>
+            <CardContent class="space-y-3">
+                <p class="text-xs text-muted-foreground">
+                    Menentukan artikel mana yang masuk grafik. Presisi rendah berarti dashboard memuat artikel
+                    yang sebenarnya tidak membahas konteksnya, dan angka volume ikut menggelembung. Recall rendah
+                    lebih buruk lagi — artikel yang terlewat hilang selamanya dari analisis.
+                </p>
+
+                <div class="grid gap-3 sm:grid-cols-3">
+                    <div>
+                        <p class="text-[13px] font-medium text-muted-foreground">Presisi</p>
+                        <p class="angka text-2xl font-semibold" :class="relevansi.presisi < 0.7 ? 'text-sentimen-negatif' : ''">
+                            {{ formatPersen(relevansi.presisi * 100) }}
+                        </p>
+                        <p class="text-xs text-muted-foreground">
+                            {{ formatAngka(relevansi.salah_dianggap_relevan) }} artikel salah dianggap relevan
+                        </p>
+                    </div>
+                    <div>
+                        <p class="text-[13px] font-medium text-muted-foreground">Recall</p>
+                        <p class="angka text-2xl font-semibold">{{ formatPersen(relevansi.recall * 100) }}</p>
+                        <p class="text-xs text-muted-foreground">
+                            {{ formatAngka(relevansi.relevan_yang_terlewat) }} artikel relevan terlewat
+                        </p>
+                    </div>
+                    <div>
+                        <p class="text-[13px] font-medium text-muted-foreground">F1</p>
+                        <p class="angka text-2xl font-semibold">{{ relevansi.f1 }}</p>
+                        <p class="text-xs text-muted-foreground">
+                            dari {{ formatAngka(relevansi.jumlah_sampel) }} sampel
+                        </p>
+                    </div>
+                </div>
+
+                <p
+                    v-if="relevansi.presisi < 0.7"
+                    class="rounded-md bg-sentimen-negatif-lembut p-2 text-xs text-sentimen-negatif"
+                >
+                    Presisi di bawah 70%. Menaikkan ambang keyakinan tidak menolong — model sama yakinnya
+                    saat benar maupun salah. Sampaikan batasan ini saat menyajikan angka volume.
+                </p>
+            </CardContent>
+        </Card>
 
         <Card v-if="terbaru">
             <CardHeader class="pb-2">

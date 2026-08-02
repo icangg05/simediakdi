@@ -53,13 +53,19 @@ class AnalisisRelevansi implements ShouldQueue
         foreach ($konteks as $satu) {
             $relevansi = $hasil[$satu->id] ?? null;
 
+            // Model saja terlalu royal — ia menganggap penyebutan sekali lewat
+            // sebagai pembahasan. Pengetat ini menaikkan presisi 54% ke 80%
+            // pada gold set; alasannya lengkap di PenyaringKataKunci::menonjol().
+            $relevan = ($relevansi?->relevan ?? false)
+                && $penyaring->menonjol($artikel->judul, $artikel->isi, $satu);
+
             BarisAnalisis::updateOrCreate(
                 ['artikel_id' => $artikel->id, 'konteks_pantauan_id' => $satu->id],
                 [
-                    // Konteks yang tidak lolos saringan kata kunci dicatat
-                    // sebagai tidak relevan, bukan dihilangkan. Barisnya ada
-                    // supaya terlihat konteks itu memang sudah dinilai.
-                    'relevan' => $relevansi?->relevan ?? false,
+                    // Konteks yang tidak lolos saringan dicatat sebagai tidak
+                    // relevan, bukan dihilangkan. Barisnya ada supaya terlihat
+                    // konteks itu memang sudah dinilai.
+                    'relevan' => $relevan,
                     'keyakinan_relevansi' => $relevansi?->keyakinan,
                 ],
             );

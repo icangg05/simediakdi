@@ -53,14 +53,25 @@ class SumberFeedSeeder extends Seeder
     ];
 
     /**
+     * Media nasional: feed utuhnya didominasi berita di luar Kendari, jadi
+     * disaring kata kunci sebelum artikel disimpan (dokumen 01 lampiran A
+     * catatan 1). Domainnya berbeda dari kolom `media.domain` karena feed-nya
+     * ada di subdomain tersendiri.
+     *
+     * @var array<string, array{url: string, kata_kunci: string}>
+     */
+    private const FEED_NASIONAL = [
+        'tempo' => ['url' => 'https://rss.tempo.co/nasional', 'kata_kunci' => 'Kendari'],
+        'detikcom' => ['url' => 'https://news.detik.com/rss', 'kata_kunci' => 'Kendari'],
+    ];
+
+    /**
      * Media tanpa feed yang bisa dipakai, beserta alasannya. Dicatat di kolom
      * `catatan` supaya tidak diuji ulang berkali-kali tanpa perlu.
      *
      * @var array<string, string>
      */
     private const TANPA_FEED = [
-        'tempo' => 'Nasional, tanpa feed yang bisa dipakai. Andalkan Google News berkata kunci Kendari.',
-        'detikcom' => 'Nasional, tanpa feed yang bisa dipakai. Andalkan Google News berkata kunci Kendari.',
         'sibernas' => 'Tidak ditemukan feed pada jalur lazim maupun tautan di halaman depan. Uji ulang berkala, atau andalkan portal pelaporan.',
     ];
 
@@ -93,6 +104,33 @@ class SumberFeedSeeder extends Seeder
                     'aktif' => true,
                 ],
             );
+        }
+
+        foreach (self::FEED_NASIONAL as $slug => $konfigurasi) {
+            $media = Media::withoutGlobalScopes()->where('slug', $slug)->first();
+
+            if ($media === null) {
+                continue;
+            }
+
+            SumberFeed::updateOrCreate(
+                ['url' => $konfigurasi['url']],
+                [
+                    'media_id' => $media->id,
+                    'nama' => "{$media->nama} RSS (disaring \"{$konfigurasi['kata_kunci']}\")",
+                    'tipe' => 'rss',
+                    // Dipakai CrawlFeeds untuk membuang item yang tidak menyebut
+                    // Kendari sebelum artikelnya diunduh.
+                    'kata_kunci' => $konfigurasi['kata_kunci'],
+                    'interval_menit' => 60,
+                    'aktif' => true,
+                ],
+            );
+
+            $media->update([
+                'catatan' => 'Nasional. Feed utuh disaring kata kunci "'.$konfigurasi['kata_kunci']
+                    .'" sebelum artikel disimpan, agar berita di luar Kendari tidak menenggelamkan angka volume.',
+            ]);
         }
 
         foreach ([...array_keys(self::TANPA_FEED), ...self::NASIONAL_JANGAN_FEED_UTUH] as $slug) {

@@ -45,6 +45,7 @@ class EvaluasiModel extends Command
         ]);
 
         $this->tampilkan($metrik, $versi, $evaluator->konsistensiPelabel());
+        $this->tampilkanRelevansi($evaluator->metrikRelevansi($ronde));
 
         if ($metrik['f1_macro'] < self::AMBANG_F1_MACRO) {
             $this->newLine();
@@ -82,6 +83,30 @@ class EvaluasiModel extends Command
         if ($konsistensi !== null) {
             $this->line('Konsistensi pelabel antar ronde: '.$this->persen($konsistensi));
             $this->line('Ini batas atas yang wajar diharapkan dari model.');
+        }
+    }
+
+    /** @param array<string, mixed>|null $relevansi */
+    private function tampilkanRelevansi(?array $relevansi): void
+    {
+        if ($relevansi === null) {
+            return;
+        }
+
+        $this->newLine();
+        $this->info("Penyaring relevansi, {$relevansi['jumlah_sampel']} sampel");
+
+        $this->table(['Metrik', 'Nilai'], [
+            ['Presisi', $this->persen($relevansi['presisi']).'  (dari yang disebut relevan, berapa yang benar)'],
+            ['Recall', $this->persen($relevansi['recall']).'  (dari yang benar relevan, berapa yang tertangkap)'],
+            ['F1', $relevansi['f1']],
+            ['Salah dianggap relevan', $relevansi['salah_dianggap_relevan'].'  ← ikut mengotori grafik'],
+            ['Relevan yang terlewat', $relevansi['relevan_yang_terlewat'].'  ← hilang dari analisis'],
+        ]);
+
+        if ($relevansi['presisi'] < 0.7) {
+            $this->warn('Presisi relevansi di bawah 70%: sebagian artikel di dashboard sebenarnya tidak');
+            $this->warn('membahas konteksnya. Angka volume ikut menggelembung. Lihat dokumen 08.');
         }
     }
 

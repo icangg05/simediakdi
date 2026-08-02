@@ -87,6 +87,57 @@ class EvaluatorModel
     }
 
     /**
+     * Metrik penyaring relevansi.
+     *
+     * Sama pentingnya dengan metrik sentimen dan sempat terlewat: seluruh
+     * alasan relevansi dijalankan sebelum sentimen adalah menjaga agar artikel
+     * yang tidak membahas konteks tidak ikut mengotori grafik (dokumen 02
+     * bagian 5). Kalau presisinya rendah, dashboard terisi artikel yang
+     * seharusnya tidak ada di sana — dan tanpa angka ini, tidak ada yang tahu.
+     *
+     * Recall lebih penting daripada presisi di sini. Artikel relevan yang
+     * terbuang hilang selamanya dari analisis; artikel tidak relevan yang lolos
+     * masih bisa dikoreksi admin lewat halaman detail.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function metrikRelevansi(int $ronde = 1, ?int $konteksId = null): ?array
+    {
+        $baris = GoldSet::query()
+            ->where('gold_set.ronde', $ronde)
+            ->when($konteksId, fn ($q) => $q->where('gold_set.konteks_pantauan_id', $konteksId))
+            ->join('analisis_sentimen', function ($join) {
+                $join->on('analisis_sentimen.artikel_id', '=', 'gold_set.artikel_id')
+                    ->on('analisis_sentimen.konteks_pantauan_id', '=', 'gold_set.konteks_pantauan_id');
+            })
+            ->get(['gold_set.relevan_gold as gold', 'analisis_sentimen.relevan as prediksi']);
+
+        if ($baris->isEmpty()) {
+            return null;
+        }
+
+        $tp = $baris->where('gold', true)->where('prediksi', true)->count();
+        $fp = $baris->where('gold', false)->where('prediksi', true)->count();
+        $fn = $baris->where('gold', true)->where('prediksi', false)->count();
+        $tn = $baris->where('gold', false)->where('prediksi', false)->count();
+
+        $presisi = $tp + $fp === 0 ? 0.0 : $tp / ($tp + $fp);
+        $recall = $tp + $fn === 0 ? 0.0 : $tp / ($tp + $fn);
+
+        return [
+            'jumlah_sampel' => $baris->count(),
+            'benar_relevan' => $tp,
+            'salah_dianggap_relevan' => $fp,
+            'relevan_yang_terlewat' => $fn,
+            'benar_tidak_relevan' => $tn,
+            'presisi' => round($presisi, 4),
+            'recall' => round($recall, 4),
+            'f1' => $presisi + $recall === 0.0 ? 0.0 : round(2 * $presisi * $recall / ($presisi + $recall), 4),
+            'akurasi' => round(($tp + $tn) / $baris->count(), 4),
+        ];
+    }
+
+    /**
      * Kesesuaian antara ronde 1 dan ronde 2 pada pelabel yang sama.
      *
      * Ini batas atas akurasi yang wajar diharapkan dari model: kalau manusia

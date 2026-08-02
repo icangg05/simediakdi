@@ -55,6 +55,31 @@ docker compose exec app php artisan queue:work redis --queue=crawl --stop-when-e
 Di produksi, worker dan scheduler dijalankan supervisor — lihat
 [`deploy/supervisor/simedia.conf`](deploy/supervisor/simedia.conf).
 
+### Menarik arsip lama
+
+RSS hanya memuat 10–50 tulisan terbaru, jadi korpus untuk gold set tidak bisa
+dibangun darinya tanpa menunggu berminggu-minggu. `crawl:backfill` menyusuri
+arsip lewat endpoint daftar WP REST — 50 tulisan sekali permintaan.
+
+```bash
+docker compose exec app php artisan crawl:backfill --halaman=4
+docker compose exec app php artisan crawl:backfill --media=kendari-pos --halaman=10
+docker compose exec app php artisan crawl:backfill --mulai=5 --halaman=4   # lanjutkan
+```
+
+Bukan bagian operasi harian — crawler RSS yang mengurus berita baru. Jalankan
+saat gold set butuh lebih banyak artikel daripada yang bisa dikumpulkan feed
+dalam waktu wajar.
+
+Enam media tidak punya arsip yang bisa ditarik: Telisik, Sibernas, dan Sultra TV
+(robots melarang `/wp-json/`), serta Tempo, Detik, dan Portal.id yang bukan
+WordPress atau nasional.
+
+Isi artikel ikut terbawa dalam respons arsip, jadi `AmbilIsiArtikel` dilewati.
+Sisanya — sidik jari, deduplikasi, penerusan ke analisis — dikerjakan
+`PenyelesaiArtikel`, kelas yang sama dengan jalur crawl harian, supaya kedua
+jalur tidak pernah berbeda perlakuan.
+
 ## Layanan NLP
 
 Proses Python terpisah di [`nlp/`](nlp/), dijalankan container `nlp`. Model
@@ -72,9 +97,15 @@ docker compose exec app php artisan queue:work redis --queue=nlp --stop-when-emp
 
 | Model | Dipakai untuk |
 |-------|---------------|
-| `apriandito/indobert-sentiment-classifier` | Sentimen terkondisi konteks, F1 macro 0,856 |
-| `apriandito/indobert-relevancy-classifier` | Saringan relevansi, F1 0,948 |
+| `apriandito/indobert-sentiment-classifier` | Sentimen terkondisi konteks |
+| `apriandito/indobert-relevancy-classifier` | Saringan relevansi |
 | `paraphrase-multilingual-MiniLM-L12-v2` | Embedding 384 dimensi untuk dedup lapis 3 |
+
+Model relevansi tidak dipakai sendirian. Ia menganggap artikel yang menyebut
+konteks sekali lewat sebagai relevan, sehingga presisinya hanya 46,6% pada gold
+set. Hasilnya diketatkan dengan aturan frekuensi kata kunci — presisi naik ke
+80% dengan recall tetap 92%. Angka dan cara mengukurnya ada di
+[`docs/08-rangkuman-sprint.md`](docs/08-rangkuman-sprint.md).
 
 Keduanya menerima `[CLS] konteks [SEP] teks [SEP]` — konteks dikirim sebagai
 kalimat terpisah, bukan digabung ke teks. Menggabungnya membuat model kehilangan

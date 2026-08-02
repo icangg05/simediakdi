@@ -48,7 +48,10 @@ services:
       - "127.0.0.1:8001:8001"
     environment:
       HF_HOME: /model
-      TORCH_THREADS: "2"
+      # Produksi memakai 2, sesuai spesifikasi server dokumen 02 (4 vCPU, dua
+      # di antaranya untuk inferensi). Mesin pengembangan biasanya punya lebih,
+      # dan penarikan arsip menghasilkan ribuan artikel yang harus dianalisis.
+      TORCH_THREADS: "${TORCH_THREADS:-8}"
 
 volumes:
   dbdata:

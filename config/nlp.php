@@ -27,6 +27,21 @@ return [
     // ulang dari gold set begitu 400 baris selesai dilabeli (dokumen 07).
     'ambang' => [
         'sentimen' => (float) env('SENTIMEN_AMBANG_KEYAKINAN', 0.90),
+
+        // Tidak berpengaruh pada model relevansi yang dipakai sekarang: diuji
+        // dari 0,55 sampai 0,999 dan presisi hanya bergerak 47,4% ke 48,1%,
+        // karena keyakinannya bermedian 1,000 baik saat benar maupun salah.
+        // Dipertahankan karena disebut dokumen 02 dan akan berguna kalau
+        // modelnya diganti. Yang benar-benar menaikkan presisi adalah
+        // `minimal_sebutan` di bawah.
         'relevansi' => (float) env('RELEVANSI_AMBANG_KEYAKINAN', 0.55),
     ],
+
+    // Berapa kali kata kunci konteks harus muncul di badan berita agar artikel
+    // dianggap benar-benar membahasnya, kalau judulnya tidak menyebut sama
+    // sekali. Diukur terhadap 254 label manusia dengan separuh data ditahan:
+    // presisi naik 54,2% ke 80,0% sementara recall turun tipis 100% ke 92,3%.
+    // Menaikkannya ke 4 justru memburuk pada data tahan — ukur ulang sebelum
+    // mengubahnya.
+    'minimal_sebutan' => (int) env('RELEVANSI_MINIMAL_SEBUTAN', 3),
 ];

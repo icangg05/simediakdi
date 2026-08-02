@@ -71,6 +71,8 @@ class CrawlFeeds extends Command
                 ? $pembacaScrape->baca($isi, $sumber)
                 : $pembacaRss->baca($isi, $sumber->url);
 
+            $ditemukan = count($item);
+            $item = $this->saringKataKunci($item, $sumber);
             $baru = 0;
 
             foreach ($item as $satu) {
@@ -79,15 +81,22 @@ class CrawlFeeds extends Command
                 }
             }
 
+            $disaring = $ditemukan - count($item);
+
             $log->update([
                 'selesai_at' => now(),
-                'jumlah_ditemukan' => count($item),
+                'jumlah_ditemukan' => $ditemukan,
                 'jumlah_baru' => $baru,
                 // Duplikat lapis 2 baru diketahui setelah isinya diunduh, jadi
-                // yang tercatat di sini hanya URL yang sudah pernah masuk.
-                'jumlah_salinan' => count($item) - $baru,
-                'status' => count($item) === 0 ? 'sebagian' : 'sukses',
-                'pesan' => count($item) === 0 ? 'Feed terbaca tapi tidak berisi item.' : null,
+                // yang tercatat di sini hanya URL yang sudah pernah masuk,
+                // ditambah item yang dibuang saringan kata kunci.
+                'jumlah_salinan' => $ditemukan - $baru,
+                'status' => $ditemukan === 0 ? 'sebagian' : 'sukses',
+                'pesan' => match (true) {
+                    $ditemukan === 0 => 'Feed terbaca tapi tidak berisi item.',
+                    $disaring > 0 => "{$disaring} item dibuang saringan kata kunci \"{$sumber->kata_kunci}\".",
+                    default => null,
+                },
             ]);
 
             $sumber->update([
@@ -96,10 +105,41 @@ class CrawlFeeds extends Command
                 'pesan_error_terakhir' => null,
             ]);
 
-            $this->line("  {$sumber->nama}: {$baru} baru dari ".count($item).' item');
+            $this->line("  {$sumber->nama}: {$baru} baru dari {$ditemukan} item"
+                .($disaring > 0 ? " ({$disaring} disaring kata kunci)" : ''));
         } catch (Throwable $e) {
             $this->tanganiKegagalan($sumber, $log, $e);
         }
+    }
+
+    /**
+     * Saringan kata kunci sebelum artikel disimpan.
+     *
+     * Dipakai untuk media nasional: feed utuh Tempo dan Detik didominasi berita
+     * di luar Kendari dan akan menenggelamkan angka volume (dokumen 01 lampiran
+     * A catatan 1). Menyaring dari judul dan ringkasan feed, bukan dari isi
+     * halaman — mengunduh seratus artikel nasional untuk membuang sembilan
+     * puluh delapan justru banjir yang mau dihindari.
+     *
+     * Sumber tanpa kata kunci tidak disaring sama sekali.
+     *
+     * @param  list<\App\Services\Crawler\ItemFeed>  $item
+     * @return list<\App\Services\Crawler\ItemFeed>
+     */
+    private function saringKataKunci(array $item, SumberFeed $sumber): array
+    {
+        $kataKunci = trim((string) $sumber->kata_kunci);
+
+        if ($kataKunci === '') {
+            return $item;
+        }
+
+        $cari = mb_strtolower($kataKunci);
+
+        return array_values(array_filter(
+            $item,
+            fn ($satu) => str_contains(mb_strtolower($satu->judul.' '.$satu->ringkasan), $cari),
+        ));
     }
 
     /** F-07: lima kegagalan berturut-turut menonaktifkan sumber. */

@@ -84,9 +84,14 @@ function simpan() {
                             placeholder="satu kata kunci per baris&#10;pemkot kendari&#10;wali kota kendari"
                         />
                         <p class="text-xs text-muted-foreground">
-                            Satu per baris. Artikel yang tidak memuat satu pun kata di sini langsung dianggap tidak
-                            relevan tanpa memanggil model. Buat longgar — tugasnya membuang yang jelas tidak nyambung,
-                            bukan memutuskan relevansi. Dikosongkan berarti semua artikel dikirim ke model.
+                            Satu per baris. Dipakai dua kali: menyaring artikel yang jelas tidak nyambung sebelum
+                            model dipanggil, dan mengetatkan hasil model setelahnya — artikel dianggap benar-benar
+                            membahas konteks kalau kata kunci muncul di judul, atau minimal tiga kali di badan
+                            berita. Tanpa pengetat itu, presisi penyaring hanya 47%.
+                        </p>
+                        <p class="text-xs text-muted-foreground">
+                            Buat longgar dan lengkap, termasuk variasi penulisannya. Dikosongkan berarti konteks ini
+                            tidak disaring maupun diketatkan sama sekali.
                         </p>
                         <InputError :message="form.errors.kata_kunci" />
                     </div>
