@@ -1,0 +1,8 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.5
+# Build CPU-only. Jangan pasang varian CUDA: ukurannya berlipat tanpa manfaat,
+# inferensi untuk volume satu kota cukup di CPU (dokumen 00).
+torch==2.5.1
+transformers==4.48.0
+sentence-transformers==3.3.1

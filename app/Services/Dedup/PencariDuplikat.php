@@ -6,11 +6,16 @@ use App\Enums\StatusDedup;
 use App\Models\Artikel;
 
 /**
- * Deduplikasi lapis 1 dan 2. Lapis 3 (kemiripan makna lewat pgvector) menyusul
- * di sprint 3, setelah layanan embedding ada.
+ * Deduplikasi tiga lapis.
  *
- * Dedup dijalankan sebelum analisis supaya biaya inferensi tidak dibayar
- * sepuluh kali untuk rilis yang sama.
+ * Lapis 1 hash isi persis, lapis 2 simhash untuk isi yang diubah sedikit,
+ * lapis 3 kemiripan makna lewat pgvector untuk isi yang ditulis ulang.
+ * Urutannya dari yang paling murah: hash tidak butuh apa pun, simhash cukup
+ * membandingkan bilangan, sedangkan lapis 3 baru bisa jalan setelah embedding
+ * dihitung dan itu memakai model.
+ *
+ * Seluruhnya dijalankan sebelum analisis supaya biaya inferensi tidak dibayar
+ * sepuluh kali untuk rilis Antara yang sama.
  */
 class PencariDuplikat
 {
@@ -64,6 +69,46 @@ class PencariDuplikat
             'artikel_induk_id' => $induk->id,
             'skor_kemiripan' => $skorKemiripan,
         ]);
+    }
+
+    /**
+     * Lapis 3: kemiripan makna. Menangkap artikel yang ditulis ulang dengan
+     * kata-kata berbeda tapi menceritakan peristiwa yang sama — kasus yang
+     * lolos dari hash maupun simhash.
+     *
+     * Batas tujuh hari itu penting. Tanpanya, pencarian menyusuri seluruh tabel
+     * dan berita banjir tahun lalu bisa dianggap salinan berita banjir hari ini.
+     *
+     * @return array{0: Artikel, 1: float}|null induk beserta skor kemiripannya
+     */
+    public function cariIndukSemantik(Artikel $artikel): ?array
+    {
+        if ($artikel->embedding === null) {
+            return null;
+        }
+
+        $ambang = (float) config('crawler.dedup.ambang_cosine');
+
+        $kandidat = $this->query($artikel)
+            ->whereNotNull('embedding')
+            ->selectRaw('id, 1 - (embedding <=> ?) AS kemiripan', [$artikel->embedding])
+            // reorder() wajib: query() mengurutkan menurut waktu, dan tanpa
+            // dibuang, urutan jarak vektor tidak pernah terpakai — index HNSW
+            // ikut tidak terpakai dan yang terambil bukan tetangga terdekat.
+            ->reorder()
+            ->orderByRaw('embedding <=> ?', [$artikel->embedding])
+            ->limit(5)
+            ->get();
+
+        $terdekat = $kandidat->first();
+
+        if ($terdekat === null || (float) $terdekat->kemiripan < $ambang) {
+            return null;
+        }
+
+        $induk = Artikel::withoutGlobalScopes()->find($terdekat->id);
+
+        return $induk === null ? null : [$induk, (float) $terdekat->kemiripan];
     }
 
     /**

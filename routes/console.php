@@ -17,5 +17,18 @@ Schedule::command('crawl:google-news')
     ->withoutOverlapping()
     ->runInBackground();
 
+// Hari ini ditulis ulang tiap 10 menit supaya dashboard tidak basi.
+Schedule::command('hitung:ringkasan-harian --hari=1')
+    ->everyTenMinutes()
+    ->withoutOverlapping();
+
+// Sekali sehari rentangnya diperlebar untuk menangkap koreksi label yang baru
+// dilakukan admin belakangan.
+Schedule::command('hitung:ringkasan-harian --hari=7')
+    ->dailyAt('03:10')
+    ->withoutOverlapping();
+
+Schedule::command('nlp:health')->everyFiveMinutes();
+
 // Log crawl tumbuh cepat dan nilainya menurun tajam setelah beberapa minggu.
 Schedule::command('log:bersihkan')->dailyAt('02:30');

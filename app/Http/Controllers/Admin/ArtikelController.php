@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Artikel;
+use App\Models\EvaluasiModel;
 use App\Models\Media;
 use App\Support\KueriTabel;
+use App\Support\Waktu;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -60,6 +62,30 @@ class ArtikelController extends Controller
         ]);
     }
 
+    public function show(Artikel $artikel): Response
+    {
+        $artikel->load([
+            'media:id,nama,domain',
+            'sumberFeed:id,nama',
+            'induk:id,judul',
+            'salinan:id,judul,media_id,diambil_at,artikel_induk_id',
+            'salinan.media:id,nama',
+            'analisisSentimen.konteks:id,nama,utama',
+            'analisisSentimen.pengoreksi:id,name',
+        ]);
+
+        return Inertia::render('admin/artikel/Detail', [
+            'artikel' => $artikel,
+            // Angka akurasi terbaru tampil berdampingan dengan hasil model,
+            // supaya pembacanya tahu seberapa jauh label ini bisa dipercaya.
+            'evaluasi' => EvaluasiModel::terbaru(),
+            'ambang' => [
+                'sentimen' => (float) config('nlp.ambang.sentimen'),
+                'relevansi' => (float) config('nlp.ambang.relevansi'),
+            ],
+        ]);
+    }
+
     /**
      * Rentang tanggal dibaca pada `diambil_at`, bukan `dipublikasikan_at`.
      * Tanggal dari feed bisa null atau salah, sedangkan waktu pengambilan
@@ -67,14 +93,13 @@ class ArtikelController extends Controller
      */
     private function saringTanggal(Builder $kueri, Request $request): void
     {
-        $zona = config('app.timezone');
-
+        // Admin memilih tanggal menurut kalender Kendari, bukan UTC.
         if ($dari = $request->query('dari')) {
-            $kueri->where('diambil_at', '>=', \Carbon\CarbonImmutable::parse($dari, $zona)->startOfDay());
+            $kueri->where('diambil_at', '>=', Waktu::awalHari($dari));
         }
 
         if ($sampai = $request->query('sampai')) {
-            $kueri->where('diambil_at', '<=', \Carbon\CarbonImmutable::parse($sampai, $zona)->endOfDay());
+            $kueri->where('diambil_at', '<=', Waktu::akhirHari($sampai));
         }
     }
 }

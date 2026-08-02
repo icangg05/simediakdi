@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Artikel;
 use App\Services\Crawler\EkstraktorArtikel;
+use App\Services\Crawler\EkstraktorWordPress;
 use App\Services\Crawler\GagalMengunduh;
 use App\Services\Crawler\PengunduhHalaman;
 use App\Services\Crawler\UrlDitolak;
@@ -40,6 +41,7 @@ class AmbilIsiArtikel implements ShouldQueue
 
     public function handle(
         PengunduhHalaman $pengunduh,
+        EkstraktorWordPress $wordpress,
         EkstraktorArtikel $ekstraktor,
         PenghitungSimhash $simhash,
         PencariDuplikat $dedup,
@@ -50,8 +52,11 @@ class AmbilIsiArtikel implements ShouldQueue
             return;
         }
 
+        $hasil = null;
+        $galat = null;
+
         try {
-            $html = $pengunduh->unduh($artikel->url);
+            $hasil = $ekstraktor->ekstrak($pengunduh->unduh($artikel->url), $artikel->url);
         } catch (UrlDitolak $e) {
             // URL internal atau dilarang robots.txt. Mengulang tidak akan
             // mengubah hasilnya, jadi jangan buang tiga percobaan.
@@ -60,12 +65,32 @@ class AmbilIsiArtikel implements ShouldQueue
 
             return;
         } catch (GagalMengunduh $e) {
-            $this->tandaiGagal($artikel, $e->getMessage());
-
-            throw $e;
+            // Halamannya tidak bisa diunduh; API mungkin masih menjawab.
+            $galat = $e;
         }
 
-        $hasil = $ekstraktor->ekstrak($html, $artikel->url);
+        // Jaring pengaman WordPress, bukan jalur utama.
+        //
+        // 26 dari 30 media partner memakai WordPress, jadi godaannya besar
+        // untuk menaruh API di depan. Pengukuran menolak itu: halaman HTML
+        // dilayani page cache dalam 147 ms, sedangkan /wp-json/ menembus cache
+        // dan menjalankan PHP serta query MySQL — 422 ms, tiga kali lebih
+        // lambat, dan jauh lebih mahal bagi hosting kecil yang dipakai media
+        // daerah. Yang tetap dimenangkan API adalah kepastian datanya, dan itu
+        // baru bernilai justru ketika Readability gagal atau hasilnya kependekan.
+        if ($hasil === null || $hasil->terlaluPendek()) {
+            $dariApi = $wordpress->ekstrak($artikel->url);
+
+            if ($dariApi !== null && ($hasil === null || $dariApi->jumlahKata > $hasil->jumlahKata)) {
+                $hasil = $dariApi;
+            }
+        }
+
+        if ($hasil === null) {
+            $this->tandaiGagal($artikel, $galat->getMessage());
+
+            throw $galat;
+        }
 
         $artikel->fill([
             // Judul feed sering lebih rapi daripada judul hasil ekstraksi;
@@ -107,9 +132,9 @@ class AmbilIsiArtikel implements ShouldQueue
             return;
         }
 
-        // Sprint 3 menyambung rantai di sini: HitungEmbedding, PeriksaDuplikat
-        // lapis 3, AnalisisRelevansi, AnalisisSentimen, EkstrakEntitas.
-        $artikel->update(['status_proses' => 'selesai']);
+        // Dedup lapis 1 dan 2 sudah lewat tanpa temuan. Lanjut ke lapis 3 dan
+        // analisis, yang seluruhnya berjalan di antrean `nlp`.
+        HitungEmbedding::dispatch($artikel->id);
     }
 
     public function failed(\Throwable $e): void

@@ -31,6 +31,12 @@ return [
     // F-07: sumber dinonaktifkan otomatis setelah gagal berturut-turut.
     'maks_gagal_berturut' => 5,
 
+    'wordpress' => [
+        // Jalur cepat lewat WP REST API. Matikan lewat .env kalau perlu
+        // membandingkan hasilnya dengan Readability tanpa deploy ulang.
+        'aktif' => (bool) env('CRAWL_WORDPRESS_API', true),
+    ],
+
     'artikel' => [
         // Di bawah ini biasanya hanya teaser, ditandai untuk audit.
         'minimal_kata' => 80,

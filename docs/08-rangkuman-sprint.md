@@ -168,5 +168,48 @@ daftar itu dalam keadaan apa pun:
 
 ## Posisi saat ini
 
-Sprint 1 selesai. Sprint 2 dan seterusnya belum dikerjakan. Layanan NLP
-(`nlp/`) dan dokumen `05-spesifikasi-nlp.md` yang dirujuk sprint 3 belum ada.
+Sprint 0 sampai 3 selesai, kecuali dua hal di sprint 3 yang butuh pekerjaan
+manusia: **400 baris gold set belum dilabeli**, dan karena itu **ambang
+keyakinan belum dikalibrasi dari data**. Ruang kerja pelabelan dan panduannya
+sudah siap.
+
+Layanan NLP (`nlp/`) sudah ada dan berjalan. Dokumen `05-spesifikasi-nlp.md`
+tetap tidak ada; panduan pelabelan ditulis ulang sebagai
+`09-panduan-pelabelan.md`, tapi rencana alternatif kalau F1 macro di bawah 0,65
+belum ada penggantinya.
+
+### Audit feed 30 media (tugas sprint 0)
+
+27 dari 30 punya feed hidup, seluruhnya `/feed` bawaan WordPress kecuali
+Telisik yang memakai `/feed/rss`. Daftarnya disimpan di `SumberFeedSeeder`.
+
+| Media | Masalah | Jalur pengganti |
+|-------|---------|-----------------|
+| Tempo | Tidak ada feed yang bisa dipakai | Belum ada — lihat catatan Google News |
+| Detikcom | Tidak ada feed yang bisa dipakai | Belum ada — lihat catatan Google News |
+| Sibernas | Tidak ada feed di jalur lazim maupun tautan halaman depan | Portal pelaporan mandiri (sprint 5) |
+
+**F-05 belum terpenuhi dan butuh keputusan.** `news.google.com/robots.txt`
+melarang seluruh path untuk `User-agent: *`, termasuk `/rss/search`. Dokumen 02
+bagian 8 dan dokumen 06 mewajibkan menghormati robots.txt, jadi jalur Google
+News ditutup selama aturan itu dipegang. Sumbernya sudah dibuat tapi
+dinonaktifkan beserta alasannya.
+
+Tiga pilihan, semuanya perlu diputuskan manusia:
+
+1. Terima F-05 tidak terpenuhi. 27 feed langsung sudah menutup seluruh daftar
+   media partner; yang hilang hanya media di luar daftar.
+2. Tarik feed kanal daerah milik Tempo dan Detik sendiri, lalu saring dengan
+   kata kunci sebelum disimpan — dokumen 01 lampiran A catatan 1 sudah
+   mengantisipasi cara ini.
+3. Kecualikan news.google.com dari pemeriksaan robots. Ini melanggar aturan
+   yang ditulis sendiri di dokumen 02, jadi harus jadi keputusan sadar dan
+   tercatat, bukan diam-diam.
+
+Temuan pengukuran yang mengubah nilai awal di dokumen:
+
+| Nilai | Dokumen | Dipakai | Alasan |
+|-------|---------|---------|--------|
+| `DEDUP_AMBANG_SIMHASH` | 4 | 12 | Near-duplicate terukur 8–10 bit, berita berbeda 30–34 bit |
+| `SENTIMEN_AMBANG_KEYAKINAN` | 0,60 | 0,90 | Sebaran keyakinan bimodal: 0,60–0,67 lalu kosong lalu ≥0,998 |
+| `app.timezone` | Asia/Makassar | UTC | WITA menggeser setiap timestamp 8 jam; konversi lewat `App\Support\Waktu` |

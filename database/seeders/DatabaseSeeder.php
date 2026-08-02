@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             MediaSeeder::class,
+            SumberFeedSeeder::class,
             KonteksPantauanSeeder::class,
         ]);
 

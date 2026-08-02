@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Console\Commands\PeriksaKesehatanNlp;
 use App\Enums\StatusDedup;
 use App\Http\Controllers\Controller;
 use App\Models\Artikel;
 use App\Models\LogCrawl;
 use App\Models\Pemuatan;
 use App\Models\SumberFeed;
+use App\Support\Waktu;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -36,7 +38,11 @@ class DashboardController extends Controller
             ->count();
 
         return [
-            'artikel_hari_ini' => Artikel::query()->asli()->whereDate('diambil_at', today())->count(),
+            // Batas hari WITA, bukan UTC. whereDate('diambil_at', today())
+            // akan salah setiap pukul 00.00–08.00 waktu Kendari.
+            'artikel_hari_ini' => Artikel::query()->asli()
+                ->where('diambil_at', '>=', Waktu::awalHariIni())
+                ->count(),
             'artikel_pekan_ini' => $pekanIni,
             'selisih_pekan_lalu' => $pekanIni - $pekanLalu,
             'salinan_pekan_ini' => Artikel::query()
@@ -75,11 +81,40 @@ class DashboardController extends Controller
                     ? 'Semua sumber feed berjalan normal.'
                     : "{$sumberMati} sumber dinonaktifkan otomatis. Periksa URL-nya di halaman sumber feed.",
             ],
-            'nlp' => [
-                // Sprint 3 mengisi ini dari command nlp:health.
+            'nlp' => $this->kesehatanNlp(),
+        ];
+    }
+
+    /**
+     * Diisi command nlp:health yang berjalan tiap 5 menit, bukan dengan
+     * memanggil layanan saat request — halaman admin tidak boleh ikut lambat
+     * atau ikut gagal hanya karena model sedang sibuk.
+     *
+     * @return array{status: string, keterangan: string}
+     */
+    private function kesehatanNlp(): array
+    {
+        $status = PeriksaKesehatanNlp::statusTerakhir();
+
+        if ($status === null) {
+            return [
                 'status' => 'kuning',
-                'keterangan' => 'Layanan NLP belum dipasang. Analisis sentimen menyusul di sprint 3.',
-            ],
+                'keterangan' => 'Belum pernah diperiksa. Pastikan scheduler berjalan.',
+            ];
+        }
+
+        if ($status['sehat']) {
+            return [
+                'status' => 'hijau',
+                'keterangan' => 'Model '.($status['model_sentimen'] ?? 'sentimen')
+                    .' siap, diperiksa '.\Carbon\CarbonImmutable::parse($status['diperiksa_at'])->diffForHumans(),
+            ];
+        }
+
+        return [
+            'status' => ($status['gagal_berturut'] ?? 0) >= 3 ? 'merah' : 'kuning',
+            'keterangan' => 'Layanan NLP tidak menjawab. Analisis menumpuk di antrean dan akan '
+                .'diproses setelah layanan hidup — tidak ada data yang hilang.',
         ];
     }
 

@@ -61,11 +61,16 @@ class PengunduhHalaman
         try {
             $tanggapan = $this->klien->send(new Request('GET', $url), [RequestOptions::STREAM => true]);
         } catch (GuzzleException $e) {
-            throw new GagalMengunduh("Tidak dapat menghubungi {$url}: {$e->getMessage()}", previous: $e);
+            $status = method_exists($e, 'getResponse') ? $e->getResponse()?->getStatusCode() : null;
+
+            throw new GagalMengunduh("Tidak dapat menghubungi {$url}: {$e->getMessage()}", $status, $e);
         }
 
         if ($tanggapan->getStatusCode() >= 300) {
-            throw new GagalMengunduh("{$url} menjawab HTTP {$tanggapan->getStatusCode()}.");
+            throw new GagalMengunduh(
+                "{$url} menjawab HTTP {$tanggapan->getStatusCode()}.",
+                $tanggapan->getStatusCode(),
+            );
         }
 
         return $this->bacaTerbatas($tanggapan->getBody(), $url);

@@ -59,9 +59,19 @@ return [
     | Application Timezone
     |--------------------------------------------------------------------------
     |
-    | Here you may specify the default timezone for your application, which
-    | will be used by the PHP date and date-time functions. The timezone
-    | is set to "UTC" by default as it is suitable for most use cases.
+    | JANGAN diubah ke Asia/Makassar, dan jangan dibuat membaca APP_TIMEZONE.
+    |
+    | Dokumen 00 memang menyebut zona aplikasi WITA, tapi kalimat berikutnya
+    | yang mengikat: simpan seluruh timestamp sebagai UTC di database, konversi
+    | di layer tampilan. Kolom timestamptz dikirimi jam dinding tanpa offset,
+    | sedangkan sesi PostgreSQL berjalan di UTC — begitu nilai ini menjadi
+    | Asia/Makassar, setiap timestamp yang ditulis meleset delapan jam
+    | (diuji: 20:04 WITA tersimpan sebagai 20:04+00, seharusnya 12:04+00).
+    |
+    | Kalau suatu saat benar-benar perlu WITA di sisi PHP, kolom `timezone`
+    | pada koneksi pgsql di config/database.php harus disetel bersamaan.
+    | Konversi ke WITA dilakukan di tempat yang memang butuh, lihat
+    | App\Support\Waktu.
     |
     */
 

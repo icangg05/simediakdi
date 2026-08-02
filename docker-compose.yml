@@ -10,7 +10,7 @@ services:
     ports:
       - "8000:8000"
     depends_on: [db, redis]
-    command: sleep infinity
+    command: php artisan serve --host=0.0.0.0 --port=8000
 
   db:
     image: pgvector/pgvector:pg16
@@ -33,5 +33,23 @@ services:
     ports:
       - "6379:6379"
 
+  # Satu worker. Model dimuat sekali saat startup dan memakan sekitar 1,5 GB;
+  # dua worker berarti dua salinan model di memori yang sama.
+  nlp:
+    build:
+      context: ./nlp
+      dockerfile: ../docker/nlp/Dockerfile
+    volumes:
+      - ./nlp:/nlp
+      - modelnlp:/model
+    ports:
+      # Di produksi ikat ke 127.0.0.1 saja — tidak ada endpoint publik dan tidak
+      # ada autentikasi selain binding itu (dokumen 02 bagian 1 dan dokumen 06).
+      - "127.0.0.1:8001:8001"
+    environment:
+      HF_HOME: /model
+      TORCH_THREADS: "2"
+
 volumes:
   dbdata:
+  modelnlp:

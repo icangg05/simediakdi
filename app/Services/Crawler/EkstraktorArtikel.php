@@ -11,12 +11,19 @@ use Throwable;
 /**
  * Mengubah HTML halaman menjadi judul, isi, penulis, tanggal, dan gambar (F-02).
  *
+ * Jalur cadangan. Situs WordPress ditangani EkstraktorWordPress lebih dulu
+ * karena datanya pasti, bukan hasil tebakan. Kelas ini menangani sisanya:
+ * situs non-WordPress, dan situs WordPress yang artikelnya tidak lewat
+ * endpoint `posts`.
+ *
  * Kualitas ekstraksi menentukan seluruh analisis di sprint berikutnya, dan
  * kesalahannya sulit dilacak kalau baru ketahuan belakangan. Karena itu isi
  * dikembalikan sebagai teks bersih, bukan HTML.
  */
 class EkstraktorArtikel
 {
+    public function __construct(private PembersihHtml $pembersih) {}
+
     public function ekstrak(string $html, string $url): HasilEkstraksi
     {
         $konfigurasi = (new Configuration)
@@ -32,11 +39,11 @@ class EkstraktorArtikel
         try {
             $readability->parse($html);
 
-            $isi = $this->keTeks($readability->getContent() ?? '');
-            $judul = $this->rapikan($readability->getTitle() ?? '');
-            $penulis = $this->rapikan($readability->getAuthor() ?? '') ?: null;
+            $isi = $this->pembersih->keTeks($readability->getContent() ?? '');
+            $judul = $this->pembersih->rapikan($readability->getTitle() ?? '');
+            $penulis = $this->pembersih->rapikan($readability->getAuthor() ?? '') ?: null;
             $gambar = $readability->getImage() ?: null;
-            $ringkasan = $this->rapikan($readability->getExcerpt() ?? '') ?: null;
+            $ringkasan = $this->pembersih->rapikan($readability->getExcerpt() ?? '') ?: null;
         } catch (ParseException|Throwable) {
             // Readability gagal pada halaman yang strukturnya tidak lazim.
             // Jangan buang artikelnya: metadata dari feed masih berguna, dan
@@ -55,17 +62,10 @@ class EkstraktorArtikel
             penulis: $penulis,
             gambarUrl: $gambar,
             dipublikasikanAt: $this->tanggalDariMeta($html),
-            jumlahKata: $this->hitungKata($isi),
+            jumlahKata: $this->pembersih->hitungKata($isi),
         );
     }
 
-    /** str_word_count tidak aman untuk UTF-8; pisah pada spasi saja. */
-    private function hitungKata(string $teks): int
-    {
-        $teks = trim($teks);
-
-        return $teks === '' ? 0 : count(preg_split('/\s+/u', $teks, flags: PREG_SPLIT_NO_EMPTY));
-    }
 
     /**
      * Tanggal dari metadata halaman. Lebih bisa dipercaya daripada pubDate feed,
@@ -93,22 +93,5 @@ class EkstraktorArtikel
         return null;
     }
 
-    /** Isi disimpan sebagai teks: model NLP tidak butuh tag, dan hash jadi stabil. */
-    private function keTeks(string $html): string
-    {
-        // Paragraf jadi baris baru dulu, supaya kalimat tidak menyatu.
-        $html = preg_replace('#</(p|div|h[1-6]|li|br)>#i', "\n", $html);
-        $html = str_ireplace('<br>', "\n", $html);
 
-        $teks = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $teks = preg_replace('/[ \t]+/u', ' ', $teks);
-        $teks = preg_replace('/\n{3,}/', "\n\n", $teks);
-
-        return trim($teks);
-    }
-
-    private function rapikan(string $teks): string
-    {
-        return trim(preg_replace('/\s+/u', ' ', $teks));
-    }
 }

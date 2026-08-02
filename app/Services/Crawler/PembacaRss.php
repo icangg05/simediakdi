@@ -22,6 +22,12 @@ class PembacaRss
      */
     public function baca(string $xml, string $urlFeed): array
     {
+        // Deklarasi XML harus ada di byte pertama, dan sejumlah situs WordPress
+        // menyisipkan baris kosong atau BOM sebelumnya karena plugin yang
+        // mencetak sesuatu lebih dulu. Feed-nya sah, hanya kotor di depan —
+        // membuangnya jauh lebih baik daripada kehilangan seluruh media.
+        $xml = preg_replace('/^[\x{FEFF}\s]+/u', '', $xml) ?? $xml;
+
         $sebelumnya = libxml_use_internal_errors(true);
 
         try {
