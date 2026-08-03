@@ -3,10 +3,14 @@
 Menerima teks, mengembalikan angka. Layanan ini tidak pernah menyentuh
 database: seluruh penyimpanan dikerjakan Laravel. Aturan itu menjaga satu
 sumber kebenaran dan membuat proses ini bisa dimatikan kapan saja tanpa risiko
-kehilangan data — kalau mati, job menumpuk di antrean `nlp` lalu jalan lagi.
+kehilangan data, kalau mati, job menumpuk di antrean `nlp` lalu jalan lagi.
 
-Dijalankan satu worker saja. Model dimuat sekali saat startup dan memakan
-sekitar 1,5 GB; dua worker berarti dua salinan model di memori yang sama.
+Dijalankan satu worker saja. Model dimuat sekali saat startup; dua worker
+berarti dua salinan model di memori yang sama.
+
+Dua model, bukan tiga. Relevansi tidak lagi punya model sendiri: skornya
+dihitung Laravel sebagai kemiripan antara vektor artikel dan vektor deskripsi
+konteks, keduanya dari `/embed`. Dokumen 05 bagian 2.
 """
 
 import logging
@@ -20,26 +24,27 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from models import (
     PermintaanEmbed,
     PermintaanPasangan,
-    HasilRelevansi,
     HasilSentimen,
     SkorSentimen,
     TanggapanEmbed,
-    TanggapanRelevansi,
     TanggapanSehat,
     TanggapanSentimen,
 )
 
-VERSI = "1.0.0"
+VERSI = "2.0.0"
 
 MODEL_SENTIMEN = os.getenv("MODEL_SENTIMEN", "apriandito/indobert-sentiment-classifier")
-MODEL_RELEVANSI = os.getenv("MODEL_RELEVANSI", "apriandito/indobert-relevancy-classifier")
-MODEL_EMBEDDING = os.getenv(
-    "MODEL_EMBEDDING", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-)
 
-# Dua model klasifikasi memakai IndoBERT Large dengan batas 512 token. Artikel
-# berita jauh lebih panjang, jadi teks dipotong — bagian awal berita memuat
-# inti peristiwa, sehingga pemotongan di ekor lebih aman daripada di kepala.
+# e5 menggantikan MiniLM karena relevansi kini diukur sebagai kemiripan antara
+# artikel dan deskripsi konteks, dan e5 dilatih persis untuk perbandingan
+# asimetris semacam itu lewat awalan `query:` dan `passage:`. Awalannya
+# ditambahkan pemanggil, bukan di sini, karena hanya pemanggil yang tahu teks
+# mana yang berperan sebagai kueri.
+MODEL_EMBEDDING = os.getenv("MODEL_EMBEDDING", "intfloat/multilingual-e5-small")
+
+# Model sentimen memakai IndoBERT dengan batas 512 token. Artikel berita jauh
+# lebih panjang, jadi teks dipotong: bagian awal berita memuat inti peristiwa,
+# sehingga pemotongan di ekor lebih aman daripada di kepala.
 MAKS_TOKEN = 512
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -60,12 +65,6 @@ def muat_model() -> None:
         MODEL_SENTIMEN
     ).eval()
 
-    log.info("Memuat model relevansi %s", MODEL_RELEVANSI)
-    muatan["tok_relevansi"] = AutoTokenizer.from_pretrained(MODEL_RELEVANSI)
-    muatan["mod_relevansi"] = AutoModelForSequenceClassification.from_pretrained(
-        MODEL_RELEVANSI
-    ).eval()
-
     log.info("Memuat model embedding %s", MODEL_EMBEDDING)
     muatan["embedding"] = SentenceTransformer(MODEL_EMBEDDING)
 
@@ -80,7 +79,6 @@ def health() -> TanggapanSehat:
     return TanggapanSehat(
         status="ok",
         model_sentimen=MODEL_SENTIMEN,
-        model_relevansi=MODEL_RELEVANSI,
         model_embedding=MODEL_EMBEDDING,
         versi=VERSI,
     )
@@ -97,25 +95,6 @@ def embed(permintaan: PermintaanEmbed) -> TanggapanEmbed:
     return TanggapanEmbed(
         embedding=[v.tolist() for v in vektor],
         dimensi=int(vektor.shape[1]),
-    )
-
-
-@app.post("/relevancy", response_model=TanggapanRelevansi)
-def relevancy(permintaan: PermintaanPasangan) -> TanggapanRelevansi:
-    peluang = _klasifikasi(
-        muatan["tok_relevansi"], muatan["mod_relevansi"], permintaan.pasangan
-    )
-
-    # id2label: 0 = NOT_RELEVANT, 1 = RELEVANT.
-    return TanggapanRelevansi(
-        hasil=[
-            HasilRelevansi(
-                id=pasangan.id,
-                relevan=bool(baris[1] >= baris[0]),
-                keyakinan=round(float(max(baris)), 4),
-            )
-            for pasangan, baris in zip(permintaan.pasangan, peluang)
-        ]
     )
 
 
@@ -149,10 +128,10 @@ def sentiment(permintaan: PermintaanPasangan) -> TanggapanSentimen:
 def _klasifikasi(tokenizer, model, pasangan) -> list[list[float]]:
     """Peluang tiap kelas untuk setiap pasangan konteks-teks.
 
-    Kedua model dilatih dengan format `[CLS] konteks [SEP] teks [SEP]`, jadi
-    keduanya diberikan sebagai pasangan kalimat — bukan digabung jadi satu
-    string. Menggabungnya membuat model kehilangan batas antara konteks dan
-    isi, dan hasilnya kembali seperti model sentimen biasa.
+    Model dilatih dengan format `[CLS] konteks [SEP] teks [SEP]`, jadi keduanya
+    diberikan sebagai pasangan kalimat, bukan digabung jadi satu string.
+    Menggabungnya membuat model kehilangan batas antara konteks dan isi, dan
+    hasilnya kembali seperti model sentimen biasa.
     """
     masukan = tokenizer(
         [p.konteks for p in pasangan],

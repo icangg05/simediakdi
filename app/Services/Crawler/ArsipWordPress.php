@@ -13,7 +13,7 @@ use Throwable;
  *
  * Inilah pemakaian WP REST yang tepat. Untuk artikel tunggal ia justru lebih
  * lambat daripada mengunduh halamannya (lihat EkstraktorWordPress), tapi di
- * sini satu permintaan menggantikan lima puluh — dan itu jauh lebih ringan
+ * sini satu permintaan menggantikan lima puluh, dan itu jauh lebih ringan
  * bagi situs medianya daripada lima puluh unduhan halaman penuh.
  */
 class ArsipWordPress
@@ -49,7 +49,7 @@ class ArsipWordPress
             $badan = $this->pengunduh->unduh($url);
         } catch (UrlDitolak|GagalMengunduh) {
             // Halaman melewati akhir arsip menjawab 400, dan itu tanda berhenti
-            // yang wajar — bukan kegagalan.
+            // yang wajar, bukan kegagalan.
             return null;
         }
 

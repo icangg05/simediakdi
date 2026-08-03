@@ -30,5 +30,31 @@ Schedule::command('hitung:ringkasan-harian --hari=7')
 
 Schedule::command('nlp:health')->everyFiveMinutes();
 
+// Isu hangat. Lebih berat daripada ringkasan harian karena menghitung n-gram
+// dari seluruh artikel periode itu, jadi sejam sekali sudah cukup.
+Schedule::command('hitung:kata-kunci --hari=1')
+    ->hourly()
+    ->withoutOverlapping();
+
+Schedule::command('hitung:kata-kunci --hari=7 --granularitas=mingguan')
+    ->dailyAt('03:40')
+    ->withoutOverlapping();
+
 // Log crawl tumbuh cepat dan nilainya menurun tajam setelah beberapa minggu.
 Schedule::command('log:bersihkan')->dailyAt('02:30');
+
+// Alert. Pembatas pengiriman berulang ada di aturannya sendiri
+// (jeda_minimal_jam), jadi frekuensi di sini menentukan seberapa cepat
+// peringatan sampai, bukan seberapa sering grup Telegram dibanjiri.
+Schedule::command('alert:periksa')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping();
+
+// Pagi hari sebelum jam kerja: peringatan tenggat kontrak berguna saat masih
+// ada waktu menindaklanjutinya hari itu juga.
+Schedule::command('kontrak:periksa-tenggat')->dailyAt('07:00');
+
+// Kamus entitas jarang berubah, tapi artikelnya bertambah terus.
+Schedule::command('hitung:entitas --hari=2')
+    ->dailyAt('03:55')
+    ->withoutOverlapping();

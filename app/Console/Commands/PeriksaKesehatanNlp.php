@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Dipanggil scheduler tiap 5 menit. Tiga kegagalan berturut-turut berarti
- * layanan benar-benar mati, bukan sekadar sibuk — baru saat itu admin diberi
+ * layanan benar-benar mati, bukan sekadar sibuk, baru saat itu admin diberi
  * tahu, supaya peringatannya tidak kehilangan makna karena terlalu sering.
  */
 class PeriksaKesehatanNlp extends Command

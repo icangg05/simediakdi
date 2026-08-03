@@ -53,8 +53,11 @@ const sampai = ref(props.tanggal.sampai ?? '');
 
 watch([dari, sampai], ([d, s]) => {
     const params = new URLSearchParams(window.location.search);
-    d ? params.set('dari', d) : params.delete('dari');
-    s ? params.set('sampai', s) : params.delete('sampai');
+    if (d) params.set('dari', d);
+    else params.delete('dari');
+
+    if (s) params.set('sampai', s);
+    else params.delete('sampai');
     params.delete('halaman');
 
     router.get('/admin/artikel', Object.fromEntries(params), {
@@ -65,7 +68,7 @@ watch([dari, sampai], ([d, s]) => {
 });
 
 const tanggalSingkat = (waktu: string | null) =>
-    waktu ? format(new Date(waktu), 'd MMM yyyy, HH:mm', { locale: id }) : '–';
+    waktu ? format(new Date(waktu), 'd MMM yyyy, HH:mm', { locale: id }) : '-';
 
 const labelProses: Record<string, string> = {
     mentah: 'Mentah',

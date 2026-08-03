@@ -38,7 +38,13 @@ const props = defineProps<{
         berikutnya: number | null;
         terakhir: Array<{ artikel_id: number; judul: string; label: Label | null; relevan: boolean }>;
     } | null;
-    progres: { selesai: number; target: number; perKonteks: number };
+    progres: {
+        selesai: number;
+        target: number;
+        targetRelevan: number;
+        perKonteks: number;
+        relevanPerKonteks: number;
+    };
 }>();
 
 const { formatAngka } = useFormatAngka();
@@ -47,7 +53,7 @@ const { formatAngka } = useFormatAngka();
  * Jawaban model disembunyikan sampai pelabel memutuskan.
  *
  * Ini bukan detail kecil. Kalau pelabel melihat jawaban model lebih dulu, ia
- * cenderung menyetujuinya, dan gold set berhenti mengukur apa pun — angka
+ * cenderung menyetujuinya, dan gold set berhenti mengukur apa pun, angka
  * akurasi yang keluar cuma memantulkan model kembali ke dirinya sendiri.
  */
 const sudahMemutuskan = ref(false);
@@ -62,6 +68,9 @@ const form = useForm({
     label_gold: null as Label | null,
     catatan: '',
     ronde: props.ronde,
+    // Ikut dikirim di badan permintaan supaya pengalihan setelah menyimpan
+    // kembali ke mode yang sama. Query string tidak terbawa pada POST.
+    mode: props.mode,
 });
 
 function kirim(relevan: boolean, label: Label | null) {
@@ -74,6 +83,7 @@ function kirim(relevan: boolean, label: Label | null) {
     form.relevan_gold = relevan;
     form.label_gold = label;
     form.catatan = catatan.value;
+    form.mode = props.mode;
 
     form.post('/admin/pelabelan', {
         ...opsiPindah,
@@ -136,7 +146,7 @@ const pilihanTersimpan = computed<Label | 'tidak_relevan' | null>(() => {
 });
 
 /**
- * Warna, teks tebal, dan aria-pressed sekaligus. Warna saja tidak cukup —
+ * Warna, teks tebal, dan aria-pressed sekaligus. Warna saja tidak cukup,
  * aturan yang sama dengan BadgeSentimen (dokumen 04 bagian A.3).
  */
 const gayaAktif: Record<string, string> = {
@@ -151,7 +161,7 @@ const pilihan: Array<{ nilai: Label | 'tidak_relevan'; teks: string; tombol: str
     { nilai: 'netral', teks: 'Netral', tombol: '2' },
     { nilai: 'positif', teks: 'Positif', tombol: '3' },
     // Dokumen 04 bagian C.3 menetapkan `r`. Diganti `4` agar keempat pilihan
-    // berderet di satu baris angka — satu tangan menjangkau semuanya tanpa
+    // berderet di satu baris angka, satu tangan menjangkau semuanya tanpa
     // berpindah, dan tidak ada huruf yang bertabrakan dengan pintasan browser.
     { nilai: 'tidak_relevan', teks: 'Tidak relevan', tombol: '4' },
 ];
@@ -183,7 +193,7 @@ function tombolKeyboard(e: KeyboardEvent) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
 
     // Jangan bajak tombol saat pelabel sedang mengetik catatan atau memilih
-    // konteks — panah pada select harus mengganti pilihan, bukan pindah artikel.
+    // konteks, panah pada select harus mengganti pilihan, bukan pindah artikel.
     if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
@@ -218,7 +228,7 @@ watch(
         // bisa menyuntingnya, bukan mengetik ulang dari nol.
         catatan.value = props.tugas?.labelTersimpan?.catatan ?? '';
         // preserveState mempertahankan elemen isi artikel apa adanya, termasuk
-        // posisi gulirnya. Untuk artikel baru itu salah — teksnya harus mulai
+        // posisi gulirnya. Untuk artikel baru itu salah, teksnya harus mulai
         // dari paragraf pertama.
         if (isiArtikel.value) isiArtikel.value.scrollTop = 0;
     },
@@ -232,19 +242,29 @@ watch(
         <div class="mx-auto max-w-3xl space-y-4">
             <header class="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                    <p class="text-sm text-muted-foreground">
-                        Ronde {{ ronde }} · {{ formatAngka(progres.selesai) }} dari
-                        {{ formatAngka(progres.target) }} label
-                        <span v-if="konteksAktif" class="text-xs">
-                            · {{ formatAngka(progres.perKonteks) }} di konteks ini
+                    <!-- Yang ditonjolkan label relevan, bukan total: hanya baris
+                         relevan yang dipakai evaluasi model. -->
+                    <p class="text-sm">
+                        <span class="font-medium">
+                            {{ formatAngka(progres.relevanPerKonteks) }} dari
+                            {{ formatAngka(progres.targetRelevan) }} label relevan
                         </span>
+                        <span class="text-muted-foreground"> di konteks ini</span>
                     </p>
                     <div class="mt-1 h-1.5 w-56 overflow-hidden rounded-full bg-muted">
                         <div
-                            class="h-full bg-primary transition-all"
-                            :style="{ width: `${Math.min(100, (progres.selesai / progres.target) * 100).toFixed(2)}%` }"
+                            class="h-full transition-all"
+                            :class="progres.relevanPerKonteks >= progres.targetRelevan ? 'bg-sentimen-positif' : 'bg-primary'"
+                            :style="{
+                                width: `${Math.min(100, (progres.relevanPerKonteks / progres.targetRelevan) * 100).toFixed(2)}%`,
+                            }"
                         />
                     </div>
+                    <p class="mt-0.5 text-xs text-muted-foreground">
+                        Ronde {{ ronde }} · {{ formatAngka(progres.perKonteks) }} label di konteks ini ·
+                        {{ formatAngka(progres.selesai) }} seluruhnya. Hanya label relevan yang terpakai
+                        saat mengukur model.
+                    </p>
                 </div>
 
                 <div class="flex items-center gap-2">
@@ -291,7 +311,7 @@ watch(
                 class="rounded-md bg-sentimen-review-lembut p-2 text-xs text-sentimen-review"
             >
                 Mode terarah. Label dari sini berguna mengukur F1 per kelas, tapi
-                <strong>tidak boleh dipakai menghitung akurasi keseluruhan</strong> — artikelnya dipilih
+                <strong>tidak boleh dipakai menghitung akurasi keseluruhan</strong>, artikelnya dipilih
                 berdasarkan tebakan model, bukan acak. Kerjakan mode acak lebih dulu sampai cukup.
             </p>
 
@@ -412,7 +432,7 @@ watch(
                                 </span>
                             </div>
 
-                            <Input v-model="catatan" placeholder="Catatan (opsional) — alasan memilih label ini" class="h-8" />
+                            <Input v-model="catatan" placeholder="Catatan (opsional), alasan memilih label ini" class="h-8" />
                         </div>
 
                         <!-- Baru muncul setelah pelabel memutuskan, sebagai umpan balik. -->

@@ -39,7 +39,7 @@ class DashboardController extends Controller
 
         return [
             // Batas hari WITA, bukan UTC. whereDate('diambil_at', today())
-            // akan salah setiap pukul 00.00–08.00 waktu Kendari.
+            // akan salah setiap pukul 00.00-08.00 waktu Kendari.
             'artikel_hari_ini' => Artikel::query()->asli()
                 ->where('diambil_at', '>=', Waktu::awalHariIni())
                 ->count(),
@@ -87,7 +87,7 @@ class DashboardController extends Controller
 
     /**
      * Diisi command nlp:health yang berjalan tiap 5 menit, bukan dengan
-     * memanggil layanan saat request — halaman admin tidak boleh ikut lambat
+     * memanggil layanan saat request, halaman admin tidak boleh ikut lambat
      * atau ikut gagal hanya karena model sedang sibuk.
      *
      * @return array{status: string, keterangan: string}
@@ -114,7 +114,7 @@ class DashboardController extends Controller
         return [
             'status' => ($status['gagal_berturut'] ?? 0) >= 3 ? 'merah' : 'kuning',
             'keterangan' => 'Layanan NLP tidak menjawab. Analisis menumpuk di antrean dan akan '
-                .'diproses setelah layanan hidup — tidak ada data yang hilang.',
+                .'diproses setelah layanan hidup, tidak ada data yang hilang.',
         ];
     }
 

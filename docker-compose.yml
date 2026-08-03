@@ -43,7 +43,7 @@ services:
       - ./nlp:/nlp
       - modelnlp:/model
     ports:
-      # Di produksi ikat ke 127.0.0.1 saja — tidak ada endpoint publik dan tidak
+      # Di produksi ikat ke 127.0.0.1 saja, tidak ada endpoint publik dan tidak
       # ada autentikasi selain binding itu (dokumen 02 bagian 1 dan dokumen 06).
       - "127.0.0.1:8001:8001"
     environment:
@@ -52,6 +52,17 @@ services:
       # di antaranya untuk inferensi). Mesin pengembangan biasanya punya lebih,
       # dan penarikan arsip menghasilkan ribuan artikel yang harus dianalisis.
       TORCH_THREADS: "${TORCH_THREADS:-8}"
+
+  # Tangkapan layar bukti pemuatan. Dipisah dari nlp supaya render Chromium
+  # tidak menahan antrean inferensi yang jalan satu worker.
+  arsip:
+    build:
+      context: ./arsip
+      dockerfile: ../docker/arsip/Dockerfile
+    volumes:
+      - ./arsip:/arsip
+    ports:
+      - "127.0.0.1:8002:8002"
 
 volumes:
   dbdata:

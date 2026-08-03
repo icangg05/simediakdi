@@ -37,7 +37,7 @@ class KonteksPantauanTest extends TestCase
     {
         $konteks = $this->konteks();
 
-        // Kalau route model binding meleset, ini 404 — bukan 200 dengan data kosong.
+        // Kalau route model binding meleset, ini 404, bukan 200 dengan data kosong.
         $this->get("/admin/konteks/{$konteks->id}/edit")->assertOk();
     }
 

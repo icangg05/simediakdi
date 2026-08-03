@@ -81,7 +81,8 @@ class ArtikelController extends Controller
             'evaluasi' => EvaluasiModel::terbaru(),
             'ambang' => [
                 'sentimen' => (float) config('nlp.ambang.sentimen'),
-                'relevansi' => (float) config('nlp.ambang.relevansi'),
+                'relevansi_atas' => config('nlp.ambang.relevansi_atas'),
+                'relevansi_bawah' => config('nlp.ambang.relevansi_bawah'),
             ],
         ]);
     }
@@ -89,7 +90,7 @@ class ArtikelController extends Controller
     /**
      * Rentang tanggal dibaca pada `diambil_at`, bukan `dipublikasikan_at`.
      * Tanggal dari feed bisa null atau salah, sedangkan waktu pengambilan
-     * selalu terisi — dan itu yang dipakai seluruh grafik harian.
+     * selalu terisi, dan itu yang dipakai seluruh grafik harian.
      */
     private function saringTanggal(Builder $kueri, Request $request): void
     {

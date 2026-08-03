@@ -27,6 +27,8 @@ class EvaluasiController extends Controller
             // Penyaring relevansi menentukan artikel mana yang masuk grafik,
             // jadi angkanya sama menentukannya dengan F1 sentimen.
             'relevansi' => $evaluator->metrikRelevansi(),
+            // Angka gabungan menyembunyikan selisih antar konteks yang besar.
+            'perKonteks' => $evaluator->metrikPerKonteks(),
             'ambangGerbang' => 0.65,
         ]);
     }

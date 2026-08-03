@@ -5,7 +5,7 @@ namespace App\Services\Crawler;
 /**
  * Deduplikasi lapis 1: satu artikel dikenali dari URL kanoniknya.
  *
- * Media yang sama menyebarkan tautan berbeda untuk halaman yang sama —
+ * Media yang sama menyebarkan tautan berbeda untuk halaman yang sama,
  * dengan utm_source dari Facebook, dengan trailing slash, dengan host
  * berhuruf besar. Tanpa normalisasi, satu artikel masuk lima kali.
  */
@@ -13,7 +13,7 @@ class NormalisasiUrl
 {
     /**
      * Parameter pelacakan yang dibuang. Parameter lain dipertahankan karena
-     * banyak situs PHP memakai `?p=123` sebagai identitas halaman — membuangnya
+     * banyak situs PHP memakai `?p=123` sebagai identitas halaman, membuangnya
      * akan menggabungkan artikel yang sebenarnya berbeda.
      *
      * @var list<string>

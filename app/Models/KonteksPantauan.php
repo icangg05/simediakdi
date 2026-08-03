@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Pgvector\Laravel\Vector;
 use Spatie\Activitylog\Support\LogOptions;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 
@@ -20,6 +21,7 @@ class KonteksPantauan extends Model
     {
         return [
             'kata_kunci' => 'array',
+            'embedding' => Vector::class,
             'utama' => 'boolean',
             'aktif' => 'boolean',
         ];

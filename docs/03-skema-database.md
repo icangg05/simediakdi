@@ -1,4 +1,4 @@
-# 03 — Skema Database
+# 03: Skema Database
 
 SIMEDIA Kendari | Versi 1.0 | PostgreSQL 16
 
@@ -150,13 +150,19 @@ Tabel terbesar. Rancang indexnya dengan hati-hati.
 | gambar_url | varchar(1000) | yes | | |
 | dipublikasikan_at | timestamptz | yes | | Dari feed. Bisa null atau salah, jangan diandalkan sendiri |
 | diambil_at | timestamptz | no | now() | Waktu sistem mengambilnya. Ini yang dipakai untuk grafik harian |
+| post_id_sumber | bigint | yes | | ID post di CMS sumber. Dari `/wp-json/wp/v2/posts` |
+| url_api_sumber | varchar(1000) | yes | | Endpoint REST tempat artikel ini ditarik, untuk penarikan ulang |
+| kategori_sumber | jsonb | yes | | Nama kategori WordPress, sudah diterjemahkan dari ID term |
+| tag_sumber | jsonb | yes | | Nama tag WordPress. Sinyal, bukan keputusan |
+| diubah_sumber_at | timestamptz | yes | | `modified` dari WordPress. Menandai artikel yang disunting setelah terbit |
 | hash_isi | char(64) | yes | | SHA-256 dari isi yang sudah dinormalisasi |
 | simhash | bigint | yes | | 64-bit simhash untuk near-duplicate |
-| embedding | vector(384) | yes | | |
+| embedding | vector(384) | yes | | Dari isi penuh. Dipakai mencari salinan |
+| embedding_relevansi | vector(384) | yes | | Dari teks terfokus (judul, kategori, tag, ringkasan, jendela kalimat). Dipakai menilai relevansi |
 | status_dedup | varchar(20) | no | `asli` | CHECK: `asli`, `salinan` |
 | artikel_induk_id | bigint | yes | | FK artikel. Diisi jika status_dedup = `salinan` |
 | skor_kemiripan | real | yes | | Cosine similarity terhadap induk, untuk audit |
-| status_proses | varchar(20) | no | `mentah` | CHECK: `mentah`, `isi_diambil`, `dianalisis`, `selesai`, `gagal` |
+| status_proses | varchar(20) | no | `mentah` | CHECK: `mentah`, `isi_diambil`, `dianalisis`, `tidak_relevan`, `perlu_review`, `selesai`, `gagal` |
 | pesan_gagal | text | yes | | |
 | created_at / updated_at | timestamptz | no | | |
 
@@ -176,7 +182,30 @@ CREATE INDEX idx_artikel_embedding ON artikel
 CREATE INDEX idx_artikel_simhash ON artikel (simhash);
 ```
 
+`embedding_relevansi` **tidak** diberi index HNSW. Index itu melayani pencarian
+tetangga terdekat, sedangkan kolom ini selalu dibandingkan terhadap satu vektor
+yang sama, yaitu vektor konteks utama. Skornya dihitung sekali lalu disimpan,
+bukan dicari berulang kali.
+
+**Mengapa dua vektor.** Deduplikasi butuh gambaran artikel seutuhnya, relevansi
+butuh gambaran yang terfokus pada bagian yang menyinggung Pemkot. Satu vektor
+tidak bisa melayani keduanya: dengan vektor isi penuh, dua artikel berbeda yang
+sama-sama membahas Pemkot akan terlihat seperti salinan. Biayanya sekitar
+1,5 KB per artikel, dan keduanya dihasilkan model yang sama dalam satu panggilan.
+
 Dua index partial di atas penting. `idx_artikel_status_proses` hanya mengindeks baris yang belum selesai, dan jumlahnya selalu kecil, sehingga worker menemukan pekerjaan tanpa memindai seluruh tabel. `idx_artikel_asli` melayani hampir semua query dashboard, karena hampir semua agregasi mengecualikan salinan.
+
+**Grup duplikat** untuk pembagian data train dan test adalah
+`COALESCE(artikel_induk_id, id)`, bukan kolom baru. Rantai duplikat sudah
+dijamin maksimal satu tingkat oleh aturan integritas di bawah, jadi ekspresi
+itu selalu menghasilkan satu identitas grup yang stabil. Menambah kolom
+`grup_duplikat` berarti menyimpan ulang informasi yang sudah ada di tabel
+terbesar sistem, dan menambah satu tempat lagi yang bisa tidak sinkron.
+
+Empat hal yang diminta usulan revisi 1.3 sengaja **tidak** ditambahkan karena
+kolomnya sudah ada dengan nama lain: `canonical_url` sudah `url_kanonik`,
+`content_hash` sudah `hash_isi`, `duplicate_parent_id` sudah `artikel_induk_id`,
+dan `source_excerpt` sudah `ringkasan`.
 
 Aturan integritas:
 
@@ -195,7 +224,9 @@ Sasaran penilaian sentimen. Isinya menjadi input `konteks` pada model IndoBERT.
 | nama | varchar(200) | no | | Persis seperti yang dikirim ke model. Contoh: `Pemerintah Kota Kendari` |
 | slug | varchar(200) | no | | unique |
 | deskripsi | text | yes | | Untuk admin, tidak dikirim ke model |
-| kata_kunci | jsonb | yes | | Penyaring awal sebelum model relevansi dipanggil, menghemat inferensi |
+| deskripsi_model | text | yes | | Teks yang di-embed sebagai pembanding relevansi. Isinya deskripsi untuk model di dokumen 01 bagian 9 |
+| embedding | vector(384) | yes | | Vektor dari `deskripsi_model`, dihitung sekali. Pembanding seluruh artikel |
+| kata_kunci | jsonb | yes | | Dipakai pengetat sebutan dan penjelasan ke admin |
 | utama | boolean | no | false | Tepat satu baris bernilai true. Ini yang tampil di dashboard eksekutif |
 | urutan | smallint | no | 0 | |
 | aktif | boolean | no | true | |
@@ -207,9 +238,20 @@ Index: `slug` unique, `(aktif, urutan)`, dan unique partial agar hanya ada satu 
 CREATE UNIQUE INDEX uq_konteks_utama ON konteks_pantauan (utama) WHERE utama = true;
 ```
 
-Baris awal yang disiapkan lewat seeder: Pemerintah Kota Kendari (utama), Walikota Kendari, Infrastruktur dan jalan, Kebersihan dan sampah, Pelayanan publik, Kesehatan, Pendidikan, Ekonomi dan UMKM.
+Baris yang disiapkan lewat seeder sejak versi 1.4: **satu konteks aktif**,
+Pemerintah Kota Kendari (`utama = true`). Wali Kota Kendari dan Pelayanan
+publik dan infrastruktur tetap ada sebagai baris dengan `aktif = false`, supaya
+gold set lama yang menunjuk ke sana tidak menggantung dan supaya tabelnya siap
+kalau konteks kedua benar-benar diminta.
 
-Peringatan: menambah konteks berarti menambah beban inferensi secara linear. Delapan konteks berarti delapan kali panggilan relevansi per artikel. Kata kunci penyaring di kolom `kata_kunci` yang membuat ini tetap murah.
+Alasan penyederhanaannya, beserta angka presisi yang mendasarinya, ada di
+dokumen 01 bagian 9.
+
+Peringatan yang tetap berlaku: menambah konteks aktif menambah beban inferensi
+secara linear, dan yang lebih mahal, menambah beban pelabelan manusia secara
+linear juga. Yang kedua itu yang sebenarnya membunuh, karena gold set adalah
+satu-satunya hal di sistem ini yang tidak bisa dipercepat dengan server lebih
+besar.
 
 ---
 
@@ -222,8 +264,12 @@ Satu baris per pasangan artikel dan konteks.
 | id | bigserial | no | | |
 | artikel_id | bigint | no | | FK artikel, on delete cascade |
 | konteks_pantauan_id | bigint | no | | FK konteks_pantauan |
-| relevan | boolean | no | | Hasil model relevansi |
-| keyakinan_relevansi | real | yes | | |
+| relevan | boolean | no | | Hasil penilaian relevansi |
+| skor_relevansi | real | yes | | Cosine similarity terhadap vektor konteks. **Bukan probabilitas.** Menggantikan `keyakinan_relevansi` |
+| relevan_manual | boolean | yes | | Koreksi manusia atas relevansi. Mengalahkan `relevan` |
+| alasan_relevansi | text | yes | | Alasan admin mengubah keputusan relevansi |
+| sinyal_relevansi | jsonb | yes | | Sinyal judul, tag, dan alias yang benar-benar ditemukan sistem |
+| konteks_versi | varchar(40) | yes | | Versi definisi konteks saat baris ini dinilai |
 | label_model | varchar(10) | yes | | CHECK: `negatif`, `netral`, `positif` |
 | skor_negatif | real | yes | | |
 | skor_netral | real | yes | | |
@@ -243,13 +289,19 @@ Kolom turunan yang disimpan, bukan dihitung saat query:
 | Kolom | Tipe | Keterangan |
 |-------|------|------------|
 | label_efektif | varchar(10) | `COALESCE(label_manual, label_model)`. Kolom generated |
+| relevan_efektif | boolean | `COALESCE(relevan_manual, relevan)`. Kolom generated |
 
 ```sql
 ALTER TABLE analisis_sentimen ADD COLUMN label_efektif varchar(10)
   GENERATED ALWAYS AS (COALESCE(label_manual, label_model)) STORED;
+
+ALTER TABLE analisis_sentimen ADD COLUMN relevan_efektif boolean
+  GENERATED ALWAYS AS (COALESCE(relevan_manual, relevan)) STORED;
 ```
 
-Kolom generated dipakai karena seluruh agregasi membaca label efektif, dan menulis `COALESCE` di setiap query adalah sumber bug yang tidak terlihat sampai ada satu tempat yang lupa.
+Kolom generated dipakai karena seluruh agregasi membaca label efektif, dan menulis `COALESCE` di setiap query adalah sumber bug yang tidak terlihat sampai ada satu tempat yang lupa. `relevan_efektif` mengikuti pola yang sama, dan alasannya lebih kuat lagi: F-13 menjanjikan koreksi manusia selalu mengalahkan model, dan janji itu paling mudah dilanggar oleh satu query agregasi yang lupa memeriksanya.
+
+**Mengapa relevansi tidak dipindah ke tabel `artikel`.** Usulan revisi 1.3 meminta relevansi menjadi kolom tingkat artikel. Dengan satu konteks aktif, index unik `(artikel_id, konteks_pantauan_id)` sudah menjamin tepat satu baris relevansi per artikel, jadi bentuknya sama persis. Memindahkannya berarti migrasi tabel terbesar sistem, menulis ulang seluruh kueri agregasi dan halaman evaluasi yang sudah terukur, dan menutup pintu ke konteks kedua. Yang dibeli hanya satu join yang sudah ada indexnya.
 
 Index:
 
@@ -262,6 +314,11 @@ CREATE INDEX idx_analisis_konteks_label
 CREATE INDEX idx_analisis_perlu_review
   ON analisis_sentimen (perlu_review) WHERE perlu_review = true;
 ```
+
+Index `idx_analisis_konteks_label` memakai `relevan = true` sejak versi 1.0.
+Ubah menjadi `relevan_efektif = true` bersamaan dengan migration kolom generated,
+kalau tidak, artikel yang admin nyatakan tidak relevan tetap terhitung di
+seluruh grafik.
 
 ---
 
@@ -372,6 +429,21 @@ Index: unique `(kontrak_id, url)` agar satu URL tidak diklaim dua kali pada kont
 
 Pemuatan dengan `sumber_catatan = 'otomatis'` langsung berstatus `terverifikasi`, karena sistem sendiri yang menemukannya. Yang perlu diverifikasi manusia hanya laporan dari media.
 
+**Artikel salinan tetap dihitung sebagai pemuatan.** Ini aturan yang mudah dilanggar, jadi ditulis di sini dan dikunci dengan test.
+
+Deduplikasi menjawab "berapa isu", kontrak menjawab "berapa pemuatan dari media ini". Keduanya pertanyaan berbeda. Satu rilis yang dimuat lima media adalah satu isu tetapi lima pemuatan, masing-masing dengan URL, halaman, dan bukti arsipnya sendiri, dan tiap media berhak menghitungnya ke targetnya.
+
+Alasan kedua lebih tajam: `status_dedup = 'asli'` menandai artikel yang **lebih dulu di-crawl**, bukan yang lebih dulu terbit. Nilainya bergantung pada jadwal crawler. Memakainya untuk menilai realisasi kontrak berarti menghukum media yang feed-nya kebetulan ditarik belakangan, dan itu tidak bisa dipertahankan kalau media menanyakannya.
+
+Ringkasnya:
+
+| Pertanyaan | Menghitung apa |
+|---|---|
+| Berapa berita hari ini di dashboard | Hanya `asli` |
+| Bagaimana komposisi sentimennya | Hanya `asli` |
+| Berapa realisasi kontrak media X | **Semua**, termasuk `salinan` |
+| Berapa banyak media X memuat | **Semua**, dengan jumlah salinan ditampilkan terpisah |
+
 Alasan kolom arsip: media bisa menghapus atau mengubah artikel setelah pembayaran cair. Arsip teks dan tangkapan layar yang diambil sistem sendiri, dengan waktu tercatat, adalah bukti yang tidak bergantung pada itikad media. `bukti_path` dari unggahan media dipertahankan sebagai pelengkap, bukan bukti utama, karena tangkapan layar buatan pihak yang berkepentingan mudah dimanipulasi.
 
 ---
@@ -404,21 +476,40 @@ Job `hitung:ringkasan-harian` menulis ulang baris hari ini setiap 10 menit mengg
 
 ## 12. gold_set dan evaluasi_model
 
-**gold_set** — data uji berlabel manusia (F-19)
+**gold_set**, data uji berlabel manusia (F-19)
 
 | Kolom | Tipe | Null | Keterangan |
 |-------|------|------|------------|
 | id | bigserial | no | |
 | artikel_id | bigint | no | FK artikel |
 | konteks_pantauan_id | bigint | no | FK konteks_pantauan |
-| label_gold | varchar(10) | no | CHECK: `negatif`, `netral`, `positif` |
-| relevan_gold | boolean | no | |
+| label_gold | varchar(10) | yes | CHECK: `negatif`, `netral`, `positif`. Null saat `relevan_gold = false` |
+| relevan_gold | boolean | no | Label relevansi biner. Inilah gold set relevansi |
 | dilabeli_oleh | bigint | no | FK user |
 | dilabeli_at | timestamptz | no | |
 | ronde | smallint | no | 1 atau 2. Ronde 2 untuk mengukur konsistensi pelabel yang sama |
+| gold_set_versi | varchar(20) | no | Dinaikkan setiap definisi konteks berubah |
+| split | varchar(10) | yes | CHECK: `latih`, `validasi`, `uji`. Ditetapkan per grup duplikat |
 | catatan | text | yes | Alasan pelabelan, berguna saat menyelesaikan sengketa |
 
 Index: unique `(artikel_id, konteks_pantauan_id, ronde)`.
+
+`label_gold` menjadi nullable pada versi 1.4. Artikel tidak relevan tidak diberi
+sentimen, dan sebelumnya keharusan mengisinya memaksa pelabel memilih `netral`
+untuk artikel yang bahkan tidak dibaca nadanya. Constraint penggantinya:
+
+```sql
+CONSTRAINT chk_sentimen_hanya_saat_relevan CHECK (
+  (relevan_gold = true AND label_gold IS NOT NULL) OR
+  (relevan_gold = false AND label_gold IS NULL)
+)
+```
+
+Kolom `split` ditetapkan per grup duplikat (`COALESCE(artikel_induk_id, id)`),
+tidak pernah per baris. Seluruh salinan satu berita harus jatuh di split yang
+sama, kalau tidak, rilis Antara yang sama muncul di data latih dan di data uji
+sekaligus, dan angka evaluasinya bohong ke atas. Baris dengan `split = 'uji'`
+tidak pernah dipakai memilih ambang.
 
 **evaluasi_model**
 
@@ -435,9 +526,26 @@ Index: unique `(artikel_id, konteks_pantauan_id, ronde)`.
 | f1_positif | real | no | |
 | confusion_matrix | jsonb | no | Matriks 3x3 |
 | ambang_keyakinan | real | no | Ambang yang berlaku saat evaluasi dijalankan |
+| minimal_sebutan | smallint | yes | Nilai pengetat frekuensi yang berlaku saat evaluasi |
+| konteks_versi | varchar(40) | yes | Versi definisi konteks utama |
+| gold_set_versi | varchar(20) | yes | Versi gold set yang dipakai |
+| presisi_relevansi | real | yes | Metrik utama relevansi, lihat dokumen 05 bagian 7.1 |
+| recall_relevansi | real | yes | |
+| f1_relevansi | real | yes | |
 | catatan | text | yes | |
 
 Angka pada baris terbaru di tabel ini tampil di UI, di halaman detail artikel dan di footer dashboard eksekutif. Lihat dokumen 04.
+
+Empat kolom versi di atas ditambahkan pada versi 1.4 karena evaluasi tanpa
+versi tidak bisa direproduksi. Dua evaluasi dengan F1 berbeda tidak berarti
+apa-apa kalau tidak diketahui apakah yang berubah modelnya, definisi
+konteksnya, gold set-nya, atau ambangnya. Hindari menyimpan dua baris untuk
+kombinasi versi yang persis sama.
+
+Metrik relevansi disimpan terpisah dari metrik sentimen dan tidak pernah
+digabung menjadi satu angka. Angka relevansi gabungan tiga konteks pada
+evaluasi lama tercatat 63,2%, dan tidak menggambarkan satu pun dari ketiganya
+(57,0%, 87,7%, 51,1%).
 
 ---
 
@@ -531,6 +639,23 @@ ORDER BY tanggal;
 
 Satu index scan, tanpa join, tanpa agregasi. Inilah alasan tabel ringkasan ada.
 
+### Skor relevansi seluruh korpus
+
+```sql
+UPDATE analisis_sentimen a
+SET skor_relevansi = 1 - (art.embedding_relevansi <=> k.embedding)
+FROM artikel art, konteks_pantauan k
+WHERE a.artikel_id = art.id
+  AND a.konteks_pantauan_id = k.id
+  AND k.utama = true
+  AND art.embedding_relevansi IS NOT NULL;
+```
+
+Inilah alasan relevansi dipindah ke cosine. Menyetel ambang berarti menghitung
+ulang skor seluruh korpus, dan dengan kueri ini biayanya detik, bukan jam
+inferensi model. Ambang yang harus dicoba puluhan kali hanya akan benar-benar
+disetel kalau mencobanya murah.
+
 ### Pencarian duplikat semantik
 
 ```sql
@@ -553,6 +678,8 @@ Batasan tujuh hari itu penting. Tanpa itu, pencarian menyusuri seluruh tabel dan
 |-------|---------|-----------|
 | 1.0 | Juli 2026 | Skema awal |
 | 1.1 | Juli 2026 | Tabel `pemuatan`: `media_id` menjadi nullable; kolom baru `status_ekstraksi`, `arsip_teks`, `arsip_screenshot_path`, `arsip_diambil_at`, `email_pelapor`; nilai `google_form` pada `sumber_catatan` |
+| 1.5 | Agustus 2026 | Penilai relevansi berpindah ke kemiripan makna. **(a)** `artikel`: kolom `embedding_relevansi vector(384)`, tanpa index HNSW karena selalu dibandingkan ke satu vektor yang sama. **(b)** `konteks_pantauan`: kolom `deskripsi_model` dan `embedding vector(384)`. **(c)** `analisis_sentimen`: `keyakinan_relevansi` diganti `skor_relevansi`, isinya cosine similarity dan bukan probabilitas. **(d)** Model `indobert-relevancy` dan endpoint `/relevancy` dihapus dari sistem |
+| 1.4 | Agustus 2026 | Perombakan relevansi. **(a)** `artikel`: kolom metadata sumber `post_id_sumber`, `url_api_sumber`, `kategori_sumber`, `tag_sumber`, `diubah_sumber_at`; nilai `tidak_relevan` dan `perlu_review` masuk CHECK `status_proses`. **(b)** `analisis_sentimen`: kolom `relevan_manual`, `alasan_relevansi`, `sinyal_relevansi`, `konteks_versi`, dan kolom generated `relevan_efektif`; index `idx_analisis_konteks_label` beralih ke `relevan_efektif`. **(c)** `gold_set`: `label_gold` menjadi nullable dengan CHECK yang mewajibkannya hanya saat relevan, kolom `gold_set_versi` dan `split`. **(d)** `evaluasi_model`: kolom `minimal_sebutan`, `konteks_versi`, `gold_set_versi`, dan tiga metrik relevansi. **(e)** Seeder konteks: dua konteks tambahan dinonaktifkan, tidak dihapus. Grup duplikat tetap ekspresi `COALESCE(artikel_induk_id, id)`, bukan kolom baru |
 | 1.3 | Agustus 2026 | Penyesuaian saat implementasi sprint 1. **(a)** Index unique `ringkasan_harian (tanggal, media_id, konteks_pantauan_id)` dan `kata_kunci_periode (konteks_pantauan_id, granularitas, periode_mulai, istilah)` dibuat dengan `NULLS NOT DISTINCT`. Baris agregat memakai NULL pada kolom-kolom itu, dan dengan perilaku default PostgreSQL (NULLS DISTINCT) `INSERT ... ON CONFLICT DO UPDATE` tidak pernah cocok sehingga baris duplikat menumpuk tiap 10 menit dan angka dashboard salah. **(b)** `users.peran` sengaja tanpa nilai default; user yang dibuat tanpa peran harus gagal keras, bukan diam-diam menjadi `superadmin`. **(c)** Tiga CHECK tambahan yang menegakkan aturan integritas yang sudah tertulis di dokumen ini tapi belum punya constraint: `artikel` (artikel_induk_id null persis saat status_dedup = `asli`), `pemuatan` (alasan_penolakan wajib saat status_verifikasi = `ditolak`), `gold_set` (ronde hanya 1 atau 2) |
 | 1.2 | Agustus 2026 | Jembatan Google Form dibatalkan: `pemuatan.media_id` kembali NOT NULL, kolom `email_pelapor` dihapus, nilai `google_form` dihapus dari CHECK `sumber_catatan`. Kolom `user.telepon` bukan lagi untuk WhatsApp. Seeder media diisi 30 media dari lampiran A dokumen 01, seeder konteks pantauan diisi tiga konteks dari dokumen 01 bagian 9 |
 

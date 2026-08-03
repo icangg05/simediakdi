@@ -9,11 +9,11 @@ use App\Models\KonteksPantauan;
  *
  * Menambah konteks menaikkan beban inferensi secara linear: delapan konteks
  * berarti delapan panggilan relevansi per artikel. Penyaring inilah yang
- * membuat penambahan konteks tetap terjangkau — berita tentang harga cabai
+ * membuat penambahan konteks tetap terjangkau, berita tentang harga cabai
  * tidak perlu ditanyakan ke model apakah relevan dengan "Wali Kota Kendari".
  *
  * Sengaja longgar. Tugasnya membuang yang jelas tidak nyambung, bukan
- * memutuskan relevansi — itu pekerjaan model. Konteks tanpa kata kunci selalu
+ * memutuskan relevansi, itu pekerjaan model. Konteks tanpa kata kunci selalu
  * diteruskan.
  */
 class PenyaringKataKunci
@@ -58,7 +58,7 @@ class PenyaringKataKunci
      * Pengetat setelah model relevansi menjawab ya.
      *
      * Model menganggap artikel yang menyebut konteks sekali lewat sebagai
-     * relevan, sedangkan panduan pelabelan menghitungnya tidak relevan —
+     * relevan, sedangkan panduan pelabelan menghitungnya tidak relevan,
      * penyebutan bukan pembahasan. Selisih definisi itu membuat presisi
      * penyaring hanya 46,6% pada gold set, artinya separuh artikel di dashboard
      * sebenarnya tidak membahas konteksnya.
@@ -72,7 +72,7 @@ class PenyaringKataKunci
      * | judul ATAU >=3x di isi  | 80,0%   | 92,3%  | 0,857 |
      *
      * Varian ">=4x" terlihat lebih baik saat memilih tapi lebih buruk pada data
-     * tahan — jangan menaikkannya tanpa mengukur ulang.
+     * tahan, jangan menaikkannya tanpa mengukur ulang.
      *
      * Konteks tanpa kata kunci tidak diketatkan: tidak ada yang bisa dihitung,
      * dan menolak semuanya akan mematikan konteks itu diam-diam.

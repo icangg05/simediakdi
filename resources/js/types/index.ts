@@ -20,6 +20,8 @@ export interface SharedData {
     name: string;
     quote: { message: string; author: string };
     auth: Auth;
+    /** Pesan hasil aksi. Dirender terpusat di AppLayout sebagai toast. */
+    flash?: { sukses?: string | null; galat?: string | null };
     ziggy: {
         location: string;
         url: string;

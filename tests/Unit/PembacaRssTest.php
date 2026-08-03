@@ -45,7 +45,7 @@ class PembacaRssTest extends TestCase
     /**
      * Sejumlah situs WordPress mencetak baris kosong sebelum deklarasi XML
      * karena plugin yang menyisipkan sesuatu. Feed-nya sah, hanya kotor di
-     * depan — menolaknya berarti kehilangan seluruh media itu.
+     * depan, menolaknya berarti kehilangan seluruh media itu.
      */
     public function test_feed_dengan_baris_kosong_sebelum_deklarasi_tetap_terbaca(): void
     {
@@ -84,7 +84,7 @@ class PembacaRssTest extends TestCase
     {
         $this->expectExceptionMessageMatches('/contoh\.id/');
 
-        // Tag tidak tertutup — benar-benar tidak bisa diurai.
+        // Tag tidak tertutup, benar-benar tidak bisa diurai.
         $this->pembaca->baca('<rss><channel><item></channel>', 'https://contoh.id/feed');
     }
 

@@ -1,4 +1,4 @@
-# 07 — Roadmap dan Rencana Sprint
+# 07: Roadmap dan Rencana Sprint
 
 SIMEDIA Kendari | Versi 1.0
 
@@ -12,13 +12,15 @@ Satu sprint = dua minggu = sekitar 40 jam kerja.
 
 Angka yang saya pakai sudah menyertakan waktu untuk hal yang tidak terlihat di daftar tugas: debugging, membaca dokumentasi, memperbaiki lingkungan lokal, dan mengerjakan ulang hal yang salah pada percobaan pertama. Kalau Anda merasa estimasinya berlebihan, itu memang niatnya. Estimasi solo yang optimistis adalah penyebab utama proyek sampingan tidak selesai.
 
-**Total: 6 sprint, 12 minggu, sekitar 3 bulan.**
+**Total: 7 sprint, 14 minggu, sekitar 3,5 bulan.** Sprint 6 ditambahkan setelah
+hasil evaluasi sprint 3 menunjukkan rancangan tiga konteks tidak bisa mencapai
+presisi yang layak. Sprint pemantapan bergeser menjadi sprint 7.
 
-## Sprint 0 — Persiapan, 1 minggu
+## Sprint 0: Persiapan (1 minggu)
 
 Bukan sprint penuh, tapi jangan dilewati.
 
-- [x] ~~Dapatkan jawaban atas sembilan pertanyaan di dokumen 01 bagian 9~~ — sudah terjawab, lihat dokumen 01 bagian 9
+- [x] ~~Dapatkan jawaban atas sembilan pertanyaan di dokumen 01 bagian 9~~, sudah terjawab, lihat dokumen 01 bagian 9
 - [ ] Uji satu per satu URL RSS dari 30 media di lampiran A dokumen 01, catat mana yang hidup. Ikuti tabel strategi per jenis situs di dokumen 02: Blogger selalu punya feed bawaan, situs PHP dicek di path umum, situs SPA tanpa feed dicatat sebagai pengguna jalur portal. Untuk Tempo, Detikcom, dan Portal.id jangan pakai feed utuh, cukup feed daerah atau Google News berkata kunci
 - [ ] Kalau memungkinkan, minta daftar sumber feed dari Diskominfo atau instansi yang sudah menjalankan agregasi media Sultra. Daftar yang sudah teruji menghemat pekerjaan paling membosankan di sprint ini
 - [ ] Verifikasi kedua model IndoBERT bisa diunduh dan dijalankan, sesuai dokumen 05 bagian 1
@@ -32,7 +34,7 @@ Pemeriksaan model di awal ini adalah bagian terpenting dari sprint 0. Kalau tern
 
 ---
 
-## Sprint 1 — Fondasi dan CRUD, 2 minggu
+## Sprint 1: Fondasi dan CRUD (2 minggu)
 
 Tanpa NLP, tanpa grafik. Tujuannya menyiapkan alat yang mempercepat lima sprint berikutnya.
 
@@ -57,7 +59,7 @@ Prioritas dalam sprint ini adalah `DataTable.vue`. Kerjakan sampai benar-benar n
 
 ---
 
-## Sprint 2 — Crawler, 2 minggu
+## Sprint 2: Crawler (2 minggu)
 
 Sprint ini menghasilkan hal yang bisa didemokan.
 
@@ -79,7 +81,7 @@ Sebelum menutup sprint ini, periksa manual 50 artikel. Bandingkan judul dan isi 
 
 ---
 
-## Sprint 3 — NLP dan gold set, 2 minggu
+## Sprint 3: NLP dan gold set (2 minggu)
 
 Sprint terberat. Anggarkan waktu lebih dan jangan menumpuk tugas lain di dua minggu ini.
 
@@ -92,8 +94,8 @@ Sprint terberat. Anggarkan waktu lebih dan jangan menumpuk tugas lain di dua min
 - [ ] CRUD konteks pantauan
 - [ ] Halaman detail artikel dengan form koreksi label
 - [ ] **Ruang kerja pelabelan sesuai dokumen 04 bagian C.3, lengkap dengan pintasan keyboard**
-- [ ] Tulis panduan pelabelan yang menjawab enam pertanyaan di dokumen 05 bagian 7
-- [ ] **Labeli 400 baris gold set.** Dikerjakan pengembang sendiri (dokumen 01 bagian 9 nomor 7), sekitar 8 jam dan sudah termasuk dalam anggaran sprint ini. Labeli terhadap tiga konteks yang diseed di sprint 1
+- [x] Tulis panduan pelabelan. Ditulis sebagai dokumen 09, dan perlu diperbarui lagi di sprint 6 karena pertanyaannya berubah dari tiga konteks menjadi satu keputusan relevansi
+- [x] **Labeli 400 baris gold set.** Dikerjakan pengembang sendiri (dokumen 01 bagian 9 nomor 7), sekitar 8 jam dan sudah termasuk dalam anggaran sprint ini. Terlaksana 470 label terhadap tiga konteks. Hasilnya yang memicu perombakan di sprint 6: pembagian ke tiga konteks membuat tiap konteks kekurangan sampel per kelas, dan dua di antaranya tidak mencapai presisi yang layak
 - [ ] Command `evaluasi:model`, halaman hasil evaluasi
 - [ ] Setel ambang keyakinan berdasarkan hasil gold set
 - [ ] Setel ambang deduplikasi dengan memeriksa 100 pasangan manual
@@ -107,7 +109,7 @@ Kalau F1 macro di bawah 0,65, hentikan sprint 4 dan kerjakan alternatif di dokum
 
 ---
 
-## Sprint 4 — Dashboard eksekutif dan kontrak, 2 minggu
+## Sprint 4: Dashboard eksekutif dan kontrak (2 minggu)
 
 - [ ] `BaseChart.vue` dan `useTemaChart.ts`
 - [ ] Lima komponen grafik: tren volume, tren sentimen, donat, peringkat media, word cloud
@@ -127,22 +129,22 @@ Uji halaman ini di ponsel sungguhan, bukan hanya di device toolbar browser. Ukur
 
 ---
 
-## Sprint 5 — Portal media dan alert, 2 minggu
+## Sprint 5: Portal media dan alert (2 minggu)
 
-- [ ] Dashboard portal, halaman berita saya, kontrak saya
-- [ ] Halaman lapor sesuai wireframe dokumen 04 bagian C.6: tempel URL, pratinjau, konfirmasi, dukungan banyak URL, jalur cadangan isian manual saat ekstraksi gagal
-- [ ] Daftar "sudah tercatat otomatis" di atas form lapor
-- [ ] Job `ArsipkanBuktiPemuatan` dengan Playwright untuk tangkapan layar
-- [ ] Validasi domain URL terhadap media pelapor
-- [ ] `ArtikelPortalResource` tanpa field sentimen
-- [ ] Antrean verifikasi pemuatan di panel admin
-- [ ] Buat 30 akun media dan sosialisasikan portal. Google Form dimatikan setelah semua media punya akun dan berhasil melapor sekali
-- [ ] CRUD aturan alert, command `alert:periksa`, `PengirimTelegram`. Minta chat ID grup Telegram Diskominfo di awal sprint ini, isi ke `.env`, dan uji kirim satu pesan sebelum menulis logika aturan
-- [ ] Riwayat alert dan pembatas pengiriman berulang
-- [ ] Command `kontrak:periksa-tenggat`
-- [ ] CRUD entitas dengan aksi gabungkan, pencocokan kamus entitas
-- [ ] Halaman pengaturan sistem
-- [ ] **Empat test wajib** dari dokumen 02 bagian 9
+- [x] Dashboard portal, halaman berita saya, kontrak saya
+- [x] Halaman lapor sesuai wireframe dokumen 04 bagian C.6: tempel URL, pratinjau, konfirmasi, dukungan banyak URL, jalur cadangan isian manual saat ekstraksi gagal
+- [x] Daftar "sudah tercatat otomatis" di atas form lapor
+- [x] Job `ArsipkanBuktiPemuatan` dengan Playwright untuk tangkapan layar
+- [x] Validasi domain URL terhadap media pelapor
+- [x] `ArtikelPortalResource` tanpa field sentimen
+- [x] Antrean verifikasi pemuatan di panel admin
+- [ ] Buat 30 akun media dan sosialisasikan portal. **Perintahnya siap (`pengguna:buat-akun-media`), pembuatan dan sosialisasinya butuh manusia.** Google Form dimatikan setelah semua media punya akun dan berhasil melapor sekali
+- [x] CRUD aturan alert, command `alert:periksa`, `PengirimTelegram`. **Chat ID grup masih kosong, satu-satunya bagian yang tersisa.** Minta chat ID grup Telegram Diskominfo di awal sprint ini, isi ke `.env`, dan uji kirim satu pesan sebelum menulis logika aturan
+- [x] Riwayat alert dan pembatas pengiriman berulang
+- [x] Command `kontrak:periksa-tenggat`
+- [x] CRUD entitas dengan aksi gabungkan, pencocokan kamus entitas
+- [x] Halaman pengaturan sistem. Menampilkan nilai efektif, penyuntingannya lewat `.env` sesuai jalur pemangkasan di bawah
+- [x] **Empat test wajib** dari dokumen 02 bagian 9
 
 Definition of done: pengguna media bisa melaporkan pemuatan dan admin memverifikasinya, alert lonjakan negatif terkirim ke Telegram, dan empat test wajib hijau.
 
@@ -150,7 +152,70 @@ Kerjakan test scoping peran media dengan sungguh-sungguh. Ini satu-satunya fitur
 
 ---
 
-## Sprint 6 — Pemantapan dan serah terima, 2 minggu
+## Sprint 6: Penyederhanaan relevansi (2 minggu)
+
+Sprint ini tidak ada di rencana awal. Ia lahir dari hasil evaluasi sprint 3:
+presisi relevansi 57,0% dan 51,1% pada dua dari tiga konteks, dan satu konteks
+yang F1-nya tidak bisa dibaca sama sekali karena gold set-nya tidak punya
+sampel negatif. Rinciannya di dokumen 01 bagian 9 dan dokumen 05.
+
+Disetujui 4 Agustus 2026, dikerjakan sampai selesai.
+
+Dikerjakan **sebelum** serah terima, bukan sesudah. Menyerahkan sistem yang
+separuh isi dashboardnya tidak membahas Pemkot berarti menyerahkan masalah,
+dan pengetatannya mengubah setiap angka historis sehingga lebih baik terjadi
+sekali sebelum ada yang memakai angkanya.
+
+**Fase 1: sederhanakan konteks**
+- [ ] Nonaktifkan konteks Wali Kota dan Pelayanan publik lewat seeder, jangan dihapus
+- [ ] Ubah halaman pelabelan menjadi satu keputusan relevansi per artikel (dokumen 04 bagian C.3)
+- [ ] Pastikan `AnalisisRelevansi` berjalan sekali per artikel
+
+**Fase 2: metadata sumber dan kamus alias**
+- [ ] Migration kolom `kategori_sumber`, `tag_sumber`, `post_id_sumber`, `url_api_sumber`, `diubah_sumber_at`
+- [ ] Tarik kategori dan tag saat crawl dan backfill, terjemahkan ID term menjadi nama
+- [ ] Lengkapi kamus `entitas` beserta aliasnya: Pemkot, pimpinan, seluruh OPD, kecamatan, kelurahan
+- [ ] Tambahkan kontras yang harus dikenali: Pemprov Sultra, Polda, Kejari, Bea Cukai, BPS, kanwil, kampus
+- [ ] `JendelaKonteks`, potongan dua kalimat sebelum dan sesudah tiap sebutan
+
+**Fase 3: perbaiki gold set**
+- [ ] Migration `label_gold` nullable, kolom `gold_set_versi` dan `split`
+- [ ] Migrasikan 249 label konteks utama menjadi gold set relevansi biner
+- [ ] Review ulang label dari dua konteks lama, satu per satu, jangan digabung otomatis
+- [ ] Tambahkan hard negative: artikel Pemprov, instansi vertikal, dan Kendari sebagai lokasi
+- [ ] Tetapkan `split` per grup duplikat, bekukan test set
+- [ ] Ronde 2 atas 40 baris acak untuk mengukur konsistensi pelabel
+
+**Fase 3b: pindahkan penilai relevansi ke e5-small**
+- [x] Lepas `indobert-relevancy` dari layanan NLP, hapus endpoint `/relevancy`
+- [x] Ganti model embedding dari MiniLM ke `intfloat/multilingual-e5-small`
+- [x] Migration `artikel.embedding_relevansi`, `konteks_pantauan.deskripsi_model` dan `embedding`
+- [x] `JendelaKonteks` membentuk teks terfokus, `HitungEmbedding` menghitung dua vektor sekali panggil
+- [x] Vektor konteks dihitung sekali dari `deskripsi_model`, berawalan `query:`
+- [x] `AnalisisRelevansi` menjadi kueri pgvector, bukan panggilan HTTP
+- [x] Perintah `nlp:hitung-ulang-vektor` beserta backfill 4.806 artikel lama
+- [x] Enam tes mengunci tiga cabang keputusan relevansi
+- [ ] **Kalibrasi dua ambang dari validation set** sesuai dokumen 05 bagian 5.1. Selama `RELEVANSI_AMBANG_ATAS` dan `RELEVANSI_AMBANG_BAWAH` kosong, seluruh artikel masuk antrean perlu review
+- [ ] **Ukur ulang ambang deduplikasi.** `DEDUP_AMBANG_COSINE=0.92` disetel untuk MiniLM. Vektor e5 tidak sebanding, jadi angka itu tidak lagi berlaku sampai diperiksa dengan 100 pasangan manual
+- [ ] Ukur ulang apakah pengetat sebutan masih menambah presisi di atas cosine. Kalau tidak, matikan
+
+**Fase 4: ukur ulang dan stabilkan**
+- [ ] Kolom versi dan metrik relevansi di `evaluasi_model`, halaman evaluasi dipisah dua tab
+- [ ] Antrean `/admin/review` beserta urutan prioritasnya
+- [ ] Koreksi relevansi manual dengan alasan wajib, dan `relevan_efektif`
+- [ ] Jalankan ulang analisis atas seluruh korpus, lalu `evaluasi:model`
+
+Definition of done: presisi relevansi minimal 80% dan recall minimal 85% pada
+test set yang dibekukan, gold set dihitung per artikel unik, tidak ada satu pun
+koreksi manual yang tertimpa analisis ulang, dan halaman evaluasi menampilkan
+relevansi terpisah dari sentimen.
+
+Kalau presisi tetap di bawah 80% setelah fase 4, jangan menambah aturan
+tempelan. Baca dokumen 05 bagian 8 dan kerjakan urutannya.
+
+---
+
+## Sprint 7: Pemantapan dan serah terima (2 minggu)
 
 Sprint tanpa fitur baru. Setiap kali Anda tergoda menambahkan satu fitur kecil di sini, tulis saja di daftar versi 2.
 
@@ -189,6 +254,7 @@ Kalau ada tenggat dan Anda tertinggal, pangkas dengan urutan ini. Daftar disusun
 **Yang tidak boleh dipangkas dalam keadaan apa pun:**
 
 - Gold set dan pengukuran akurasi. Tanpa angka ini, dashboard sentimen bisa dibantah siapa pun dan sistem kehilangan kredibilitasnya dalam satu rapat
+- Presisi relevansi. Sentimen yang akurat atas artikel yang salah tetap salah, dan inilah kesalahan yang paling cepat terlihat pimpinan karena ia tidak perlu membaca angka untuk menyadarinya, cukup membaca judulnya
 - Deduplikasi. Tanpa ini seluruh angka salah dan Anda kehilangan kepercayaan lebih cepat daripada dengan fitur yang kurang
 - Status perlu review. Menyembunyikan ketidakpastian membuat sistem menyatakan hal yang tidak diketahuinya
 - Global scope peran media dan test-nya. Ini soal kebocoran data ke pihak luar
@@ -203,7 +269,10 @@ Tulis di sini setiap ide yang muncul selama pengembangan. Fungsi utamanya bukan 
 
 - Media sosial: X, Instagram, komentar YouTube
 - BERTopic setelah 12 bulan data terkumpul
-- Fine-tuning model dengan gold set yang sudah tumbuh
+- **IndoBERT binary classifier hasil fine-tuning untuk relevansi.** Menggantikan rangkaian model bawaan ditambah pengetat kata kunci. Baru masuk akal setelah koreksi admin terkumpul cukup, sekitar 1.000 keputusan manusia. Sebelum itu, aturan kata kunci yang bisa dibaca dan diperbaiki admin lebih berharga daripada model yang kesalahannya hanya bisa diperbaiki dengan melatih ulang
+- Perbandingan berdampingan antara cosine e5-small dan classifier hasil fine-tuning, memakai test set beku yang sama
+- Konteks pantauan kedua, kalau Diskominfo benar-benar meminta. Biayanya bukan inferensi, melainkan satu putaran pelabelan penuh
+- Fine-tuning model sentimen dengan gold set yang sudah tumbuh
 - Perbandingan dengan kota lain di Sulawesi Tenggara
 - Ringkasan mingguan otomatis dikirim ke Telegram
 - Peringkat jurnalis, bukan hanya media

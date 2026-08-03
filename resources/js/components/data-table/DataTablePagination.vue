@@ -4,7 +4,7 @@ import { useFormatAngka } from '@/composables/useFormatAngka';
 import type { PaginasiMeta } from '@/types/tabel';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-vue-next';
 
-const props = defineProps<{ meta: PaginasiMeta }>();
+defineProps<{ meta: PaginasiMeta }>();
 const emit = defineEmits<{ keHalaman: [halaman: number] }>();
 
 const { formatAngka } = useFormatAngka();
@@ -14,7 +14,7 @@ const { formatAngka } = useFormatAngka();
     <div class="flex flex-wrap items-center justify-between gap-2 px-1 py-2">
         <p class="text-sm text-muted-foreground">
             <template v-if="meta.total > 0">
-                Menampilkan {{ formatAngka(meta.from) }}–{{ formatAngka(meta.to) }}
+                Menampilkan {{ formatAngka(meta.from) }}-{{ formatAngka(meta.to) }}
                 dari {{ formatAngka(meta.total) }} baris
             </template>
             <template v-else>Tidak ada baris</template>

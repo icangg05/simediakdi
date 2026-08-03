@@ -106,7 +106,7 @@ function labelUrut(kolom: KolomDefinisi): string {
                     <TableRow v-for="(baris, i) in data" :key="baris.id ?? i" class="h-10">
                         <TableCell v-for="kol in kolom" :key="kol.kunci" :class="kol.kelas">
                             <slot :name="`sel-${kol.kunci}`" :baris="baris" :nilai="baris[kol.kunci]">
-                                {{ baris[kol.kunci] ?? '–' }}
+                                {{ baris[kol.kunci] ?? '-' }}
                             </slot>
                         </TableCell>
 

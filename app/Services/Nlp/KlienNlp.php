@@ -2,7 +2,6 @@
 
 namespace App\Services\Nlp;
 
-use App\Services\Nlp\DTO\HasilRelevansi;
 use App\Services\Nlp\DTO\HasilSentimen;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
@@ -64,15 +63,6 @@ class KlienNlp
 
     /**
      * @param  list<array{id: int, konteks: string, teks: string}>  $pasangan
-     * @return array<int, HasilRelevansi> dikunci artikel_id
-     */
-    public function relevansi(array $pasangan): array
-    {
-        return $this->pasangan('/relevancy', $pasangan, HasilRelevansi::dariArray(...));
-    }
-
-    /**
-     * @param  list<array{id: int, konteks: string, teks: string}>  $pasangan
      * @return array<int, HasilSentimen> dikunci artikel_id
      */
     public function sentimen(array $pasangan): array
@@ -84,7 +74,7 @@ class KlienNlp
      * Hasil dikunci `id` yang dikirim balik layanan, bukan urutan array.
      *
      * Memetakan lewat urutan terlihat lebih ringkas dan akan benar hampir
-     * selalu — sampai suatu hari layanan mengembalikan satu baris lebih sedikit
+     * selalu, sampai suatu hari layanan mengembalikan satu baris lebih sedikit
      * dan seluruh label bergeser satu artikel tanpa ada yang menyadarinya.
      *
      * @param  list<array{id: int, konteks: string, teks: string}>  $pasangan

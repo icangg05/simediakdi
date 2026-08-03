@@ -35,6 +35,16 @@ const props = defineProps<{
         salah_dianggap_relevan: number;
         relevan_yang_terlewat: number;
     } | null;
+    perKonteks: Array<{
+        konteks: string;
+        sampel_sentimen: number;
+        sampel_per_kelas: Record<string, number>;
+        kelas_tanpa_sampel: string[];
+        akurasi: number;
+        f1_macro: number;
+        presisi_relevansi: number | null;
+        recall_relevansi: number | null;
+    }>;
     ambangGerbang: number;
 }>();
 
@@ -91,7 +101,7 @@ const waktu = (nilai: string) => format(new Date(nilai), 'd MMM yyyy, HH:mm', { 
                         <p class="angka text-3xl font-semibold">{{ formatPersen(konsistensiPelabel * 100) }}</p>
                         <p class="text-xs text-muted-foreground">
                             Kesesuaian pelabel yang sama antara ronde 1 dan 2. Ini batas atas yang wajar diharapkan
-                            dari model — menuntut model melebihi angka ini tidak masuk akal.
+                            dari model, menuntut model melebihi angka ini tidak masuk akal.
                         </p>
                     </template>
                     <p v-else class="text-xs text-muted-foreground">
@@ -102,6 +112,66 @@ const waktu = (nilai: string) => format(new Date(nilai), 'd MMM yyyy, HH:mm', { 
             </Card>
         </div>
 
+        <Card v-if="perKonteks.length > 1">
+            <CardHeader class="pb-2"><CardTitle class="text-base">Rincian per konteks</CardTitle></CardHeader>
+            <CardContent>
+                <p class="mb-2 text-xs text-muted-foreground">
+                    Angka gabungan menyembunyikan selisih antar konteks. Presisi relevansi paling banyak
+                    dipengaruhi daftar kata kunci: frasa spesifik jarang muncul kebetulan, kata umum sering
+                    muncul sambil lalu.
+                </p>
+                <div class="overflow-x-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Konteks</TableHead>
+                                <TableHead class="text-right">Sampel</TableHead>
+                                <TableHead class="text-right">neg / net / pos</TableHead>
+                                <TableHead class="text-right">Akurasi</TableHead>
+                                <TableHead class="text-right">F1 macro</TableHead>
+                                <TableHead class="text-right">Presisi relevansi</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            <TableRow v-for="baris in perKonteks" :key="baris.konteks">
+                                <TableCell class="font-medium">{{ baris.konteks }}</TableCell>
+                                <TableCell class="angka text-right">{{ formatAngka(baris.sampel_sentimen) }}</TableCell>
+                                <TableCell class="angka text-right text-muted-foreground">
+                                    {{ Object.values(baris.sampel_per_kelas).join(' / ') }}
+                                </TableCell>
+                                <TableCell class="angka text-right">{{ formatPersen(baris.akurasi * 100) }}</TableCell>
+                                <TableCell class="angka text-right">
+                                    {{ baris.f1_macro }}
+                                    <span v-if="baris.kelas_tanpa_sampel.length" title="Ada kelas tanpa sampel">*</span>
+                                </TableCell>
+                                <TableCell
+                                    class="angka text-right"
+                                    :class="(baris.presisi_relevansi ?? 1) < 0.7 ? 'text-sentimen-negatif' : ''"
+                                >
+                                    {{ baris.presisi_relevansi === null ? '-' : formatPersen(baris.presisi_relevansi * 100) }}
+                                </TableCell>
+                            </TableRow>
+                        </TableBody>
+                    </Table>
+                </div>
+
+                <ul class="mt-2 space-y-1 text-xs text-sentimen-review">
+                    <template v-for="baris in perKonteks" :key="`catatan-${baris.konteks}`">
+                        <li v-if="baris.kelas_tanpa_sampel.length">
+                            <strong>{{ baris.konteks }}</strong>: F1 macro tidak bisa dibaca apa adanya, gold
+                            set-nya tidak punya sampel kelas
+                            {{ baris.kelas_tanpa_sampel.join(' dan ') }}. Pakai akurasinya, atau tambah label
+                            kelas itu.
+                        </li>
+                        <li v-if="(baris.presisi_relevansi ?? 1) < 0.7">
+                            <strong>{{ baris.konteks }}</strong>: kata kuncinya terlalu umum, presisi
+                            {{ formatPersen((baris.presisi_relevansi ?? 0) * 100) }}. Perketat di halaman konteks.
+                        </li>
+                    </template>
+                </ul>
+            </CardContent>
+        </Card>
+
         <Card v-if="relevansi">
             <CardHeader class="pb-2">
                 <CardTitle class="text-base">Penyaring relevansi</CardTitle>
@@ -110,7 +180,7 @@ const waktu = (nilai: string) => format(new Date(nilai), 'd MMM yyyy, HH:mm', { 
                 <p class="text-xs text-muted-foreground">
                     Menentukan artikel mana yang masuk grafik. Presisi rendah berarti dashboard memuat artikel
                     yang sebenarnya tidak membahas konteksnya, dan angka volume ikut menggelembung. Recall rendah
-                    lebih buruk lagi — artikel yang terlewat hilang selamanya dari analisis.
+                    lebih buruk lagi, artikel yang terlewat hilang selamanya dari analisis.
                 </p>
 
                 <div class="grid gap-3 sm:grid-cols-3">
@@ -143,7 +213,7 @@ const waktu = (nilai: string) => format(new Date(nilai), 'd MMM yyyy, HH:mm', { 
                     v-if="relevansi.presisi < 0.7"
                     class="rounded-md bg-sentimen-negatif-lembut p-2 text-xs text-sentimen-negatif"
                 >
-                    Presisi di bawah 70%. Menaikkan ambang keyakinan tidak menolong — model sama yakinnya
+                    Presisi di bawah 70%. Menaikkan ambang keyakinan tidak menolong, model sama yakinnya
                     saat benar maupun salah. Sampaikan batasan ini saat menyajikan angka volume.
                 </p>
             </CardContent>

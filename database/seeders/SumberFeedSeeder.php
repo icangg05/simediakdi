@@ -29,7 +29,7 @@ class SumberFeedSeeder extends Seeder
         'radar-kendari' => '/feed',
         'kolom-rakyat' => '/feed',
         'trijaya-kendari' => '/feed',
-        // Bukan /feed seperti yang lain — itu menjawab 404.
+        // Bukan /feed seperti yang lain, itu menjawab 404.
         'telisik' => '/feed/rss',
         'kendari-info' => '/feed',
         'britakita' => '/feed',

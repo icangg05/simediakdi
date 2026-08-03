@@ -8,7 +8,7 @@ use DateTimeInterface;
 /**
  * Konversi WITA yang eksplisit.
  *
- * Aplikasi berjalan di UTC dan seluruh timestamp disimpan UTC — lihat alasannya
+ * Aplikasi berjalan di UTC dan seluruh timestamp disimpan UTC, lihat alasannya
  * di config/app.php. Tapi pengguna sistem ini ada di Kendari: "berita hari ini"
  * berarti hari menurut WITA, bukan menurut UTC. Tanpa konversi di sini, angka
  * "hari ini" salah setiap pukul 00.00 sampai 08.00 waktu setempat.

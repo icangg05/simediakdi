@@ -1,6 +1,6 @@
-# 01 — Product Requirements Document
+# 01: Product Requirements Document
 
-SIMEDIA Kendari | Versi 1.2
+SIMEDIA Kendari | Versi 1.4
 
 ---
 
@@ -29,7 +29,7 @@ Sistem ini tidak menilai kinerja pemerintah dan tidak menghasilkan kesimpulan ke
 
 ## 3. Persona pengguna
 
-### P1 — Admin Diskominfo (peran `superadmin`)
+### P1: Admin Diskominfo (peran `superadmin`)
 
 Staf yang mengelola sistem sehari-hari. Nyaman dengan komputer dan spreadsheet, tidak punya latar belakang teknis. Membuka sistem setiap hari kerja, sesi 20 sampai 60 menit.
 
@@ -37,7 +37,7 @@ Yang dia butuhkan: mendaftarkan media dan sumber RSS baru, memverifikasi klaim p
 
 Yang membuatnya frustrasi: form panjang tanpa penyimpanan otomatis, tabel yang tidak bisa difilter, dan error tanpa penjelasan.
 
-### P2 — Walikota dan staf khusus (peran `walikota`)
+### P2: Walikota dan staf khusus (peran `walikota`)
 
 Membuka sistem dari ponsel, kadang di sela kegiatan. Sesi kurang dari tiga menit. Tidak akan pernah membaca manual, tidak akan mengisi form apa pun, dan tidak akan mencari menu tersembunyi.
 
@@ -45,7 +45,7 @@ Yang dia butuhkan: jawaban atas tiga pertanyaan dalam satu layar. Berapa berita 
 
 Yang membuatnya berhenti memakai sistem: loading lebih dari empat detik, grafik yang tidak terbaca di layar 6 inci, atau angka yang terasa tidak masuk akal tanpa cara mengeceknya.
 
-### P3 — Pengelola media partner (peran `media`)
+### P3: Pengelola media partner (peran `media`)
 
 Redaktur atau staf administrasi di media yang punya kontrak. Membuka sistem beberapa kali sebulan, terutama mendekati akhir periode kontrak.
 
@@ -103,16 +103,16 @@ Penomoran dipakai sebagai acuan di dokumen 04 dan 07. Prioritas: **W** wajib ver
 
 | ID | Kebutuhan | Prioritas |
 |----|-----------|-----------|
-| F-10 | Sistem menilai relevansi artikel terhadap setiap konteks pantauan sebelum menilai sentimen | W |
-| F-11 | Sistem memberi label sentimen negatif, netral, atau positif terhadap konteks tertentu, beserta skor keyakinan | W |
-| F-12 | Sistem menandai hasil dengan keyakinan di bawah ambang sebagai "perlu review" dan tidak menampilkannya sebagai fakta | W |
-| F-13 | Admin dapat mengoreksi label, dan koreksi selalu mengalahkan hasil model | W |
+| F-10 | Sistem menilai sekali per artikel apakah artikel secara substantif relevan terhadap Pemerintah Kota Kendari, sebelum menilai sentimen | W |
+| F-11 | Sistem memberi label sentimen negatif, netral, atau positif terhadap konteks utama beserta skor keyakinan, hanya untuk artikel yang relevan | W |
+| F-12 | Sistem menandai hasil relevansi maupun sentimen dengan keyakinan di bawah ambang sebagai "perlu review" dan tidak menampilkannya sebagai fakta | W |
+| F-13 | Admin dapat mengoreksi label relevansi maupun sentimen, dan koreksi selalu mengalahkan hasil model | W |
 | F-14 | Sistem menyimpan versi model pada setiap hasil analisis | W |
-| F-15 | Admin dapat mengelola daftar konteks pantauan | W |
+| F-15 | Admin dapat mengelola definisi konteks utama beserta kata kuncinya. Menambah konteks kedua ditunda sampai ada kebutuhan resmi dan sumber daya pelabelannya | W |
 | F-16 | Sistem menghitung frekuensi kata kunci per periode dan skor lonjakannya | W |
-| F-17 | Sistem mengekstrak entitas berupa nama orang, OPD, lokasi, dan program | S |
-| F-18 | Admin dapat menggabungkan entitas duplikat dan mengelola aliasnya | S |
-| F-19 | Sistem menyimpan gold set berlabel manusia dan menghitung metrik akurasi model | W |
+| F-17 | Sistem mengekstrak entitas berupa nama orang, OPD, lokasi, dan program. Entitas inilah yang membedakan Wali Kota, OPD, dan lokasi tanpa perlu konteks pantauan tambahan | S |
+| F-18 | Admin dapat menggabungkan entitas duplikat dan mengelola aliasnya. Kamus alias yang sama dipakai untuk membentuk jendela konteks input model relevansi | S |
+| F-19 | Sistem menyimpan gold set berlabel manusia berisi keputusan relevansi per artikel dan sentimen finalnya, lalu menghitung metrik akurasi model | W |
 | F-20 | Clustering topik otomatis | T |
 
 ### 5.3 Kontrak dan realisasi
@@ -188,6 +188,8 @@ Ukur tiga bulan setelah sistem dipakai.
 | Metrik | Target |
 |--------|--------|
 | Cakupan berita | Lebih dari 90% berita dari media terdaftar tertangkap sistem, diukur dengan audit sampel manual 100 berita |
+| Presisi relevansi | Minimal 80% pada test set. Ini metrik yang menentukan apakah daftar berita terasa masuk akal bagi pimpinan |
+| Recall relevansi | Minimal 85% pada test set. Jangan diukur dari sampel mode terarah, lihat dokumen 05 bagian 7.1 |
 | Akurasi sentimen | F1 macro minimal 0,75 pada gold set Kendari |
 | Tingkat duplikat lolos | Kurang dari 5% berita ganda terhitung sebagai berita berbeda |
 | Adopsi peran walikota | Login minimal 12 kali per bulan |
@@ -235,21 +237,112 @@ Dua keputusan tambahan dari sesi yang sama:
 - **Google Form tidak dijembatani.** Form yang berjalan sekarang tetap jalan sendiri sampai portal siap, lalu dimatikan. F-53 dan seluruh endpoint webhook dihapus dari lingkup.
 - **Notifikasi WhatsApp tidak dipakai.** F-41 dihapus, bukan ditunda. Telegram satu-satunya kanal alert.
 
-### Konteks pantauan awal (jawaban nomor 5)
+### Konteks pantauan (jawaban nomor 5, direvisi pada versi 1.4)
 
-Tiga konteks yang dipasang lewat seeder, karena ketiganya langsung melayani tujuan di bagian 2. Sisanya ditambahkan admin sendiri lewat F-15 saat ada kebutuhan nyata.
+**Satu konteks aktif.** Versi pertama memakai satu konteks utama dan tidak lebih.
 
-| Konteks | Deskripsi untuk model | Alasan |
-|---------|----------------------|--------|
-| Pemerintah Kota Kendari | Kebijakan, program, layanan, dan aparatur Pemerintah Kota Kendari | Konteks utama. Semua angka di dashboard eksekutif bertumpu pada ini |
-| Wali Kota Kendari | Wali Kota dan Wakil Wali Kota Kendari sebagai pejabat publik | Peringatan dini berita negatif paling sering menyangkut figur, bukan institusi. Sentimennya sering berbeda dari konteks institusi |
-| Pelayanan publik dan infrastruktur Kota Kendari | Jalan, drainase, sampah, air bersih, pasar, dan layanan administrasi kependudukan | Tema yang paling banyak memancing berita kritis di media lokal, dan yang paling bisa ditindaklanjuti OPD |
+| Properti | Nilai |
+|----------|-------|
+| Nama | Pemerintah Kota Kendari |
+| Slug | `pemerintah-kota-kendari` |
+| Tingkat klasifikasi | Artikel |
+| Label relevansi | `relevan`, `tidak_relevan`, `perlu_review` |
+| Label sentimen | `negatif`, `netral`, `positif` |
+| Status | Aktif, konteks utama sistem |
 
-Konteks per OPD tidak dibuat di versi 1. Butuh 30-an konteks, dan volume berita per OPD terlalu kecil untuk menghasilkan tren yang berarti. Halaman entitas (F-17) sudah menjawab pertanyaan "OPD mana yang disebut" tanpa biaya itu.
+Wali Kota Kendari dan Pelayanan publik dan infrastruktur tetap ada di tabel
+`konteks_pantauan` tapi dinonaktifkan. Barisnya tidak dihapus supaya gold set
+lama tetap bisa dibaca dan supaya arsitekturnya tidak buntu kalau suatu saat
+Diskominfo benar-benar meminta konteks kedua.
+
+#### Mengapa berubah dari tiga konteks
+
+Tiga alasan, dua di antaranya baru terukur setelah gold set jadi.
+
+1. **Beban pelabelan tiga kali lipat tanpa jawaban tambahan.** Satu artikel
+   menghasilkan sampai tiga pasangan artikel-konteks. Angka 470 label gold set
+   ternyata jauh lebih sedikit artikel unik, dan distribusi kelas per konteks
+   jadi terlalu tipis untuk diukur.
+2. **Konteks yang kata kuncinya umum tidak bisa diselamatkan.** Presisi
+   relevansi terukur 57,0% untuk konteks utama dan 51,1% untuk pelayanan publik,
+   melawan 87,7% untuk Wali Kota. Penyebabnya istilah seperti "dinas", "pasar",
+   dan "sampah" yang sering muncul di berita yang bukan kewenangan Pemkot,
+   misalnya jalan nasional, proyek Pemprov Sultra, atau kegiatan perusahaan.
+3. **Konteks Wali Kota tidak pernah bisa dievaluasi.** Gold set-nya tidak punya
+   satu pun sampel negatif, sehingga F1 macro-nya tercatat 0,3368 padahal
+   akurasinya 78,5%. Angka yang tidak bisa dibaca lebih buruk daripada angka
+   yang tidak ada.
+
+Untuk memutuskan artikel mana yang boleh masuk dashboard, pertanyaan yang
+dibutuhkan hanya satu: **apakah artikel ini secara substantif berhubungan
+dengan Pemerintah Kota Kendari?**
+
+#### Deskripsi untuk model
+
+> Tentukan apakah artikel secara substantif membahas Pemerintah Kota Kendari,
+> Wali Kota atau Wakil Wali Kota dalam kapasitas jabatan, OPD dan unit kerja
+> Pemerintah Kota Kendari, ASN Pemkot, kebijakan, program, anggaran, pelayanan
+> publik, pembangunan, tindakan, prestasi, kritik, keluhan, atau masalah yang
+> menjadi kewenangan atau tanggung jawab Pemerintah Kota Kendari. Jangan anggap
+> relevan apabila Kendari hanya menjadi lokasi kejadian, atau artikel hanya
+> membahas Pemprov Sultra, pemerintah kabupaten lain, instansi vertikal,
+> kepolisian, TNI, kampus, perusahaan, organisasi, kriminalitas umum, olahraga,
+> atau masyarakat tanpa keterlibatan substantif Pemkot Kendari.
+
+#### Aturan inklusi
+
+Relevan apabila memenuhi minimal satu:
+
+1. Pemerintah Kota Kendari menjadi subjek utama tindakan, kebijakan, atau evaluasi.
+2. Wali Kota, Wakil Wali Kota, Sekda, atau pejabat Pemkot dibahas dalam kapasitas jabatan.
+3. OPD atau unit kerja Pemkot menjadi pelaksana, penanggung jawab, objek kritik, atau pemberi layanan.
+4. Artikel membahas program, anggaran, fasilitas, pelayanan, atau proyek yang menjadi kewenangan Pemkot Kendari.
+5. Keluhan warga secara jelas diarahkan kepada Pemkot atau unitnya.
+6. Pemkot memberi tanggapan, keputusan, klarifikasi, bantuan, sanksi, atau tindak lanjut yang menjadi bagian utama berita.
+7. Artikel membahas hubungan DPRD Kota Kendari dengan kebijakan, anggaran, atau tindakan eksekutif Pemkot.
+
+#### Aturan eksklusi
+
+Tidak relevan apabila:
+
+1. Kata "Kendari" hanya menunjukkan lokasi kejadian.
+2. Artikel membahas Pemerintah Provinsi Sulawesi Tenggara tanpa keterlibatan substantif Pemkot Kendari.
+3. Artikel membahas kementerian, kantor wilayah, kepolisian, TNI, kejaksaan, pengadilan, Bea Cukai, BPS, kampus, BUMN, perusahaan, organisasi, atau komunitas secara mandiri.
+4. Artikel membahas kriminalitas, kecelakaan, olahraga, hiburan, bisnis, atau acara umum di Kendari tanpa kaitan substantif dengan Pemkot.
+5. Pemkot hanya muncul pada daftar tamu, alamat, ucapan, atau kalimat singkat yang bukan fokus berita.
+6. Artikel membahas pemerintah kabupaten lain walaupun medianya berasal dari Kendari.
+
+#### DPRD Kota Kendari
+
+DPRD tidak otomatis identik dengan Pemerintah Kota Kendari. Relevan kalau
+beritanya membahas APBD, perda, pengawasan, kritik, rekomendasi, persetujuan,
+atau hal lain yang langsung melibatkan kebijakan dan tindakan eksekutif Pemkot.
+Tidak relevan kalau hanya membahas kegiatan internal DPRD, kunjungan, urusan
+fraksi, atau agenda legislatif yang tidak menyentuh eksekutif.
+
+#### Yang menggantikan dua konteks lama
+
+Wali Kota, OPD, kecamatan, kelurahan, pelayanan publik, infrastruktur, program,
+dan anggaran tidak hilang. Semuanya turun menjadi salah satu dari empat hal
+yang lebih murah dan lebih mudah difilter:
+
+| Konsep | Pertanyaan | Cara memperoleh |
+|--------|-----------|-----------------|
+| Relevansi | Apakah artikel berhubungan substantif dengan Pemkot Kendari? | Klasifikasi biner ditambah koreksi manusia |
+| Topik | Artikel membahas bidang apa? | Kategori dan tag sumber, kata kunci, aturan |
+| Entitas | Siapa atau unit apa yang disebut? | Pencocokan kamus entitas dan alias (F-17, F-18) |
+| Sentimen | Bagaimana nada artikel terhadap Pemkot? | Model sentimen, hanya untuk artikel relevan |
+
+Dashboard tetap bisa difilter per OPD, per figur, dan per topik. Yang hilang
+hanya kewajiban melabeli satu artikel tiga kali.
+
+Konteks per OPD tetap tidak dibuat. Butuh 30-an konteks, volume berita per OPD
+terlalu kecil untuk tren yang berarti, dan halaman entitas sudah menjawab
+pertanyaan "OPD mana yang disebut" tanpa biaya itu.
 
 ---
 
-## Lampiran A — Daftar media partner
+## Lampiran A: Daftar media partner
 
 30 media, sesuai penyerahan Diskominfo. Kolom tier menentukan pembobotan di peringkat media. Kolom jalur diisi saat sprint 0 setelah tiap situs diuji, ikuti tabel strategi di dokumen 02 bagian 8.
 
@@ -299,9 +392,11 @@ Tiga catatan yang mempengaruhi crawler:
 | Artikel | Satu halaman berita di satu media, dikenali dari URL kanoniknya |
 | Artikel asli | Artikel pertama yang masuk untuk satu isi yang sama |
 | Salinan | Artikel dengan isi yang sangat mirip artikel yang sudah ada, ditautkan ke artikel asli |
-| Konteks pantauan | Deskripsi topik singkat yang menjadi sasaran penilaian sentimen |
-| Relevansi | Apakah artikel benar-benar membahas konteks tertentu |
-| Sentimen | Nada artikel terhadap satu konteks, bukan nada artikel secara umum |
+| Konteks pantauan | Sasaran penilaian relevansi dan sentimen. Versi 1 hanya punya satu yang aktif: Pemerintah Kota Kendari |
+| Relevansi | Apakah artikel secara substantif membahas Pemerintah Kota Kendari. Satu keputusan per artikel, bukan per pasangan artikel-konteks |
+| Sentimen | Nada artikel terhadap Pemerintah Kota Kendari, bukan nada artikel secara umum |
+| Topik | Bidang yang dibahas artikel, misalnya infrastruktur atau kesehatan. Berasal dari kategori, tag, dan kata kunci, bukan dari pelabelan manusia |
+| Hard negative | Artikel yang tampak relevan bagi model tapi dinyatakan tidak relevan oleh manusia. Bahan latih paling berharga untuk menaikkan presisi |
 | Perlu review | Hasil model dengan keyakinan di bawah ambang, belum boleh dianggap fakta |
 | Pemuatan | Satu artikel yang diakui sebagai realisasi kontrak |
 | Skor lonjakan | Perbandingan frekuensi kata kunci periode ini terhadap rata-rata periode sebelumnya |

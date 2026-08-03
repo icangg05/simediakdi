@@ -53,7 +53,7 @@ const aksiBaris: AksiBaris<BarisKonteks>[] = [
     <LayoutAdmin judul="Konteks pantauan" :breadcrumbs="[{ title: 'Konteks', href: '/admin/konteks' }]">
         <p class="text-xs text-muted-foreground">
             Sasaran penilaian sentimen. Nama konteks dikirim apa adanya ke model, jadi tulis seperti kalimat yang
-            wajar dibaca. Menambah konteks menaikkan beban inferensi secara linear — kata kunci penyaring yang
+            wajar dibaca. Menambah konteks menaikkan beban inferensi secara linear, kata kunci penyaring yang
             membuatnya tetap murah.
         </p>
 
@@ -89,7 +89,7 @@ const aksiBaris: AksiBaris<BarisKonteks>[] = [
 
             <template #sel-kata_kunci="{ baris }">
                 <span v-if="!baris.kata_kunci?.length" class="text-xs text-muted-foreground">
-                    Tanpa penyaring — semua artikel dikirim ke model
+                    Tanpa penyaring, semua artikel dikirim ke model
                 </span>
                 <span v-else class="text-xs text-muted-foreground">
                     {{ baris.kata_kunci.slice(0, 4).join(', ') }}

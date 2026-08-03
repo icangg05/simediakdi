@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * Menarik arsip lama dari media WordPress untuk membangun korpus.
  *
- * Bukan bagian dari operasi harian — crawler RSS yang mengurus berita baru.
+ * Bukan bagian dari operasi harian, crawler RSS yang mengurus berita baru.
  * Perintah ini dijalankan sekali saat gold set butuh lebih banyak artikel
  * daripada yang bisa dikumpulkan feed dalam waktu wajar. Kelas negatif hanya
  * sekitar 5% dari pasangan relevan, jadi mengukur F1 negatif butuh ribuan
@@ -88,7 +88,7 @@ class CrawlBackfill extends Command
                     // Dibungkus transaksi bersarang, yang di PostgreSQL menjadi
                     // SAVEPOINT. Tanpa itu, satu pelanggaran unique meracuni
                     // seluruh transaksi berjalan dan setiap perintah berikutnya
-                    // ditolak — penarikan berhenti di URL duplikat pertama.
+                    // ditolak, penarikan berhenti di URL duplikat pertama.
                     $artikel = DB::transaction(fn () => Artikel::withoutGlobalScopes()->create([
                         'media_id' => $media->id,
                         'judul' => mb_substr($satu['item']->judul, 0, 500),
@@ -98,7 +98,7 @@ class CrawlBackfill extends Command
                         'dipublikasikan_at' => $satu['item']->dipublikasikanAt,
                         // Waktu sistem mengambilnya, bukan waktu terbit. Grafik
                         // harian memakai kolom ini, jadi arsip lama akan
-                        // menumpuk di hari penarikan — itu memang apa adanya.
+                        // menumpuk di hari penarikan, itu memang apa adanya.
                         'diambil_at' => now(),
                         'status_proses' => 'mentah',
                     ]));
@@ -109,7 +109,7 @@ class CrawlBackfill extends Command
                     continue;
                 }
 
-                // Isi sudah ada di tangan, jadi AmbilIsiArtikel dilewati —
+                // Isi sudah ada di tangan, jadi AmbilIsiArtikel dilewati,
                 // itulah seluruh keuntungan backfill. Sisanya diproses sama
                 // persis dengan jalur crawl biasa.
                 $penyelesai->selesaikan($artikel, $satu['hasil']);

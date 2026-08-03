@@ -32,16 +32,6 @@ class PermintaanPasangan(BaseModel):
     pasangan: list[Pasangan] = Field(min_length=1, max_length=MAKS_PASANGAN)
 
 
-class HasilRelevansi(BaseModel):
-    id: int
-    relevan: bool
-    keyakinan: float
-
-
-class TanggapanRelevansi(BaseModel):
-    hasil: list[HasilRelevansi]
-
-
 class SkorSentimen(BaseModel):
     negatif: float
     netral: float
@@ -63,6 +53,5 @@ class TanggapanSentimen(BaseModel):
 class TanggapanSehat(BaseModel):
     status: str
     model_sentimen: str
-    model_relevansi: str
     model_embedding: str
     versi: str

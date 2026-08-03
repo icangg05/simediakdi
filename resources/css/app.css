@@ -1,5 +1,5 @@
 /* Dilayani sendiri dari npm, bukan Google Fonts CDN: server instansi tidak
-   selalu punya akses keluar yang stabil. Tiga bobot saja — tabel tipografi
+   selalu punya akses keluar yang stabil. Tiga bobot saja, tabel tipografi
    dokumen 04 tidak memakai bobot lain. */
 @import '@fontsource/ibm-plex-sans/latin-400.css';
 @import '@fontsource/ibm-plex-sans/latin-500.css';
@@ -15,7 +15,7 @@ html {
 }
 
 /* Token domain. Satu-satunya sumber kebenaran untuk warna sentimen, termasuk
-   di dalam konfigurasi ECharts — useTemaChart() membacanya lewat
+   di dalam konfigurasi ECharts, useTemaChart() membacanya lewat
    getComputedStyle(). Jangan pernah menulis heksadesimal di file grafik. */
 :root {
     --color-sentimen-positif: oklch(0.62 0.14 155);

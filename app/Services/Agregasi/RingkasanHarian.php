@@ -9,14 +9,14 @@ use Illuminate\Support\Facades\DB;
  * Praperhitungan untuk seluruh grafik.
  *
  * Dashboard eksekutif membaca satu baris per hari tanpa join dan tanpa agregasi
- * — itulah alasan halamannya bisa selesai di bawah dua detik. Menghitung ini
+ *, itulah alasan halamannya bisa selesai di bawah dua detik. Menghitung ini
  * saat request berarti membuang alasan tabelnya ada.
  *
  * Arti baris NULL:
  * - `media_id` NULL, `konteks_pantauan_id` NULL: seluruh media, seluruh konteks
  * - `konteks_pantauan_id` terisi: hanya artikel yang relevan dengan konteks itu
  * - `konteks_pantauan_id` NULL: jumlah sentimen dijumlahkan lintas konteks,
- *   jadi totalnya bisa melebihi `jumlah_artikel` — satu artikel bisa negatif
+ *   jadi totalnya bisa melebihi `jumlah_artikel`, satu artikel bisa negatif
  *   terhadap satu konteks dan netral terhadap konteks lain
  */
 class RingkasanHarian
@@ -81,7 +81,7 @@ class RingkasanHarian
      * Menulis ulang beberapa hari terakhir sekaligus.
      *
      * Sekali sehari rentangnya diperlebar untuk menangkap koreksi label yang
-     * baru dilakukan admin belakangan — tanpa itu, angka hari kemarin membeku
+     * baru dilakukan admin belakangan, tanpa itu, angka hari kemarin membeku
      * dengan label model yang sudah diperbaiki manusia.
      *
      * @return array<string, int>

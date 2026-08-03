@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
 /**
- * Filter, sort, dan paginasi untuk komponen DataTable — semuanya di server.
+ * Filter, sort, dan paginasi untuk komponen DataTable, semuanya di server.
  *
  * State-nya ada di query string, jadi hasil filter bisa dibookmark dan laporan
  * bug bisa direproduksi dari satu tautan.

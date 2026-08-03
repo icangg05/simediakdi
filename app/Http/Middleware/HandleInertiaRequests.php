@@ -49,6 +49,11 @@ class HandleInertiaRequests extends Middleware
                 'sukses' => fn () => $request->session()->get('sukses'),
                 'galat' => fn () => $request->session()->get('galat'),
             ],
+            // Hasil pratinjau lapor pemuatan. Dibagikan lewat session, bukan
+            // disimpan di komponen, supaya menyegarkan halaman membuangnya
+            // alih-alih menyodorkan pratinjau basi yang sudah tidak cocok
+            // dengan isi database.
+            'hasilPeriksa' => fn () => $request->session()->get('hasilPeriksa'),
         ]);
     }
 }

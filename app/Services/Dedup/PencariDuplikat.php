@@ -73,7 +73,7 @@ class PencariDuplikat
 
     /**
      * Lapis 3: kemiripan makna. Menangkap artikel yang ditulis ulang dengan
-     * kata-kata berbeda tapi menceritakan peristiwa yang sama — kasus yang
+     * kata-kata berbeda tapi menceritakan peristiwa yang sama, kasus yang
      * lolos dari hash maupun simhash.
      *
      * Batas tujuh hari itu penting. Tanpanya, pencarian menyusuri seluruh tabel
@@ -93,7 +93,7 @@ class PencariDuplikat
             ->whereNotNull('embedding')
             ->selectRaw('id, 1 - (embedding <=> ?) AS kemiripan', [$artikel->embedding])
             // reorder() wajib: query() mengurutkan menurut waktu, dan tanpa
-            // dibuang, urutan jarak vektor tidak pernah terpakai — index HNSW
+            // dibuang, urutan jarak vektor tidak pernah terpakai, index HNSW
             // ikut tidak terpakai dan yang terambil bukan tetangga terdekat.
             ->reorder()
             ->orderByRaw('embedding <=> ?', [$artikel->embedding])
@@ -113,7 +113,7 @@ class PencariDuplikat
 
     /**
      * ponytail: perbandingan simhash dilakukan di PHP atas jendela tujuh hari.
-     * Pada 300 artikel per hari itu sekitar 2.100 baris — tidak terasa. Kalau
+     * Pada 300 artikel per hari itu sekitar 2.100 baris, tidak terasa. Kalau
      * volumenya naik jauh, pindahkan ke index LSH atau ekstensi bktree.
      */
     private function cariLewatSimhash(Artikel $artikel): ?Artikel
@@ -145,7 +145,7 @@ class PencariDuplikat
      * Kandidat induk: artikel asli dalam jendela waktu, selain dirinya sendiri.
      *
      * Global scope dilepas dengan sengaja. Deduplikasi justru harus melihat
-     * lintas media — satu rilis yang dimuat sepuluh media adalah kasus utamanya.
+     * lintas media, satu rilis yang dimuat sepuluh media adalah kasus utamanya.
      * Pemanggilnya selalu job latar, bukan request pengguna.
      */
     private function query(Artikel $artikel): \Illuminate\Database\Eloquent\Builder

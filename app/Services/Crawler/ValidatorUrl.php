@@ -8,7 +8,7 @@ namespace App\Services\Crawler;
  * Admin bisa memasukkan URL sumber feed apa pun, termasuk alamat internal
  * jaringan atau `http://169.254.169.254/`. Di server cloud kesalahan ini
  * berujung pada kebocoran kredensial metadata, jadi setiap URL yang akan
- * diambil crawler harus lewat sini lebih dulu — tanpa pengecualian.
+ * diambil crawler harus lewat sini lebih dulu, tanpa pengecualian.
  */
 class ValidatorUrl
 {
@@ -98,7 +98,7 @@ class ValidatorUrl
             return $biner === inet_pton('::1')
                 || (ord($biner[0]) & 0xFE) === 0xFC
                 || (ord($biner[0]) === 0xFE && (ord($biner[1]) & 0xC0) === 0x80)
-                // ::ffff:a.b.c.d — IPv4 yang dibungkus IPv6.
+                // ::ffff:a.b.c.d, IPv4 yang dibungkus IPv6.
                 || (str_starts_with($biner, inet_pton('::ffff:0.0.0.0'))
                     && $this->terlarang(inet_ntop(substr($biner, 12))));
         }

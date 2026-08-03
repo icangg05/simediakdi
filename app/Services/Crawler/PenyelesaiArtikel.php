@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Log;
  * Langkah setelah isi artikel tersedia: simpan, hitung sidik jari, deduplikasi
  * lapis 1 dan 2, lalu teruskan ke analisis.
  *
- * Dipakai dua jalur — pengambilan halaman satu per satu (AmbilIsiArtikel) dan
+ * Dipakai dua jalur, pengambilan halaman satu per satu (AmbilIsiArtikel) dan
  * penarikan arsip massal (crawl:backfill). Keduanya wajib memproses artikel
  * dengan cara yang persis sama: kalau deduplikasinya berbeda sedikit saja, satu
  * peristiwa terhitung dua kali dan seluruh angka dashboard ikut salah tanpa ada
@@ -27,7 +27,7 @@ class PenyelesaiArtikel
 
     /**
      * @return bool true kalau artikel diteruskan ke analisis, false kalau
-     *              berhenti di sini — salinan, atau isinya kosong
+     *              berhenti di sini, salinan, atau isinya kosong
      */
     public function selesaikan(Artikel $artikel, HasilEkstraksi $hasil): bool
     {

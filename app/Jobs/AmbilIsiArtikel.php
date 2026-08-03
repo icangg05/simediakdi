@@ -71,7 +71,7 @@ class AmbilIsiArtikel implements ShouldQueue
         // 26 dari 30 media partner memakai WordPress, jadi godaannya besar
         // untuk menaruh API di depan. Pengukuran menolak itu: halaman HTML
         // dilayani page cache dalam 147 ms, sedangkan /wp-json/ menembus cache
-        // dan menjalankan PHP serta query MySQL — 422 ms, tiga kali lebih
+        // dan menjalankan PHP serta query MySQL, 422 ms, tiga kali lebih
         // lambat, dan jauh lebih mahal bagi hosting kecil yang dipakai media
         // daerah. Yang tetap dimenangkan API adalah kepastian datanya, dan itu
         // baru bernilai justru ketika Readability gagal atau hasilnya kependekan.

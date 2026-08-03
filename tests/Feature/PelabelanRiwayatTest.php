@@ -13,7 +13,7 @@ use Tests\TestCase;
  * Riwayat pelabelan harus bertahan melewati muat ulang halaman.
  *
  * Versi pertama menyimpannya di tumpukan browser, dan pelabel kehilangan jalan
- * kembali ke keputusan sebelumnya begitu halaman disegarkan — persis di tengah
+ * kembali ke keputusan sebelumnya begitu halaman disegarkan, persis di tengah
  * pekerjaan 400 baris yang dikerjakan dalam beberapa sesi.
  */
 class PelabelanRiwayatTest extends TestCase
@@ -93,7 +93,7 @@ class PelabelanRiwayatTest extends TestCase
         $this->labeli(2);
         $this->labeli(3);
 
-        // Saat membuka artikel 2, "sebelumnya" harus artikel 1 — bukan artikel 3
+        // Saat membuka artikel 2, "sebelumnya" harus artikel 1, bukan artikel 3
         // yang paling akhir dilabeli. Kalau tidak, panah kiri hanya bolak-balik.
         $this->bukaHalaman($this->artikel[2]->id)->assertInertia(
             fn ($page) => $page->where('riwayat.sebelumnya', $this->artikel[1]->id),
@@ -120,7 +120,7 @@ class PelabelanRiwayatTest extends TestCase
         );
     }
 
-    /** Di ujung riwayat, maju berarti kembali ke antrean — bukan buntu. */
+    /** Di ujung riwayat, maju berarti kembali ke antrean, bukan buntu. */
     public function test_label_terakhir_tidak_punya_berikutnya(): void
     {
         $this->labeli(1);
@@ -158,7 +158,9 @@ class PelabelanRiwayatTest extends TestCase
         $this->bukaHalaman()->assertInertia(
             fn ($page) => $page
                 ->where('progres.selesai', 3)
-                ->where('progres.perKonteks', 2),
+                ->where('progres.perKonteks', 2)
+                // Yang menentukan: label relevan, bukan total.
+                ->where('progres.relevanPerKonteks', 2),
         );
     }
 

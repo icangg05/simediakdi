@@ -1,10 +1,10 @@
-# 04 — Spesifikasi UI dan Design System
+# 04: Spesifikasi UI dan Design System
 
 SIMEDIA Kendari | Versi 1.0 | Tailwind CSS 4 + shadcn-vue
 
 ---
 
-## Bagian A — Design System
+## Bagian A: Design System
 
 ### A.1 Prinsip
 
@@ -135,7 +135,8 @@ Total sekitar 30 komponen. Semuanya masuk ke `resources/js/components/ui` dan me
 | `KartuArtikel.vue` | Feed berita eksekutif | Judul, media, waktu, badge sentimen, tautan keluar |
 | `ProgresKontrak.vue` | Admin dan portal | Progress bar realisasi terhadap target, sisa hari |
 | `PemilihRentangTanggal.vue` | Sepanjang aplikasi | Preset 7 hari, 30 hari, bulan ini, kustom |
-| `PemilihKonteks.vue` | Halaman analisis | Select konteks pantauan aktif |
+| `PemilihKonteks.vue` | Halaman analisis | Select konteks pantauan aktif. Sejak versi 1.4 hanya ada satu konteks aktif, jadi komponen ini menyembunyikan dirinya sendiri saat pilihannya tinggal satu. Jangan dihapus, dan jangan pula dirender sebagai dropdown berisi satu opsi |
+| `KartuRelevansi.vue` | Detail artikel, antrean review | Keputusan relevansi, skor, chip sinyal, potongan kalimat pemicu, dan dua tombol koreksi |
 | `BaseChart.vue` | Semua grafik | Wrapper ECharts yang menerapkan tema dan menangani resize |
 | `KeadaanKosong.vue` | Semua tabel | Pesan dan tindakan saat data belum ada |
 | `IndikatorKesehatan.vue` | Dashboard admin | Titik hijau, kuning, atau merah untuk status crawler dan layanan NLP |
@@ -166,7 +167,7 @@ Daftar grafik dan jenisnya:
 
 ---
 
-## Bagian B — Inventaris halaman
+## Bagian B: Inventaris halaman
 
 Total 24 halaman. Kolom "Sprint" merujuk dokumen 07.
 
@@ -189,7 +190,8 @@ Total 24 halaman. Kolom "Sprint" merujuk dokumen 07.
 | `/admin/verifikasi` | Antrean verifikasi pemuatan | DataTable, pratinjau bukti, tombol setujui dan tolak | 5 |
 | `/admin/entitas` | Daftar entitas | DataTable, aksi gabungkan | 5 |
 | `/admin/pelabelan` | Ruang kerja gold set | Satu artikel per layar, tombol pintasan keyboard | 3 |
-| `/admin/evaluasi` | Hasil evaluasi model | Tabel riwayat, confusion matrix, grafik F1 antar waktu | 3 |
+| `/admin/review` | Antrean perlu review | Artikel dengan keyakinan dekat ambang, satu per layar, urutan berprioritas | 6 |
+| `/admin/evaluasi` | Hasil evaluasi model | Dua tab terpisah, relevansi dan sentimen. Confusion matrix, grafik F1 antar waktu, 20 false positive dan 20 false negative terbesar | 3 |
 | `/admin/alert` | Aturan alert | DataTable dan form | 5 |
 | `/admin/alert/riwayat` | Riwayat alert | DataTable | 5 |
 | `/admin/pengguna` | Pengguna | DataTable dan form | 4 |
@@ -220,7 +222,7 @@ Lima halaman. Semuanya read-only. Semuanya harus terbaca di 375 piksel.
 
 ---
 
-## Bagian C — Wireframe deskriptif
+## Bagian C: Wireframe deskriptif
 
 Hanya untuk lima halaman yang paling berpengaruh. Sisanya mengikuti pola DataTable atau form standar.
 
@@ -268,8 +270,11 @@ Susunan dua kolom di desktop.
 - Kalau artikel ini punya salinan: daftar media yang menyalinnya beserta waktunya
 
 **Kolom kanan, sepertiga:**
-- Kartu per konteks yang relevan. Setiap kartu memuat nama konteks, `BadgeSentimen`, bar tiga skor probabilitas, dan `PenandaPerluReview` bila berlaku
-- Di bawah setiap badge: tiga tombol koreksi, Negatif, Netral, Positif. Satu klik langsung menyimpan lewat request Inertia partial reload, tanpa dialog konfirmasi
+- **Kartu relevansi di paling atas.** Keputusan relevan atau tidak relevan, skor kemiripan, daftar sinyal yang ditemukan sistem (`sinyal_relevansi`) sebagai chip kecil, dan potongan kalimat yang memicunya. Skor ditulis sebagai "kemiripan 0,82", **jangan pernah sebagai persentase keyakinan**. Ia cosine similarity, bukan probabilitas, dan menampilkannya sebagai "82% yakin" membuat admin menyimpulkan hal yang tidak dikatakan angka itu. Dua tombol koreksi: `Relevan` dan `Tidak relevan`. Mengubahnya ke tidak relevan menyembunyikan kartu sentimen, karena artikel yang tidak membahas Pemkot tidak punya nada terhadap Pemkot
+- Field alasan koreksi, **wajib** saat admin membalik keputusan relevansi model. Ini satu-satunya koreksi di sistem yang alasannya wajib, karena tiap pembalikan adalah calon hard negative dan tanpa alasan tertulis ia tidak bisa dipakai memperbaiki model
+- Kartu sentimen di bawahnya, hanya kalau artikel relevan. Memuat `BadgeSentimen`, bar tiga skor probabilitas, dan `PenandaPerluReview` bila berlaku
+- Di bawah badge sentimen: tiga tombol koreksi, Negatif, Netral, Positif. Satu klik langsung menyimpan lewat request Inertia partial reload, tanpa dialog konfirmasi
+- Kartu kategori dan tag sumber, ditandai jelas sebagai metadata dari media, bukan penilaian sistem
 - Field catatan koreksi opsional, tampil setelah label diubah
 - Kalau sudah pernah dikoreksi: baris kecil bertuliskan siapa dan kapan, dengan tombol batalkan koreksi
 - Kartu kecil berisi versi model dan waktu analisis
@@ -282,16 +287,44 @@ Halaman ini yang menentukan gold set jadi atau tidak. Kalau melabeli 400 artikel
 
 Satu artikel memenuhi layar. Tanpa sidebar, tanpa tabel.
 
-- Progres di atas: "Artikel 47 dari 400"
-- Konteks yang sedang dinilai, ditampilkan besar dan jelas
+- Progres di atas: "Artikel 47 dari 400". Angkanya **artikel unik**, bukan pasangan artikel-konteks. Mencampur keduanya membuat progres terlihat tiga kali lebih maju daripada kenyataannya
 - Judul dan ringkasan artikel
-- Pertanyaan pertama: relevan terhadap konteks ini? Tombol Ya dan Tidak
-- Kalau Ya, pertanyaan kedua: nada terhadap konteks ini? Tombol Negatif, Netral, Positif
-- Field catatan opsional
+- Kategori dan tag dari sumber, ditampilkan sebagai chip. Sering inilah yang paling cepat menjawab apakah artikel membahas Pemkot atau hanya berlokasi di Kendari
+- Potongan kalimat di sekitar sebutan Pemkot, OPD, atau pejabat, dengan sebutannya ditebalkan
+- Pertanyaan pertama: apakah artikel ini secara substantif membahas Pemerintah Kota Kendari? Tombol Relevan dan Tidak relevan
+- Kalau relevan, pertanyaan kedua: bagaimana nadanya terhadap Pemkot? Tombol Negatif, Netral, Positif
+- Field catatan opsional, kecuali pada artikel yang dinyatakan tidak relevan padahal model menyatakan relevan. Di kasus itu catatan diminta, karena baris itulah hard negative yang paling berguna
+
+Tidak ada lagi tiga kartu konteks untuk satu artikel, dan tidak ada lagi
+pemilih konteks di kanan atas. Satu artikel, satu keputusan relevansi, dan
+paling banyak satu keputusan sentimen.
 - **Label model disembunyikan sampai pelabel memutuskan.** Ini bukan detail kecil. Kalau pelabel melihat jawaban model lebih dulu, ia akan cenderung menyetujuinya, dan gold set Anda berhenti mengukur apa pun. Setelah pelabel memilih, baru tampilkan apa kata model sebagai umpan balik.
-- Pintasan keyboard: `1` negatif, `2` netral, `3` positif, `r` tidak relevan, `←` artikel sebelumnya. Cantumkan pintasannya di layar.
+- Pintasan keyboard: `1` negatif, `2` netral, `3` positif, `4` tidak relevan, `←` artikel sebelumnya. Cantumkan pintasannya di layar. Dokumen 09 menjelaskan mengapa `4` dan bukan `r`.
 
 Dengan tata letak ini, satu artikel memakan waktu sekitar 20 detik dan 400 artikel selesai dalam kurang lebih dua jam kerja terfokus, jauh di bawah perkiraan delapan jam di dokumen 01. Tanpa pintasan keyboard dan tanpa penyembunyian label model, angkanya kembali ke delapan jam dan hasilnya lebih buruk.
+
+### C.3.1 Antrean perlu review, `/admin/review`
+
+Tata letaknya meminjam C.3, tapi isinya artikel produksi, bukan gold set.
+Keputusan di sini langsung mengubah dashboard, sedangkan keputusan di halaman
+pelabelan hanya mengubah penggaris. Beri warna header yang berbeda supaya
+keduanya tidak tertukar.
+
+Urutan antreannya, dari yang paling dulu disodorkan:
+
+1. keyakinan paling dekat ambang;
+2. artikel dari sumber yang baru ditambahkan;
+3. artikel yang ditebak negatif;
+4. artikel yang tag sumbernya bertentangan dengan keputusan model;
+5. artikel yang menyebut Pemkot hanya sekali;
+6. artikel dari media bertier tinggi.
+
+Urutan ini bukan selera. Artikel yang keyakinannya di tengah adalah tempat
+model paling sering salah, dan artikel negatif dari media besar adalah yang
+paling cepat sampai ke pimpinan lewat jalur lain.
+
+Tampilkan jumlah antrean di sidebar. Kalau `perlu_review` melewati 20% dari
+artikel harian, yang bermasalah ambangnya, bukan admin yang kurang rajin.
 
 ### C.4 Kontrak saya, `/portal/kontrak`
 
@@ -334,7 +367,7 @@ Setelah konfirmasi, job pengarsipan berjalan di latar belakang (F-52). Media tid
 
 ---
 
-## Bagian D — Keadaan kosong dan error
+## Bagian D: Keadaan kosong dan error
 
 Setiap halaman daftar butuh empat keadaan, dan mengabaikannya adalah penyebab paling umum aplikasi terasa belum jadi.
 
@@ -347,7 +380,7 @@ Setiap halaman daftar butuh empat keadaan, dan mengabaikannya adalah penyebab pa
 
 Bedakan kosong-karena-belum-ada-data dengan kosong-karena-filter. Menyatukan keduanya membuat admin baru berpikir sistemnya rusak padahal ia hanya salah memilih tanggal.
 
-## Bagian E — Aksesibilitas
+## Bagian E: Aksesibilitas
 
 Sistem pemerintah dibuka dengan berbagai perangkat dan kemampuan. Empat hal berikut tidak mahal untuk dikerjakan dan sulit ditambal belakangan.
 

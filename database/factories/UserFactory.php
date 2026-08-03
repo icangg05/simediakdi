@@ -41,7 +41,7 @@ class UserFactory extends Factory
         return $this->state(fn () => ['peran' => PeranPengguna::Walikota]);
     }
 
-    /** Peran media wajib punya media_id — dijaga constraint database. */
+    /** Peran media wajib punya media_id, dijaga constraint database. */
     public function media(Media|int $media): static
     {
         return $this->state(fn () => [

@@ -15,7 +15,7 @@ use Tests\TestCase;
 
 /**
  * Penyaring relevansi menentukan artikel mana yang masuk grafik, jadi angkanya
- * sama menentukannya dengan F1 sentimen. Sempat tidak diukur sama sekali —
+ * sama menentukannya dengan F1 sentimen. Sempat tidak diukur sama sekali,
  * dibangun di sprint 3 tanpa satu pun metrik.
  */
 class MetrikRelevansiTest extends TestCase
@@ -112,7 +112,7 @@ class MetrikRelevansiTest extends TestCase
 
         $this->assertSame(1.0, $metrik['recall'], 'Tidak ada yang terlewat.');
         $this->assertEqualsWithDelta(0.333, $metrik['presisi'], 0.001);
-        // Akurasi saja akan terlihat 33% — presisi yang menjelaskan sebabnya.
+        // Akurasi saja akan terlihat 33%, presisi yang menjelaskan sebabnya.
         $this->assertLessThan(0.7, $metrik['presisi']);
     }
 

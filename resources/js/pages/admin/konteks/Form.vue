@@ -85,7 +85,7 @@ function simpan() {
                         />
                         <p class="text-xs text-muted-foreground">
                             Satu per baris. Dipakai dua kali: menyaring artikel yang jelas tidak nyambung sebelum
-                            model dipanggil, dan mengetatkan hasil model setelahnya — artikel dianggap benar-benar
+                            model dipanggil, dan mengetatkan hasil model setelahnya, artikel dianggap benar-benar
                             membahas konteks kalau kata kunci muncul di judul, atau minimal tiga kali di badan
                             berita. Tanpa pengetat itu, presisi penyaring hanya 47%.
                         </p>
@@ -113,7 +113,7 @@ function simpan() {
                         <span>
                             Jadikan konteks utama
                             <span class="block text-xs text-muted-foreground">
-                                Seluruh angka dashboard eksekutif bertumpu pada konteks ini. Hanya boleh ada satu —
+                                Seluruh angka dashboard eksekutif bertumpu pada konteks ini. Hanya boleh ada satu,
                                 menandai yang baru otomatis melepas yang lama.
                             </span>
                         </span>

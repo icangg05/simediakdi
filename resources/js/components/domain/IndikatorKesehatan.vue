@@ -3,7 +3,7 @@ import { CircleAlert, CircleCheck, CircleX } from 'lucide-vue-next';
 import { computed } from 'vue';
 
 /**
- * Status warna tetap dibarengi ikon dan teks — warna saja tidak cukup dibaca
+ * Status warna tetap dibarengi ikon dan teks, warna saja tidak cukup dibaca
  * semua orang dan tidak akurat di proyektor ruang rapat.
  */
 const props = defineProps<{

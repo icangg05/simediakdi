@@ -17,7 +17,7 @@ type Label = 'negatif' | 'netral' | 'positif';
 interface Analisis {
     id: number;
     relevan: boolean;
-    keyakinan_relevansi: number | null;
+    skor_relevansi: number | null;
     label_model: Label | null;
     label_manual: Label | null;
     label_efektif: Label | null;
@@ -33,7 +33,7 @@ interface Analisis {
     pengoreksi: { id: number; name: string } | null;
 }
 
-const props = defineProps<{
+defineProps<{
     artikel: {
         id: number;
         judul: string;
@@ -53,7 +53,7 @@ const props = defineProps<{
         analisis_sentimen: Analisis[];
     };
     evaluasi: { f1_macro: number; akurasi: number; dievaluasi_at: string; jumlah_sampel: number } | null;
-    ambang: { sentimen: number; relevansi: number };
+    ambang: { sentimen: number; relevansi_atas: number | null; relevansi_bawah: number | null };
 }>();
 
 const { formatAngka, formatPersen } = useFormatAngka();
@@ -82,7 +82,7 @@ function cabut(analisis: Analisis) {
 }
 
 const waktu = (nilai: string | null) =>
-    nilai ? format(new Date(nilai), 'd MMMM yyyy, HH:mm', { locale: id }) : '–';
+    nilai ? format(new Date(nilai), 'd MMMM yyyy, HH:mm', { locale: id }) : '-';
 </script>
 
 <template>
@@ -109,11 +109,11 @@ const waktu = (nilai: string | null) =>
 
                         <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground sm:grid-cols-3">
                             <div><dt class="inline">Media:</dt> <dd class="inline">{{ artikel.media?.nama ?? 'Belum ditautkan' }}</dd></div>
-                            <div><dt class="inline">Penulis:</dt> <dd class="inline">{{ artikel.penulis ?? '–' }}</dd></div>
+                            <div><dt class="inline">Penulis:</dt> <dd class="inline">{{ artikel.penulis ?? '-' }}</dd></div>
                             <div><dt class="inline">Kata:</dt> <dd class="angka inline">{{ formatAngka(artikel.jumlah_kata) }}</dd></div>
                             <div><dt class="inline">Terbit:</dt> <dd class="inline">{{ waktu(artikel.dipublikasikan_at) }}</dd></div>
                             <div><dt class="inline">Diambil:</dt> <dd class="inline">{{ waktu(artikel.diambil_at) }}</dd></div>
-                            <div><dt class="inline">Sumber:</dt> <dd class="inline">{{ artikel.sumber_feed?.nama ?? '–' }}</dd></div>
+                            <div><dt class="inline">Sumber:</dt> <dd class="inline">{{ artikel.sumber_feed?.nama ?? '-' }}</dd></div>
                         </dl>
 
                         <a
@@ -180,16 +180,16 @@ const waktu = (nilai: string | null) =>
 
                             <template v-else>
                                 <p class="text-xs text-muted-foreground">
-                                    Analisis otomatis: cenderung {{ analisis.label_model ?? '–' }},
+                                    Analisis otomatis: cenderung {{ analisis.label_model ?? '-' }},
                                     keyakinan {{ analisis.keyakinan }}
-                                    <span v-if="analisis.perlu_review">
-                                        — di bawah ambang {{ ambang.sentimen }}, belum dapat dianggap pasti
+                                    <span v-if="analisis.perlu_review">,
+di bawah ambang {{ ambang.sentimen }}, belum dapat dianggap pasti
                                     </span>
                                 </p>
 
                                 <p v-if="analisis.label_manual" class="text-xs">
                                     Dikoreksi menjadi <strong>{{ analisis.label_manual }}</strong>
-                                    oleh {{ analisis.pengoreksi?.name ?? '–' }}, {{ waktu(analisis.dikoreksi_at) }}.
+                                    oleh {{ analisis.pengoreksi?.name ?? '-' }}, {{ waktu(analisis.dikoreksi_at) }}.
                                     <span v-if="analisis.catatan_koreksi" class="text-muted-foreground">
                                         “{{ analisis.catatan_koreksi }}”
                                     </span>
@@ -256,7 +256,7 @@ const waktu = (nilai: string | null) =>
                         <ul class="space-y-1 text-xs">
                             <li v-for="salinan in artikel.salinan" :key="salinan.id">
                                 <Link :href="`/admin/artikel/${salinan.id}`" class="underline">{{ salinan.judul }}</Link>
-                                <span class="text-muted-foreground"> — {{ salinan.media?.nama ?? '–' }}</span>
+                                <span class="text-muted-foreground">, {{ salinan.media?.nama ?? '-' }}</span>
                             </li>
                         </ul>
                     </CardContent>

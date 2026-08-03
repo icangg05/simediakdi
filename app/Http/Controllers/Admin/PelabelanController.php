@@ -9,6 +9,7 @@ use App\Models\GoldSet;
 use App\Models\KonteksPantauan;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -22,13 +23,27 @@ use Inertia\Response;
  */
 class PelabelanController extends Controller
 {
-    /** Target gold set sesuai dokumen 07. */
+    /**
+     * Target gold set sesuai dokumen 07, sebagai anggaran waktu bukan hitungan
+     * statistik. Dipertahankan untuk gambaran kasar.
+     */
     private const TARGET = 400;
+
+    /**
+     * Yang benar-benar mengikat: berapa label **relevan** per konteks, karena
+     * hanya baris relevan yang dipakai `evaluasi:model`.
+     *
+     * 50 memberi margin galat sekitar sepuluh persen pada akurasi per konteks,
+     * cukup untuk keputusan, dan realistis dikerjakan satu orang. Melabeli 200
+     * artikel acak di konteks yang relevansinya rendah hanya menghasilkan
+     * segelintir baris terpakai; itu yang terjadi pada dua konteks sekunder.
+     */
+    private const TARGET_RELEVAN = 50;
 
     /**
      * Mode pengambilan artikel.
      *
-     * Hanya `acak` yang menghasilkan perkiraan akurasi tanpa bias — sampelnya
+     * Hanya `acak` yang menghasilkan perkiraan akurasi tanpa bias, sampelnya
      * mewakili keseluruhan artikel. Tiga mode lain memilih artikel berdasarkan
      * tebakan model, jadi berguna untuk mengukur F1 per kelas tapi tidak boleh
      * dipakai menghitung akurasi keseluruhan. Pemisahan ini disebut di UI,
@@ -37,10 +52,10 @@ class PelabelanController extends Controller
      * @var array<string, string>
      */
     private const MODE = [
-        'acak' => 'Acak — untuk akurasi keseluruhan',
-        'relevan' => 'Kemungkinan relevan — hemat tekanan "tidak relevan"',
-        'negatif' => 'Ditebak negatif — untuk mengukur F1 negatif',
-        'ragu' => 'Perlu review — keyakinan model rendah',
+        'acak' => 'Acak: apa adanya, untuk akurasi keseluruhan',
+        'relevan' => 'Kemungkinan relevan: lebih jarang keluar yang tidak nyambung',
+        'negatif' => 'Ditebak negatif: untuk mengukur kelas negatif',
+        'ragu' => 'Perlu review: model sendiri ragu',
     ];
 
     public function index(Request $request): Response
@@ -65,15 +80,7 @@ class PelabelanController extends Controller
             // Riwayat di browser hilang begitu halaman dimuat ulang, dan
             // pelabel kehilangan jalan kembali ke keputusan sebelumnya.
             'riwayat' => $konteks ? $this->riwayat($konteks, $ronde, $request->query('artikel')) : null,
-            'progres' => [
-                'selesai' => GoldSet::where('ronde', $ronde)->count(),
-                'target' => self::TARGET,
-                // Per konteks, supaya terlihat pembagiannya belum merata dan
-                // konteks utama tidak tertinggal tanpa disadari.
-                'perKonteks' => $konteks === null ? 0 : GoldSet::where('ronde', $ronde)
-                    ->where('konteks_pantauan_id', $konteks->id)
-                    ->count(),
-            ],
+            'progres' => $this->progres($konteks, $ronde),
         ]);
     }
 
@@ -88,6 +95,10 @@ class PelabelanController extends Controller
             'label_gold' => ['required_if:relevan_gold,true', 'nullable', new Enum(LabelSentimen::class)],
             'catatan' => ['nullable', 'string', 'max:1000'],
             'ronde' => ['required', 'integer', 'in:1,2'],
+            // Dikirim di badan permintaan, bukan query string: form POST tidak
+            // membawa query, jadi membacanya dari sana selalu menghasilkan
+            // default dan mode pelabel terlempar kembali ke acak tiap label.
+            'mode' => ['nullable', 'string', Rule::in(array_keys(self::MODE))],
         ]);
 
         GoldSet::updateOrCreate(
@@ -111,15 +122,44 @@ class PelabelanController extends Controller
         return to_route('admin.pelabelan.index', [
             'konteks' => $data['konteks_pantauan_id'],
             'ronde' => $data['ronde'],
-            'mode' => $request->query('mode', 'acak'),
+            'mode' => $data['mode'] ?? 'acak',
         ]);
+    }
+
+    /**
+     * Progres pelabelan.
+     *
+     * Angka yang ditonjolkan adalah label **relevan** per konteks, bukan total.
+     * Total menyesatkan: 200 label acak di konteks utama hanya menghasilkan 48
+     * baris yang terpakai evaluasi, dan 28 label di konteks pelayanan publik
+     * hanya menghasilkan 1. Bilah yang menunjukkan "255 dari 400" membuat
+     * pekerjaan terlihat 64% jadi padahal yang terpakai baru seperlimanya.
+     *
+     * @return array<string, mixed>
+     */
+    private function progres(?KonteksPantauan $konteks, int $ronde): array
+    {
+        $dasar = GoldSet::query()->where('ronde', $ronde);
+
+        return [
+            'selesai' => (clone $dasar)->count(),
+            'target' => self::TARGET,
+            'targetRelevan' => self::TARGET_RELEVAN,
+            'perKonteks' => $konteks === null ? 0 : (clone $dasar)
+                ->where('konteks_pantauan_id', $konteks->id)
+                ->count(),
+            'relevanPerKonteks' => $konteks === null ? 0 : (clone $dasar)
+                ->where('konteks_pantauan_id', $konteks->id)
+                ->where('relevan_gold', true)
+                ->count(),
+        ];
     }
 
     /**
      * Jalan kembali ke keputusan yang sudah dibuat.
      *
      * `sebelumnya` dihitung relatif terhadap artikel yang sedang dibuka, bukan
-     * selalu yang terakhir dilabeli — tanpa itu, menekan panah kiri dua kali
+     * selalu yang terakhir dilabeli, tanpa itu, menekan panah kiri dua kali
      * berturut-turut hanya bolak-balik di satu artikel yang sama.
      *
      * @return array{sebelumnya: int|null, berikutnya: int|null, terakhir: list<array<string, mixed>>}
@@ -145,7 +185,7 @@ class PelabelanController extends Controller
             ->value('gold_set.artikel_id');
 
         // Maju hanya masuk akal saat sedang menelusuri riwayat. Di ujung depan
-        // antrean, "berikutnya" adalah artikel yang belum dilabeli — itu sudah
+        // antrean, "berikutnya" adalah artikel yang belum dilabeli, itu sudah
         // jadi tugas yang tampil dengan sendirinya.
         $berikutnya = $waktuDibuka === null
             ? null
@@ -186,8 +226,8 @@ class PelabelanController extends Controller
      * Keduanya diperlukan. Mengambil berurutan membuat gold set berisi artikel
      * dari periode dan media yang berdekatan, dan angka akurasinya tidak
      * mewakili apa pun. Sedangkan inRandomOrder() tidak bisa dipakai: seed-nya
-     * diabaikan di PostgreSQL — Grammar::compileRandom() mengembalikan RANDOM()
-     * apa adanya — sehingga tiap muat ulang menyodorkan artikel berbeda dan
+     * diabaikan di PostgreSQL, Grammar::compileRandom() mengembalikan RANDOM()
+     * apa adanya, sehingga tiap muat ulang menyodorkan artikel berbeda dan
      * pelabel kehilangan artikel yang sedang dibacanya.
      *
      * @return array<string, mixed>|null
@@ -196,7 +236,7 @@ class PelabelanController extends Controller
      * Antrean artikel yang belum dilabeli, disaring menurut mode.
      *
      * Mode selain `acak` menyaring berdasarkan tebakan model. Itu disengaja
-     * untuk mengumpulkan cukup contoh kelas langka — berita negatif hanya 4,5%
+     * untuk mengumpulkan cukup contoh kelas langka, berita negatif hanya 4,5%
      * dari pasangan relevan, jadi sampel acak murni tidak akan pernah memuat
      * cukup banyak untuk mengukur F1 negatif. Konsekuensinya sampel itu bias
      * dan tidak boleh dipakai menghitung akurasi keseluruhan.

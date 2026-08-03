@@ -11,12 +11,12 @@ use Throwable;
  * ketika Readability gagal atau hasilnya terlalu pendek.
  *
  * Pengukuran pada 30 media lampiran A: 26 punya WP REST aktif, dan pada 27
- * media lokal serta regional — mayoritas partner kontrak — angkanya 25 dari 27.
+ * media lokal serta regional, mayoritas partner kontrak, angkanya 25 dari 27.
  * Satu permintaan mengembalikan judul, isi, tanggal, penulis, dan gambar utama
  * secara pasti, bukan hasil tebakan.
  *
  * Tetap jaring pengaman, bukan jalur utama. Pada situs yang page cache-nya
- * hidup — dan itu hampir semuanya — HTML datang dalam 147 ms sedangkan
+ * hidup, dan itu hampir semuanya, HTML datang dalam 147 ms sedangkan
  * /wp-json/ butuh 422 ms karena menembus cache dan menjalankan PHP serta
  * query MySQL. Menaruhnya di depan berarti membayar tiga kali lipat latensi
  * dan membebani hosting kecil media daerah untuk keuntungan yang, pada 22 dari
@@ -62,7 +62,7 @@ class EkstraktorWordPress
             return null;
         } catch (GagalMengunduh $e) {
             // Hanya 404 yang membuktikan rute REST tidak ada. Timeout atau 502
-            // adalah gangguan sesaat — jangan mematikan jalur API sehari penuh
+            // adalah gangguan sesaat, jangan mematikan jalur API sehari penuh
             // karena satu permintaan yang apes.
             if ($e->status === 404) {
                 Cache::put($this->kunci($host), false, now()->addDay());
@@ -82,7 +82,7 @@ class EkstraktorWordPress
         Cache::put($this->kunci($host), true, now()->addDay());
 
         // Array kosong berarti API-nya hidup tapi artikel ini tidak lewat
-        // endpoint `posts` — biasanya custom post type atau permalink `?p=123`.
+        // endpoint `posts`, biasanya custom post type atau permalink `?p=123`.
         // Jalur API tetap dipertahankan untuk artikel lain di situs yang sama.
         if ($json === [] || ! isset($json[0]['content']['rendered'])) {
             return null;
@@ -118,7 +118,7 @@ class EkstraktorWordPress
     /**
      * `date_gmt` memang GMT, tapi nilainya dikirim tanpa penanda zona waktu
      * ("2026-08-02T11:44:31"). Kalau diurai tanpa menyebut UTC, Carbon memakai
-     * zona aplikasi — dan di WITA hasilnya meleset delapan jam ke belakang.
+     * zona aplikasi, dan di WITA hasilnya meleset delapan jam ke belakang.
      */
     private function waktu(?string $mentah): ?CarbonImmutable
     {

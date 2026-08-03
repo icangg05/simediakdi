@@ -12,7 +12,7 @@ use Illuminate\Foundation\Queue\Queueable;
  * F-11 dan F-12: label sentimen terhadap konteks, beserta skor keyakinannya.
  *
  * Hanya konteks yang lolos relevansi yang dinilai. Label manual tidak pernah
- * disentuh di sini — koreksi manusia selalu mengalahkan hasil model (F-13),
+ * disentuh di sini, koreksi manusia selalu mengalahkan hasil model (F-13),
  * dan analisis ulang tidak boleh menghapusnya.
  */
 class AnalisisSentimen implements ShouldQueue

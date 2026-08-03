@@ -15,10 +15,10 @@ return [
 
     'dedup' => [
         // Dokumen 02 memberi nilai awal 4. Pengukuran pada teks berita
-        // berbahasa Indonesia sepanjang 50–70 kata menunjukkan angka itu
+        // berbahasa Indonesia sepanjang 50-70 kata menunjukkan angka itu
         // terlalu ketat: satu rilis yang dimuat ulang dengan satu paragraf
-        // tambahan berjarak 8–10 bit, sedangkan dua berita yang benar-benar
-        // berbeda berjarak 30–34 bit meski kosakatanya nyaris sama. 12 duduk
+        // tambahan berjarak 8-10 bit, sedangkan dua berita yang benar-benar
+        // berbeda berjarak 30-34 bit meski kosakatanya nyaris sama. 12 duduk
         // di tengah celah itu. Kalibrasi ulang di sprint 3 dengan 100 pasangan
         // manual sesuai dokumen 07.
         'ambang_simhash' => (int) env('DEDUP_AMBANG_SIMHASH', 12),

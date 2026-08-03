@@ -17,7 +17,7 @@ use Tests\TestCase;
  *
  * Berita negatif hanya 4,5% dari pasangan relevan pada korpus nyata, jadi
  * sampel acak murni tidak akan pernah memuat cukup banyak untuk mengukur
- * F1 negatif — 250 label acak menghasilkan sekitar tujuh contoh negatif.
+ * F1 negatif, 250 label acak menghasilkan sekitar tujuh contoh negatif.
  */
 class PelabelanModeTest extends TestCase
 {
@@ -95,7 +95,7 @@ class PelabelanModeTest extends TestCase
 
     /**
      * Beban terbesar pelabel di konteks sempit bukan menilai, tapi menekan
-     * "tidak relevan" berulang kali — 85% artikel tidak relevan di sana.
+     * "tidak relevan" berulang kali, 85% artikel tidak relevan di sana.
      */
     public function test_mode_relevan_melewati_artikel_yang_dinilai_tidak_relevan(): void
     {
@@ -107,12 +107,47 @@ class PelabelanModeTest extends TestCase
 
     public function test_mode_acak_tetap_menyodorkan_artikel_yang_belum_dianalisis(): void
     {
-        // Tanpa baris analisis sama sekali — hanya mode acak yang memuatnya,
+        // Tanpa baris analisis sama sekali, hanya mode acak yang memuatnya,
         // dan itu memang sampel yang mewakili keseluruhan.
         $belum = $this->artikel(null);
 
         $this->assertSame($belum->id, $this->buka('acak')['tugas']['artikel']['id']);
         $this->assertNull($this->buka('relevan')['tugas']);
+    }
+
+    /**
+     * Mode harus bertahan setelah menyimpan label. Sempat tidak: `store()`
+     * membacanya dari query string, sedangkan form POST tidak membawa query,
+     * jadi pelabel terlempar kembali ke acak setiap kali menekan label.
+     */
+    public function test_mode_bertahan_setelah_menyimpan_label(): void
+    {
+        $artikel = $this->artikel(LabelSentimen::Negatif);
+
+        $tujuan = $this->actingAs($this->pelabel)->post('/admin/pelabelan', [
+            'artikel_id' => $artikel->id,
+            'konteks_pantauan_id' => $this->konteks->id,
+            'relevan_gold' => true,
+            'label_gold' => 'negatif',
+            'ronde' => 1,
+            'mode' => 'negatif',
+        ])->headers->get('Location');
+
+        $this->assertStringContainsString('mode=negatif', $tujuan);
+    }
+
+    public function test_mode_tak_dikenal_ditolak_saat_menyimpan(): void
+    {
+        $artikel = $this->artikel(LabelSentimen::Netral);
+
+        $this->actingAs($this->pelabel)->post('/admin/pelabelan', [
+            'artikel_id' => $artikel->id,
+            'konteks_pantauan_id' => $this->konteks->id,
+            'relevan_gold' => true,
+            'label_gold' => 'netral',
+            'ronde' => 1,
+            'mode' => 'ngawur',
+        ])->assertSessionHasErrors('mode');
     }
 
     public function test_mode_tak_dikenal_jatuh_ke_acak(): void

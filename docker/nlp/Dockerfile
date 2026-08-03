@@ -3,7 +3,7 @@ FROM python:3.11-slim
 WORKDIR /nlp
 
 # torch CPU-only. Indeks resmi PyPI membawa varian CUDA yang ukurannya berlipat
-# tanpa manfaat — inferensi untuk volume satu kota cukup di CPU.
+# tanpa manfaat: inferensi untuk volume satu kota cukup di CPU.
 COPY requirements.txt .
 RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
 

@@ -52,7 +52,7 @@ class MediaSeeder extends Seeder
      * Media nasional: jangan tarik feed utuh, isinya didominasi berita di luar
      * Kendari dan akan menenggelamkan angka volume.
      */
-    private const CATATAN_NASIONAL = 'Nasional. Jangan pakai feed utuh — pakai feed kategori daerah bila ada, '
+    private const CATATAN_NASIONAL = 'Nasional. Jangan pakai feed utuh, pakai feed kategori daerah bila ada, '
         .'atau Google News RSS dengan kata kunci Kendari.';
 
     public function run(): void

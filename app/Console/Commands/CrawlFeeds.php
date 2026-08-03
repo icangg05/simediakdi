@@ -118,7 +118,7 @@ class CrawlFeeds extends Command
      * Dipakai untuk media nasional: feed utuh Tempo dan Detik didominasi berita
      * di luar Kendari dan akan menenggelamkan angka volume (dokumen 01 lampiran
      * A catatan 1). Menyaring dari judul dan ringkasan feed, bukan dari isi
-     * halaman — mengunduh seratus artikel nasional untuk membuang sembilan
+     * halaman, mengunduh seratus artikel nasional untuk membuang sembilan
      * puluh delapan justru banjir yang mau dihindari.
      *
      * Sumber tanpa kata kunci tidak disaring sama sekali.
@@ -160,7 +160,7 @@ class CrawlFeeds extends Command
             'pesan' => mb_substr($e->getMessage(), 0, 2000),
         ]);
 
-        $this->warn("  {$sumber->nama}: gagal ({$gagal}/{$batas}) — {$e->getMessage()}");
+        $this->warn("  {$sumber->nama}: gagal ({$gagal}/{$batas}), {$e->getMessage()}");
 
         if ($gagal >= $batas) {
             $this->error("  {$sumber->nama} dinonaktifkan setelah {$batas} kegagalan berturut-turut.");

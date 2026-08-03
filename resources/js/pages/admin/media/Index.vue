@@ -91,7 +91,7 @@ const warnaTier: Record<BarisMedia['tier'], string> = {
             </template>
 
             <template #sel-domain="{ baris }">
-                <span class="text-muted-foreground">{{ baris.domain ?? '–' }}</span>
+                <span class="text-muted-foreground">{{ baris.domain ?? '-' }}</span>
             </template>
 
             <template #sel-tier="{ baris }">

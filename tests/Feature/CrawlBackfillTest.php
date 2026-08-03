@@ -12,7 +12,7 @@ use Mockery;
 use Tests\TestCase;
 
 /**
- * Backfill menempuh jalur berbeda dari crawl harian — isinya sudah di tangan,
+ * Backfill menempuh jalur berbeda dari crawl harian, isinya sudah di tangan,
  * jadi AmbilIsiArtikel dilewati. Yang tidak boleh berbeda: deduplikasi dan
  * penerusan ke analisis. Kalau keduanya menyimpang sedikit saja, satu peristiwa
  * terhitung dua kali dan seluruh angka dashboard ikut salah.

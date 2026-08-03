@@ -1,4 +1,4 @@
-# 06 — Akses dan Keamanan
+# 06: Akses dan Keamanan
 
 SIMEDIA Kendari | Versi 1.0
 
@@ -23,26 +23,26 @@ Kolom: S = superadmin, W = walikota, M = media. Notasi: **B** baca, **T** tulis,
 | Sumber daya | S | W | M |
 |-------------|---|---|---|
 | Artikel, daftar dan detail | B T | B | BS |
-| Isi artikel utuh | — | — | — |
-| Koreksi label sentimen | T | — | — |
-| Skor sentimen artikel | B | B | — |
+| Isi artikel utuh | - | - | - |
+| Koreksi label sentimen | T | - | - |
+| Skor sentimen artikel | B | B | - |
 | Media, daftar | B T | B | BS |
-| Sumber feed | B T | — | — |
-| Konteks pantauan | B T | B | — |
+| Sumber feed | B T | - | - |
+| Konteks pantauan | B T | B | - |
 | Kontrak | B T | B | BS |
 | Pemuatan | B T | B | BS TS |
-| Verifikasi pemuatan | T | — | — |
-| Entitas | B T | B | — |
-| Kata kunci dan isu | B | B | — |
+| Verifikasi pemuatan | T | - | - |
+| Entitas | B T | B | - |
+| Kata kunci dan isu | B | B | - |
 | Ringkasan dan grafik agregat | B | B | BS |
-| Gold set dan pelabelan | B T | — | — |
-| Hasil evaluasi model | B | B | — |
-| Aturan alert | B T | B | — |
-| Riwayat alert | B T | B | — |
-| Pengguna | B T | — | BS profil sendiri |
-| Log crawl | B | — | — |
-| Activity log | B | — | — |
-| Pengaturan sistem | B T | — | — |
+| Gold set dan pelabelan | B T | - | - |
+| Hasil evaluasi model | B | B | - |
+| Aturan alert | B T | B | - |
+| Riwayat alert | B T | B | - |
+| Pengguna | B T | - | BS profil sendiri |
+| Log crawl | B | - | - |
+| Activity log | B | - | - |
+| Pengaturan sistem | B T | - | - |
 | Ekspor Excel dan PDF | T | T | TS |
 
 Tiga baris yang perlu diperhatikan:
@@ -57,7 +57,7 @@ Tiga baris yang perlu diperhatikan:
 
 Empat lapisan, berlapis dengan sengaja. Satu lapisan gagal, tiga lainnya masih menahan.
 
-### Lapis 1 — Middleware rute
+### Lapis 1: Middleware rute
 
 ```php
 Route::middleware(['auth', 'verified', 'peran:superadmin'])
@@ -72,7 +72,7 @@ Route::middleware(['auth', 'verified', 'peran:media'])
 
 Middleware `tolak.tulis` menolak seluruh request dengan method POST, PUT, PATCH, dan DELETE, kecuali rute yang masuk daftar putih ekspor. Ini sabuk pengaman untuk F-44. Kalau suatu saat Anda lupa dan menambahkan tombol di halaman eksekutif, middleware ini menahannya.
 
-### Lapis 2 — Global scope
+### Lapis 2: Global scope
 
 Model yang memiliki `media_id` mendapat global scope. Ini penegakan terpenting, karena bekerja bahkan ketika Anda lupa menulis kondisi `where` di controller.
 
@@ -86,13 +86,13 @@ Perilaku scope:
 
 Poin terakhir itu penting. Scope harus **gagal ke arah menutup**, bukan membuka. Kalau `auth()->user()` bernilai null karena satu sebab yang tidak terduga, misalnya query dijalankan dari console command, scope harus mengembalikan nol baris, bukan semuanya. Untuk console command yang memang butuh semua data, gunakan `withoutGlobalScope()` secara eksplisit sehingga niatnya terlihat di kode.
 
-### Lapis 3 — Policy
+### Lapis 3: Policy
 
 Policy per model untuk aksi individual. Yang wajib ditulis: `ArtikelPolicy`, `KontrakPolicy`, `PemuatanPolicy`, `MediaPolicy`, `UserPolicy`, `AnalisisSentimenPolicy`.
 
 Aturan yang paling mudah terlewat, dan sudah pernah menjadi celah di banyak aplikasi Laravel: pada `PemuatanPolicy::update()`, periksa bahwa `$pemuatan->media_id === $user->media_id` **dan** bahwa statusnya masih `menunggu`. Tanpa syarat kedua, media bisa mengubah laporan yang sudah diverifikasi admin.
 
-### Lapis 4 — Penyaringan data yang dikirim ke frontend
+### Lapis 4: Penyaringan data yang dikirim ke frontend
 
 Inertia mengirim seluruh props ke browser, dan pengguna bisa membacanya di devtools. Karena itu penyaringan di lapisan data wajib, tidak cukup menyembunyikan elemen di komponen Vue.
 

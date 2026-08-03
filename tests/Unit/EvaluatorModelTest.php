@@ -51,7 +51,7 @@ class EvaluatorModelTest extends TestCase
 
         $this->assertSame(0.9, $hasil['akurasi']);
         $this->assertSame(0.0, $hasil['f1_positif'], 'Kelas positif tidak pernah benar sekali pun.');
-        // Akurasi 90% tapi F1 macro jauh di bawahnya — itu justru gunanya.
+        // Akurasi 90% tapi F1 macro jauh di bawahnya, itu justru gunanya.
         $this->assertLessThan(0.65, $hasil['f1_macro']);
     }
 

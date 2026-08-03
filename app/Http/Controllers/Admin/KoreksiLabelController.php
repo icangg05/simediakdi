@@ -14,7 +14,7 @@ use Illuminate\Validation\Rules\Enum;
  *
  * Yang ditulis hanya `label_manual`. `label_model` tidak pernah disentuh supaya
  * selisih keduanya tetap bisa dibaca saat mengevaluasi model, dan
- * `label_efektif` — kolom generated `COALESCE(label_manual, label_model)` —
+ * `label_efektif`, kolom generated `COALESCE(label_manual, label_model)`,
  * ikut berubah dengan sendirinya. Analisis ulang menimpa `label_model`, tapi
  * tidak akan pernah menghapus koreksi ini.
  */

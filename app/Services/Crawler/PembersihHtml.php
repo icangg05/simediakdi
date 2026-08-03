@@ -6,7 +6,7 @@ namespace App\Services\Crawler;
  * Mengubah potongan HTML menjadi teks bersih.
  *
  * Dipakai kedua ekstraktor supaya isi artikel dari WP REST dan dari Readability
- * berbentuk sama persis — kalau berbeda, hash isi dan simhash ikut berbeda dan
+ * berbentuk sama persis, kalau berbeda, hash isi dan simhash ikut berbeda dan
  * deduplikasi gagal mengenali artikel yang sebenarnya sama.
  */
 class PembersihHtml

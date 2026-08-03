@@ -172,7 +172,7 @@ class PelabelanTest extends TestCase
         $this->assertStringNotContainsString(
             'artikel=',
             $tujuan,
-            'Redirect masih membawa parameter artikel — pelabel akan tersangkut pada artikel yang sama.',
+            'Redirect masih membawa parameter artikel, pelabel akan tersangkut pada artikel yang sama.',
         );
     }
 

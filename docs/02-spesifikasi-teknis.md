@@ -1,4 +1,4 @@
-# 02 — Spesifikasi Teknis
+# 02: Spesifikasi Teknis
 
 SIMEDIA Kendari | Versi 1.0
 
@@ -87,7 +87,7 @@ Jangan memasang library grafik kedua. Kalau ECharts terasa berat untuk satu graf
 | FastAPI + Uvicorn | terbaru | Satu worker cukup, model dimuat sekali di startup |
 | `transformers` | terbaru | |
 | `torch` | versi CPU-only | Jangan pasang build CUDA, ukurannya berlipat tanpa manfaat |
-| `sentence-transformers` | terbaru | Embedding untuk deduplikasi |
+| `sentence-transformers` | terbaru | `multilingual-e5-small` untuk deduplikasi dan relevansi |
 
 Detail model dan pipeline ada di dokumen 05.
 
@@ -140,6 +140,8 @@ app/
 │   │   └── NormalisasiUrl.php
 │   ├── Nlp/
 │   │   ├── KlienNlp.php                # satu-satunya tempat memanggil FastAPI
+│   │   ├── PenyaringKataKunci.php      # saringan murah + pengetat frekuensi sebutan
+│   │   ├── JendelaKonteks.php          # potongan kalimat sekitar sebutan Pemkot
 │   │   └── DTO/
 │   ├── Dedup/
 │   │   ├── PenghitungSimhash.php
@@ -224,23 +226,48 @@ Rantai job berurutan. Setiap job punya `tries = 3` dan backoff eksponensial.
 ```
 CrawlFeeds (scheduler, per sumber)
     ↓ untuk setiap item baru
-1. Buat baris artikel: judul, url, tanggal, status = mentah
+1. Buat baris artikel sebagai kandidat, status = mentah
+    ↓                        judul, url, tanggal, excerpt, tag, kategori
+2. AmbilIsiArtikel        → unduh halaman, bersihkan HTML, ekstrak isi, hitung hash
     ↓
-2. AmbilIsiArtikel        → unduh halaman, ekstrak isi, hitung hash
-    ↓
-3. HitungEmbedding        → panggil /embed, simpan vector 384 dimensi
-    ↓
+3. HitungEmbedding        → panggil /embed sekali dengan dua teks:
+    ↓                        isi penuh       → embedding
+    ↓                        teks terfokus   → embedding_relevansi
 4. PeriksaDuplikat        → hash cocok? simhash dekat? cosine > 0,92?
     ↓  jika duplikat → tandai salinan, tautkan ke induk, RANTAI BERHENTI
     ↓  jika asli → lanjut
-5. AnalisisRelevansi      → panggil /relevancy untuk setiap konteks aktif
-    ↓  simpan hanya konteks yang relevan
-6. AnalisisSentimen       → panggil /sentiment untuk konteks yang relevan
+5. AnalisisRelevansi      → TIDAK memanggil layanan NLP sama sekali.
+    ↓                        skor = 1 - (embedding_relevansi <=> vektor konteks)
+    ↓  di bawah ambang bawah   → status = tidak_relevan, RANTAI BERHENTI
+    ↓  di antara dua ambang    → status = perlu_review, RANTAI BERHENTI
+    ↓  di atas ambang atas dan lolos pengetat sebutan → lanjut
+6. AnalisisSentimen       → panggil /sentiment untuk konteks utama
     ↓
 7. EkstrakEntitas         → kata kunci dan entitas
     ↓
 8. status = selesai
 ```
+
+Langkah 5 berjalan sekali per artikel, bukan sekali untuk setiap konteks aktif.
+Sejak versi 1.4 hanya ada satu konteks aktif dan relevansi menjadi keputusan
+tingkat artikel (dokumen 01 bagian 9). Kalau nanti ada konteks kedua, ia
+menambah baris sentimen, bukan baris relevansi.
+
+**Relevansi tidak lagi memakai model tersendiri.** Sejak revisi 1.5 skornya
+adalah cosine similarity antara vektor artikel dan vektor deskripsi konteks,
+keduanya dari `multilingual-e5-small`, dihitung PostgreSQL lewat pgvector.
+Akibatnya `AnalisisRelevansi` bukan lagi job yang memanggil HTTP, melainkan
+satu kueri. Ia tetap berupa job supaya urutan rantai dan penanganan gagalnya
+seragam dengan job lain.
+
+Keuntungan terbesarnya bukan kecepatan per artikel, melainkan penyetelan:
+mengubah ambang cukup dengan menjalankan ulang kueri atas seluruh korpus,
+tanpa satu pun inferensi model. Menyetel ambang yang tepat butuh puluhan kali
+percobaan, dan dengan model lama tiap percobaan berarti menunggu berjam-jam.
+
+Artikel yang dinyatakan tidak relevan tetap disimpan lengkap. Ia tidak masuk
+dashboard, tapi dipakai untuk audit crawler, hard negative, dan mengukur berapa
+banyak kandidat yang tersaring. Keputusan retensi terpisah dari hasil model.
 
 Alasan urutan ini: deduplikasi ditaruh sebelum analisis agar Anda tidak membayar biaya inferensi untuk rilis Antara yang sama sepuluh kali. Kalau 40% berita adalah salinan, Anda menghemat 40% waktu CPU.
 
@@ -262,8 +289,10 @@ Base URL `http://127.0.0.1:8001`. Seluruh pemanggilan dari Laravel hanya lewat `
 
 ```json
 { "status": "ok", "model_sentimen": "apriandito/indobert-sentiment-classifier",
-  "model_relevansi": "...", "model_embedding": "...", "versi": "1.0.0" }
+  "model_embedding": "intfloat/multilingual-e5-small", "versi": "2.0.0" }
 ```
+
+Dua model, bukan tiga. `model_relevansi` dihapus dari respons.
 
 Dipanggil scheduler tiap 5 menit. Kalau gagal tiga kali berturut-turut, kirim alert ke admin.
 
@@ -279,15 +308,29 @@ Dipanggil scheduler tiap 5 menit. Kalau gagal tiga kali berturut-turut, kirim al
 
 Maksimal 32 teks per permintaan.
 
-### POST /relevancy
+### POST /relevancy: dihapus
 
-```json
-{ "pasangan": [ { "id": 101, "konteks": "Pemerintah Kota Kendari", "teks": "..." } ] }
+Endpoint ini tidak ada lagi sejak revisi 1.5. Model `indobert-relevancy`
+dilepas dari layanan.
+
+Relevansi dihitung di PostgreSQL:
+
+```sql
+SELECT 1 - (a.embedding_relevansi <=> k.embedding) AS skor_relevansi
+FROM artikel a
+CROSS JOIN konteks_pantauan k
+WHERE a.id = :artikel_id AND k.utama = true;
 ```
 
-```json
-{ "hasil": [ { "id": 101, "relevan": true, "keyakinan": 0.94 } ] }
-```
+Nilai `skor_relevansi` adalah cosine similarity, **bukan probabilitas**. Angka
+0,82 tidak berarti yakin 82%. Perbedaan ini harus tertulis di mana pun angkanya
+ditampilkan ke admin, kalau tidak, orang akan membacanya sebagai persentase
+kepercayaan dan menyimpulkan hal yang salah.
+
+Sinyal judul, tag, dan alias yang dipakai menjelaskan keputusan ke admin
+dihitung di sisi Laravel oleh `PenyaringKataKunci`, lalu disimpan ke
+`sinyal_relevansi`. Sinyal itu tidak pernah ikut menentukan skor, hanya
+menjelaskannya dan menjadi bahan pengetat sebutan.
 
 ### POST /sentiment
 
@@ -369,7 +412,10 @@ NLP_TIMEOUT=120
 NLP_BATCH_SIZE=16
 
 SENTIMEN_AMBANG_KEYAKINAN=0.60
-RELEVANSI_AMBANG_KEYAKINAN=0.55
+RELEVANSI_AMBANG_ATAS=
+RELEVANSI_AMBANG_BAWAH=
+RELEVANSI_MINIMAL_SEBUTAN=3
+RELEVANSI_KONTEKS_VERSI=pemkot-kendari-v2
 DEDUP_AMBANG_COSINE=0.92
 DEDUP_AMBANG_SIMHASH=4
 
@@ -382,6 +428,12 @@ TELEGRAM_CHAT_ID=
 ```
 
 Ambang keyakinan ditaruh di environment, bukan hardcode, karena Anda akan menyetelnya setelah gold set jadi dan tidak akan mau deploy ulang untuk mengubah satu angka.
+
+Tiga catatan, jangan dihapus:
+
+- **Dua ambang relevansi sengaja dibiarkan kosong.** Selama kosong, seluruh artikel yang lolos deduplikasi masuk antrean `perlu_review` dan tidak ada yang otomatis masuk atau keluar dashboard. Itu perilaku yang benar sebelum ambangnya diukur. Memasang angka tebakan lalu lupa menggantinya adalah cara paling umum sebuah ambang menjadi permanen tanpa pernah diuji. Cara memilihnya ada di dokumen 05 bagian 5.1.
+- `RELEVANSI_AMBANG_KEYAKINAN` dihapus bersama model relevansi lama. Nilai itu terbukti tidak berpengaruh apa pun: diuji 0,55 sampai 0,999 dan presisi hanya bergerak 47,4% ke 48,1%, karena model lama sama yakinnya saat benar maupun saat keliru.
+- `RELEVANSI_KONTEKS_VERSI` dinaikkan setiap kali deskripsi konteks utama atau aturan inklusi dan eksklusinya berubah. Menaikkannya **mewajibkan** vektor konteks dihitung ulang dan seluruh skor relevansi dihitung ulang, karena skor lama dibandingkan terhadap deskripsi yang sudah tidak berlaku.
 
 ### Etika crawling
 

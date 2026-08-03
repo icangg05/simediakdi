@@ -77,7 +77,7 @@ class CrawlGoogleNews extends Command
 
                 $log->update(['selesai_at' => now(), 'status' => 'gagal', 'pesan' => mb_substr($e->getMessage(), 0, 2000)]);
 
-                $this->warn("  {$satu->nama}: gagal ({$gagal}/{$batas}) — {$e->getMessage()}");
+                $this->warn("  {$satu->nama}: gagal ({$gagal}/{$batas}), {$e->getMessage()}");
             }
         }
 

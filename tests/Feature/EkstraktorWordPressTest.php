@@ -73,7 +73,7 @@ class EkstraktorWordPressTest extends TestCase
 
         // Aplikasi berjalan di UTC, jadi kesalahan ini tidak akan muncul dengan
         // sendirinya di tes. Zona sengaja digeser ke WITA supaya kalau suatu
-        // saat parsing kembali polos, tes ini yang gagal — bukan penggunanya
+        // saat parsing kembali polos, tes ini yang gagal, bukan penggunanya
         // yang menemukan tanggal berita meleset delapan jam.
         $asal = date_default_timezone_get();
         date_default_timezone_set('Asia/Makassar');
@@ -119,7 +119,7 @@ class EkstraktorWordPressTest extends TestCase
     }
 
     /**
-     * API hidup tapi artikelnya tidak lewat endpoint `posts` — custom post type
+     * API hidup tapi artikelnya tidak lewat endpoint `posts`, custom post type
      * atau permalink `?p=123`. Jalur API tetap dipakai untuk artikel lain.
      */
     public function test_slug_tidak_ketemu_hanya_membatalkan_artikel_itu(): void

@@ -64,7 +64,7 @@ return [
     | Dokumen 00 memang menyebut zona aplikasi WITA, tapi kalimat berikutnya
     | yang mengikat: simpan seluruh timestamp sebagai UTC di database, konversi
     | di layer tampilan. Kolom timestamptz dikirimi jam dinding tanpa offset,
-    | sedangkan sesi PostgreSQL berjalan di UTC — begitu nilai ini menjadi
+    | sedangkan sesi PostgreSQL berjalan di UTC, begitu nilai ini menjadi
     | Asia/Makassar, setiap timestamp yang ditulis meleset delapan jam
     | (diuji: 20:04 WITA tersimpan sebagai 20:04+00, seharusnya 12:04+00).
     |

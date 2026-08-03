@@ -12,7 +12,7 @@ use Tests\TestCase;
 
 /**
  * Smoke test dokumen 02 bagian 9: setiap halaman mengembalikan 200 untuk peran
- * yang berhak. Dijalankan dengan data terisi, bukan tabel kosong — beberapa
+ * yang berhak. Dijalankan dengan data terisi, bukan tabel kosong, beberapa
  * kesalahan hanya muncul saat ada barisnya, misalnya cast waktu pada agregat.
  */
 class HalamanAdminTest extends TestCase
@@ -52,6 +52,11 @@ class HalamanAdminTest extends TestCase
         $halaman = [
             '/admin', '/admin/artikel', '/admin/log-crawl', '/admin/media',
             '/admin/sumber-feed', '/admin/konteks', '/admin/pelabelan', '/admin/evaluasi',
+            '/admin/kontrak', '/admin/kontrak/create',
+            '/admin/pengguna', '/admin/pengguna/create',
+            '/admin/pemuatan', '/admin/pengaturan',
+            '/admin/alert', '/admin/alert/create',
+            '/admin/entitas', '/admin/entitas/create',
             '/admin/media/create', '/admin/sumber-feed/create', '/admin/konteks/create',
             '/admin/artikel/'.Artikel::withoutGlobalScopes()->value('id'),
         ];
@@ -66,7 +71,28 @@ class HalamanAdminTest extends TestCase
         $this->actingAs(User::factory()->walikota()->create())->get('/eksekutif')->assertOk();
 
         $media = Media::first();
-        $this->actingAs(User::factory()->media($media)->create())->get('/portal')->assertOk();
+        $pic = User::factory()->media($media)->create();
+
+        foreach (['/portal', '/portal/berita', '/portal/kontrak', '/portal/lapor'] as $url) {
+            $this->actingAs($pic)->get($url)->assertOk("Halaman {$url} tidak mengembalikan 200.");
+        }
+    }
+
+    /**
+     * Ekspor ditulis sebagai aliran, bukan dikumpulkan di memori, satu ekspor
+     * setahun bisa puluhan ribu baris.
+     */
+    public function test_ekspor_excel_mengalirkan_berkas(): void
+    {
+        $tanggapan = $this->actingAs(User::factory()->create())
+            ->get('/admin/ekspor/artikel');
+
+        $tanggapan->assertOk();
+        $tanggapan->assertHeader(
+            'content-type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        );
+        $tanggapan->assertDownload();
     }
 
     /** Dashboard menghitung batas hari WITA, bukan UTC. */

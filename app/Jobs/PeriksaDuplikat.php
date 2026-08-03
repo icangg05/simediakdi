@@ -10,7 +10,7 @@ use Illuminate\Foundation\Queue\Queueable;
 /**
  * Deduplikasi lapis 3: kemiripan makna.
  *
- * Rantai berhenti di sini kalau artikel ternyata salinan. Itu tujuannya —
+ * Rantai berhenti di sini kalau artikel ternyata salinan. Itu tujuannya,
  * kalau 40% berita adalah salinan, biaya inferensi relevansi dan sentimen
  * berkurang 40% juga.
  */

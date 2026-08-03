@@ -1,6 +1,6 @@
 /**
  * Format angka Indonesia: pemisah ribuan titik, desimal koma.
- * Dipakai di semua tempat — jangan panggil toLocaleString langsung.
+ * Dipakai di semua tempat, jangan panggil toLocaleString langsung.
  */
 export function useFormatAngka() {
     const angka = new Intl.NumberFormat('id-ID');
@@ -15,13 +15,13 @@ export function useFormatAngka() {
     });
 
     return {
-        formatAngka: (n: number | null | undefined) => (n == null ? '–' : angka.format(n)),
+        formatAngka: (n: number | null | undefined) => (n == null ? '-' : angka.format(n)),
 
         /** Persentase selalu satu angka desimal. */
-        formatPersen: (n: number | null | undefined) => (n == null ? '–' : `${desimalSatu.format(n)}%`),
+        formatPersen: (n: number | null | undefined) => (n == null ? '-' : `${desimalSatu.format(n)}%`),
 
         formatRupiah: (n: number | string | null | undefined) =>
-            n == null ? '–' : rupiah.format(typeof n === 'string' ? Number(n) : n),
+            n == null ? '-' : rupiah.format(typeof n === 'string' ? Number(n) : n),
 
         /** Bagian dari total, aman saat total nol. */
         formatProporsi: (bagian: number, total: number) =>

@@ -20,7 +20,7 @@ use Tests\TestCase;
  *
  * Koreksi manusia selalu mengalahkan hasil model (F-13). Kalau analisis ulang
  * bisa menimpanya, admin yang sudah membetulkan label akan menemukannya berubah
- * sendiri beberapa jam kemudian — dan berhenti mempercayai seluruh sistem.
+ * sendiri beberapa jam kemudian, dan berhenti mempercayai seluruh sistem.
  */
 class PrioritasLabelManualTest extends TestCase
 {
@@ -145,7 +145,7 @@ class PrioritasLabelManualTest extends TestCase
 
         $this->assertNull($analisis->label_manual);
         $this->assertSame(LabelSentimen::Negatif, $analisis->label_efektif);
-        // Keyakinan 0,4 di bawah ambang 0,60 — statusnya kembali ragu.
+        // Keyakinan 0,4 di bawah ambang 0,60, statusnya kembali ragu.
         $this->assertTrue($analisis->perlu_review);
         $this->assertNull($analisis->dikoreksi_oleh);
     }

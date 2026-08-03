@@ -91,7 +91,7 @@ class SaringanKataKunciFeedTest extends TestCase
     {
         $this->sumber('Ringkasan');
 
-        // Judul tidak menyebut, ringkasannya menyebut — tetap masuk.
+        // Judul tidak menyebut, ringkasannya menyebut, tetap masuk.
         $this->jalankan($this->feed('Judul Tanpa Kata Itu'));
 
         $this->assertSame(1, Artikel::withoutGlobalScopes()->count());
@@ -108,7 +108,7 @@ class SaringanKataKunciFeedTest extends TestCase
     }
 
     /**
-     * Feed yang seluruh isinya tersaring bukan kegagalan — hari itu memang
+     * Feed yang seluruh isinya tersaring bukan kegagalan, hari itu memang
      * tidak ada liputan Kendari. Menaikkan hitungan gagal akan menonaktifkan
      * sumbernya setelah lima hari sepi.
      */

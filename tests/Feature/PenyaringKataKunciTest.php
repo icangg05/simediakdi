@@ -110,7 +110,7 @@ class PenyaringKataKunciTest extends TestCase
     }
 
     /**
-     * Konteks tanpa kata kunci tidak bisa diketatkan — tidak ada yang dihitung.
+     * Konteks tanpa kata kunci tidak bisa diketatkan, tidak ada yang dihitung.
      * Menolak semuanya akan mematikan konteks itu diam-diam.
      */
     public function test_konteks_tanpa_kata_kunci_tidak_diketatkan(): void

@@ -2,8 +2,8 @@
 
 namespace App\Services\Nlp;
 
-use App\Enums\LabelSentimen;
 use App\Models\GoldSet;
+use App\Models\KonteksPantauan;
 
 /**
  * Membandingkan label model terhadap gold set berlabel manusia (F-19).
@@ -62,22 +62,23 @@ class EvaluatorModel
 
     /**
      * Pasangan gold dan prediksi dari tabel, hanya baris yang relevan menurut
-     * pelabel — menilai nada artikel yang memang tidak membahas konteksnya
+     * pelabel, menilai nada artikel yang memang tidak membahas konteksnya
      * tidak mengukur apa pun.
      *
      * @return list<array{gold: string, prediksi: string}>
      */
-    public function pasanganDariGoldSet(int $ronde = 1): array
+    public function pasanganDariGoldSet(int $ronde = 1, ?int $konteksId = null): array
     {
         return GoldSet::query()
-            ->where('ronde', $ronde)
-            ->where('relevan_gold', true)
+            ->where('gold_set.ronde', $ronde)
+            ->where('gold_set.relevan_gold', true)
+            ->when($konteksId, fn ($q) => $q->where('gold_set.konteks_pantauan_id', $konteksId))
             ->join('analisis_sentimen', function ($join) {
                 $join->on('analisis_sentimen.artikel_id', '=', 'gold_set.artikel_id')
                     ->on('analisis_sentimen.konteks_pantauan_id', '=', 'gold_set.konteks_pantauan_id');
             })
             // label_model, bukan label_efektif: yang diukur kemampuan model,
-            // dan label_efektif sudah memuat koreksi manusia — memakainya
+            // dan label_efektif sudah memuat koreksi manusia, memakainya
             // berarti mengukur model terhadap jawaban yang sebagian ditulis
             // manusia sendiri, lalu melaporkan akurasi yang terlalu bagus.
             ->whereNotNull('analisis_sentimen.label_model')
@@ -93,7 +94,7 @@ class EvaluatorModel
      * alasan relevansi dijalankan sebelum sentimen adalah menjaga agar artikel
      * yang tidak membahas konteks tidak ikut mengotori grafik (dokumen 02
      * bagian 5). Kalau presisinya rendah, dashboard terisi artikel yang
-     * seharusnya tidak ada di sana — dan tanpa angka ini, tidak ada yang tahu.
+     * seharusnya tidak ada di sana, dan tanpa angka ini, tidak ada yang tahu.
      *
      * Recall lebih penting daripada presisi di sini. Artikel relevan yang
      * terbuang hilang selamanya dari analisis; artikel tidak relevan yang lolos
@@ -135,6 +136,55 @@ class EvaluatorModel
             'f1' => $presisi + $recall === 0.0 ? 0.0 : round(2 * $presisi * $recall / ($presisi + $recall), 4),
             'akurasi' => round(($tp + $tn) / $baris->count(), 4),
         ];
+    }
+
+    /**
+     * Metrik dipecah per konteks.
+     *
+     * Angka gabungan menyembunyikan selisih yang penting: presisi relevansi
+     * terukur 87,7% pada satu konteks dan 51,1% pada konteks lain, sementara
+     * gabungannya 63,2%, tidak menggambarkan keduanya. Penyebabnya daftar kata
+     * kunci: frasa spesifik seperti "wali kota kendari" jarang muncul kebetulan,
+     * sedangkan kata umum seperti "dinas", "pasar", atau "sampah" sering muncul
+     * sambil lalu. Rincian ini yang menunjukkan konteks mana kata kuncinya perlu
+     * diperketat.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function metrikPerKonteks(int $ronde = 1): array
+    {
+        return KonteksPantauan::query()
+            ->orderBy('urutan')
+            ->get(['id', 'nama'])
+            ->map(function ($konteks) use ($ronde) {
+                $sentimen = $this->hitung($this->pasanganDariGoldSet($ronde, $konteks->id));
+                $relevansi = $this->metrikRelevansi($ronde, $konteks->id);
+
+                // Jumlah sampel per kelas gold. F1 macro merata-ratakan ketiga
+                // kelas dengan bobot sama, jadi kelas yang tidak punya sampel
+                // sama sekali menghasilkan F1 nol dan menyeret rata-ratanya,
+                // membuat konteks berakurasi 78% terlihat seperti 0,34. Tanpa
+                // angka ini, pembacanya tidak punya cara tahu.
+                $perKelas = [];
+
+                foreach (self::KELAS as $kelas) {
+                    $perKelas[$kelas] = array_sum($sentimen['confusion_matrix'][$kelas]);
+                }
+
+                return [
+                    'konteks' => $konteks->nama,
+                    'sampel_sentimen' => $sentimen['jumlah_sampel'],
+                    'sampel_per_kelas' => $perKelas,
+                    'kelas_tanpa_sampel' => array_keys(array_filter($perKelas, fn (int $n) => $n === 0)),
+                    'akurasi' => $sentimen['akurasi'],
+                    'f1_macro' => $sentimen['f1_macro'],
+                    'presisi_relevansi' => $relevansi['presisi'] ?? null,
+                    'recall_relevansi' => $relevansi['recall'] ?? null,
+                ];
+            })
+            ->filter(fn (array $baris) => $baris['sampel_sentimen'] > 0)
+            ->values()
+            ->all();
     }
 
     /**

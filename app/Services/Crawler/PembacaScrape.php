@@ -95,7 +95,7 @@ class PembacaScrape
      * Terjemahan CSS selector sederhana ke XPath.
      *
      * ponytail: hanya menangani `tag`, `.kelas`, `#id`, dan gabungannya yang
-     * dipisah spasi — sudah menutup bentuk selector yang dipakai halaman indeks
+     * dipisah spasi, sudah menutup bentuk selector yang dipakai halaman indeks
      * berita. Kalau suatu saat butuh `>`, `:nth-child`, atau atribut, pasang
      * symfony/css-selector daripada memperbesar fungsi ini.
      */

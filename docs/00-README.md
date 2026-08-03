@@ -1,11 +1,15 @@
-# SIMEDIA Kendari — Paket Spesifikasi
+# SIMEDIA Kendari: Paket Spesifikasi
 
 Sistem Monitoring dan Analisis Sentimen Media untuk Pemerintah Kota Kendari.
 
-Versi dokumen: 1.2
+Versi dokumen: 1.5
 Tanggal: Agustus 2026
 Penyusun: pengembang tunggal
 Status: siap dieksekusi
+
+Perubahan 1.5: alur relevansi dirombak lagi. Penilai relevansi berpindah dari classifier IndoBERT ke kemiripan makna `multilingual-e5-small`, dan endpoint `/relevancy` dihapus. Skor dihitung di PostgreSQL dari vektor yang sudah tersimpan, sehingga menyetel ambang tidak lagi memerlukan inferensi ulang seluruh korpus. Alurnya sekarang: berita masuk, e5-small, keputusan relevansi, lalu IndoBERT sentimen. Lihat dokumen 05 bagian 2.
+
+Perubahan 1.4: rancangan relevansi dirombak. Tiga konteks pantauan disederhanakan menjadi satu konteks utama "Pemerintah Kota Kendari", relevansi menjadi klasifikasi biner tingkat artikel, dan Wali Kota serta pelayanan publik turun menjadi entitas dan topik. Dokumen `05-spesifikasi-nlp.md` akhirnya ditulis, menutup rujukan menggantung sejak versi 1.0. Rincian dan alasannya di dokumen 01 bagian 9, dokumen 05, dan sprint 6 pada dokumen 07.
 
 Perubahan 1.2: sembilan pertanyaan terbuka sudah dijawab Diskominfo dan jawabannya masuk dokumen 01 bagian 9. Konsekuensinya: daftar 30 media partner masuk sebagai lampiran A, tiga konteks pantauan awal ditetapkan, jembatan Google Form (F-53) dan notifikasi WhatsApp (F-41) dihapus dari lingkup, dan font ditetapkan IBM Plex Sans.
 
@@ -21,7 +25,7 @@ Perubahan 1.1: jalur pelaporan mandiri dirombak (form satu field dengan pratinja
 | 02 | `02-spesifikasi-teknis.md` | Arsitektur, stack, struktur folder, kontrak layanan NLP, queue, deployment |
 | 03 | `03-skema-database.md` | Seluruh tabel, kolom, tipe, index, relasi, aturan integritas |
 | 04 | `04-spesifikasi-ui.md` | Design system Tailwind, daftar komponen shadcn, inventaris halaman per peran, deskripsi wireframe |
-| 05 | `05-spesifikasi-nlp.md` | Pipeline sentimen, deduplikasi, gold set, metrik evaluasi, penanganan ketidakpastian |
+| 05 | `05-spesifikasi-nlp.md` | Tugas relevansi dan sentimen, bentuk input model, gold set, metrik, dan rencana kalau F1 di bawah gerbang |
 | 06 | `06-akses-dan-keamanan.md` | Matriks izin, policy, global scope, audit trail, kepatuhan |
 | 07 | `07-roadmap.md` | Rencana enam sprint, definition of done, buffer, jalur keluar kalau mundur |
 | 08 | `08-rangkuman-sprint.md` | Ringkasan satu halaman dokumen 07: tabel tujuh sprint, isi tiap sprint, gerbang, status |
@@ -46,8 +50,10 @@ Daftar ini menutup perdebatan. Kalau nanti Anda tergoda mengubah salah satunya d
 | Database | PostgreSQL 16 + pgvector | Deduplikasi semantik dan window function untuk agregasi waktu |
 | Queue | Laravel Queue + Redis | Analisis NLP harus asinkron |
 | Layanan NLP | FastAPI + IndoBERT (proses terpisah) | Model hanya tersedia di ekosistem Python |
-| Model sentimen | `apriandito/indobert-sentiment-classifier` | Terkondisi konteks, F1 macro 0,856, tidak perlu dilatih ulang |
-| Model relevansi | IndoBERT-Relevancy dari penulis yang sama (konfirmasi nama repo di HuggingFace) | Menyaring artikel tidak relevan sebelum analisis sentimen |
+| Model sentimen | `apriandito/indobert-sentiment-classifier` | Terkondisi konteks, F1 macro terukur 0,7361 pada gold set Kendari, tidak perlu dilatih ulang |
+| Model relevansi | `intfloat/multilingual-e5-small`, cosine similarity terhadap deskripsi konteks | Bukan classifier terpisah. Skor dihitung di PostgreSQL dari vektor tersimpan, sehingga mengubah ambang tidak memerlukan inferensi ulang. Lihat dokumen 05 bagian 2 |
+| Tingkat relevansi | Biner, per artikel, satu konteks utama | Satu artikel satu keputusan. Konteks jamak menaikkan beban pelabelan tiga kali tanpa menambah jawaban yang dibutuhkan dashboard |
+| Konteks pantauan aktif | Satu: Pemerintah Kota Kendari | Wali Kota, OPD, dan pelayanan publik menjadi entitas dan topik, bukan konteks terpisah. Lihat dokumen 01 bagian 9 |
 | Peran | Tiga: `superadmin`, `walikota`, `media` | Enum di kolom `users.role`, bukan paket permission |
 | Panel | Satu aplikasi, tiga grup route | `/admin`, `/eksekutif`, `/portal` |
 
@@ -56,9 +62,11 @@ Daftar ini menutup perdebatan. Kalau nanti Anda tergoda mengubah salah satunya d
 - **Filament.** Menambah paradigma kedua (Livewire) di proyek yang dikerjakan satu orang.
 - **Spatie Permission.** Berlebihan untuk tiga peran tetap. Tambahkan nanti kalau muncul kebutuhan izin granular.
 - **Elasticsearch.** PostgreSQL cukup sampai jumlah artikel melewati sekitar 500 ribu baris.
-- **GPU.** Inferensi IndoBERT di CPU cukup untuk volume satu kota. Lihat dokumen 05.
+- **GPU.** Inferensi IndoBERT di CPU cukup untuk volume satu kota, sekitar 300 artikel per hari.
 - **Microservice terpisah untuk crawler.** Crawler jalan sebagai Laravel scheduled command.
-- **BERTopic pada fase awal.** Volume data satu kota terlalu kecil untuk cluster yang stabil. Lihat dokumen 05.
+- **BERTopic pada fase awal.** Volume data satu kota terlalu kecil untuk cluster yang stabil. Masuk daftar versi 2 di dokumen 07.
+- **Konteks pantauan jamak.** Ditunda, bukan dibatalkan. Biayanya bukan inferensi melainkan pelabelan manusia, dan itu tidak bisa dipercepat dengan server lebih besar. Lihat dokumen 01 bagian 9.
+- **LLM eksternal per artikel.** Biaya per artikel, kuota, latensi, dan keluaran yang berubah antar versi model. Lihat dokumen 05 bagian 2.
 
 ---
 
