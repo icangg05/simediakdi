@@ -3,8 +3,6 @@
 namespace App\Jobs;
 
 use App\Models\Artikel;
-use App\Models\KonteksPantauan;
-use App\Services\Nlp\JendelaKonteks;
 use App\Services\Nlp\KlienNlp;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -16,6 +14,11 @@ use Pgvector\Laravel\Vector;
  * Berjalan di antrean `nlp` bersama seluruh pekerjaan model, yang hanya punya
  * satu proses. Kalau layanan NLP mati, job menumpuk di sini dan tidak ada data
  * yang hilang, artikel sudah tersimpan lengkap sejak AmbilIsiArtikel.
+ *
+ * Satu vektor, bukan dua. Vektor kedua dulu melayani penilaian relevansi lewat
+ * kemiripan makna; sejak revisi 1.6 relevansi dinilai classifier terlatih dan
+ * kolomnya dihapus. Deteksi salinan tidak berubah sama sekali, dan sekarang
+ * menjadi satu-satunya tugas model embedding.
  */
 class HitungEmbedding implements ShouldQueue
 {
@@ -33,7 +36,7 @@ class HitungEmbedding implements ShouldQueue
         return [60, 300, 900];
     }
 
-    public function handle(KlienNlp $nlp, JendelaKonteks $jendela): void
+    public function handle(KlienNlp $nlp): void
     {
         $artikel = Artikel::withoutGlobalScopes()->find($this->artikelId);
 
@@ -41,51 +44,17 @@ class HitungEmbedding implements ShouldQueue
             return;
         }
 
-        if ($artikel->embedding !== null && $artikel->embedding_relevansi !== null) {
+        if ($artikel->embedding !== null) {
             PeriksaDuplikat::dispatch($artikel->id);
 
             return;
         }
 
-        $artikel->update($this->vektor($nlp, $jendela, $artikel));
+        $vektor = $nlp->embed(['passage: '.$this->teksIsi($artikel)]);
+
+        $artikel->update(['embedding' => new Vector($vektor[0])]);
 
         PeriksaDuplikat::dispatch($artikel->id);
-    }
-
-    /**
-     * Dua vektor sekali panggil.
-     *
-     * Keduanya dari model yang sama tapi dari teks yang berbeda, dan itu
-     * disengaja. Deduklipasi butuh gambaran artikel seutuhnya; relevansi butuh
-     * gambaran yang terfokus pada bagian yang menyinggung Pemkot. Satu vektor
-     * tidak bisa melayani keduanya: dengan vektor isi penuh, dua artikel
-     * berbeda yang sama-sama membahas Pemkot akan terlihat seperti salinan.
-     *
-     * Awalan `passage:` adalah ketentuan e5. Keduanya passage karena keduanya
-     * berperan sebagai dokumen; yang berperan sebagai kueri hanya deskripsi
-     * konteks, dan itu diberi awalan `query:` saat vektornya dihitung.
-     *
-     * @return array<string, Vector>
-     */
-    private function vektor(KlienNlp $nlp, JendelaKonteks $jendela, Artikel $artikel): array
-    {
-        $konteks = KonteksPantauan::utama();
-
-        $teks = ['passage: '.$this->teksIsi($artikel)];
-
-        if ($konteks !== null) {
-            $teks[] = 'passage: '.$jendela->bentuk($artikel, $konteks);
-        }
-
-        $vektor = $nlp->embed($teks);
-
-        $kolom = ['embedding' => new Vector($vektor[0])];
-
-        if (isset($vektor[1])) {
-            $kolom['embedding_relevansi'] = new Vector($vektor[1]);
-        }
-
-        return $kolom;
     }
 
     /**

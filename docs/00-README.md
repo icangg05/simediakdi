@@ -2,10 +2,12 @@
 
 Sistem Monitoring dan Analisis Sentimen Media untuk Pemerintah Kota Kendari.
 
-Versi dokumen: 1.5
+Versi dokumen: 1.6
 Tanggal: Agustus 2026
 Penyusun: pengembang tunggal
 Status: siap dieksekusi
+
+Perubahan 1.6: relevansi menjadi model yang dilatih sendiri, bukan angka yang disetel. Dokumen 10 masuk paket sebagai spesifikasi Laboratorium Model Relevansi: pengumpulan dataset, pelabelan, fine-tuning `apriandito/indobert-relevancy-classifier` dengan data lokal Kendari, evaluasi, versioning, promosi, dan rollback. Dua akibat yang harus dibaca bersamaan. Pertama, **analisis sentimen diblokir mulai 4 Agustus 2026** dan baru dibuka setelah ada model relevansi produksi yang lolos gerbang mutu. Kedua, `multilingual-e5-small` turun perannya menjadi khusus deteksi salinan, tidak lagi menentukan relevansi. Alasan dan cakupan perubahannya di dokumen 10 bagian 0.
 
 Perubahan 1.5: alur relevansi dirombak lagi. Penilai relevansi berpindah dari classifier IndoBERT ke kemiripan makna `multilingual-e5-small`, dan endpoint `/relevancy` dihapus. Skor dihitung di PostgreSQL dari vektor yang sudah tersimpan, sehingga menyetel ambang tidak lagi memerlukan inferensi ulang seluruh korpus. Alurnya sekarang: berita masuk, e5-small, keputusan relevansi, lalu IndoBERT sentimen. Lihat dokumen 05 bagian 2.
 
@@ -28,9 +30,13 @@ Perubahan 1.1: jalur pelaporan mandiri dirombak (form satu field dengan pratinja
 | 05 | `05-spesifikasi-nlp.md` | Tugas relevansi dan sentimen, bentuk input model, gold set, metrik, dan rencana kalau F1 di bawah gerbang |
 | 06 | `06-akses-dan-keamanan.md` | Matriks izin, policy, global scope, audit trail, kepatuhan |
 | 07 | `07-roadmap.md` | Rencana enam sprint, definition of done, buffer, jalur keluar kalau mundur |
-| 08 | `08-rangkuman-sprint.md` | Ringkasan satu halaman dokumen 07: tabel tujuh sprint, isi tiap sprint, gerbang, status |
+| 08 | `08-rangkuman-sprint.md` | Ringkasan satu halaman dokumen 07: tabel sembilan sprint, isi tiap sprint, gerbang, status |
+| 09 | `09-panduan-pelabelan.md` | Aturan memutuskan relevan atau tidak relevan, kode alasan, cara kerja pelabel, ronde konsistensi |
+| 10 | `10-spesifikasi-laboratorium-model-relevansi.md` | Laboratorium Model Relevansi: dataset, snapshot, fine-tuning IndoBERT, evaluasi, uji model, versioning, gerbang mutu yang memblokir sentimen |
 
 Baca berurutan untuk pertama kali. Setelah itu dokumen 03 dan 04 yang paling sering Anda buka saat menulis kode.
+
+Dokumen 10 adalah otoritas untuk segala hal tentang relevansi. Kalau isinya berbeda dengan dokumen lain, dokumen 10 yang benar dan dokumen lain yang belum sempat disesuaikan.
 
 ---
 
@@ -51,7 +57,10 @@ Daftar ini menutup perdebatan. Kalau nanti Anda tergoda mengubah salah satunya d
 | Queue | Laravel Queue + Redis | Analisis NLP harus asinkron |
 | Layanan NLP | FastAPI + IndoBERT (proses terpisah) | Model hanya tersedia di ekosistem Python |
 | Model sentimen | `apriandito/indobert-sentiment-classifier` | Terkondisi konteks, F1 macro terukur 0,7361 pada gold set Kendari, tidak perlu dilatih ulang |
-| Model relevansi | `intfloat/multilingual-e5-small`, cosine similarity terhadap deskripsi konteks | Bukan classifier terpisah. Skor dihitung di PostgreSQL dari vektor tersimpan, sehingga mengubah ambang tidak memerlukan inferensi ulang. Lihat dokumen 05 bagian 2 |
+| Model relevansi | `apriandito/indobert-relevancy-classifier`, di-fine-tune dengan dataset lokal Kendari | Cosine e5 berhenti di presisi 69,9%, dan yang menahannya adalah kualitas dataset. Laboratorium di dokumen 10 membangun pipeline datasetnya, dan fine-tuning adalah muaranya |
+| Penilai kemiripan | `intfloat/multilingual-e5-small`, khusus deteksi salinan | Turun peran pada revisi 1.6. Tidak lagi menentukan relevansi. Lihat dokumen 10 bagian 0.2 |
+| Gerbang mutu relevansi | Memblokir sentimen sampai model relevansi produksi lolos | Sentimen akurat atas artikel yang salah tetap salah. Diberlakukan 4 Agustus 2026, dashboard sentimen kosong sampai gerbangnya lulus. Lihat dokumen 10 bagian 12 |
+| Ambang relevansi | Baris berversi di database, bukan `.env` | Ambang di `.env` tidak punya alasan, pemilik, dan tanggal. `.env` hanya nilai bootstrap darurat. Lihat dokumen 10 bagian 15.2 |
 | Tingkat relevansi | Biner, per artikel, satu konteks utama | Satu artikel satu keputusan. Konteks jamak menaikkan beban pelabelan tiga kali tanpa menambah jawaban yang dibutuhkan dashboard |
 | Konteks pantauan aktif | Satu: Pemerintah Kota Kendari | Wali Kota, OPD, dan pelayanan publik menjadi entitas dan topik, bukan konteks terpisah. Lihat dokumen 01 bagian 9 |
 | Peran | Tiga: `superadmin`, `walikota`, `media` | Enum di kolom `users.role`, bukan paket permission |
@@ -62,7 +71,7 @@ Daftar ini menutup perdebatan. Kalau nanti Anda tergoda mengubah salah satunya d
 - **Filament.** Menambah paradigma kedua (Livewire) di proyek yang dikerjakan satu orang.
 - **Spatie Permission.** Berlebihan untuk tiga peran tetap. Tambahkan nanti kalau muncul kebutuhan izin granular.
 - **Elasticsearch.** PostgreSQL cukup sampai jumlah artikel melewati sekitar 500 ribu baris.
-- **GPU.** Inferensi IndoBERT di CPU cukup untuk volume satu kota, sekitar 300 artikel per hari.
+- **GPU.** Inferensi IndoBERT di CPU cukup untuk volume satu kota, sekitar 300 artikel per hari. Fine-tuning relevansi juga dijalankan di CPU: 3.000 sampel dengan 3 epoch selesai dalam hitungan jam, dan itu berjalan di queue sehingga tidak ada yang menunggunya di depan layar.
 - **Microservice terpisah untuk crawler.** Crawler jalan sebagai Laravel scheduled command.
 - **BERTopic pada fase awal.** Volume data satu kota terlalu kecil untuk cluster yang stabil. Masuk daftar versi 2 di dokumen 07.
 - **Konteks pantauan jamak.** Ditunda, bukan dibatalkan. Biayanya bukan inferensi melainkan pelabelan manusia, dan itu tidak bisa dipercepat dengan server lebih besar. Lihat dokumen 01 bagian 9.

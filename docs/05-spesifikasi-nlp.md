@@ -29,7 +29,7 @@ dashboard terisi angka yang tidak berhubungan dengan Pemkot Kendari.
 
 ## 2. Alur pemrosesan
 
-Dua model, masing-masing satu tugas.
+Tiga model, masing-masing satu tugas.
 
 ```text
 RSS / WordPress API / scrape
@@ -39,13 +39,21 @@ judul, URL, tanggal, excerpt, tag, kategori
         ↓
 Unduh dan bersihkan isi artikel
         ↓
-multilingual-e5-small
-   ├── ukur relevansi terhadap konteks Pemkot Kendari
-   └── ukur kemiripan dengan artikel sebelumnya
+multilingual-e5-small: ukur kemiripan dengan artikel sebelumnya
         ↓
    salinan? ── ya ──→ tandai salinan, berhenti (tidak dianalisis ulang)
         │
        tidak
+        ↓
+masuk dataset relevansi sebagai kandidat berlabel `belum_dilabeli`
+        ↓
+ada model relevansi produksi yang lolos gerbang mutu?
+        │
+       tidak ──→ status `model_belum_lulus_gate`, BERHENTI
+        │        artikel tetap dikumpulkan dan menunggu dilabeli
+       ya
+        ↓
+IndoBERT relevansi hasil fine-tuning
         ↓
 ┌────────────────┬────────────────┬────────────────────┐
 relevan          perlu review     tidak relevan
@@ -60,52 +68,77 @@ entitas, topik, kata kunci
 Dashboard
 ```
 
-Dua hal yang tidak terlihat di bagan dan perlu diketahui:
+Tiga hal yang tidak terlihat di bagan dan perlu diketahui:
 
 - **Salinan berhenti sebelum relevansi.** Berita yang sama disalin banyak media,
   dan salinan yang ke-10 tidak menambah informasi apa pun. Menganalisis semuanya
   hanya menambah biaya. Pada korpus 4.806 artikel, 13,8% adalah salinan.
   **Berhenti di sini hanya berlaku untuk analisis.** Barisnya tetap utuh dan
   tetap dihitung sebagai realisasi kontrak medianya, lihat dokumen 03 bagian 10.
-- **Yang menentukan tiga cabang itu satu angka.** Skor kemiripan makna terhadap
-  deskripsi konteks. Di atas ambang atas berarti relevan, di bawah ambang bawah
-  berarti tidak relevan, di antaranya berarti perlu review.
+- **Cabang "tidak ada model produksi" adalah keadaan awal, bukan galat.** Sejak
+  4 Agustus 2026 tidak ada model relevansi yang lolos gerbang, jadi seluruh
+  artikel baru berhenti di sana. Sentimen diblokir sampai laboratorium
+  menghasilkan model yang lulus. Dokumen 10 bagian 0.3 dan 1.1.
+- **Yang menentukan tiga cabang itu probabilitas classifier**, dibandingkan
+  dengan ambang berversi di database. Di atas ambang relevan berarti relevan,
+  di dalam pita review berarti perlu review, sisanya tidak relevan.
 
 ### 2.1 Model yang dipakai
 
-| Model | Tugas |
-|-------|-------|
-| `intfloat/multilingual-e5-small` | Relevansi dan deteksi salinan |
-| `apriandito/indobert-sentiment-classifier` | Sentimen, hanya untuk artikel relevan |
+| Model | Tugas | Dilatih ulang? |
+|-------|-------|---|
+| `intfloat/multilingual-e5-small` | Deteksi salinan | Tidak |
+| `apriandito/indobert-relevancy-classifier` | Relevansi | Ya, dengan dataset lokal Kendari |
+| `apriandito/indobert-sentiment-classifier` | Sentimen, hanya untuk artikel relevan | Tidak |
 
-`apriandito/indobert-relevancy` **tidak lagi dipakai**. Relevansi kini dihitung
-dari kemiripan makna, bukan dari classifier terpisah. Tiga akibatnya:
+**Relevansi kembali menjadi classifier tersendiri sejak revisi 1.6, dan kali ini
+dilatih ulang.** Yang diukur pada revisi 1.5 adalah checkpoint bawaan apa adanya,
+dan hasilnya hanya satu poin presisi di atas aturan kata kunci. Yang dibangun
+sekarang adalah checkpoint yang sama setelah dilatih dengan label Kendari.
+Kegagalan yang pertama bukan bukti tentang yang kedua.
 
-1. Layanan NLP memuat dua model, bukan tiga.
-2. Tidak ada lagi endpoint `/relevancy`. Skor dihitung di PostgreSQL dari
-   vektor yang sudah tersimpan, memakai operator `<=>` milik pgvector.
-3. Mengubah ambang tidak memerlukan inferensi ulang. Seluruh korpus dinilai
-   ulang dengan satu kueri SQL dalam hitungan detik, bukan jam.
+**Cosine e5 tidak lagi menentukan relevansi.** Ia berhenti di presisi 69,9%,
+dan yang menahannya bukan pilihan model melainkan dataset: 249 label, dibuat
+dengan aturan tiga konteks yang sudah tidak berlaku, tanpa data tahan, dan
+tanpa hard negative yang disengaja. Laboratorium di dokumen 10 dibangun untuk
+mengerjakan bagian itu. Fine-tuning adalah muaranya, bukan jalan pintasnya.
 
-Poin ketiga yang paling menentukan. Ambang akan disetel berkali-kali sampai
-presisi tercapai, dan menunggu inferensi ulang 4.806 artikel setiap kali
-menyetel satu angka membuat pekerjaan itu tidak pernah selesai.
+Satu sifat dari revisi 1.5 sengaja dipertahankan meski modelnya berganti:
+**mengubah ambang tidak boleh memerlukan inferensi ulang.** Itu sebabnya
+`prediksi_relevansi` menyimpan probabilitas mentah, bukan hanya label akhir.
+Kueri penyetelannya ada di dokumen 03 bagian query agregasi.
 
-### 2.2 Dua vektor, bukan satu
+### 2.2 Satu vektor, bukan dua
 
-Deduplikasi butuh gambaran artikel seutuhnya. Relevansi butuh gambaran yang
-terfokus pada bagian yang menyinggung Pemkot. Satu vektor tidak bisa melayani
-keduanya: kalau dipakai vektor isi penuh, dua artikel berbeda yang sama-sama
-membahas Pemkot akan terlihat seperti salinan.
+Revisi 1.5 menyimpan dua vektor per artikel, satu untuk deduplikasi dan satu
+untuk relevansi. Yang kedua tidak dipakai lagi dan dihapus pada fase 1
+laboratorium.
 
-Karena itu satu artikel menyimpan dua vektor. Biayanya sekitar 1,5 KB per
-artikel, dan keduanya dihasilkan model yang sama dalam satu kali panggilan.
+Yang tersisa adalah `artikel.embedding`, vektor isi penuh untuk deteksi
+salinan, beserta index HNSW-nya. Bagian ini tidak berubah sama sekali dan tidak
+perlu disentuh.
 
-### 2.3 Fine-tuning IndoBERT untuk relevansi
+Ambang deduplikasi tetap harus diukur ulang. `DEDUP_AMBANG_COSINE=0.92`
+disetel untuk MiniLM, sedangkan vektor e5 tidak sebanding dengannya. Tugas itu
+tertinggal dari sprint 6 dan tidak ikut hilang bersama perpindahan penilai
+relevansi.
 
-Masuk daftar versi 2, dikerjakan hanya kalau cosine tidak mencapai presisi 80%
-setelah ambang disetel dan hard negative terkumpul. Perlu sekitar 1.000
-keputusan manusia sebelum masuk akal dikerjakan.
+### 2.3 Fine-tuning relevansi
+
+Bukan lagi daftar versi 2. Ia menjadi jalur utama, dan seluruh pipeline-nya
+dispesifikasikan di dokumen 10: dataset, snapshot, pelatihan, evaluasi,
+versioning, promosi, dan rollback.
+
+Syarat jumlah data yang menentukan kapan pelatihan pertama masuk akal:
+
+| Tingkat | Artikel unik berlabel | Minimal per kelas | Test terkunci |
+|---|---:|---:|---:|
+| Eksperimen | 500 | 200 | 100 |
+| Fine-tuning awal | 1.500 | 600 | 300 |
+| Kandidat produksi | 3.000 | 1.200 | 500 |
+
+Posisi sekarang: 249 label yang bisa dimigrasikan, dan itu belum cukup bahkan
+untuk tingkat eksperimen. Pekerjaan terdekat adalah pelabelan, bukan pelatihan.
 
 Sentimen tetap memakai model bawaan tanpa pelatihan ulang. F1 macro terukur
 0,7361 pada 470 label gold set ronde 1.
@@ -117,22 +150,37 @@ dikendalikan untuk sistem yang angkanya dilaporkan ke pimpinan.
 
 ## 3. Bentuk input relevansi
 
-Cosine similarity membandingkan dua teks. Keduanya harus dibentuk dengan
-sengaja, karena model membandingkan persis apa yang diberikan.
+Classifier relevansi menerima pasangan: kalimat konteks dan representasi
+artikel. Keduanya harus dibentuk dengan sengaja, karena model menilai persis
+apa yang diberikan.
 
-### 3.1 Sisi konteks, dihitung sekali
+Bentuk input adalah bagian sistem yang paling mudah berubah diam-diam dan
+paling mahal akibatnya. Model yang dilatih dengan satu susunan lalu dipakai
+dengan susunan lain akan tetap mengeluarkan angka, tampak wajar, dan salah.
+Karena itu `RelevanceInputBuilder` punya versi, versinya ikut tersimpan di
+artefak training, dan perubahannya mewajibkan evaluasi ulang. Dokumen 10
+bagian 20.
 
-Teks deskripsi konteks di dokumen 01 bagian 9, diberi awalan `query:` sesuai
-ketentuan e5. Hasilnya satu vektor yang disimpan di baris
-`konteks_pantauan`, bukan dihitung ulang tiap artikel.
+### 3.1 Sisi konteks
 
-Vektor ini berubah hanya kalau deskripsi konteksnya berubah. Kalau itu
-terjadi, `RELEVANSI_KONTEKS_VERSI` naik dan seluruh skor relevansi dihitung
-ulang.
+Isi `konteks_pantauan.deskripsi_model`, dikelola sebagai baris berversi di
+`versi_konteks_relevansi`. Untuk model, kalimatnya pendek dan persis:
+
+```text
+Pemerintah Kota Kendari
+```
+
+Aturan inklusi dan eksklusi yang panjang tetap disimpan pada versi konteks,
+tetapi tujuannya adalah panduan pelabel dan penjelasan ke admin, bukan teks
+yang dikirim ke tokenizer. Sejak revisi 1.6 teks ini tidak di-embed lagi.
+
+Perubahan definisi konteks mengubah status gerbang mutu menjadi `needs_review`
+sampai model dievaluasi ulang. Model yang dilatih di bawah satu definisi tidak
+otomatis berlaku di bawah definisi lain.
 
 ### 3.2 Sisi artikel, dihitung sekali per artikel
 
-Diberi awalan `passage:`, susunannya:
+Susunannya:
 
 ```text
 Judul: ...
@@ -157,11 +205,23 @@ Tidak ada tabel kamus kedua. Pencocokannya sudah berhenti di batas kata dan
 membuang alias di bawah tiga huruf, dua aturan yang lahir dari kesalahan nyata
 ("Kendari" terhitung di dalam "Kendarian", "PU" terhitung di ribuan kata biasa).
 
+Setiap prediksi menyimpan `input_hash`, `input_tokens`, dan `input_truncated`.
+Yang ketiga bukan hiasan: artikel yang terpotong dinilai dari separuh isinya,
+dan tanpa penanda itu, kesalahan yang sebenarnya berasal dari pemotongan akan
+dibaca sebagai kesalahan model lalu "diperbaiki" dengan melatih ulang.
+
 ## 4. Sinyal metadata WordPress
 
 27 dari 30 media partner memakai WordPress dan sudah dipanen lewat
-`/wp-json/` pada `crawl:backfill`. Kategori dan tag ikut ditarik dan disimpan
-di kolom `kategori_sumber` dan `tag_sumber`.
+`/wp-json/` pada `crawl:backfill`.
+
+**Kategori dan tag belum benar-benar ditarik.** Kolom `kategori_sumber` dan
+`tag_sumber` masih tercantum di rencana sprint 6 fase 2 dan belum dibuat, jadi
+seluruh bagian ini adalah rancangan, bukan keadaan sistem sekarang. Ditulis
+apa adanya di sini karena dokumen yang menyatakan sesuatu sudah jalan padahal
+belum akan menyesatkan orang yang membangun di atasnya, dan itu sudah sempat
+terjadi: komponen prioritas berbasis tag ditulis lebih dulu lalu harus dilepas
+setelah kolomnya ternyata tidak ada.
 
 Tag dipakai sebagai sinyal, tidak pernah sebagai keputusan akhir. Sebagian
 media memasang tag untuk SEO, memberi tag "Kendari" hanya karena lokasi, dan
@@ -181,70 +241,78 @@ Skor ini menentukan urutan antrean dan artikel mana yang diunduh penuh lebih
 dulu. Ia bukan probabilitas relevansi, dan tidak pernah disimpan sebagai
 `skor_relevansi`.
 
-## 5. Dua ambang dan pengetat sebutan
+## 5. Ambang dan sinyal kata kunci
 
-### 5.1 Dua ambang
+### 5.1 Ambang berversi, bukan di .env
 
-Skor cosine berkisar 0 sampai 1 dan **bukan probabilitas**. Angka 0,82 tidak
-berarti "82% yakin". Ia hanya berarti lebih mirip daripada 0,79. Karena itu
-ambangnya tidak boleh ditebak, harus dipilih dari validation set.
+Keluaran classifier adalah probabilitas softmax, jadi angka 0,82 memang berarti
+model memberi bobot 0,82 pada kelas relevan. Itu tetap tidak membuatnya boleh
+ditebak: probabilitas yang tidak terkalibrasi bisa menumpuk di 0,95 tanpa
+akurasi yang sepadan. Ambang dipilih dari validation set, tidak pernah dari
+test set.
 
-| Rentang skor | Keputusan |
+| Rentang probabilitas relevan | Keputusan |
 |--------------|-----------|
-| Di atas ambang atas | Relevan, lanjut ke sentimen |
-| Di antara dua ambang | Perlu review, masuk antrean admin |
-| Di bawah ambang bawah | Tidak relevan, keluar dari alur |
+| Di atas `relevant_threshold` | Relevan, lanjut ke sentimen bila gerbang lulus |
+| Di dalam pita `review_lower_bound` sampai `review_upper_bound` | Perlu review, masuk antrean admin |
+| Sisanya | Tidak relevan, keluar dari alur |
 
 Cara memilihnya:
 
-1. Hitung skor untuk seluruh baris validation set.
-2. Pilih **ambang atas** pada titik presisi mencapai 80%.
-3. Pilih **ambang bawah** pada titik recall mencapai 85%.
-4. Ukur berapa persen artikel jatuh di antara keduanya. Kalau lebih dari 20%,
-   antrean review akan lebih panjang daripada yang sanggup dikerjakan admin,
-   dan ambangnya perlu dirapatkan walau presisinya sedikit turun.
+1. Hitung probabilitas untuk seluruh baris validation set.
+2. Pilih ambang relevan pada titik precision kelas relevan mencapai 0,85.
+3. Pasang pita review di sekitar ambang itu, lebarnya ditentukan berapa banyak
+   artikel yang sanggup ditinjau admin per hari.
+4. Ukur berapa persen artikel jatuh di dalam pita. Gerbang mutu menuntut di
+   bawah 15%. Pita yang lebih lebar memang lebih aman, tetapi antrean yang
+   tidak pernah habis sama saja dengan tidak ada peninjauan.
 5. Baru setelah itu jalankan sekali di test set beku, dan laporkan angka itu.
 
-Disimpan sebagai `RELEVANSI_AMBANG_ATAS` dan `RELEVANSI_AMBANG_BAWAH`.
+**Nilai ini disimpan sebagai baris `versi_threshold_relevansi`, bukan di `.env`.**
+Perubahan versi 1.6, dan alasannya bukan kerapian. Ambang di `.env` tidak punya
+alasan, pemilik, dan tanggal, sehingga tidak ada cara menjawab mengapa angkanya
+0,62 dan siapa yang menurunkannya. Ambang juga berpasangan dengan model:
+mempromosikan model baru tanpa mengganti ambangnya adalah salah satu cara
+tercepat merusak produksi. `.env` tinggal menjadi nilai bootstrap darurat.
 
-Nilai awal sebelum diukur: jangan dipasang sama sekali. Jalankan sistem dalam
-mode "semua masuk antrean review" selama pengukuran pertama. Memasang angka
-tebakan lalu lupa menggantinya adalah cara paling umum sebuah ambang menjadi
-permanen tanpa pernah diukur.
+Model produksi selalu menunjuk pasangan versi model dan versi ambang sekaligus,
+dan rollback mengembalikan keduanya. Dokumen 10 bagian 15.2 dan 14.5.
 
-### 5.2 Pengetat sebutan tetap dipakai
+### 5.2 Kata kunci turun menjadi sinyal
 
-Cosine sendirian tidak cukup, dan alasannya justru datang dari cara input
-dibentuk di bagian 3.2. Teks artikel yang dikirim ke model **disusun dari
-potongan kalimat di sekitar sebutan Pemkot**. Artinya artikel yang menyebut
-Pemkot satu kali sepintas akan menghasilkan teks yang isinya hampir seluruhnya
-tentang Pemkot, lalu mendapat skor cosine tinggi. Justru kesalahan yang paling
-ingin dihindari.
+Sampai revisi 1.5, kata kunci konteks bertugas sebagai pengetat: artikel baru
+dinyatakan relevan kalau kata kuncinya muncul di judul atau minimal tiga kali
+di isi. Pengetat itu **dilepas** pada revisi 1.6, dan tugasnya diserahkan ke
+model.
 
-Pengetatnya sama seperti yang sudah terukur pada model lama: kata kunci konteks
-harus muncul di judul, atau minimal tiga kali di isi. Diukur terhadap 254 label
-manusia dengan separuh data ditahan:
+Alasannya bukan bahwa aturannya buruk. Justru sebaliknya, pengukuran sprint 6
+menunjukkan aturan kata kunci sendirian mencapai presisi 56,0% sementara model
+lama di atasnya hanya menambah satu poin. Masalahnya, aturan itu menutupi
+kesalahan model dari pengukuran. Selama pengetat memotong sebagian keluaran,
+tidak ada cara tahu apakah model membaik, karena angka akhir yang terlihat
+selalu campuran keduanya. Model yang dilatih untuk mengerjakan tugas ini harus
+dinilai atas tugas itu sendiri.
 
-| Aturan | Presisi | Recall | F1 |
-|--------|---------|--------|-----|
-| Model apa adanya | 54,2% | 100% | 0,703 |
-| Kata kunci di judul saja | 92,3% | 46,2% | 0,615 |
-| Kata kunci di judul atau 400 huruf awal | 65,1% | 78,8% | 0,713 |
-| **Kata kunci di judul atau minimal 3 kali di isi** | **80,0%** | **92,3%** | **0,857** |
-| Kata kunci di judul atau minimal 4 kali di isi | 80,0% | 76,9% | 0,784 |
+Sinyalnya tetap dihitung dengan bobot yang sama seperti bagian 4, dan tetap
+disimpan di `sinyal_relevansi`, untuk dua hal.
 
-Varian minimal 4 kali menang pada separuh data yang dipakai memilih dan kalah
-pada data tahan. Tanpa data tahan, varian yang salah yang akan dipasang.
+Pertama, menjelaskan keputusan ke admin di halaman detail artikel. Kedua,
+mengurutkan antrean pelabelan. Yang kedua justru paling berharga sekarang:
+selama belum ada model produksi, sinyal inilah satu-satunya yang menentukan
+artikel mana yang paling layak dilabeli lebih dulu, dan bertentangan antara
+sinyal dan prediksi adalah salah satu komponen `priority_score` di dokumen 10
+bagian 8.
 
-Disetel lewat `RELEVANSI_MINIMAL_SEBUTAN`, bawaan 3.
-
-**Angka di tabel ini diukur pada model lama, bukan pada cosine.** Ia dipakai
-sebagai titik awal, bukan sebagai bukti. Ukur ulang ketiga varian terhadap
-skor cosine di sprint 6, dan kalau ternyata pengetatnya tidak lagi menambah
-presisi, matikan. Aturan yang tidak lagi bekerja tapi tetap dipasang adalah
-utang yang menyamar sebagai kehati-hatian.
+`RELEVANSI_MINIMAL_SEBUTAN` dipensiunkan bersama `RELEVANSI_AMBANG_ATAS` dan
+`RELEVANSI_AMBANG_BAWAH`.
 
 ## 6. Gold set
+
+> **Versi 1.6:** untuk relevansi, bagian ini digantikan pipeline dataset di
+> dokumen 10 bagian 7 sampai 9. Aturannya tidak berubah, tempatnya yang
+> berubah: `sampel_relevansi` menggantikan `gold_set`, dan pembagian data
+> menjadi snapshot terkunci dengan manifest hash. Yang di bawah tetap berlaku
+> untuk sentimen dan tetap menjadi ringkasan prinsipnya.
 
 ### 6.1 Bentuk
 
@@ -300,11 +368,20 @@ seluruh angka.
 
 | Metrik | Target |
 |--------|-------:|
-| Presisi relevansi | minimal 80% |
-| Recall relevansi | minimal 85% |
-| F1 relevansi | minimal 0,80 |
-| Artikel `perlu_review` | di bawah 20% setelah stabil |
+| Presisi relevansi | minimal 0,85 |
+| Recall relevansi | minimal 0,85 |
+| F1 relevansi | minimal 0,85 |
+| Macro F1 relevansi | minimal 0,85 |
+| Artikel `perlu_review` | di bawah 15% |
 | Koreksi manual yang tertimpa analisis ulang | 0 kasus |
+
+Angka naik dari 80% pada revisi 1.6, dan ini bukan optimisme. Selama relevansi
+berupa ambang atas skor cosine, 80% adalah batas yang realistis dari alat yang
+dipakai. Begitu modelnya dilatih dengan label sendiri, standar yang sama
+menjadi terlalu longgar: satu dari lima artikel yang salah masuk tetap terlihat
+pimpinan. Daftar syarat lengkapnya, termasuk yang bukan metrik, ada di dokumen
+10 bagian 12.3 dan 12.4, dan **gerbang itu memblokir sentimen**, bukan sekadar
+memberi peringatan.
 
 Laporkan juga false positive dan false negative per sumber. Satu media dengan
 gaya penulisan tertentu bisa menyumbang sebagian besar kesalahan, dan itu tidak
@@ -388,9 +465,14 @@ begitu angkanya lewat.
 5. Artikel duplikat dikelompokkan sebelum data dibagi.
 6. Hasil dengan keyakinan rendah ditampilkan sebagai `perlu_review`, tidak
    pernah sebagai fakta.
+7. **Sentimen tidak pernah berjalan di atas relevansi yang belum terbukti.**
+   Selama gerbang mutu belum `passed`, tidak ada artikel yang masuk antrean
+   sentimen, dan penjaganya ada di dua tempat: dispatcher dan job. Satu
+   penjaga akan terlewat suatu hari, dan hari itu tidak akan ada yang sadar.
 
 ## Changelog
 
 | Versi | Tanggal | Perubahan |
 |-------|---------|-----------|
+| 1.1 | Agustus 2026 | Relevansi menjadi classifier hasil fine-tuning, mengikuti dokumen 10. **(a)** Bagian 2: tiga model, cabang "belum ada model produksi", sentimen diblokir. **(b)** Bagian 2.2: dua vektor menjadi satu, e5 tinggal untuk deteksi salinan. **(c)** Bagian 2.3: fine-tuning naik dari daftar versi 2 menjadi jalur utama, beserta syarat jumlah data. **(d)** Bagian 3: input menjadi pasangan konteks dan artikel, `RelevanceInputBuilder` berversi. **(e)** Bagian 5: ambang menjadi baris berversi di database, pengetat kata kunci dilepas dan turun menjadi sinyal prioritas. **(f)** Bagian 7.1: gerbang naik dari 0,80 ke 0,85. **(g)** Aturan ketujuh pada bagian 9 |
 | 1.0 | Agustus 2026 | Dokumen dibuat, menutup rujukan menggantung dari dokumen 00, 02, 07, dan 08. Isinya mengikuti keputusan konteks tunggal pada usulan revisi 1.3 |

@@ -6,11 +6,23 @@ use App\Models\KonteksPantauan;
 use Illuminate\Database\Seeder;
 
 /**
- * Tiga konteks awal, jawaban Diskominfo nomor 5 (dokumen 01 bagian 9).
+ * Satu konteks: Pemerintah Kota Kendari (dokumen 01 bagian 9, revisi 1.4).
  *
- * `nama` dikirim apa adanya ke model IndoBERT sebagai input konteks.
- * `kata_kunci` adalah penyaring murah sebelum model relevansi dipanggil,
- * menambah konteks menaikkan biaya inferensi secara linear.
+ * Konteks Wali Kota dan Pelayanan publik dihapus pada 4 Agustus 2026. Keduanya
+ * sempat dinonaktifkan lebih dulu, tapi baris nonaktif di tabel tetap terbaca
+ * admin dan menimbulkan pertanyaan yang tidak perlu. 221 label gold set-nya
+ * diarsipkan ke `storage/app/private/arsip-gold-set-konteks-lama.json` sebelum
+ * dihapus, karena label itu hasil kerja manusia dan tidak bisa dibuat ulang
+ * tanpa membacanya lagi satu per satu.
+ *
+ * Dua kolom deskripsi, dan bedanya penting:
+ *
+ * - `deskripsi` dibaca manusia di halaman admin, tidak pernah dikirim ke mana pun.
+ * - `deskripsi_model` adalah kalimat konteks yang dipasangkan ke artikel pada
+ *   tokenizer model relevansi. Pendek dan persis, bukan paragraf aturan.
+ *   Mengubahnya mewajibkan model dievaluasi ulang.
+ *
+ * `nama` dikirim apa adanya ke model sentimen sebagai input konteks.
  */
 class KonteksPantauanSeeder extends Seeder
 {
@@ -21,51 +33,27 @@ class KonteksPantauanSeeder extends Seeder
                 'nama' => 'Pemerintah Kota Kendari',
                 'slug' => 'pemerintah-kota-kendari',
                 'deskripsi' => 'Kebijakan, program, layanan, dan aparatur Pemerintah Kota Kendari.',
-                // Teks inilah yang di-embed dan menjadi pembanding seluruh
-                // artikel. Aturan eksklusinya ikut ditulis karena yang paling
-                // sering salah bukan mengenali Pemkot, melainkan membedakannya
-                // dari Pemprov, instansi vertikal, dan Kendari sebagai lokasi.
-                // Mengubah teks ini mewajibkan vektor konteks dihitung ulang
-                // dan seluruh skor relevansi dinilai ulang. Dokumen 01 bagian 9.
-                'deskripsi_model' => 'Artikel membahas Pemerintah Kota Kendari secara substantif: '
-                    .'Pemkot Kendari sebagai institusi, Wali Kota atau Wakil Wali Kota Kendari dalam '
-                    .'kapasitas jabatan, Sekretaris Daerah dan aparatur Pemkot, dinas, badan, kantor, '
-                    .'bagian, kecamatan, kelurahan, UPTD, dan BLUD milik Pemerintah Kota Kendari, '
-                    .'beserta kebijakan, program, kegiatan, pelayanan, perizinan, anggaran, '
-                    .'pembangunan, pengadaan, prestasi, masalah, kritik, keluhan, dan tanggapan '
-                    .'resminya. Bukan artikel yang hanya berlokasi di Kendari, dan bukan artikel '
-                    .'yang hanya membahas Pemerintah Provinsi Sulawesi Tenggara, pemerintah '
-                    .'kabupaten lain, kementerian, kantor wilayah, kepolisian, TNI, kejaksaan, '
-                    .'pengadilan, kampus, perusahaan, organisasi, kriminalitas umum, olahraga, '
-                    .'atau hiburan tanpa keterlibatan Pemkot Kendari.',
+                // Kalimat konteks yang dipasangkan ke artikel pada tokenizer,
+                // dan ia harus pendek.
+                //
+                // Sebelumnya berisi paragraf aturan inklusi dan eksklusi, dan
+                // itu tepat pada revisi 1.5 ketika teksnya di-embed sebagai
+                // pembanding kemiripan makna. Sejak relevansi kembali menjadi
+                // classifier, paragraf itu justru merugikan: ia memakan 137
+                // dari 256 token, isinya sama persis di setiap sampel sehingga
+                // tidak membedakan apa pun, dan artikel yang seharusnya dinilai
+                // tinggal kebagian 116 token.
+                //
+                // Aturan inklusi dan eksklusinya tetap berguna, tempatnya di
+                // panduan pelabelan dokumen 09 dan di `versi_konteks_relevansi`,
+                // bukan di teks yang dikirim ke model. Dokumen 10 bagian 20.
+                'deskripsi_model' => 'Pemerintah Kota Kendari',
                 'kata_kunci' => [
                     'pemkot kendari', 'pemerintah kota kendari', 'kota kendari',
                     'dinas', 'opd', 'apbd kendari', 'sekda kendari', 'diskominfo kendari',
                 ],
                 'utama' => true,
                 'urutan' => 1,
-            ],
-            [
-                'nama' => 'Wali Kota Kendari',
-                'slug' => 'wali-kota-kendari',
-                'deskripsi' => 'Wali Kota dan Wakil Wali Kota Kendari sebagai pejabat publik.',
-                'kata_kunci' => [
-                    'wali kota kendari', 'walikota kendari', 'wakil wali kota kendari',
-                    'wawali kendari', 'orang nomor satu kendari',
-                ],
-                'utama' => false,
-                'urutan' => 2,
-            ],
-            [
-                'nama' => 'Pelayanan publik dan infrastruktur Kota Kendari',
-                'slug' => 'pelayanan-publik-infrastruktur-kendari',
-                'deskripsi' => 'Jalan, drainase, sampah, air bersih, pasar, dan layanan administrasi kependudukan.',
-                'kata_kunci' => [
-                    'jalan rusak', 'drainase', 'banjir', 'sampah', 'tpa', 'air bersih',
-                    'pdam', 'pasar', 'dukcapil', 'adminduk', 'pelayanan publik', 'trotoar',
-                ],
-                'utama' => false,
-                'urutan' => 3,
             ],
         ];
 

@@ -43,6 +43,12 @@ class PeriksaDuplikat implements ShouldQueue
             return;
         }
 
+        // Masuk dataset lebih dulu, baru dinilai. Artikel yang belum pernah
+        // dinilai model apa pun justru sampel yang paling dibutuhkan pelabel,
+        // dan selama belum ada model produksi, langkah inilah satu-satunya yang
+        // benar-benar menghasilkan sesuatu. Dokumen 02 bagian 5.
+        ImporArtikelKeDatasetRelevansi::dispatch($artikel->id);
+
         AnalisisRelevansi::dispatch($artikel->id);
     }
 }

@@ -27,7 +27,6 @@ class Artikel extends Model
         return [
             'status_dedup' => StatusDedup::class,
             'embedding' => Vector::class,
-            'embedding_relevansi' => Vector::class,
             'dipublikasikan_at' => 'datetime',
             'diambil_at' => 'datetime',
         ];

@@ -14,8 +14,8 @@ import { type NavItem, type PeranPengguna, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
 import {
     BarChart3, BellRing, ClipboardCheck, FileSignature, FileText, Flame,
-    LayoutGrid, Network, Newspaper, Rss, ScrollText, Send, Settings, Tags,
-    Target, Users,
+    FlaskConical, HelpCircle, LayoutGrid, Network, Newspaper, Rss, ScrollText,
+    Send, Settings, Tags, Target, Users,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from './AppLogo.vue';
@@ -28,7 +28,9 @@ const navPerPeran: Record<PeranPengguna, NavItem[]> = {
         { title: 'Dashboard', href: '/admin', icon: LayoutGrid },
         { title: 'Artikel', href: '/admin/artikel', icon: FileText },
         { title: 'Konteks', href: '/admin/konteks', icon: Target },
+        { title: 'Antrean Review', href: '/admin/review', icon: HelpCircle },
         { title: 'Pelabelan', href: '/admin/pelabelan', icon: Tags },
+        { title: 'Laboratorium Relevansi', href: '/admin/model-relevansi', icon: FlaskConical },
         { title: 'Evaluasi Model', href: '/admin/evaluasi', icon: BarChart3 },
         { title: 'Kontrak', href: '/admin/kontrak', icon: FileSignature },
         { title: 'Verifikasi Pemuatan', href: '/admin/pemuatan', icon: ClipboardCheck },

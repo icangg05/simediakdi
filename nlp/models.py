@@ -55,3 +55,34 @@ class TanggapanSehat(BaseModel):
     model_sentimen: str
     model_embedding: str
     versi: str
+
+
+class PermintaanPelatihan(BaseModel):
+    """Permintaan memulai fine-tuning relevansi. Dokumen 10 bagian 19.3.
+
+    `berkas` berisi path absolut hasil ekspor Laravel. Layanan ini tidak pernah
+    membaca database: ia menerima berkas, melatih, lalu mengembalikan angka.
+    """
+
+    run_id: int
+    base_model: str
+    berkas: dict[str, str]
+    artifact_path: str
+    epoch: float = 3
+    batch_size: int = 4
+    gradient_accumulation: int = 4
+    learning_rate: float = 1e-5
+    weight_decay: float = 0.01
+    warmup_ratio: float = 0.1
+    max_length: int = 256
+    class_weighting: bool = True
+    random_seed: int = 42
+    metric_utama: str = "f1_relevan"
+    versi_input_builder: str | None = None
+    snapshot_manifest_hash: str | None = None
+
+
+class TanggapanPelatihan(BaseModel):
+    accepted: bool
+    run_id: int
+    status: str

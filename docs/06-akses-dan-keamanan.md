@@ -37,6 +37,8 @@ Kolom: S = superadmin, W = walikota, M = media. Notasi: **B** baca, **T** tulis,
 | Ringkasan dan grafik agregat | B | B | BS |
 | Gold set dan pelabelan | B T | - | - |
 | Hasil evaluasi model | B | B | - |
+| Laboratorium Model Relevansi | B T | - | - |
+| Promosi, rollback, dan gerbang mutu model | B T | - | - |
 | Aturan alert | B T | B | - |
 | Riwayat alert | B T | B | - |
 | Pengguna | B T | - | BS profil sendiri |
@@ -52,6 +54,8 @@ Tiga baris yang perlu diperhatikan:
 **Peran media tidak melihat skor sentimen.** Keputusan produk, alasannya di dokumen 01 bagian 8 dan dokumen 04 bagian C.4.
 
 **Peran walikota boleh mengekspor.** Ekspor secara teknis adalah aksi tulis karena membuat berkas, tapi tidak mengubah data. Kecualikan rute ekspor dari middleware penolak tulisan.
+
+**Laboratorium Model Relevansi tertutup untuk walikota dan media, termasuk baca.** Bukan karena isinya rahasia, melainkan karena setiap angka di dalamnya adalah angka setengah jadi: model kandidat yang gagal, presisi yang belum memenuhi standar, dan artikel yang label manusianya masih diperdebatkan. Angka setengah jadi yang dibaca di luar konteksnya berubah menjadi kesimpulan, dan kesimpulan itu tidak bisa ditarik kembali. Yang layak dibaca peran lain adalah hasil akhirnya, dan itu sudah ada di halaman evaluasi. Dokumen 10 bagian 17.6.
 
 ## 3. Penegakan di lapisan kode
 
@@ -147,6 +151,14 @@ Yang dicatat:
 | Pembuatan, perubahan, dan penonaktifan akun | |
 | Perubahan ambang keyakinan di pengaturan | Mengubah angka ambang mengubah seluruh angka di dashboard. Tanpa catatan, tidak akan ada yang bisa menjelaskan kenapa grafik bulan lalu terlihat berbeda |
 | Perubahan konteks pantauan | Sama alasannya |
+| Pelabelan relevansi, termasuk batch dan perubahan alasan | Label manusia adalah bahan baku model. Label yang salah akan diajarkan ke model dan menjadi kesalahan permanen sampai ada yang menelusurinya kembali |
+| Perubahan label pada test set terkunci | Mengubah alat ukur. Wajib beralasan dan wajib membuat versi snapshot baru |
+| Pembuatan dan penguncian snapshot dataset | Menentukan angka evaluasi mana yang bisa direproduksi |
+| Mulai, batal, dan gagalnya pelatihan model | |
+| Perubahan ambang relevansi dan standar gerbang mutu | Menurunkan standar diam-diam adalah cara termudah membuat model apa pun terlihat lulus |
+| Promosi model ke produksi, penolakan kandidat, dan rollback | Titik di mana perilaku seluruh sistem berubah dalam satu klik |
+| Pencabutan gerbang mutu dan pemblokiran sentimen | |
+| Penghapusan artefak model | |
 | Login peran walikota | Lihat bagian 4 |
 | Ekspor data | Siapa mengambil data apa dan kapan |
 

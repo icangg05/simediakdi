@@ -22,6 +22,11 @@ export interface SharedData {
     auth: Auth;
     /** Pesan hasil aksi. Dirender terpusat di AppLayout sebagai toast. */
     flash?: { sukses?: string | null; galat?: string | null };
+    /**
+     * Sentimen diblokir sampai model relevansi produksi lolos gerbang mutu.
+     * Halaman mana pun yang menampilkan angka sentimen wajib memeriksanya.
+     */
+    sentimen?: { tersedia: boolean; alasan: string | null };
     ziggy: {
         location: string;
         url: string;

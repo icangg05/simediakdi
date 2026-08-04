@@ -39,7 +39,14 @@ watch(
     <div class="flex flex-wrap items-center gap-2">
         <div v-if="pencarian" class="relative">
             <Search class="pointer-events-none absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input v-model="kata" placeholder="Cari…" class="h-8 w-56 pl-8" aria-label="Cari di tabel" />
+            <!-- Pencarian aktif ikut menyala, sama seperti filter di sebelahnya. -->
+            <Input
+                v-model="kata"
+                placeholder="Cari…"
+                class="h-8 w-56 pl-8"
+                :class="kata ? 'border-primary bg-primary/10' : ''"
+                aria-label="Cari di tabel"
+            />
         </div>
 
         <DataTableFacetedFilter

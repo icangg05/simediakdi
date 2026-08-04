@@ -1,8 +1,22 @@
 # 09: Panduan Pelabelan Gold Set
 
-SIMEDIA Kendari | Versi 2.0
+SIMEDIA Kendari | Versi 2.1
 
 ---
+
+> **Versi 2.1: panduan ini sekarang punya versi yang mengikat.** Setiap sampel
+> dataset menyimpan versi panduan yang berlaku saat ia dilabeli, dan setiap
+> snapshot menyimpannya juga. Alasannya bukan kerapian arsip. Ketika aturan
+> berubah, seperti yang terjadi pada versi 2.0, label lama dan label baru
+> menjawab pertanyaan yang berbeda, dan mencampurnya menghasilkan model yang
+> dilatih atas dua definisi sekaligus. Nomor versi adalah satu-satunya cara
+> mengetahui baris mana yang perlu ditinjau ulang.
+>
+> Aturan penilaiannya sendiri tidak berubah dari versi 2.0. Yang berubah:
+> pelabelan relevansi pindah ke `/admin/model-relevansi?tab=dataset`, alasan
+> label menjadi kode terstruktur, dan pertanyaan sentimen berhenti sementara
+> karena analisis sentimen diblokir sampai model relevansi lolos gerbang mutu.
+> Dokumen 10 bagian 0.3 dan 7.5.
 
 > **Versi 2.0 mengubah aturan pelabelan.** Tiga konteks menjadi satu konteks
 > utama, dan pertanyaan pertama berubah dari "relevan terhadap konteks ini"
@@ -211,18 +225,64 @@ sedikit.
 baris untuk metrik relevansi. Itu sebabnya baris tidak relevan tetap disimpan
 dan bukan pekerjaan yang terbuang.
 
+## Alasan label
+
+Setiap keputusan disertai satu kode alasan. Bukan kolom catatan bebas: kode
+yang seragam bisa dihitung, dan itulah yang menghasilkan kalimat seperti "31%
+false positive berasal dari Pemprov Sultra" pada analisis kesalahan. Catatan
+bebas yang ditulis dengan kata-kata berbeda setiap kali tidak bisa dijumlahkan
+sama sekali.
+
+**Alasan tidak relevan:**
+
+```text
+lokasi_saja                    pemerintah_daerah_lain
+pemprov_sultra                 pemkot_disebut_sepintas
+instansi_vertikal              tidak_ada_kewenangan_pemkot
+polri_tni                      kriminalitas_umum
+kampus                         olahraga_hiburan
+perusahaan_organisasi          lainnya
+```
+
+**Alasan relevan:**
+
+```text
+institusi_pemkot               anggaran_pengadaan
+wali_kota_wakil_wali_kota      pembangunan_infrastruktur
+opd_unit_kerja                 kritik_keluhan
+kebijakan_program              respons_tindak_lanjut
+pelayanan_publik               hubungan_dprd_pemkot
+                               lainnya
+```
+
+Alasan **wajib** diisi pada lima keadaan: mengubah label lama, memutuskan
+berbeda dari prediksi model yang confidence-nya tinggi, melabeli sampel di test
+set, mengeluarkan sampel dari dataset, dan menandai sampel sebagai hard case.
+Di luar kelima itu boleh dilewati, supaya laju pelabelan tidak jatuh.
+
+Pakai `lainnya` sesedikit mungkin. Kalau kode itu terpakai lebih dari satu kali
+dari sepuluh, yang kurang adalah daftarnya, bukan ketelitian pelabel. Tambahkan
+kode baru dan naikkan versi panduan.
+
 ## Cara kerja
 
-1. Buka `/admin/pelabelan`. Tidak ada lagi pemilih konteks.
+1. Buka `/admin/model-relevansi?tab=dataset`, lalu masuk mode pelabelan cepat.
+   Antreannya sudah terurut berdasarkan `priority_score`, jadi artikel yang
+   paling berguna untuk model muncul lebih dulu. Dokumen 10 bagian 8.
 2. Baca judul dan dua paragraf pertama, lalu lihat kategori, tag, dan potongan
    kalimat di sekitar sebutan Pemkot. Itu cukup.
-3. Tekan `1` negatif, `2` netral, `3` positif, `4` tidak relevan. Keempatnya
-   berderet di satu baris angka, jadi satu tangan menjangkau semuanya.
+3. Tekan `R` relevan, `T` tidak relevan, `S` lewati, `E` edit alasan.
 4. Tebakan model baru muncul **setelah** Anda memutuskan. Kalau berbeda,
    jangan mengubah keputusan, perbedaan itulah yang sedang diukur.
 
 Target 20 detik per artikel. 400 baris selesai dalam sekitar dua jam terfokus,
-dipecah menjadi beberapa sesi.
+dipecah menjadi beberapa sesi. Sasaran keseluruhan jauh lebih besar dari itu:
+1.500 artikel unik sebelum pelatihan pertama masuk akal, 3.000 sebelum ada
+kandidat produksi. Itu pekerjaan berminggu-minggu, dan tidak ada cara
+mempercepatnya dengan server yang lebih besar.
+
+Halaman `/admin/pelabelan` yang lama tetap ada untuk sentimen. Selama sentimen
+diblokir, halaman itu tidak dipakai.
 
 ### Mode pengambilan artikel
 
@@ -292,11 +352,17 @@ relevansi dan sentimen di tab terpisah.
 
 Dua gerbang, dan keduanya harus lewat:
 
-- **Presisi relevansi minimal 80%.** Di bawah itu, sebagian isi dashboard tidak
-  membahas Pemkot, dan itu jenis kesalahan yang tidak perlu keahlian untuk
-  dilihat, cukup membaca judulnya.
+- **Presisi relevansi minimal 0,85**, bersama recall, F1, dan macro F1 pada
+  angka yang sama. Naik dari 80% sejak relevansi memakai model yang dilatih
+  sendiri. Di bawah itu, sebagian isi dashboard tidak membahas Pemkot, dan itu
+  jenis kesalahan yang tidak perlu keahlian untuk dilihat, cukup membaca
+  judulnya. Syarat lengkapnya di dokumen 10 bagian 12.3.
 - **F1 macro sentimen minimal 0,65.** Di bawah itu, jangan bangun dashboard di
   atas model yang angkanya akan dibantah di rapat pertama.
+
+Gerbang pertama bukan lagi sekadar angka laporan. Selama ia belum lewat,
+analisis sentimen diblokir dan dashboard sentimen menampilkan keadaan belum
+tersedia. Pelabelan Anda adalah satu-satunya hal yang membukanya.
 
 Kalau salah satunya tidak lewat, dokumen 05 bagian 8 memuat urutan yang harus
 dikerjakan. Kerjakan urutannya, jangan menambah aturan tempelan.

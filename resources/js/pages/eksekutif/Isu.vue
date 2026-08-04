@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import KeadaanKosong from '@/components/KeadaanKosong.vue';
 import { useFormatAngka } from '@/composables/useFormatAngka';
+import { useGerbangSentimen } from '@/composables/useGerbangSentimen';
 import { usePeriodeEksekutif } from '@/composables/usePeriodeEksekutif';
 import LayoutEksekutif from '@/layouts/LayoutEksekutif.vue';
 import { Head, Link } from '@inertiajs/vue3';
@@ -27,6 +28,7 @@ const props = defineProps<{
 }>();
 
 const { formatAngka } = useFormatAngka();
+const { sentimenTersedia } = useGerbangSentimen();
 const { pindah, kueri } = usePeriodeEksekutif(props.periode, props.konteksId, '/eksekutif/isu');
 
 /**
@@ -74,7 +76,7 @@ const naikTajam = computed(() =>
                         <span class="angka shrink-0 text-xs text-muted-foreground">
                             {{ formatAngka(i.jumlah_artikel) }} berita
                         </span>
-                        <BadgeSentimen :label="i.sentimen_dominan" class="shrink-0" />
+                        <BadgeSentimen v-if="sentimenTersedia" :label="i.sentimen_dominan" class="shrink-0" />
                     </li>
                 </ul>
             </CardContent>
@@ -113,7 +115,7 @@ const naikTajam = computed(() =>
                                     {{ i.skor_lonjakan === null ? '-' : `${i.skor_lonjakan}×` }}
                                 </TableCell>
                                 <TableCell class="text-right">
-                                    <BadgeSentimen :label="i.sentimen_dominan" class="ml-auto" />
+                                    <BadgeSentimen v-if="sentimenTersedia" :label="i.sentimen_dominan" class="ml-auto" />
                                 </TableCell>
                             </TableRow>
                         </TableBody>

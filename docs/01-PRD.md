@@ -188,8 +188,9 @@ Ukur tiga bulan setelah sistem dipakai.
 | Metrik | Target |
 |--------|--------|
 | Cakupan berita | Lebih dari 90% berita dari media terdaftar tertangkap sistem, diukur dengan audit sampel manual 100 berita |
-| Presisi relevansi | Minimal 80% pada test set. Ini metrik yang menentukan apakah daftar berita terasa masuk akal bagi pimpinan |
-| Recall relevansi | Minimal 85% pada test set. Jangan diukur dari sampel mode terarah, lihat dokumen 05 bagian 7.1 |
+| Presisi relevansi | Minimal 0,85 pada test set terkunci. Ini metrik yang menentukan apakah daftar berita terasa masuk akal bagi pimpinan. Naik dari 80% pada revisi 1.6, sekaligus menjadi gerbang yang memblokir sentimen, bukan sekadar target laporan |
+| Recall relevansi | Minimal 0,85 pada test set terkunci. Jangan diukur dari sampel mode terarah, lihat dokumen 05 bagian 7.1 |
+| Ketersediaan analisis sentimen | Diblokir sampai gerbang mutu relevansi lulus. Sengaja, sejak 4 Agustus 2026. Selama itu dashboard sentimen menampilkan keadaan belum tersedia, bukan angka lama. Dokumen 10 bagian 0.3 |
 | Akurasi sentimen | F1 macro minimal 0,75 pada gold set Kendari |
 | Tingkat duplikat lolos | Kurang dari 5% berita ganda terhitung sebagai berita berbeda |
 | Adopsi peran walikota | Login minimal 12 kali per bulan |

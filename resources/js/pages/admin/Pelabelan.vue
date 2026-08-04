@@ -249,7 +249,7 @@ watch(
                             {{ formatAngka(progres.relevanPerKonteks) }} dari
                             {{ formatAngka(progres.targetRelevan) }} label relevan
                         </span>
-                        <span class="text-muted-foreground"> di konteks ini</span>
+                        <span class="text-muted-foreground"> untuk mengukur sentimen</span>
                     </p>
                     <div class="mt-1 h-1.5 w-56 overflow-hidden rounded-full bg-muted">
                         <div
@@ -261,9 +261,9 @@ watch(
                         />
                     </div>
                     <p class="mt-0.5 text-xs text-muted-foreground">
-                        Ronde {{ ronde }} · {{ formatAngka(progres.perKonteks) }} label di konteks ini ·
-                        {{ formatAngka(progres.selesai) }} seluruhnya. Hanya label relevan yang terpakai
-                        saat mengukur model.
+                        Ronde {{ ronde }} · {{ formatAngka(progres.perKonteks) }} artikel sudah dilabeli.
+                        Label <strong>tidak relevan</strong> tetap terpakai: itu yang mengukur presisi
+                        penyaring. Label relevan yang mengukur sentimen.
                     </p>
                 </div>
 
@@ -290,8 +290,11 @@ watch(
                         </option>
                     </select>
 
+                    <!-- Pemilih konteks hanya dirender kalau memang ada lebih
+                         dari satu. Dropdown berisi satu opsi menyiratkan ada
+                         pilihan lain, padahal tidak. -->
                     <select
-                        v-if="konteksAktif"
+                        v-if="konteksAktif && konteksTersedia.length > 1"
                         class="h-8 rounded-md border border-input bg-background px-2 text-sm"
                         :value="konteksAktif.id"
                         aria-label="Konteks yang dinilai"
@@ -361,10 +364,13 @@ watch(
                 <Card>
                     <CardContent class="space-y-4 p-6">
                         <div class="rounded-md bg-muted p-3">
-                            <p class="text-xs uppercase tracking-wide text-muted-foreground">Konteks yang dinilai</p>
-                            <p class="text-lg font-semibold">{{ konteksAktif.nama }}</p>
-                            <p v-if="konteksAktif.deskripsi" class="text-xs text-muted-foreground">
-                                {{ konteksAktif.deskripsi }}
+                            <p class="text-xs uppercase tracking-wide text-muted-foreground">Pertanyaannya</p>
+                            <p class="text-base font-semibold leading-snug">
+                                Apakah artikel ini secara substantif membahas {{ konteksAktif.nama }}?
+                            </p>
+                            <p class="mt-1 text-xs text-muted-foreground">
+                                Penyebutan bukan pembahasan. Kalau kalimat yang memuat konteks itu dihapus
+                                dan beritanya masih utuh, jawabannya tidak relevan.
                             </p>
                         </div>
 

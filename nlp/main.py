@@ -8,21 +8,27 @@ kehilangan data, kalau mati, job menumpuk di antrean `nlp` lalu jalan lagi.
 Dijalankan satu worker saja. Model dimuat sekali saat startup; dua worker
 berarti dua salinan model di memori yang sama.
 
-Dua model, bukan tiga. Relevansi tidak lagi punya model sendiri: skornya
-dihitung Laravel sebagai kemiripan antara vektor artikel dan vektor deskripsi
-konteks, keduanya dari `/embed`. Dokumen 05 bagian 2.
+Tiga tugas sejak revisi 1.6: embedding untuk deteksi salinan, sentimen, dan
+relevansi. Relevansi kembali punya model sendiri, kali ini hasil fine-tuning
+dengan dataset lokal, dan pelatihannya juga dijalankan dari sini. Dokumen 05
+bagian 2 dan dokumen 10 bagian 19.
 """
 
 import logging
 import os
+import secrets
 
 import torch
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
+
+from relevancy import training
 from sentence_transformers import SentenceTransformer
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 from models import (
     PermintaanEmbed,
+    PermintaanPelatihan,
+    TanggapanPelatihan,
     PermintaanPasangan,
     HasilSentimen,
     SkorSentimen,
@@ -146,3 +152,66 @@ def _klasifikasi(tokenizer, model, pasangan) -> list[list[float]]:
         logit = model(**masukan).logits
 
     return torch.softmax(logit, dim=-1).tolist()
+
+
+def _periksa_rahasia(diberikan: str | None) -> None:
+    """Lapisan kedua di atas binding ke localhost.
+
+    Endpoint kelompok ini menerima path direktori lalu menjalankan proses
+    panjang, dan itu pantas dijaga lebih dari sekadar tidak terekspos ke luar.
+    Dikosongkan berarti mati, dan itu hanya untuk pengembangan lokal.
+    """
+    harusnya = os.getenv("RELEVANSI_TRAINING_SECRET", "")
+
+    if harusnya == "":
+        return
+
+    if diberikan is None or not secrets.compare_digest(diberikan, harusnya):
+        raise HTTPException(status_code=401, detail="Rahasia internal tidak cocok.")
+
+
+@app.post("/relevancy/training-runs", response_model=TanggapanPelatihan)
+def mulai_pelatihan(
+    permintaan: PermintaanPelatihan,
+    x_internal_secret: str | None = Header(default=None),
+) -> TanggapanPelatihan:
+    _periksa_rahasia(x_internal_secret)
+
+    # Satu pelatihan pada satu waktu. Dua pelatihan bersamaan di CPU yang sama
+    # tidak selesai dua kali lebih cepat, keduanya melambat lalu berebut memori
+    # sampai salah satunya mati di tengah jalan.
+    if training.sedang_berjalan():
+        raise HTTPException(status_code=409, detail="Masih ada pelatihan yang berjalan.")
+
+    for nama in ("train", "validation", "test"):
+        if nama not in permintaan.berkas or not os.path.exists(permintaan.berkas[nama]):
+            raise HTTPException(status_code=400, detail=f"Berkas {nama} tidak ditemukan.")
+
+    training.mulai(permintaan.run_id, permintaan.model_dump())
+
+    return TanggapanPelatihan(accepted=True, run_id=permintaan.run_id, status="menunggu")
+
+
+@app.get("/relevancy/training-runs/{run_id}")
+def status_pelatihan(
+    run_id: int,
+    x_internal_secret: str | None = Header(default=None),
+) -> dict:
+    _periksa_rahasia(x_internal_secret)
+
+    hasil = training.status(run_id)
+
+    if hasil is None:
+        raise HTTPException(status_code=404, detail="Pelatihan tidak dikenal.")
+
+    return hasil
+
+
+@app.post("/relevancy/training-runs/{run_id}/cancel")
+def batalkan_pelatihan(
+    run_id: int,
+    x_internal_secret: str | None = Header(default=None),
+) -> dict:
+    _periksa_rahasia(x_internal_secret)
+
+    return {"dibatalkan": training.batalkan(run_id)}

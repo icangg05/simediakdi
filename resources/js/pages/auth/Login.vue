@@ -15,8 +15,8 @@ defineProps<{
 }>();
 
 const form = useForm({
-    email: '',
-    password: '',
+    email: 'admin@simedia.test',
+    password: 'password',
     remember: false,
 });
 

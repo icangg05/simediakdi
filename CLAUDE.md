@@ -1,45 +1,89 @@
 # SIMEDIA Kendari
 
-## Gaya penulisan (dokumen, komentar, commit, teks UI)
+## Bahasa komunikasi
 
-**Jangan pernah memakai em dash (U+2014) atau en dash (U+2013).** Tanpa
-kecuali, dan berlaku untuk seluruh isi repositori: dokumen di `docs/`, README,
-komentar kode PHP dan TypeScript, teks di template Vue, string di controller,
-komentar di `config/`, `.env.example`, Dockerfile, docker-compose, pesan
-commit, maupun balasan di chat.
+Selalu gunakan bahasa Indonesia untuk:
 
-Aturan ini pernah gagal karena perintah ceknya hanya menyisir `docs/` dan
-`*.md`. Sisa repositori tidak pernah terperiksa, dan 297 tanda lolos ke
-komentar kode serta teks yang dibaca pengguna. Perintah cek di bawah menyisir
-seluruh repositori, jangan dipersempit lagi.
+- Menjelaskan hasil prompting.
+- Menjelaskan perubahan kode.
+- Menjelaskan alasan pengambilan keputusan.
+- Menjelaskan error dan solusi.
+- Memberikan ringkasan pekerjaan.
+- Menjawab pertanyaan pengguna.
+- Menulis laporan hasil implementasi.
+- Menjelaskan hasil analisis, pengujian, dan validasi.
 
-Gantinya, pilih salah satu:
+Istilah teknis, nama class, nama method, nama package, nama file, perintah terminal, kode, dan pesan error asli tetap boleh menggunakan bahasa Inggris jika diperlukan.
 
-| Fungsi em dash | Ganti dengan |
+Jangan hanya memberikan kode tanpa penjelasan. Setelah melakukan perubahan, jelaskan dalam bahasa Indonesia:
+
+1. Apa yang diubah.
+2. File yang diubah.
+3. Alasan perubahan.
+4. Cara kerja perubahan.
+5. Cara menguji perubahan.
+6. Risiko atau catatan penting, jika ada.
+
+Gunakan bahasa Indonesia yang jelas, langsung, dan mudah dipahami. Hindari penjelasan yang terlalu panjang jika tidak diperlukan.
+
+## Gaya penulisan
+
+Aturan ini berlaku untuk seluruh isi repositori, termasuk:
+
+- Dokumen di `docs/`.
+- README.
+- File Markdown.
+- Komentar kode PHP.
+- Komentar kode TypeScript dan JavaScript.
+- Template Vue.
+- String di controller.
+- String validasi.
+- String notifikasi.
+- Teks antarmuka pengguna.
+- File konfigurasi.
+- `.env.example`.
+- Dockerfile.
+- File Docker Compose.
+- Pesan commit.
+- Balasan di chat.
+
+### Larangan tanda baca
+
+Jangan pernah memakai em dash Unicode U+2014 atau en dash Unicode U+2013.
+
+Aturan ini tidak memiliki pengecualian.
+
+Aturan ini pernah gagal karena perintah pemeriksaan hanya menyisir folder `docs/` dan file `*.md`. Akibatnya, 297 tanda lolos ke komentar kode dan teks yang dibaca pengguna.
+
+Perintah pemeriksaan wajib menyisir seluruh repositori. Jangan mempersempit cakupannya.
+
+Gunakan pengganti berikut:
+
+| Kebutuhan | Gunakan |
 |---|---|
-| Menyisipkan penjelasan | koma, atau tanda kurung |
-| Memisahkan dua klausa | titik (jadikan dua kalimat) |
-| Nama bagian lalu keterangannya | titik dua |
-| Judul markdown | titik dua: `# 03: Skema Database` |
-| Rentang angka dan tanggal | tanda hubung: `10-20` |
-| Sel tabel yang kosong | tanda hubung: `-` |
+| Menyisipkan penjelasan | Koma atau tanda kurung |
+| Memisahkan dua klausa | Titik dan buat dua kalimat |
+| Nama bagian dan keterangannya | Titik dua |
+| Judul Markdown | Titik dua, contoh: `# 03: Skema Database` |
+| Rentang angka dan tanggal | Tanda hubung, contoh: `10-20` |
+| Sel tabel kosong | Tanda hubung: `-` |
 
 Contoh:
 
-- Salah: `F1 macro di bawah 0,65 berarti berhenti (em dash) jangan bangun dashboard di atas model itu.`
+- Salah: `F1 macro di bawah 0,65 berarti berhenti. Jangan bangun dashboard di atas model itu.` jika kedua kalimat disambungkan memakai em dash.
 - Benar: `F1 macro di bawah 0,65 berarti berhenti. Jangan bangun dashboard di atas model itu.`
 
-Kalau ragu, pecah jadi dua kalimat. Kalimat pendek lebih baik daripada satu
-kalimat panjang yang disambung tanda baca.
+Jika ragu, pecah kalimat menjadi dua. Kalimat pendek lebih baik daripada satu kalimat panjang yang disambungkan dengan tanda baca yang dilarang.
 
-Cek sebelum selesai menulis file. Berkas di bawah ini sengaja ditulis tanpa
-tanda itu sama sekali supaya perintahnya bisa dijalankan atas repositori penuh
-tanpa menemukan dirinya sendiri:
+## Pemeriksaan sebelum selesai
+
+Sebelum menyelesaikan pekerjaan, jalankan pemeriksaan berikut dari root repositori:
 
 ```bash
 grep -rnP '\x{2014}|\x{2013}' \
-  --exclude-dir=node_modules --exclude-dir=vendor --exclude-dir=.git \
-  --exclude-dir=storage --exclude-dir=build .
-```
-
-Harus kosong.
+  --exclude-dir=node_modules \
+  --exclude-dir=vendor \
+  --exclude-dir=.git \
+  --exclude-dir=storage \
+  --exclude-dir=build \
+  .

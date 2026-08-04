@@ -6,3 +6,10 @@ pydantic==2.10.5
 torch==2.5.1
 transformers==4.48.0
 sentence-transformers==3.3.1
+
+# Pelatihan relevansi. Versinya dikunci dan ikut tersimpan sebagai artefak tiap
+# training run: model yang tidak bisa dimuat ulang karena `transformers`
+# berubah adalah model yang hilang, dan itu baru ketahuan berbulan-bulan
+# kemudian saat rollback dibutuhkan (dokumen 02 bagian 2).
+accelerate==1.2.1
+scikit-learn==1.9.0

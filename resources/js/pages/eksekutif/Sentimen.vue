@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import ChartDonatSentimen from '@/components/chart/ChartDonatSentimen.vue';
+import SentimenBelumTersedia from '@/components/domain/SentimenBelumTersedia.vue';
 import ChartTrenSentimen from '@/components/chart/ChartTrenSentimen.vue';
 import KartuArtikel from '@/components/domain/KartuArtikel.vue';
 import PemilihKonteks from '@/components/domain/PemilihKonteks.vue';
 import PemilihRentangTanggal from '@/components/domain/PemilihRentangTanggal.vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useFormatAngka } from '@/composables/useFormatAngka';
+import { useGerbangSentimen } from '@/composables/useGerbangSentimen';
 import { usePeriodeEksekutif } from '@/composables/usePeriodeEksekutif';
 import LayoutEksekutif from '@/layouts/LayoutEksekutif.vue';
 import { Head } from '@inertiajs/vue3';
@@ -38,6 +40,7 @@ const props = defineProps<{
 }>();
 
 const { formatAngka, formatPersen } = useFormatAngka();
+const { sentimenTersedia, alasanSentimen } = useGerbangSentimen();
 const { pindah } = usePeriodeEksekutif(props.periode, props.konteksId, '/eksekutif/sentimen');
 </script>
 
@@ -57,6 +60,9 @@ const { pindah } = usePeriodeEksekutif(props.periode, props.konteksId, '/eksekut
             </div>
         </header>
 
+        <SentimenBelumTersedia v-if="!sentimenTersedia" :alasan="alasanSentimen" />
+
+        <template v-else>
         <div class="grid gap-4 lg:grid-cols-3">
             <Card class="lg:col-span-2">
                 <CardContent class="p-4">
@@ -139,5 +145,6 @@ const { pindah } = usePeriodeEksekutif(props.periode, props.konteksId, '/eksekut
             {{ formatAngka(evaluasi.jumlah_sampel) }} artikel uji, dievaluasi
             {{ format(new Date(evaluasi.dievaluasi_at), 'd MMMM yyyy', { locale: id }) }}.
         </p>
+        </template>
     </LayoutEksekutif>
 </template>

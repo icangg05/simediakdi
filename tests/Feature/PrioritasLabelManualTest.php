@@ -13,6 +13,7 @@ use App\Services\Nlp\DTO\HasilSentimen;
 use App\Services\Nlp\KlienNlp;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
+use Tests\Concerns\MembuatModelRelevansi;
 use Tests\TestCase;
 
 /**
@@ -24,6 +25,7 @@ use Tests\TestCase;
  */
 class PrioritasLabelManualTest extends TestCase
 {
+    use MembuatModelRelevansi;
     use RefreshDatabase;
 
     private Artikel $artikel;
@@ -67,8 +69,17 @@ class PrioritasLabelManualTest extends TestCase
         ]);
     }
 
+    /**
+     * Sentimen tidak jalan tanpa model relevansi produksi yang lolos gerbang,
+     * jadi skenario ini butuh satu. Yang diuji tetap sama: analisis ulang yang
+     * benar-benar berjalan tidak boleh menimpa koreksi manusia. Kalau gerbang
+     * tidak disiapkan, testnya lulus karena tidak ada analisis yang jalan, dan
+     * itu jenis kelulusan yang tidak membuktikan apa pun.
+     */
     private function jalankanAnalisisUlang(string $labelBaru): void
     {
+        $this->modelRelevansiProduksi();
+
         $nlp = Mockery::mock(KlienNlp::class);
         $nlp->shouldReceive('sentimen')->once()->andReturn([
             $this->konteks->id => new HasilSentimen(

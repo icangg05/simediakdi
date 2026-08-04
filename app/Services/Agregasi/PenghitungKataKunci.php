@@ -31,7 +31,28 @@ class PenghitungKataKunci
         'kata', 'ujar', 'kami', 'kita', 'mereka', 'dia', 'kepada', 'adalah',
         'tersebut', 'sangat', 'hingga', 'setelah', 'sebelum', 'antara', 'per',
         'bisa', 'harus', 'masih', 'baru', 'saya', 'anda', 'yakni', 'yaitu',
+        // Ditambahkan setelah korpus tumbuh ke 4.800 artikel. Enam istilah
+        // teratas halaman isu hangat semuanya kata sambung, dan halaman yang
+        // melaporkan "melalui" sebagai isu yang sedang naik tidak akan
+        // dipercaya untuk hal lain apa pun.
+        'melalui', 'serta', 'seluruh', 'merupakan', 'sehingga', 'namun',
+        'tetapi', 'bagi', 'atas', 'sekitar', 'terhadap', 'saja', 'lain',
+        'lainnya', 'banyak', 'semua', 'setiap', 'sementara', 'kemudian',
+        'ketika', 'sedangkan', 'maupun', 'jika', 'kalau', 'demi', 'sesuai',
+        'guna', 'secara', 'hanya', 'sendiri', 'belum', 'pernah', 'sempat',
+        'tetap', 'langsung', 'terus', 'bahkan', 'apabila', 'selain', 'menjadi',
+        'melakukan', 'memberikan', 'dilakukan', 'terdapat', 'berbagai',
+        'sejumlah', 'beberapa', 'tentang', 'mengatakan', 'menyampaikan',
     ];
+
+    /**
+     * Kata yang panjangnya di bawah ini dibuang tanpa dicek ke daftar.
+     *
+     * Sengaja tidak dinaikkan lebih jauh: "opd", "apbd", dan "pdam" adalah
+     * istilah yang justru paling ingin dilihat, dan menaikkan batasnya ke lima
+     * akan membuang semuanya diam-diam.
+     */
+    private const MINIMAL_HURUF = 4;
 
     /** Istilah harus muncul di minimal sekian artikel agar bukan kebetulan. */
     private const MINIMAL_ARTIKEL = 3;
@@ -86,11 +107,24 @@ class PenghitungKataKunci
             ];
         }
 
-        DB::table('kata_kunci_periode')->upsert(
-            $baris,
-            ['konteks_pantauan_id', 'granularitas', 'periode_mulai', 'istilah'],
-            ['periode_akhir', 'frekuensi', 'jumlah_artikel', 'skor_lonjakan', 'sentimen_dominan', 'created_at'],
-        );
+        // Baris periode ini dihapus lebih dulu, bukan hanya ditimpa.
+        //
+        // Upsert saja meninggalkan istilah yang tidak lagi lolos saringan:
+        // saat daftar kata umum diperpanjang, "melalui" dan "serta" tetap
+        // duduk di peringkat teratas halaman isu hangat selamanya karena tidak
+        // ada baris baru yang menimpanya. Penghitungan ulang harus benar-benar
+        // menghasilkan keadaan yang sama seperti penghitungan pertama.
+        DB::table('kata_kunci_periode')
+            ->where('granularitas', $granularitas)
+            ->where('periode_mulai', $periodeMulai)
+            ->when(
+                $konteksId === null,
+                fn ($q) => $q->whereNull('konteks_pantauan_id'),
+                fn ($q) => $q->where('konteks_pantauan_id', $konteksId),
+            )
+            ->delete();
+
+        DB::table('kata_kunci_periode')->insert($baris);
 
         return count($baris);
     }
@@ -175,9 +209,14 @@ class PenghitungKataKunci
 
         // Kata sangat pendek hampir selalu partikel; membuangnya lebih murah
         // daripada memperpanjang daftar kata umum.
+        //
+        // Angka murni ikut dibuang. "2026" muncul di hampir setiap berita dan
+        // selalu naik ke peringkat teratas, padahal tahun bukan isu.
         $kata = array_values(array_filter(
             $kata,
-            fn (string $k) => mb_strlen($k) > 3 && ! in_array($k, self::KATA_UMUM, strict: true),
+            fn (string $k) => mb_strlen($k) >= self::MINIMAL_HURUF
+                && ! ctype_digit($k)
+                && ! in_array($k, self::KATA_UMUM, strict: true),
         ));
 
         $istilah = $kata;

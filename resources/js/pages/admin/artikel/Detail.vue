@@ -33,7 +33,7 @@ interface Analisis {
     pengoreksi: { id: number; name: string } | null;
 }
 
-defineProps<{
+const props = defineProps<{
     artikel: {
         id: number;
         judul: string;
@@ -83,6 +83,20 @@ function cabut(analisis: Analisis) {
 
 const waktu = (nilai: string | null) =>
     nilai ? format(new Date(nilai), 'd MMMM yyyy, HH:mm', { locale: id }) : '-';
+
+/** Tiga desimal, karena selisih 0,005 pada skor ini menggeser presisi belasan poin. */
+const formatDesimal = (nilai: number) => nilai.toFixed(3).replace('.', ',');
+
+function statusRelevansi(analisis: Analisis): 'relevan' | 'review' | 'tidak' {
+    if (analisis.relevan) return 'relevan';
+
+    const skor = analisis.skor_relevansi;
+    const { relevansi_atas: atas, relevansi_bawah: bawah } = props.ambang;
+
+    if (skor === null || atas === null || bawah === null) return 'review';
+
+    return skor >= bawah && skor < atas ? 'review' : 'tidak';
+}
 </script>
 
 <template>
@@ -150,7 +164,7 @@ const waktu = (nilai: string | null) =>
             <div class="space-y-4">
                 <Card>
                     <CardHeader class="pb-2">
-                        <CardTitle class="text-base">Analisis per konteks</CardTitle>
+                        <CardTitle class="text-base">Relevansi dan sentimen</CardTitle>
                     </CardHeader>
                     <CardContent class="space-y-3">
                         <p v-if="!artikel.analisis_sentimen.length" class="text-xs text-muted-foreground">
@@ -174,8 +188,42 @@ const waktu = (nilai: string | null) =>
                                 />
                             </div>
 
+                            <div class="space-y-1 rounded bg-muted/50 p-2">
+                                <div class="flex items-center justify-between gap-2 text-xs">
+                                    <span class="text-muted-foreground">Kemiripan dengan konteks</span>
+                                    <span class="angka font-medium">
+                                        {{ analisis.skor_relevansi === null ? '-' : formatDesimal(analisis.skor_relevansi) }}
+                                    </span>
+                                </div>
+
+                                <!--
+                                    Ditulis "kemiripan", tidak pernah sebagai persentase keyakinan.
+                                    Isinya cosine similarity: 0,84 tidak berarti yakin 84%, hanya
+                                    berarti lebih mirip daripada 0,83.
+                                -->
+                                <p class="text-[11px] leading-snug text-muted-foreground">
+                                    <template v-if="analisis.skor_relevansi === null">
+                                        Belum dinilai, vektor artikel belum dihitung.
+                                    </template>
+                                    <template v-else-if="statusRelevansi(analisis) === 'relevan'">
+                                        Di atas ambang {{ ambang.relevansi_atas }} dan menyebut konteks cukup sering.
+                                    </template>
+                                    <template v-else-if="statusRelevansi(analisis) === 'review'">
+                                        Di antara ambang {{ ambang.relevansi_bawah }} dan {{ ambang.relevansi_atas }},
+                                        terlalu ragu untuk diputuskan sendiri oleh sistem.
+                                    </template>
+                                    <template v-else-if="analisis.skor_relevansi < (ambang.relevansi_bawah ?? 0)">
+                                        Di bawah ambang {{ ambang.relevansi_bawah }}, tidak membahas konteks ini.
+                                    </template>
+                                    <template v-else>
+                                        Kemiripannya cukup, tetapi konteks hanya disebut sepintas. Penyebutan bukan pembahasan.
+                                    </template>
+                                    Angka ini kemiripan makna, bukan persentase keyakinan.
+                                </p>
+                            </div>
+
                             <p v-if="!analisis.relevan" class="text-xs text-muted-foreground">
-                                Model menilai artikel ini tidak membahas konteks tersebut.
+                                Tidak dinilai sentimennya. Artikel yang tidak membahas Pemkot tidak punya nada terhadap Pemkot.
                             </p>
 
                             <template v-else>

@@ -21,7 +21,6 @@ class KonteksPantauan extends Model
     {
         return [
             'kata_kunci' => 'array',
-            'embedding' => Vector::class,
             'utama' => 'boolean',
             'aktif' => 'boolean',
         ];

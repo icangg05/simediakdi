@@ -12,11 +12,16 @@ class SimpanKonteksRequest extends FormRequest
         $id = $this->route('konteks')?->id;
 
         return [
-            // Dikirim apa adanya ke model sebagai input konteks, jadi tulis
-            // seperti kalimat yang wajar dibaca, bukan sebagai kode.
+            // Dikirim apa adanya ke model sentimen sebagai input konteks, jadi
+            // tulis seperti kalimat yang wajar dibaca, bukan sebagai kode.
             'nama' => ['required', 'string', 'max:200'],
             'slug' => ['required', 'string', 'max:200', 'alpha_dash', Rule::unique('konteks_pantauan', 'slug')->ignore($id)],
             'deskripsi' => ['nullable', 'string'],
+            // Inilah yang benar-benar menentukan relevansi. Teksnya di-embed
+            // lalu dibandingkan dengan setiap artikel. Minimal 120 huruf karena
+            // deskripsi sependek satu frasa menghasilkan vektor yang cocok
+            // dengan hampir semua berita berbahasa Indonesia.
+            'deskripsi_model' => ['nullable', 'string', 'min:120', 'max:4000'],
             'kata_kunci' => ['nullable', 'array'],
             'kata_kunci.*' => ['string', 'max:120'],
             'utama' => ['boolean'],

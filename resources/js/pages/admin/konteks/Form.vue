@@ -13,6 +13,7 @@ interface Konteks {
     nama: string;
     slug: string;
     deskripsi: string | null;
+    deskripsi_model: string | null;
     kata_kunci: string[] | null;
     utama: boolean;
     urutan: number;
@@ -25,6 +26,7 @@ const form = useForm({
     nama: props.konteks?.nama ?? '',
     slug: props.konteks?.slug ?? '',
     deskripsi: props.konteks?.deskripsi ?? '',
+    deskripsi_model: props.konteks?.deskripsi_model ?? '',
     kata_kunci: (props.konteks?.kata_kunci ?? []).join('\n'),
     utama: props.konteks?.utama ?? false,
     urutan: props.konteks?.urutan ?? 0,
@@ -57,14 +59,14 @@ function simpan() {
                         <Label for="nama">Nama konteks</Label>
                         <Input id="nama" v-model="form.nama" required autofocus placeholder="Pemerintah Kota Kendari" />
                         <p class="text-xs text-muted-foreground">
-                            Dikirim apa adanya ke model sebagai input konteks. Tulis seperti kalimat yang wajar
-                            dibaca, bukan seperti kode.
+                            Dikirim apa adanya ke model sentimen sebagai input konteks. Tulis seperti kalimat
+                            yang wajar dibaca, bukan seperti kode.
                         </p>
                         <InputError :message="form.errors.nama" />
                     </div>
 
                     <div class="grid gap-1.5">
-                        <Label for="deskripsi">Deskripsi</Label>
+                        <Label for="deskripsi">Deskripsi untuk manusia</Label>
                         <textarea
                             id="deskripsi"
                             v-model="form.deskripsi"
@@ -72,6 +74,39 @@ function simpan() {
                             class="rounded-md border border-input bg-background px-3 py-2 text-sm"
                             placeholder="Untuk admin dan pelabel. Tidak dikirim ke model."
                         />
+                        <p class="text-xs text-muted-foreground">
+                            Hanya dibaca orang di halaman admin. Mengubahnya tidak mengubah hasil apa pun.
+                        </p>
+                    </div>
+
+                    <!--
+                        Field inilah yang benar-benar menentukan relevansi, dan sebelumnya
+                        tidak ada di form sama sekali. Akibatnya admin menyunting "Deskripsi"
+                        di atas sambil mengira itu mengubah perilaku model, padahal tidak.
+                    -->
+                    <div class="grid gap-1.5 rounded-md border border-sentimen-review/40 bg-sentimen-review-lembut/30 p-3">
+                        <Label for="deskripsi_model">Deskripsi untuk model, penentu relevansi</Label>
+                        <textarea
+                            id="deskripsi_model"
+                            v-model="form.deskripsi_model"
+                            rows="8"
+                            class="rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed"
+                            placeholder="Artikel membahas ... secara substantif: ... Bukan artikel yang hanya ..."
+                        />
+                        <p class="text-xs text-muted-foreground">
+                            Teks ini diubah menjadi vektor, lalu setiap artikel dinilai dari seberapa mirip
+                            maknanya dengan teks ini. Tulis dua bagian: apa yang termasuk, lalu apa yang
+                            <strong>tidak</strong> termasuk. Bagian kedua sama pentingnya, karena kesalahan
+                            tersering bukan gagal mengenali Pemkot melainkan gagal membedakannya dari Pemprov,
+                            instansi vertikal, dan Kendari sebagai lokasi belaka.
+                        </p>
+                        <p class="text-xs font-medium">
+                            Setelah mengubahnya, jalankan
+                            <code class="rounded bg-muted px-1">php artisan nlp:hitung-ulang-vektor</code>.
+                            Sebelum itu dijalankan, seluruh skor relevansi masih dibandingkan terhadap
+                            deskripsi yang lama.
+                        </p>
+                        <InputError :message="form.errors.deskripsi_model" />
                     </div>
 
                     <div class="grid gap-1.5">

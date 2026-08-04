@@ -10,9 +10,13 @@ use App\Models\Entitas;
 use App\Models\KonteksPantauan;
 use App\Models\Kontrak;
 use App\Models\Media;
+use App\Models\PelatihanModelRelevansi;
 use App\Models\Pemuatan;
+use App\Models\SampelRelevansi;
+use App\Models\SnapshotDatasetRelevansi;
 use App\Models\SumberFeed;
 use App\Models\User;
+use App\Models\VersiKonteksRelevansi;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
@@ -72,6 +76,32 @@ class WalikotaTidakBisaMenulisTest extends TestCase
             'nama' => 'Wali Kota', 'nama_normal' => 'wali kota', 'jenis' => 'orang', 'alias' => [],
         ]);
 
+        $sampel = SampelRelevansi::create([
+            'sumber_dataset' => 'crawler', 'judul' => 'Berita', 'isi' => 'Isi berita.',
+            'media_id' => $this->media->id,
+        ]);
+
+        $versiKonteks = VersiKonteksRelevansi::create([
+            'nama' => 'Pemkot', 'versi' => 'v1', 'slug' => 'pemkot-v1',
+            'deskripsi_manusia' => 'Pemkot', 'deskripsi_model' => 'Pemerintah Kota Kendari',
+            'aturan_inklusi' => [], 'aturan_eksklusi' => [], 'status' => 'active',
+            'created_by' => User::factory()->create()->id,
+        ]);
+
+        $snapshot = SnapshotDatasetRelevansi::create([
+            'nama' => 'uji', 'versi' => 'v1', 'status' => 'draft',
+            'strategi_sampling' => 'natural_distribution', 'random_seed' => 42,
+            'versi_panduan_label' => '2.1', 'created_by' => User::factory()->create()->id,
+        ]);
+
+        $pelatihan = PelatihanModelRelevansi::create([
+            'nama' => 'uji', 'base_model' => 'apriandito/indobert-relevancy-classifier',
+            'snapshot_dataset_relevansi_id' => $snapshot->id,
+            'versi_konteks_relevansi_id' => $versiKonteks->id,
+            'versi_panduan_label' => '2.1', 'status' => 'menunggu',
+            'configuration' => [], 'created_by' => $snapshot->created_by,
+        ]);
+
         $this->walikota = User::factory()->walikota()->create();
 
         // Id diambil dari baris nyata: kalau route model binding 404 lebih dulu,
@@ -87,6 +117,9 @@ class WalikotaTidakBisaMenulisTest extends TestCase
             'alert' => $alert->id,
             'entitas' => $entitas->id,
             'pengguna' => $this->walikota->id,
+            'sampel' => $sampel->id,
+            'snapshot' => $snapshot->id,
+            'pelatihan' => $pelatihan->id,
         ];
     }
 

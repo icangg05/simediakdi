@@ -85,11 +85,20 @@ Jangan memasang library grafik kedua. Kalau ECharts terasa berat untuk satu graf
 |----------|-------|---------|
 | Python | 3.11 | |
 | FastAPI + Uvicorn | terbaru | Satu worker cukup, model dimuat sekali di startup |
-| `transformers` | terbaru | |
+| `transformers` | terbaru | Inferensi sentimen dan relevansi, sekaligus `Trainer` untuk fine-tuning |
 | `torch` | versi CPU-only | Jangan pasang build CUDA, ukurannya berlipat tanpa manfaat |
-| `sentence-transformers` | terbaru | `multilingual-e5-small` untuk deduplikasi dan relevansi |
+| `sentence-transformers` | terbaru | `multilingual-e5-small`, sejak revisi 1.6 khusus deduplikasi |
+| `datasets` | terbaru | Membaca dataset hasil ekspor Laravel saat fine-tuning |
+| `scikit-learn` | terbaru | Precision, recall, F1, dan confusion matrix pada evaluasi |
+| `accelerate` | terbaru | Dibutuhkan `Trainer`, meski hanya untuk CPU |
 
-Detail model dan pipeline ada di dokumen 05.
+Detail model dan pipeline ada di dokumen 05. Pipeline pelatihan relevansi ada
+di dokumen 10 bagian 10 dan 19.
+
+Versi keempat paket pelatihan itu dikunci di `requirements.txt` dan ikut
+disimpan sebagai artefak tiap training run. Model yang tidak bisa dimuat ulang
+karena versi `transformers` berubah adalah model yang hilang, dan itu baru
+ketahuan berbulan-bulan kemudian saat rollback dibutuhkan.
 
 ## 3. Struktur folder
 
@@ -129,7 +138,8 @@ app/
 │   ├── AnalisisSentimen.php
 │   ├── EkstrakEntitas.php
 │   ├── ArsipkanBuktiPemuatan.php       # teks + screenshot saat laporan dikonfirmasi (F-52)
-│   └── KirimAlert.php
+│   ├── KirimAlert.php
+│   └── Relevance/                      # 14 job laboratorium, dokumen 10 bagian 17.4
 ├── Models/
 ├── Policies/
 ├── Services/
@@ -140,9 +150,10 @@ app/
 │   │   └── NormalisasiUrl.php
 │   ├── Nlp/
 │   │   ├── KlienNlp.php                # satu-satunya tempat memanggil FastAPI
-│   │   ├── PenyaringKataKunci.php      # saringan murah + pengetat frekuensi sebutan
+│   │   ├── PenyaringKataKunci.php      # sinyal penjelas + skor prioritas antrean
 │   │   ├── JendelaKonteks.php          # potongan kalimat sekitar sebutan Pemkot
 │   │   └── DTO/
+│   ├── Relevance/                      # 10 service, lihat dokumen 10 bagian 17.3
 │   ├── Dedup/
 │   │   ├── PenghitungSimhash.php
 │   │   └── PencariDuplikat.php
@@ -191,9 +202,21 @@ resources/js/
 nlp/                                    # proyek Python, di dalam repo yang sama
 ├── main.py
 ├── models.py
+├── relevancy/                          # pelatihan dan inferensi relevansi
+│   ├── inference.py                    # muat model aktif, prediksi batch
+│   ├── training.py                     # fine-tuning, checkpoint, artefak
+│   ├── evaluation.py                   # metrik, confusion matrix, per kelompok
+│   └── registry.py                     # pointer model aktif, warmup, rollback
 ├── requirements.txt
 └── README.md
+
+storage/app/private/relevance-models/   # artefak model, di luar public/
+└── {versi}/                            # weights, tokenizer, config, metrics
 ```
+
+Direktori artefak berada di `storage/app/private/`, bukan `public/`. Bobot model
+bukan berkas yang layak diambil siapa pun yang menebak URL-nya, dan sekali ia
+bisa diunduh publik, tidak ada cara menariknya kembali.
 
 Menyimpan proyek Python di dalam repo yang sama sengaja dipilih. Dua repo untuk satu orang berarti dua kali kerja saat rilis dan risiko versi model tidak sinkron dengan kode yang memanggilnya.
 
@@ -230,40 +253,49 @@ CrawlFeeds (scheduler, per sumber)
     ↓                        judul, url, tanggal, excerpt, tag, kategori
 2. AmbilIsiArtikel        → unduh halaman, bersihkan HTML, ekstrak isi, hitung hash
     ↓
-3. HitungEmbedding        → panggil /embed sekali dengan dua teks:
-    ↓                        isi penuh       → embedding
-    ↓                        teks terfokus   → embedding_relevansi
-4. PeriksaDuplikat        → hash cocok? simhash dekat? cosine > 0,92?
+3. HitungEmbedding        → panggil /embed dengan isi penuh → embedding
+    ↓                        satu vektor, hanya untuk deteksi salinan
+4. PeriksaDuplikat        → hash cocok? simhash dekat? cosine di atas ambang?
     ↓  jika duplikat → tandai salinan, tautkan ke induk, RANTAI BERHENTI
     ↓  jika asli → lanjut
-5. AnalisisRelevansi      → TIDAK memanggil layanan NLP sama sekali.
-    ↓                        skor = 1 - (embedding_relevansi <=> vektor konteks)
-    ↓  di bawah ambang bawah   → status = tidak_relevan, RANTAI BERHENTI
-    ↓  di antara dua ambang    → status = perlu_review, RANTAI BERHENTI
-    ↓  di atas ambang atas dan lolos pengetat sebutan → lanjut
-6. AnalisisSentimen       → panggil /sentiment untuk konteks utama
+5. ImportArticleToRelevanceDataset
+    ↓                     → artikel masuk sebagai kandidat dataset relevansi
+    ↓                        status_label = belum_dilabeli, priority_score dihitung
     ↓
-7. EkstrakEntitas         → kata kunci dan entitas
+6. AnalisisRelevansi      → panggil /relevancy/predict dengan model produksi
+    ↓  tidak ada model produksi → status = model_belum_lulus_gate, RANTAI BERHENTI
+    ↓  label tidak_relevan      → status = tidak_relevan, RANTAI BERHENTI
+    ↓  confidence di pita review → status = perlu_review, RANTAI BERHENTI
+    ↓  label relevan dan gate passed → lanjut
+7. AnalisisSentimen       → panggil /sentiment untuk konteks utama
+    ↓                        job ini memeriksa ulang gate sebelum bekerja
+8. EkstrakEntitas         → kata kunci dan entitas
     ↓
-8. status = selesai
+9. status = selesai
 ```
 
-Langkah 5 berjalan sekali per artikel, bukan sekali untuk setiap konteks aktif.
+Langkah 6 berjalan sekali per artikel, bukan sekali untuk setiap konteks aktif.
 Sejak versi 1.4 hanya ada satu konteks aktif dan relevansi menjadi keputusan
 tingkat artikel (dokumen 01 bagian 9). Kalau nanti ada konteks kedua, ia
 menambah baris sentimen, bukan baris relevansi.
 
-**Relevansi tidak lagi memakai model tersendiri.** Sejak revisi 1.5 skornya
-adalah cosine similarity antara vektor artikel dan vektor deskripsi konteks,
-keduanya dari `multilingual-e5-small`, dihitung PostgreSQL lewat pgvector.
-Akibatnya `AnalisisRelevansi` bukan lagi job yang memanggil HTTP, melainkan
-satu kueri. Ia tetap berupa job supaya urutan rantai dan penanganan gagalnya
-seragam dengan job lain.
+**Relevansi kembali memakai model tersendiri sejak revisi 1.6.** Penilainya
+adalah `apriandito/indobert-relevancy-classifier` yang di-fine-tune dengan
+dataset lokal, dipanggil lewat `POST /relevancy/predict`. Cosine e5 tidak lagi
+menentukan relevansi; `multilingual-e5-small` tinggal mengerjakan deteksi
+salinan. Alasan perpindahannya di dokumen 10 bagian 0.
 
-Keuntungan terbesarnya bukan kecepatan per artikel, melainkan penyetelan:
-mengubah ambang cukup dengan menjalankan ulang kueri atas seluruh korpus,
-tanpa satu pun inferensi model. Menyetel ambang yang tepat butuh puluhan kali
-percobaan, dan dengan model lama tiap percobaan berarti menunggu berjam-jam.
+**Sampai ada model relevansi produksi yang lolos gerbang mutu, rantai ini
+berhenti di langkah 6.** Artikel tetap dikumpulkan, tetap dideduplikasi, dan
+tetap masuk dataset untuk dilabeli, tetapi tidak ada satu pun yang sampai ke
+langkah 7. Itu bukan kegagalan melainkan perilaku yang diminta dokumen 10
+bagian 1.1, dan `AnalisisSentimen` memeriksanya sendiri sekali lagi supaya
+dispatch yang tidak sengaja pun tetap tertolak.
+
+Langkah 5 sengaja ditaruh sebelum penilaian, bukan sesudah. Artikel yang belum
+pernah dinilai model apa pun justru sampel yang paling dibutuhkan pelabel, dan
+kalau impor dataset menunggu hasil prediksi, tidak akan ada satu pun kandidat
+yang masuk selama belum ada model.
 
 Artikel yang dinyatakan tidak relevan tetap disimpan lengkap. Ia tidak masuk
 dashboard, tapi dipakai untuk audit crawler, hard negative, dan mengukur berapa
@@ -289,12 +321,20 @@ Base URL `http://127.0.0.1:8001`. Seluruh pemanggilan dari Laravel hanya lewat `
 
 ```json
 { "status": "ok", "model_sentimen": "apriandito/indobert-sentiment-classifier",
-  "model_embedding": "intfloat/multilingual-e5-small", "versi": "2.0.0" }
+  "model_embedding": "intfloat/multilingual-e5-small",
+  "model_relevansi_aktif": "simedia-relevancy-v1.3",
+  "model_relevansi_base": "apriandito/indobert-relevancy-classifier",
+  "model_relevansi_dimuat": true, "gerbang_mutu": "passed",
+  "versi": "3.0.0" }
 ```
 
-Dua model, bukan tiga. `model_relevansi` dihapus dari respons.
+Tiga model sejak revisi 1.6. `model_relevansi_aktif` bernilai null selama belum
+ada model yang dipromosikan, dan itu keadaan normal di awal, bukan galat.
 
 Dipanggil scheduler tiap 5 menit. Kalau gagal tiga kali berturut-turut, kirim alert ke admin.
+
+Respons `model_relevansi_dimuat: false` padahal ada model produksi berarti
+gerbang mutu dicabut otomatis, sesuai dokumen 10 bagian 12.6.
 
 ### POST /embed
 
@@ -308,29 +348,45 @@ Dipanggil scheduler tiap 5 menit. Kalau gagal tiga kali berturut-turut, kirim al
 
 Maksimal 32 teks per permintaan.
 
-### POST /relevancy: dihapus
+### Kelompok /relevancy/*
 
-Endpoint ini tidak ada lagi sejak revisi 1.5. Model `indobert-relevancy`
-dilepas dari layanan.
+Kembali ada sejak revisi 1.6, dengan bentuk yang berbeda dari versi 1.0. Sekarang
+bukan satu endpoint inferensi melainkan sembilan endpoint yang juga melayani
+pelatihan, evaluasi, dan pergantian model aktif.
 
-Relevansi dihitung di PostgreSQL:
+| Endpoint | Kegunaan |
+|---|---|
+| `POST /relevancy/predict` | Inferensi batch, dipakai `AnalisisRelevansi` dan tab Uji Model |
+| `POST /relevancy/training-runs` | Mulai fine-tuning dari dataset yang diekspor Laravel |
+| `GET /relevancy/training-runs/{id}` | Progres, epoch, loss, metrik validation |
+| `POST /relevancy/training-runs/{id}/cancel` | Batalkan pelatihan yang sedang jalan |
+| `POST /relevancy/evaluate` | Evaluasi model pada test set snapshot terkunci |
+| `POST /relevancy/models/{versi}/warmup` | Muat kandidat ke memori sebelum dipromosikan |
+| `POST /relevancy/models/{versi}/activate` | Ganti pointer model aktif secara atomik |
+| `POST /relevancy/models/{versi}/rollback` | Kembalikan ke versi sebelumnya |
 
-```sql
-SELECT 1 - (a.embedding_relevansi <=> k.embedding) AS skor_relevansi
-FROM artikel a
-CROSS JOIN konteks_pantauan k
-WHERE a.id = :artikel_id AND k.utama = true;
-```
+Skema permintaan dan responsnya lengkap di dokumen 10 bagian 19. Jangan menulis
+ulang di sini, cukup satu tempat.
 
-Nilai `skor_relevansi` adalah cosine similarity, **bukan probabilitas**. Angka
-0,82 tidak berarti yakin 82%. Perbedaan ini harus tertulis di mana pun angkanya
-ditampilkan ke admin, kalau tidak, orang akan membacanya sebagai persentase
-kepercayaan dan menyimpulkan hal yang salah.
+Tiga aturan yang berlaku khusus untuk kelompok ini:
 
-Sinyal judul, tag, dan alias yang dipakai menjelaskan keputusan ke admin
-dihitung di sisi Laravel oleh `PenyaringKataKunci`, lalu disimpan ke
-`sinyal_relevansi`. Sinyal itu tidak pernah ikut menentukan skor, hanya
-menjelaskannya dan menjadi bahan pengetat sebutan.
+1. **`activate` hanya boleh dipanggil `RelevanceModelPromotionService`**, setelah
+   gerbang mutu lulus. Tidak dari controller, tidak dari command, tidak manual.
+2. **Endpoint pelatihan tidak boleh dijangkau dari luar localhost.** Ia menerima
+   path direktori dan menjalankan proses panjang, dan keduanya bukan hal yang
+   pantas diterima dari jaringan.
+3. **Path artefak divalidasi terhadap direktori dasar** sebelum dipakai, supaya
+   `../` di nama versi tidak berubah menjadi penulisan berkas di tempat lain.
+
+Berbeda dengan skor cosine yang digantikannya, `probabilitas_relevan` dari
+endpoint ini **memang probabilitas** keluaran softmax, jadi menampilkannya
+sebagai persentase keyakinan tidak lagi menyesatkan. Kalibrasinya tetap perlu
+diperiksa: model yang selalu menjawab 0,99 tetap salah meski formatnya benar.
+
+Sinyal judul, tag, dan alias tetap dihitung di sisi Laravel oleh
+`PenyaringKataKunci` lalu disimpan ke `sinyal_relevansi`. Sejak revisi 1.6 ia
+tidak lagi mengetatkan keputusan, hanya menjelaskannya ke admin dan memberi
+skor prioritas antrean pelabelan.
 
 ### POST /sentiment
 
@@ -366,6 +422,9 @@ Aturan yang berlaku di kedua sisi:
 | `hitung:kata-kunci` | Tiap jam | |
 | `alert:periksa` | Tiap 15 menit | |
 | `evaluasi:model` | Mingguan, Senin 02.00 | Jalankan gold set |
+| `relevance:recalculate-priority` | Harian 03.00 | Urutkan ulang antrean pelabelan, dokumen 10 bagian 8 |
+| `relevance:audit-production` | Mingguan, Senin 03.00 | Sampling audit produksi, dokumen 10 bagian 22.1 |
+| `relevance:health` | Tiap 15 menit | Model produksi masih termuat dan checksum artefaknya cocok. Gagal berarti gerbang dicabut |
 | `kontrak:periksa-tenggat` | Harian 07.00 | F-26 |
 | `db:backup` | Harian 01.00 | Simpan 14 hari terakhir, salin satu ke penyimpanan luar |
 
@@ -378,11 +437,34 @@ Gunakan `withoutOverlapping()` pada seluruh perintah crawl dan agregasi.
 | Sumber daya | Ukuran | Alasan |
 |-------------|--------|--------|
 | vCPU | 4 | 2 untuk PHP-FPM dan worker, 2 untuk inferensi IndoBERT |
-| RAM | 8 GB | IndoBERT Large butuh sekitar 1,5 GB, PostgreSQL 2 GB, sisanya PHP dan Redis |
-| Disk | 80 GB SSD | Database, isi artikel, dan backup 14 hari |
+| RAM | 8 GB | Dua model inferensi sekitar 2,5 GB, PostgreSQL 2 GB, sisanya PHP dan Redis |
+| Disk | 120 GB SSD | Database, isi artikel, backup 14 hari, dan artefak model relevansi |
 | Bandwidth | Wajar | Crawling 300 artikel per hari tidak berat |
 
 Kalau anggaran ketat, 4 GB RAM masih jalan dengan syarat layanan NLP dijalankan sebagai batch berjadwal, bukan proses yang selalu hidup. Konsekuensinya sentimen baru muncul dengan jeda sampai satu jam.
+
+**Fine-tuning relevansi tidak muat di server ini.** Angka pada revisi pertama
+catatan ini salah: ia mengasumsikan IndoBERT base, sedangkan checkpoint yang
+dipakai ternyata **large**, 24 layer dan hidden 1024, sekitar 335 juta
+parameter. Dengan bobot, gradien, dan state Adam, pelatihan menuntut 8 sampai
+10 GB, dan itu di atas dua model inferensi yang sudah hidup.
+
+Jadi jalurnya satu: **latih di mesin pengembangan, salin direktori artefaknya
+ke server.** Server produksi hanya perlu memuat hasilnya, bukan
+menghasilkannya, dan untuk itu 8 GB cukup.
+
+Dua penghematan yang tetap berlaku di mesin mana pun:
+
+1. Panjang 256 token, bukan 512. Input relevansi sudah berupa jendela konteks
+   terfokus, jadi separuh anggaran token itu tidak kehilangan apa pun.
+2. Batch 4 dengan `gradient_accumulation` 4. Batch efektifnya tetap 16.
+
+Keduanya menjadi preset di `config/relevance.php`, bukan hardcode.
+
+Setiap versi model menempati sekitar 500 MB. Sepuluh versi berarti 5 GB, dan
+itu alasan disk naik ke 120 GB. Retensi artefak diatur di dokumen 10 bagian
+15.4, dengan satu pengecualian yang tidak boleh dilanggar: model yang pernah
+menjadi produksi tidak pernah dihapus otomatis, karena itulah target rollback.
 
 ### Susunan proses
 
@@ -412,12 +494,12 @@ NLP_TIMEOUT=120
 NLP_BATCH_SIZE=16
 
 SENTIMEN_AMBANG_KEYAKINAN=0.60
-RELEVANSI_AMBANG_ATAS=
-RELEVANSI_AMBANG_BAWAH=
-RELEVANSI_MINIMAL_SEBUTAN=3
-RELEVANSI_KONTEKS_VERSI=pemkot-kendari-v2
 DEDUP_AMBANG_COSINE=0.92
 DEDUP_AMBANG_SIMHASH=4
+
+RELEVANSI_ARTEFAK_PATH=/var/www/simedia/storage/app/private/relevance-models
+RELEVANSI_TRAINING_SECRET=
+RELEVANSI_TRAINING_TIMEOUT=1800
 
 CRAWL_USER_AGENT="SimediaKendariBot/1.0 (+https://simedia.kendarikota.go.id/bot)"
 CRAWL_DELAY_MS=1500
@@ -429,11 +511,14 @@ TELEGRAM_CHAT_ID=
 
 Ambang keyakinan ditaruh di environment, bukan hardcode, karena Anda akan menyetelnya setelah gold set jadi dan tidak akan mau deploy ulang untuk mengubah satu angka.
 
-Tiga catatan, jangan dihapus:
+Empat catatan, jangan dihapus:
 
-- **Dua ambang relevansi sengaja dibiarkan kosong.** Selama kosong, seluruh artikel yang lolos deduplikasi masuk antrean `perlu_review` dan tidak ada yang otomatis masuk atau keluar dashboard. Itu perilaku yang benar sebelum ambangnya diukur. Memasang angka tebakan lalu lupa menggantinya adalah cara paling umum sebuah ambang menjadi permanen tanpa pernah diuji. Cara memilihnya ada di dokumen 05 bagian 5.1.
+- **Ambang relevansi tidak ada lagi di sini sejak revisi 1.6.** Ia berpindah ke tabel `versi_threshold_relevansi` sebagai baris berversi yang punya alasan, pemilik, dan tanggal aktivasi. `RELEVANSI_AMBANG_ATAS`, `RELEVANSI_AMBANG_BAWAH`, dan `RELEVANSI_MINIMAL_SEBUTAN` dihapus. Alasannya di dokumen 05 bagian 5.1.
+- **Versi konteks juga berpindah ke database**, ke tabel `versi_konteks_relevansi`. `RELEVANSI_KONTEKS_VERSI` dihapus. Aturannya tetap sama dan justru menguat: perubahan definisi konteks mengubah gerbang mutu menjadi `needs_review` sampai model dievaluasi ulang.
 - `RELEVANSI_AMBANG_KEYAKINAN` dihapus bersama model relevansi lama. Nilai itu terbukti tidak berpengaruh apa pun: diuji 0,55 sampai 0,999 dan presisi hanya bergerak 47,4% ke 48,1%, karena model lama sama yakinnya saat benar maupun saat keliru.
-- `RELEVANSI_KONTEKS_VERSI` dinaikkan setiap kali deskripsi konteks utama atau aturan inklusi dan eksklusinya berubah. Menaikkannya **mewajibkan** vektor konteks dihitung ulang dan seluruh skor relevansi dihitung ulang, karena skor lama dibandingkan terhadap deskripsi yang sudah tidak berlaku.
+- **`RELEVANSI_TRAINING_SECRET` wajib diisi sebelum endpoint pelatihan dipakai.** Ia dikirim sebagai header pada setiap permintaan ke kelompok `/relevancy/*` dan diperiksa layanan Python. Binding ke `127.0.0.1` sudah menutup sebagian besar risiko, tetapi endpoint yang menerima path direktori dan menjalankan proses panjang pantas mendapat lapisan kedua. Kosongkan hanya di lingkungan pengembangan lokal.
+
+`DEDUP_AMBANG_COSINE=0.92` masih menyimpan utang: angka itu disetel untuk MiniLM, sedangkan vektornya sekarang dari e5. Ukur ulang dengan 100 pasangan manual. Utang ini tidak ikut hilang bersama perpindahan penilai relevansi, justru menjadi satu-satunya tugas e5 yang tersisa.
 
 ### Etika crawling
 
@@ -468,6 +553,14 @@ Untuk pengembang tunggal, test lengkap adalah kemewahan. Empat alur berikut waji
 2. **Scoping peran media.** Login sebagai media A, minta artikel media B, harapkan 403 atau daftar kosong. Test ini mencegah kebocoran data antar-media.
 3. **Peran walikota tidak bisa menulis.** Kirim POST, PUT, dan DELETE ke rute admin, harapkan 403 di semuanya.
 4. **Prioritas label manual.** Simpan label model, lalu koreksi manual, lalu jalankan analisis ulang. Pastikan koreksi tidak tertimpa.
+
+Revisi 1.6 menambahkan alur kelima, dan bobotnya setara empat di atas:
+
+5. **Penjaga sentimen.** Dengan gerbang mutu berstatus selain `passed`, pastikan `AnalisisSentimen` tidak pernah didispatch, dan kalau dipaksa dispatch pun ia berhenti sendiri tanpa memanggil layanan NLP. Uji juga tiga status artikel yang dilarang lewat: `tidak_relevan`, `perlu_review`, dan `model_belum_lulus_gate`.
+
+Alur kelima ini punya sifat yang membuatnya wajib: **kegagalannya tidak terlihat.** Sentimen yang berjalan padahal seharusnya diblokir tetap menghasilkan angka yang tampak wajar di dashboard, dan tidak ada satu pun galat yang muncul. Satu-satunya cara mengetahuinya adalah test yang sengaja mencobanya.
+
+Daftar test wajib laboratorium yang lebih lengkap, dua puluh feature test dan enam unit test, ada di dokumen 10 bagian 25.
 
 Sisanya cukup smoke test bahwa setiap halaman mengembalikan 200 untuk peran yang berhak.
 

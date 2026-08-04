@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\Relevance\RelevanceQualityGateService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -54,6 +55,17 @@ class HandleInertiaRequests extends Middleware
             // alih-alih menyodorkan pratinjau basi yang sudah tidak cocok
             // dengan isi database.
             'hasilPeriksa' => fn () => $request->session()->get('hasilPeriksa'),
+            // Satu sumber untuk seluruh halaman yang menampilkan sentimen.
+            // Dibagikan, bukan diulang di tiap controller: dashboard yang
+            // menyatakan sentimen belum tersedia sementara halaman sentimen di
+            // sebelahnya tetap menampilkan angka adalah keadaan yang lebih
+            // membingungkan daripada keduanya salah.
+            //
+            // Closure, jadi kuerinya hanya jalan pada halaman yang membacanya.
+            'sentimen' => fn () => [
+                'tersedia' => app(RelevanceQualityGateService::class)->lolos(),
+                'alasan' => app(RelevanceQualityGateService::class)->alasan(),
+            ],
         ]);
     }
 }

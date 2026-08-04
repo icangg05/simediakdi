@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import ChartTrenSentimen from '@/components/chart/ChartTrenSentimen.vue';
 import ChartDonatSentimen from '@/components/chart/ChartDonatSentimen.vue';
+import ChartTrenSentimen from '@/components/chart/ChartTrenSentimen.vue';
+import SentimenBelumTersedia from '@/components/domain/SentimenBelumTersedia.vue';
 import BadgeSentimen from '@/components/domain/BadgeSentimen.vue';
 import KartuArtikel from '@/components/domain/KartuArtikel.vue';
 import PemilihKonteks from '@/components/domain/PemilihKonteks.vue';
 import PemilihRentangTanggal from '@/components/domain/PemilihRentangTanggal.vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useFormatAngka } from '@/composables/useFormatAngka';
+import { useGerbangSentimen } from '@/composables/useGerbangSentimen';
 import LayoutEksekutif from '@/layouts/LayoutEksekutif.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { format } from 'date-fns';
@@ -69,18 +71,37 @@ function pindah(parameter: Record<string, string | number | null>) {
  */
 const negatifMenonjol = computed(() => props.kpi.negatif_persen > 40);
 
-const kartu = computed(() => [
-    { label: 'Berita masuk', nilai: props.kpi.artikel, selisih: props.kpi.artikel_selisih, sorot: false },
-    {
-        label: 'Sentimen negatif',
-        nilai: props.kpi.negatif,
-        selisih: props.kpi.negatif_selisih,
-        keterangan: `${formatPersen(props.kpi.negatif_persen)} dari berita berlabel`,
-        sorot: negatifMenonjol.value,
-    },
-    { label: 'Sentimen positif', nilai: props.kpi.positif, selisih: props.kpi.positif_selisih, sorot: false },
-    { label: 'Media aktif memuat', nilai: props.kpi.media_aktif, sorot: false },
-]);
+/**
+ * Sentimen diblokir sampai model relevansi produksi lolos gerbang mutu.
+ *
+ * Yang tidak bergantung pada model tetap tampil apa adanya: berita masuk,
+ * media aktif memuat, isu teratas, dan berita terbaru. Yang bergantung padanya
+ * hilang sama sekali, bukan berubah menjadi nol. Angka nol dibaca sebagai
+ * "tidak ada berita negatif", dan itu pernyataan yang tidak dimiliki siapa pun.
+ */
+const { sentimenTersedia, alasanSentimen } = useGerbangSentimen();
+
+const kartu = computed(() => {
+    const dasar = [
+        { label: 'Berita masuk', nilai: props.kpi.artikel, selisih: props.kpi.artikel_selisih, sorot: false },
+        { label: 'Media aktif memuat', nilai: props.kpi.media_aktif, sorot: false },
+    ];
+
+    if (!sentimenTersedia.value) return dasar;
+
+    return [
+        dasar[0],
+        {
+            label: 'Sentimen negatif',
+            nilai: props.kpi.negatif,
+            selisih: props.kpi.negatif_selisih,
+            keterangan: `${formatPersen(props.kpi.negatif_persen)} dari berita berlabel`,
+            sorot: negatifMenonjol.value,
+        },
+        { label: 'Sentimen positif', nilai: props.kpi.positif, selisih: props.kpi.positif_selisih, sorot: false },
+        dasar[1],
+    ];
+});
 
 const arah = (n: number) => (n > 0 ? 'naik' : n < 0 ? 'turun' : 'tetap');
 
@@ -133,7 +154,7 @@ const tautanPeriode = computed(() => ({
         </div>
 
         <!-- Hanya dirender kalau ada isinya. -->
-        <Card v-if="peringatan" class="border-sentimen-negatif/30 bg-sentimen-negatif-lembut">
+        <Card v-if="peringatan && sentimenTersedia" class="border-sentimen-negatif/30 bg-sentimen-negatif-lembut">
             <CardContent class="flex items-start gap-3 p-4">
                 <TriangleAlert class="mt-0.5 h-5 w-5 shrink-0 text-sentimen-negatif" aria-hidden="true" />
                 <div class="min-w-0 flex-1">
@@ -148,7 +169,12 @@ const tautanPeriode = computed(() => ({
             </CardContent>
         </Card>
 
-        <div class="grid gap-4 lg:grid-cols-3">
+        <SentimenBelumTersedia
+            v-if="!sentimenTersedia"
+            :alasan="alasanSentimen"
+        />
+
+        <div v-else class="grid gap-4 lg:grid-cols-3">
             <Card class="lg:col-span-2">
                 <CardContent class="p-4">
                     <ChartTrenSentimen :data="deret as never" :tinggi="240" />

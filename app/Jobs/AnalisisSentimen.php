@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\AnalisisSentimen as BarisAnalisis;
 use App\Models\Artikel;
 use App\Services\Nlp\KlienNlp;
+use App\Services\Relevance\RelevanceQualityGateService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -14,6 +15,13 @@ use Illuminate\Foundation\Queue\Queueable;
  * Hanya konteks yang lolos relevansi yang dinilai. Label manual tidak pernah
  * disentuh di sini, koreksi manusia selalu mengalahkan hasil model (F-13),
  * dan analisis ulang tidak boleh menghapusnya.
+ *
+ * Penjaga kedua gerbang mutu ada di sini, mengulangi pemeriksaan yang sudah
+ * dilakukan pemanggilnya. Pengulangan itu disengaja: job ini juga didispatch
+ * dari koreksi relevansi manual, dari perintah artisan, dan nanti dari kode
+ * yang belum ditulis. Satu penjaga akan terlewat suatu hari, dan kegagalannya
+ * tidak terlihat, sentimen yang berjalan padahal seharusnya diblokir tetap
+ * menghasilkan angka yang tampak wajar di dashboard.
  */
 class AnalisisSentimen implements ShouldQueue
 {
@@ -31,8 +39,12 @@ class AnalisisSentimen implements ShouldQueue
         return [60, 300, 900];
     }
 
-    public function handle(KlienNlp $nlp): void
+    public function handle(KlienNlp $nlp, RelevanceQualityGateService $gerbang): void
     {
+        if (! $gerbang->lolos()) {
+            return;
+        }
+
         $artikel = Artikel::withoutGlobalScopes()->find($this->artikelId);
 
         if ($artikel === null || $artikel->isi === null) {

@@ -12,9 +12,19 @@ Satu sprint = dua minggu = sekitar 40 jam kerja.
 
 Angka yang saya pakai sudah menyertakan waktu untuk hal yang tidak terlihat di daftar tugas: debugging, membaca dokumentasi, memperbaiki lingkungan lokal, dan mengerjakan ulang hal yang salah pada percobaan pertama. Kalau Anda merasa estimasinya berlebihan, itu memang niatnya. Estimasi solo yang optimistis adalah penyebab utama proyek sampingan tidak selesai.
 
-**Total: 7 sprint, 14 minggu, sekitar 3,5 bulan.** Sprint 6 ditambahkan setelah
-hasil evaluasi sprint 3 menunjukkan rancangan tiga konteks tidak bisa mencapai
+**Total: 9 tahapan, sprint 0 sampai 8.** Sprint 6 ditambahkan setelah hasil
+evaluasi sprint 3 menunjukkan rancangan tiga konteks tidak bisa mencapai
 presisi yang layak. Sprint pemantapan bergeser menjadi sprint 7.
+
+Sprint 8 ditambahkan 4 Agustus 2026 dan **durasinya sengaja tidak ditetapkan**.
+Ia membangun Laboratorium Model Relevansi di dokumen 10, dan bagian terbesarnya
+bukan menulis kode melainkan melabeli beberapa ribu artikel. Menetapkan dua
+minggu untuk pekerjaan itu berarti menjanjikan sesuatu yang tidak dikendalikan
+kecepatan mengetik. Yang ditetapkan adalah gerbang per fase, bukan tanggal.
+
+Urutan pengerjaannya juga bukan 7 lalu 8. Sprint 7 adalah serah terima, dan
+serah terima menunggu sistem yang angkanya bisa dipertanggungjawabkan. Sprint 8
+dikerjakan lebih dulu.
 
 ## Sprint 0: Persiapan (1 minggu)
 
@@ -167,9 +177,10 @@ dan pengetatannya mengubah setiap angka historis sehingga lebih baik terjadi
 sekali sebelum ada yang memakai angkanya.
 
 **Fase 1: sederhanakan konteks**
-- [ ] Nonaktifkan konteks Wali Kota dan Pelayanan publik lewat seeder, jangan dihapus
-- [ ] Ubah halaman pelabelan menjadi satu keputusan relevansi per artikel (dokumen 04 bagian C.3)
-- [ ] Pastikan `AnalisisRelevansi` berjalan sekali per artikel
+- [x] Nonaktifkan konteks Wali Kota dan Pelayanan publik lewat seeder, jangan dihapus
+- [x] Pastikan `AnalisisRelevansi` berjalan sekali per artikel
+- [x] Hapus konteks Wali Kota dan Pelayanan publik. Sempat hanya dinonaktifkan, tapi baris nonaktif tetap terbaca admin dan membingungkan. 221 label gold set-nya diarsipkan ke `storage/app/private/` lebih dulu
+- [x] Halaman pelabelan: pemilih konteks hanya muncul kalau konteksnya lebih dari satu, kartu konteks diganti pertanyaan yang benar-benar dijawab pelabel
 
 **Fase 2: metadata sumber dan kamus alias**
 - [ ] Migration kolom `kategori_sumber`, `tag_sumber`, `post_id_sumber`, `url_api_sumber`, `diubah_sumber_at`
@@ -187,6 +198,14 @@ sekali sebelum ada yang memakai angkanya.
 - [ ] Ronde 2 atas 40 baris acak untuk mengukur konsistensi pelabel
 
 **Fase 3b: pindahkan penilai relevansi ke e5-small**
+
+> **Ditutup 4 Agustus 2026, hasilnya dibawa ke sprint 8.** Perpindahan ini
+> selesai dikerjakan dan diukur: presisi naik dari 57,0% ke 69,9%, masih di
+> bawah target 80%. Kesimpulannya, yang menahan bukan pilihan model melainkan
+> dataset. Karena itu penilai relevansi berpindah lagi ke classifier hasil
+> fine-tuning di sprint 8, dan cosine e5 tinggal mengerjakan deteksi salinan.
+> Tiga tugas yang belum selesai di bawah ini tidak dibuang, dua di antaranya
+> pindah ke sprint 8 dan satu tetap di sini.
 - [x] Lepas `indobert-relevancy` dari layanan NLP, hapus endpoint `/relevancy`
 - [x] Ganti model embedding dari MiniLM ke `intfloat/multilingual-e5-small`
 - [x] Migration `artikel.embedding_relevansi`, `konteks_pantauan.deskripsi_model` dan `embedding`
@@ -195,15 +214,19 @@ sekali sebelum ada yang memakai angkanya.
 - [x] `AnalisisRelevansi` menjadi kueri pgvector, bukan panggilan HTTP
 - [x] Perintah `nlp:hitung-ulang-vektor` beserta backfill 4.806 artikel lama
 - [x] Enam tes mengunci tiga cabang keputusan relevansi
-- [ ] **Kalibrasi dua ambang dari validation set** sesuai dokumen 05 bagian 5.1. Selama `RELEVANSI_AMBANG_ATAS` dan `RELEVANSI_AMBANG_BAWAH` kosong, seluruh artikel masuk antrean perlu review
-- [ ] **Ukur ulang ambang deduplikasi.** `DEDUP_AMBANG_COSINE=0.92` disetel untuk MiniLM. Vektor e5 tidak sebanding, jadi angka itu tidak lagi berlaku sampai diperiksa dengan 100 pasangan manual
-- [ ] Ukur ulang apakah pengetat sebutan masih menambah presisi di atas cosine. Kalau tidak, matikan
+- [~] ~~Kalibrasi dua ambang dari validation set~~. Dibatalkan. Ambang cosine dipensiunkan, digantikan `versi_threshold_relevansi` di sprint 8
+- [ ] **Ukur ulang ambang deduplikasi.** `DEDUP_AMBANG_COSINE=0.92` disetel untuk MiniLM. Vektor e5 tidak sebanding, jadi angka itu tidak lagi berlaku sampai diperiksa dengan 100 pasangan manual. **Tetap wajib**, karena deduplikasi tetap memakai e5 dan justru menjadi satu-satunya tugasnya sekarang
+- [~] ~~Ukur ulang apakah pengetat sebutan masih menambah presisi di atas cosine~~. Dijawab dengan melepasnya. Pengetat turun menjadi sinyal prioritas antrean, alasannya di dokumen 05 bagian 5.2
 
 **Fase 4: ukur ulang dan stabilkan**
+- [x] Antrean `/admin/review` beserta urutan prioritasnya, artikel terdekat ambang atas lebih dulu
+- [x] Kartu relevansi di detail artikel: skor kemiripan, alasan keputusan, dan penegasan bahwa itu bukan persentase keyakinan
+- [x] Penunjuk kemajuan antrean analisis di dashboard admin, menyegarkan sendiri selama masih ada pekerjaan
+- [x] Field `deskripsi_model` masuk form konteks. Sebelumnya field penentu relevansi itu tidak ada di layar sama sekali, sehingga admin menyunting deskripsi lain sambil mengira itu mengubah perilaku model
+- [x] Jalankan ulang relevansi atas seluruh korpus dengan ambang 0,83 dan 0,84
 - [ ] Kolom versi dan metrik relevansi di `evaluasi_model`, halaman evaluasi dipisah dua tab
-- [ ] Antrean `/admin/review` beserta urutan prioritasnya
 - [ ] Koreksi relevansi manual dengan alasan wajib, dan `relevan_efektif`
-- [ ] Jalankan ulang analisis atas seluruh korpus, lalu `evaluasi:model`
+- [x] `evaluasi:model` ulang setelah sentimen selesai dihitung: presisi relevansi 57,0% ke 69,9%, F1 sentimen 0,7375
 
 Definition of done: presisi relevansi minimal 80% dan recall minimal 85% pada
 test set yang dibekukan, gold set dihitung per artikel unik, tidak ada satu pun
@@ -212,6 +235,117 @@ relevansi terpisah dari sentimen.
 
 Kalau presisi tetap di bawah 80% setelah fase 4, jangan menambah aturan
 tempelan. Baca dokumen 05 bagian 8 dan kerjakan urutannya.
+
+---
+
+## Sprint 8: Laboratorium Model Relevansi (tanpa batas waktu)
+
+Dikerjakan **sebelum** sprint 7. Spesifikasi lengkapnya di dokumen 10, dan
+bagian ini hanya daftar fase beserta gerbangnya. Jangan melewati fase sebelum
+fondasi fase sebelumnya stabil.
+
+Dua keputusan yang berlaku sejak hari pertama sprint ini:
+
+- **Sentimen diblokir.** `AnalisisSentimen` berhenti didispatch, dashboard
+  sentimen menampilkan keadaan belum tersedia, alert lonjakan negatif berhenti.
+  Data lama tetap tersimpan utuh. Dokumen 10 bagian 0.3.
+- **e5-small turun menjadi pendeteksi salinan.** Relevansi berpindah ke
+  `apriandito/indobert-relevancy-classifier` yang dilatih ulang dengan dataset
+  lokal.
+
+**Fase 1: fondasi data**
+- [x] Sebelas tabel dokumen 10 bagian 16, termasuk unique partial index satu model produksi. **Model Eloquent baru empat**, yaitu yang benar-benar dipakai fase ini: `SampelRelevansi`, `PrediksiRelevansi`, `VersiModelRelevansi`, `GerbangMutuRelevansi`. Tujuh sisanya dibuat saat fasenya tiba
+- [x] Hapus `artikel.embedding_relevansi` dan `konteks_pantauan.embedding`. `nlp:hitung-ulang-vektor` ikut disederhanakan menjadi satu vektor
+- [x] Sentimen diblokir: penjaga di `AnalisisRelevansi` dan di dalam `AnalisisSentimen`, ditambah keadaan "belum tersedia" di dashboard eksekutif, halaman sentimen, dan badge di halaman isu
+- [x] `ImporArtikelKeDatasetRelevansi` masuk rantai job, perintah `relevance:import-crawled` untuk korpus lama. 3.887 kandidat masuk dari 4.137 artikel asli
+- [x] Migrasikan label relevansi dari `gold_set` menjadi `sampel_relevansi`. Terlaksana 250 baris, 65 relevan dan 185 tidak relevan
+- [x] Tabel dataset dengan seluruh filter di query string, beserta filter cepat
+- [x] Mode pelabelan cepat beserta pintasan R/T/S, kode alasan, dan aturan alasan wajib
+- [x] Audit label lewat activity log: nilai sebelum, sesudah, pelaku, waktu
+- [ ] **Kolom `kategori_sumber` dan `tag_sumber` ternyata tidak pernah dibuat**, padahal dokumen 03 changelog 1.4 dan dokumen 05 bagian 4 menyebutnya sudah ada. Sprint 6 fase 2 yang mengerjakannya. Sampai itu selesai, komponen prioritas berbasis tag dilepas dan kedua kolom di `sampel_relevansi` selalu kosong
+
+**Gerbang fase:** dataset dapat dilabeli konsisten dan tidak ada label manual yang tertimpa job prediksi ulang. **Terpenuhi**, dijaga 18 test di `DatasetRelevansiTest` dan `GerbangMutuRelevansiTest`.
+
+Dua angka yang perlu dibaca sebelum fase 2. Pertama, 250 label yang ada berbanding 26% relevan dan 74% tidak relevan, jadi kartu keseimbangan langsung berstatus timpang dan kelas relevan yang harus dikejar lebih dulu. Kedua, 2.312 dari 3.887 kandidat berskor prioritas nol, artinya tidak menyebut Pemkot sama sekali; melabelinya berurutan dari atas berarti hampir seluruh waktu habis di artikel yang jawabannya sudah jelas.
+
+**Fase 2: snapshot dan kualitas dataset**
+- [ ] Snapshot, split train/validation/test per grup duplikat, manifest hash
+- [ ] `RelevanceSplitValidator` dan laporan kebocoran
+- [ ] Test set terkunci, perubahannya wajib beralasan dan membuat versi baru
+- [ ] Laporan kesiapan data, tiga tingkat
+- [ ] Active learning dasar, `priority_score` beserta komponennya
+- [ ] **Labeli sampai minimal 1.500 artikel unik, 600 per kelas.** Inilah pekerjaan terpanjang di sprint ini
+
+**Gerbang fase:** snapshot terkunci dapat direproduksi dan tidak memiliki kebocoran duplikat.
+
+**Fase 3: pipeline pelatihan**
+- [x] `RelevanceInputBuilder` berversi, satu-satunya tempat susunan teks model ditulis
+- [x] Ekspor snapshot terkunci menjadi JSONL per split, memakai label yang dibekukan
+- [x] Endpoint `/relevancy/training-runs`, status, dan batal. Pelatihan jalan di thread latar
+- [x] Checkpoint terbaik dipilih dari validation, artefak beserta checksum per berkas
+- [x] Progres, riwayat termasuk yang gagal, penanganan galat
+- [ ] Evaluasi ulang atas snapshot lain, dan perbandingan antar versi. Masuk fase 4
+
+**Gerbang fase:** pelatihan yang sama dapat direproduksi dari snapshot dan konfigurasi yang sama.
+
+Tiga temuan yang mengubah rencana, semuanya dari mencoba menjalankannya:
+
+1. **Base model-nya BERT large**, bukan base. Akibatnya di dokumen 02 bagian
+   deployment: pelatihan tidak muat di server produksi 8 GB, jadi dilatih di
+   mesin pengembangan lalu artefaknya disalin.
+2. **Kalimat konteks harus pendek.** `deskripsi_model` masih berisi paragraf
+   aturan dari era e5, dan itu memakan 137 dari 256 token pada setiap sampel
+   tanpa membedakan apa pun, menyisakan 116 token untuk artikel yang butuh 264.
+   Diringkas menjadi `Pemerintah Kota Kendari`, dan `RelevanceInputBuilder`
+   sekarang menolak konteks di atas 120 huruf alih-alih memotongnya diam-diam.
+3. **Kedua container harus berbagi direktori dataset.** Kontrak pelatihan
+   mengirim lokasi berkas, bukan isinya, dan itu mengandaikan satu filesystem
+   seperti di produksi. Di compose keduanya terpisah, jadi `storage/app/private`
+   dipasang ke path yang sama persis di container NLP.
+
+**Fase 4: evaluasi**
+- [ ] Metrik lengkap, confusion matrix yang bisa diklik, evaluasi per media dan per pola kasus
+- [ ] Analisis kesalahan, simulator ambang, perbandingan versi
+- [ ] Ronde konsistensi pelabel, minimal 40 sampel, hitung Cohen's kappa
+
+**Gerbang fase:** hasil evaluasi dapat menjelaskan secara spesifik jenis kesalahan model.
+
+**Fase 5: uji model dan versioning**
+- [ ] Uji URL, uji teks, feedback benar/salah, simpan sebagai hard case
+- [ ] Status versi, warmup, promosi atomik, rollback
+
+**Gerbang fase:** model kandidat dapat diuji tanpa memengaruhi produksi dan rollback berhasil.
+
+**Fase 6: gerbang mutu**
+- [ ] Standar gerbang, laporan, pencabutan otomatis
+- [ ] Penjaga sentimen di dispatcher dan di dalam job
+- [ ] Audit sampling produksi mingguan
+
+**Gerbang fase:** tidak ada satu pun jalur kode yang memungkinkan sentimen berjalan ketika relevansi belum layak.
+
+**Fase 7: perbaiki model sampai layak**
+
+Ulangi: analisis kesalahan, tambah hard case, perbaiki label dan panduan,
+snapshot baru, fine-tune, evaluasi, gerbang mutu.
+
+**Gerbang fase:** seluruh syarat dokumen 10 bagian 12.3 dan 12.4 terpenuhi.
+
+**Fase 8: aktifkan kembali sentimen**
+- [ ] Model relevansi produksi aktif dan gerbang `passed`
+- [ ] Audit sampling awal berhasil, false positive dan false negative kritis sudah ditinjau
+- [ ] Rollback teruji, seluruh test penjaga sentimen hijau
+- [ ] Jalankan ulang relevansi atas korpus, lalu sentimen atas artikel yang lolos
+- [ ] Buka kembali dashboard sentimen dan alert
+
+Definition of done: seluruh kotak di dokumen 10 bagian 26 tercentang, gerbang
+mutu berstatus `passed`, dan angka sentimen di dashboard dihitung dari artikel
+yang relevansinya sudah terukur, bukan diasumsikan.
+
+Peringatan yang paling mudah dilanggar di sprint ini: **jangan menurunkan
+standar gerbang supaya model terlihat lulus.** Nilainya memang bisa diubah, dan
+itu memang disengaja, tetapi setiap penurunan wajib punya alasan tertulis dan
+tercatat di audit log. Gerbang yang diturunkan sampai model apa pun lolos sama
+saja dengan tidak punya gerbang, hanya dengan lebih banyak kode.
 
 ---
 
@@ -255,6 +389,8 @@ Kalau ada tenggat dan Anda tertinggal, pangkas dengan urutan ini. Daftar disusun
 
 - Gold set dan pengukuran akurasi. Tanpa angka ini, dashboard sentimen bisa dibantah siapa pun dan sistem kehilangan kredibilitasnya dalam satu rapat
 - Presisi relevansi. Sentimen yang akurat atas artikel yang salah tetap salah, dan inilah kesalahan yang paling cepat terlihat pimpinan karena ia tidak perlu membaca angka untuk menyadarinya, cukup membaca judulnya
+- Gerbang mutu relevansi beserta kedua penjaganya. Memangkas ini berarti memangkas satu-satunya hal yang mencegah dashboard menampilkan angka yang sudah diketahui salah
+- Test set yang terkunci dan bebas kebocoran duplikat. Alat ukur yang bocor menghasilkan angka bagus yang tidak berarti apa pun, dan itu lebih berbahaya daripada tidak mengukur sama sekali
 - Deduplikasi. Tanpa ini seluruh angka salah dan Anda kehilangan kepercayaan lebih cepat daripada dengan fitur yang kurang
 - Status perlu review. Menyembunyikan ketidakpastian membuat sistem menyatakan hal yang tidak diketahuinya
 - Global scope peran media dan test-nya. Ini soal kebocoran data ke pihak luar
@@ -269,8 +405,8 @@ Tulis di sini setiap ide yang muncul selama pengembangan. Fungsi utamanya bukan 
 
 - Media sosial: X, Instagram, komentar YouTube
 - BERTopic setelah 12 bulan data terkumpul
-- **IndoBERT binary classifier hasil fine-tuning untuk relevansi.** Menggantikan rangkaian model bawaan ditambah pengetat kata kunci. Baru masuk akal setelah koreksi admin terkumpul cukup, sekitar 1.000 keputusan manusia. Sebelum itu, aturan kata kunci yang bisa dibaca dan diperbaiki admin lebih berharga daripada model yang kesalahannya hanya bisa diperbaiki dengan melatih ulang
-- Perbandingan berdampingan antara cosine e5-small dan classifier hasil fine-tuning, memakai test set beku yang sama
+- ~~IndoBERT binary classifier hasil fine-tuning untuk relevansi~~. **Naik menjadi sprint 8**, lihat dokumen 10. Syarat yang dulu ditulis di sini, sekitar 1.000 keputusan manusia, ternyata tepat dan sekarang menjadi gerbang fase 2
+- ~~Perbandingan berdampingan antara cosine e5-small dan classifier hasil fine-tuning~~. Masuk fase 4 sprint 8 sebagai pembanding dasar. Model baru yang tidak mengalahkan cosine 69,9% tidak layak dipromosikan
 - Konteks pantauan kedua, kalau Diskominfo benar-benar meminta. Biayanya bukan inferensi, melainkan satu putaran pelabelan penuh
 - Fine-tuning model sentimen dengan gold set yang sudah tumbuh
 - Perbandingan dengan kota lain di Sulawesi Tenggara

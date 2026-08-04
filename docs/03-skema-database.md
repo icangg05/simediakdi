@@ -158,7 +158,7 @@ Tabel terbesar. Rancang indexnya dengan hati-hati.
 | hash_isi | char(64) | yes | | SHA-256 dari isi yang sudah dinormalisasi |
 | simhash | bigint | yes | | 64-bit simhash untuk near-duplicate |
 | embedding | vector(384) | yes | | Dari isi penuh. Dipakai mencari salinan |
-| embedding_relevansi | vector(384) | yes | | Dari teks terfokus (judul, kategori, tag, ringkasan, jendela kalimat). Dipakai menilai relevansi |
+| ~~embedding_relevansi~~ | vector(384) | yes | | **Dipensiunkan versi 1.6.** Relevansi tidak lagi dinilai dari kemiripan vektor. Dihapus pada fase 1 laboratorium |
 | status_dedup | varchar(20) | no | `asli` | CHECK: `asli`, `salinan` |
 | artikel_induk_id | bigint | yes | | FK artikel. Diisi jika status_dedup = `salinan` |
 | skor_kemiripan | real | yes | | Cosine similarity terhadap induk, untuk audit |
@@ -182,16 +182,20 @@ CREATE INDEX idx_artikel_embedding ON artikel
 CREATE INDEX idx_artikel_simhash ON artikel (simhash);
 ```
 
-`embedding_relevansi` **tidak** diberi index HNSW. Index itu melayani pencarian
-tetangga terdekat, sedangkan kolom ini selalu dibandingkan terhadap satu vektor
-yang sama, yaitu vektor konteks utama. Skornya dihitung sekali lalu disimpan,
-bukan dicari berulang kali.
+**Kembali satu vektor sejak versi 1.6.** Versi 1.5 menyimpan dua vektor per
+artikel, satu untuk mencari salinan dan satu untuk menilai relevansi. Yang
+kedua tidak dipakai lagi setelah relevansi berpindah ke classifier, dan
+dihapus pada fase 1 laboratorium.
 
-**Mengapa dua vektor.** Deduplikasi butuh gambaran artikel seutuhnya, relevansi
-butuh gambaran yang terfokus pada bagian yang menyinggung Pemkot. Satu vektor
-tidak bisa melayani keduanya: dengan vektor isi penuh, dua artikel berbeda yang
-sama-sama membahas Pemkot akan terlihat seperti salinan. Biayanya sekitar
-1,5 KB per artikel, dan keduanya dihasilkan model yang sama dalam satu panggilan.
+Yang tersisa adalah `embedding` beserta index HNSW-nya, dan bagian ini tidak
+berubah sama sekali. Alasan aslinya juga tidak berubah: pencarian salinan
+membutuhkan tetangga terdekat, dan itu memang pekerjaan yang dilayani index
+HNSW.
+
+Kebutuhan yang dulu dijawab `embedding_relevansi`, yaitu gambaran artikel yang
+terfokus pada bagian yang menyinggung Pemkot, tidak hilang. Ia tetap dibangun
+oleh `JendelaKonteks`, hanya keluarannya sekarang menjadi teks yang masuk
+tokenizer, bukan vektor yang disimpan.
 
 Dua index partial di atas penting. `idx_artikel_status_proses` hanya mengindeks baris yang belum selesai, dan jumlahnya selalu kecil, sehingga worker menemukan pekerjaan tanpa memindai seluruh tabel. `idx_artikel_asli` melayani hampir semua query dashboard, karena hampir semua agregasi mengecualikan salinan.
 
@@ -224,9 +228,9 @@ Sasaran penilaian sentimen. Isinya menjadi input `konteks` pada model IndoBERT.
 | nama | varchar(200) | no | | Persis seperti yang dikirim ke model. Contoh: `Pemerintah Kota Kendari` |
 | slug | varchar(200) | no | | unique |
 | deskripsi | text | yes | | Untuk admin, tidak dikirim ke model |
-| deskripsi_model | text | yes | | Teks yang di-embed sebagai pembanding relevansi. Isinya deskripsi untuk model di dokumen 01 bagian 9 |
-| embedding | vector(384) | yes | | Vektor dari `deskripsi_model`, dihitung sekali. Pembanding seluruh artikel |
-| kata_kunci | jsonb | yes | | Dipakai pengetat sebutan dan penjelasan ke admin |
+| deskripsi_model | text | yes | | Teks konteks yang dipasangkan ke artikel pada tokenizer relevansi. Sejak versi 1.6 tidak di-embed lagi, dan versinya dikelola tabel `versi_konteks_relevansi` |
+| ~~embedding~~ | vector(384) | yes | | **Dipensiunkan versi 1.6.** Dihapus pada fase 1 laboratorium |
+| kata_kunci | jsonb | yes | | Sinyal penjelas keputusan dan bahan skor prioritas antrean pelabelan |
 | utama | boolean | no | false | Tepat satu baris bernilai true. Ini yang tampil di dashboard eksekutif |
 | urutan | smallint | no | 0 | |
 | aktif | boolean | no | true | |
@@ -265,7 +269,9 @@ Satu baris per pasangan artikel dan konteks.
 | artikel_id | bigint | no | | FK artikel, on delete cascade |
 | konteks_pantauan_id | bigint | no | | FK konteks_pantauan |
 | relevan | boolean | no | | Hasil penilaian relevansi |
-| skor_relevansi | real | yes | | Cosine similarity terhadap vektor konteks. **Bukan probabilitas.** Menggantikan `keyakinan_relevansi` |
+| skor_relevansi | real | yes | | Sejak versi 1.6 berisi `probabilitas_relevan` dari classifier, dan itu **memang probabilitas**. Sebelumnya cosine similarity |
+| versi_model_relevansi_id | bigint | yes | | FK `versi_model_relevansi`. Model yang menghasilkan keputusan pada baris ini |
+| versi_threshold_relevansi_id | bigint | yes | | FK `versi_threshold_relevansi`. Ambang yang berlaku saat itu |
 | relevan_manual | boolean | yes | | Koreksi manusia atas relevansi. Mengalahkan `relevan` |
 | alasan_relevansi | text | yes | | Alasan admin mengubah keputusan relevansi |
 | sinyal_relevansi | jsonb | yes | | Sinyal judul, tag, dan alias yang benar-benar ditemukan sistem |
@@ -319,6 +325,18 @@ Index `idx_analisis_konteks_label` memakai `relevan = true` sejak versi 1.0.
 Ubah menjadi `relevan_efektif = true` bersamaan dengan migration kolom generated,
 kalau tidak, artikel yang admin nyatakan tidak relevan tetap terhitung di
 seluruh grafik.
+
+**Dua kolom versi yang ditambahkan versi 1.6 menjawab pertanyaan yang dulu
+tidak bisa dijawab:** model mana yang memutuskan baris ini. Selama relevansi
+berupa cosine dengan ambang global di `.env`, jawabannya ada di git dan itu
+cukup. Begitu ada beberapa versi model yang bergantian menjadi produksi,
+sebuah baris tanpa penunjuk versi adalah keputusan tanpa asal usul, dan tidak
+mungkin diketahui apakah kesalahannya berasal dari model yang sudah diganti.
+
+Kolom ini menyimpan keputusan **yang berlaku sekarang**, satu baris per artikel.
+Riwayat lengkap tiap prediksi, termasuk prediksi model kandidat yang tidak
+pernah dipromosikan, disimpan di `prediksi_relevansi` dan tidak pernah ditimpa.
+Lihat dokumen 10 bagian 16.2.
 
 ---
 
@@ -476,6 +494,15 @@ Job `hitung:ringkasan-harian` menulis ulang baris hari ini setiap 10 menit mengg
 
 ## 12. gold_set dan evaluasi_model
 
+> **Versi 1.6:** untuk relevansi, kedua tabel ini digantikan tabel laboratorium
+> di bagian 16. `gold_set.relevan_gold` bermigrasi menjadi
+> `sampel_relevansi.label_manual`, dan metrik relevansi berpindah ke
+> `evaluasi_model_relevansi`. Keduanya **tetap ada dan tetap dipakai untuk
+> sentimen**, yang belum punya laboratorium sendiri. Barisnya jangan dihapus:
+> 249 label relevansi di dalamnya adalah benih dataset laboratorium, dan
+> riwayat evaluasi lama adalah satu-satunya pembanding untuk mengukur apakah
+> model baru benar-benar lebih baik.
+
 **gold_set**, data uji berlabel manusia (F-19)
 
 | Kolom | Tipe | Null | Keterangan |
@@ -621,6 +648,57 @@ Dari `spatie/laravel-activitylog`, skema bawaan paket. Yang perlu diatur:
 
 ---
 
+## 16. Tabel laboratorium relevansi
+
+Sebelas tabel, ditambahkan versi 1.6. **Kolom lengkapnya ada di dokumen 10
+bagian 16 dan tidak diulang di sini**, karena satu skema yang ditulis di dua
+tempat akan berbeda dalam sebulan.
+
+| Tabel | Isi | Baris tumbuh mengikuti |
+|---|---|---|
+| `sampel_relevansi` | Kandidat dataset beserta label manusia, alasan, tingkat kesulitan, dan skor prioritas | Jumlah artikel |
+| `prediksi_relevansi` | Riwayat setiap prediksi, tidak pernah ditimpa | Artikel dikali versi model |
+| `snapshot_dataset_relevansi` | Susunan dataset yang dibekukan untuk satu eksperimen | Jumlah eksperimen |
+| `item_snapshot_dataset_relevansi` | Anggota snapshot beserta split dan label saat dibekukan | Snapshot dikali sampel |
+| `pelatihan_model_relevansi` | Satu baris per training run, konfigurasi, progres, metrik, artefak | Jumlah pelatihan |
+| `versi_model_relevansi` | Versi model beserta status, checksum, dan metrik | Jumlah versi |
+| `evaluasi_model_relevansi` | Hasil evaluasi per pasangan model dan snapshot | Model dikali snapshot |
+| `versi_threshold_relevansi` | Ambang berversi, menggantikan dua nilai `.env` | Jarang |
+| `versi_konteks_relevansi` | Definisi konteks berversi, aturan inklusi dan eksklusi | Jarang |
+| `gerbang_mutu_relevansi` | Status gerbang per versi model, standar, hasil, dan alasan pencabutan | Jumlah versi |
+| `uji_manual_relevansi` | Riwayat pengujian URL dan teks di tab Uji Model | Pemakaian admin |
+
+Empat aturan integritas yang mengikat tabel di atas dan harus jadi constraint
+database, bukan hanya kode:
+
+1. **Tepat satu model boleh berstatus `production`.** Unique partial index,
+   pola yang sama dengan `konteks_pantauan.utama`:
+
+```sql
+CREATE UNIQUE INDEX uq_model_relevansi_produksi
+  ON versi_model_relevansi ((status)) WHERE status = 'production';
+```
+
+2. **Satu sampel hanya boleh muncul sekali dalam satu snapshot.** Unique
+   `(snapshot_dataset_relevansi_id, sampel_relevansi_id)`. Sampel yang muncul
+   dua kali dengan split berbeda adalah kebocoran yang paling sulit dilihat.
+
+3. **Satu konfigurasi evaluasi hanya boleh punya satu hasil.** Unique
+   `(configuration_hash)`. Dua baris metrik untuk konfigurasi identik berarti
+   salah satunya salah, dan tidak ada cara tahu yang mana.
+
+4. **Snapshot terkunci tidak boleh berubah.** Ditegakkan di service, bukan
+   constraint, tetapi `locked_at IS NOT NULL` adalah syarat yang diperiksa
+   setiap kali item snapshot hendak ditulis.
+
+Aturan pertama adalah yang paling penting dan paling mudah dilanggar. Promosi
+model berjalan lewat beberapa langkah, dan satu langkah yang gagal di tengah
+tanpa transaksi meninggalkan dua model produksi sekaligus. Yang mana yang
+dipakai lalu bergantung pada urutan baris, dan itu berarti hasil analisis
+berubah tanpa ada yang mengubah apa pun.
+
+---
+
 ## Query agregasi utama
 
 Dua query berikut adalah yang paling sering dipakai. Tulis sebagai method di service `Agregasi`, bukan di controller.
@@ -639,22 +717,30 @@ ORDER BY tanggal;
 
 Satu index scan, tanpa join, tanpa agregasi. Inilah alasan tabel ringkasan ada.
 
-### Skor relevansi seluruh korpus
+### Menyetel ulang ambang relevansi
 
 ```sql
 UPDATE analisis_sentimen a
-SET skor_relevansi = 1 - (art.embedding_relevansi <=> k.embedding)
-FROM artikel art, konteks_pantauan k
-WHERE a.artikel_id = art.id
-  AND a.konteks_pantauan_id = k.id
-  AND k.utama = true
-  AND art.embedding_relevansi IS NOT NULL;
+SET relevan = p.probabilitas_relevan >= :ambang_relevan,
+    skor_relevansi = p.probabilitas_relevan,
+    versi_threshold_relevansi_id = :versi_ambang_baru
+FROM prediksi_relevansi p
+WHERE p.artikel_id = a.artikel_id
+  AND p.versi_model_relevansi_id = :model_produksi
+  AND a.relevan_manual IS NULL;
 ```
 
-Inilah alasan relevansi dipindah ke cosine. Menyetel ambang berarti menghitung
-ulang skor seluruh korpus, dan dengan kueri ini biayanya detik, bukan jam
-inferensi model. Ambang yang harus dicoba puluhan kali hanya akan benar-benar
-disetel kalau mencobanya murah.
+Kueri ini menggantikan penghitungan ulang cosine dari versi 1.5, dan menjaga
+sifat yang membuat versi itu berharga: **mengubah ambang tidak memerlukan
+inferensi ulang.** Syaratnya satu, probabilitas mentah harus sudah tersimpan
+per artikel di `prediksi_relevansi`. Menyimpan hanya label akhir berarti setiap
+percobaan ambang memaksa 4.806 inferensi, dan ambang yang mahal dicoba adalah
+ambang yang tidak pernah benar-benar disetel.
+
+Klausa `relevan_manual IS NULL` bukan optimasi. Ia janji F-13: koreksi manusia
+tidak pernah tertimpa proses otomatis. Setiap kueri massal yang menyentuh kolom
+relevansi harus membawanya, dan itulah satu baris yang paling mudah lupa
+ditulis.
 
 ### Pencarian duplikat semantik
 
@@ -676,6 +762,7 @@ Batasan tujuh hari itu penting. Tanpa itu, pencarian menyusuri seluruh tabel dan
 
 | Versi | Tanggal | Perubahan |
 |-------|---------|-----------|
+| 1.6 | Agustus 2026 | Laboratorium Model Relevansi, dokumen 10. **(a)** Sebelas tabel baru, ringkasannya di bagian 16 dan kolom lengkapnya di dokumen 10 bagian 16. **(b)** `analisis_sentimen`: kolom `versi_model_relevansi_id` dan `versi_threshold_relevansi_id`; `skor_relevansi` berganti arti menjadi probabilitas classifier, bukan cosine. **(c)** `artikel.embedding_relevansi` dan `konteks_pantauan.embedding` dipensiunkan lalu dihapus pada fase 1; `artikel.embedding` tetap untuk deduplikasi. **(d)** `konteks_pantauan.deskripsi_model` berganti peran dari teks yang di-embed menjadi kalimat konteks pada tokenizer. **(e)** `gold_set` dan `evaluasi_model` tetap ada untuk sentimen; bagian relevansinya digantikan tabel laboratorium, barisnya tidak dihapus. **(f)** Unique partial index yang menjamin tepat satu model relevansi berstatus produksi |
 | 1.0 | Juli 2026 | Skema awal |
 | 1.1 | Juli 2026 | Tabel `pemuatan`: `media_id` menjadi nullable; kolom baru `status_ekstraksi`, `arsip_teks`, `arsip_screenshot_path`, `arsip_diambil_at`, `email_pelapor`; nilai `google_form` pada `sumber_catatan` |
 | 1.5 | Agustus 2026 | Penilai relevansi berpindah ke kemiripan makna. **(a)** `artikel`: kolom `embedding_relevansi vector(384)`, tanpa index HNSW karena selalu dibandingkan ke satu vektor yang sama. **(b)** `konteks_pantauan`: kolom `deskripsi_model` dan `embedding vector(384)`. **(c)** `analisis_sentimen`: `keyakinan_relevansi` diganti `skor_relevansi`, isinya cosine similarity dan bukan probabilitas. **(d)** Model `indobert-relevancy` dan endpoint `/relevancy` dihapus dari sistem |

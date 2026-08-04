@@ -192,6 +192,7 @@ Total 24 halaman. Kolom "Sprint" merujuk dokumen 07.
 | `/admin/pelabelan` | Ruang kerja gold set | Satu artikel per layar, tombol pintasan keyboard | 3 |
 | `/admin/review` | Antrean perlu review | Artikel dengan keyakinan dekat ambang, satu per layar, urutan berprioritas | 6 |
 | `/admin/evaluasi` | Hasil evaluasi model | Dua tab terpisah, relevansi dan sentimen. Confusion matrix, grafik F1 antar waktu, 20 false positive dan 20 false negative terbesar | 3 |
+| `/admin/model-relevansi` | Laboratorium Model Relevansi | Delapan tab lewat query string: ringkasan, dataset, snapshot, pelatihan, evaluasi, uji-model, versi-model, pengaturan. Wireframe dan komponennya di dokumen 10 bagian 5 sampai 18 | 8 |
 | `/admin/alert` | Aturan alert | DataTable dan form | 5 |
 | `/admin/alert/riwayat` | Riwayat alert | DataTable | 5 |
 | `/admin/pengguna` | Pengguna | DataTable dan form | 4 |
@@ -255,6 +256,27 @@ Halaman paling penting di seluruh sistem. Rancang untuk mobile lebih dulu, lalu 
 Baris terakhir itu terlihat sepele dan justru menentukan apakah sistem dipercaya. Ketika ada satu label yang jelas salah, dan itu pasti terjadi, baris ini yang membuat pengguna berpikir "sistemnya memang tidak sempurna dan itu diakui" alih-alih "sistemnya ngawur".
 
 **Susunan desktop:** empat kartu KPI menjadi satu baris, grafik tren mengisi dua pertiga lebar dengan donat komposisi di sepertiga sisanya, isu teratas dan berita terbaru berdampingan.
+
+**Keadaan sentimen belum tersedia, berlaku sejak 4 Agustus 2026.** Selama
+gerbang mutu relevansi belum `passed`, tidak ada angka sentimen yang boleh
+tampil di halaman ini. Yang ditampilkan sebagai gantinya:
+
+- kartu KPI negatif dan positif diganti satu kartu penjelas, bukan angka nol dan bukan skeleton yang berputar selamanya;
+- grafik tren sentimen dan donat komposisi tidak dirender;
+- kartu peringatan tidak muncul, karena alert sentimen memang berhenti;
+- KPI berita masuk, media aktif memuat, isu teratas, dan berita terbaru tetap tampil apa adanya. Semuanya tidak bergantung pada model.
+
+Teksnya menyebut keadaan dan alasannya, bukan istilah teknis:
+
+> **Analisis sentimen belum tersedia.** Model penilai relevansi berita sedang
+> disiapkan. Angka sentimen baru ditampilkan setelah pengujiannya memenuhi
+> standar, supaya yang dinilai benar-benar berita tentang Pemerintah Kota
+> Kendari.
+
+Godaan terbesar di sini adalah menampilkan angka lama supaya halaman tidak
+terlihat kosong. Jangan. Angka lama dihitung dari relevansi yang presisinya
+69,9%, dan menampilkannya tanpa penanda berarti tetap menyampaikan hal yang
+sudah diketahui salah, hanya dengan tanggal yang lebih tua.
 
 ### C.2 Detail artikel, `/admin/artikel/{id}`
 

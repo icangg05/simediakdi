@@ -19,6 +19,7 @@ class DashboardController extends Controller
     {
         return Inertia::render('admin/Dashboard', [
             'kpi' => $this->kpi(),
+            'antrean' => $this->antrean(),
             'kesehatan' => $this->kesehatan(),
             'proporsiSumber' => $this->proporsiSumber(),
             'sumberBermasalah' => $this->sumberBermasalah(),
@@ -51,6 +52,55 @@ class DashboardController extends Controller
                 ->count(),
             'gagal_proses' => Artikel::query()->where('status_proses', 'gagal')->count(),
             'sumber_aktif' => SumberFeed::query()->where('aktif', true)->count(),
+        ];
+    }
+
+    /**
+     * Berapa artikel yang masih menunggu diproses, dipecah per tahap.
+     *
+     * Ada karena menunggu tanpa angka terasa seperti menunggu tanpa kepastian.
+     * Penarikan arsip atau pergantian model menghasilkan ribuan artikel yang
+     * harus dianalisis ulang, dan tanpa penunjuk ini satu-satunya cara
+     * mengetahui kemajuannya adalah membuka terminal.
+     *
+     * Dibaca dari `artikel.status_proses`, bukan dari isi antrean Redis.
+     * Alasannya: status artikel adalah kebenaran yang bertahan, sedangkan
+     * antrean Redis kosong bukan berarti pekerjaannya selesai, bisa juga
+     * berarti job-nya hilang.
+     *
+     * @return array<string, mixed>
+     */
+    private function antrean(): array
+    {
+        $per = Artikel::query()->asli()
+            ->selectRaw('status_proses, count(*) as n')
+            ->groupBy('status_proses')
+            ->pluck('n', 'status_proses');
+
+        $menunggu = (int) ($per['mentah'] ?? 0)
+            + (int) ($per['isi_diambil'] ?? 0)
+            + (int) ($per['dianalisis'] ?? 0);
+
+        $tuntas = (int) ($per['selesai'] ?? 0)
+            + (int) ($per['tidak_relevan'] ?? 0)
+            + (int) ($per['perlu_review'] ?? 0);
+
+        $total = $menunggu + $tuntas;
+
+        return [
+            'menunggu' => $menunggu,
+            'tuntas' => $tuntas,
+            'total' => $total,
+            'persen' => $total > 0 ? round($tuntas / $total * 100, 1) : 100.0,
+            'tahap' => [
+                // Urutannya mengikuti rantai job, supaya terlihat di tahap mana
+                // pekerjaan menumpuk.
+                ['nama' => 'Menunggu isi diambil', 'jumlah' => (int) ($per['mentah'] ?? 0)],
+                ['nama' => 'Menunggu relevansi', 'jumlah' => (int) ($per['isi_diambil'] ?? 0)],
+                ['nama' => 'Menunggu sentimen', 'jumlah' => (int) ($per['dianalisis'] ?? 0)],
+            ],
+            'perlu_review' => (int) ($per['perlu_review'] ?? 0),
+            'gagal' => Artikel::query()->where('status_proses', 'gagal')->count(),
         ];
     }
 

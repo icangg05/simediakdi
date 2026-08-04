@@ -3,7 +3,7 @@
 Ringkasan satu halaman dari [`07-roadmap.md`](07-roadmap.md). Detail tugas,
 definition of done lengkap, jalur pemangkasan, dan daftar versi 2 ada di sana.
 
-**8 tahapan: Sprint 0-7. Total 14 minggu (~3,5 bulan), asumsi 1 pengembang 20 jam/minggu.**
+**9 tahapan: Sprint 0-8. Asumsi 1 pengembang 20 jam/minggu.**
 
 | Sprint | Durasi | Fokus | Status |
 |--------|--------|-------|--------|
@@ -13,13 +13,21 @@ definition of done lengkap, jalur pemangkasan, dan daftar versi 2 ada di sana.
 | 3 | 2 minggu | NLP dan gold set | selesai |
 | 4 | 2 minggu | Dashboard eksekutif dan kontrak | selesai |
 | 5 | 2 minggu | Portal media dan alert | selesai |
-| 6 | 2 minggu | Penyederhanaan relevansi jadi satu konteks | belum |
-| 7 | 2 minggu | Pemantapan dan serah terima | belum |
+| 6 | 2 minggu | Penyederhanaan relevansi jadi satu konteks | selesai sebagian, sisanya pindah ke 8 |
+| 8 | tanpa batas | Laboratorium Model Relevansi, fine-tuning IndoBERT | fase 1 selesai, fase 2 berjalan |
+| 7 | 2 minggu | Pemantapan dan serah terima | belum, menunggu 8 |
 
-Sprint 6 tidak ada di rencana awal. Ia ditambahkan setelah evaluasi sprint 3
-menunjukkan rancangan tiga konteks tidak bisa mencapai presisi yang layak,
-dan dikerjakan sebelum serah terima karena pengetatannya mengubah seluruh
-angka historis.
+Dua sprint tidak ada di rencana awal, dan keduanya lahir dari pengukuran.
+
+Sprint 6 ditambahkan setelah evaluasi sprint 3 menunjukkan rancangan tiga
+konteks tidak bisa mencapai presisi yang layak.
+
+Sprint 8 ditambahkan setelah sprint 6 selesai diukur: presisi relevansi naik ke
+69,9% dan berhenti di sana, di bawah target 80%. Yang menahannya bukan pilihan
+model melainkan dataset yang kecil, dibuat dengan aturan lama, dan tanpa data
+tahan. Sprint 8 membangun laboratorium untuk mengerjakan bagian itu, dan
+**memblokir sentimen sampai selesai**. Urutannya 8 lalu 7, karena serah terima
+menunggu angka yang bisa dipertanggungjawabkan. Dokumen 10.
 
 ---
 
@@ -166,6 +174,33 @@ yang tertimpa, evaluasi relevansi terpisah dari sentimen.
 
 **Gerbang:** presisi masih di bawah 80% setelah semuanya berarti berhenti
 menambah aturan tempelan. Kerjakan urutan di dokumen 05 bagian 8.
+
+## Sprint 8: Laboratorium Model Relevansi (tanpa batas waktu)
+
+Dikerjakan sebelum sprint 7. Spesifikasi lengkap di dokumen 10, fase dan
+gerbangnya di dokumen 07.
+
+Relevansi berpindah dari cosine e5 ke `apriandito/indobert-relevancy-classifier`
+yang dilatih ulang dengan dataset lokal. e5 turun menjadi pendeteksi salinan.
+**Analisis sentimen diblokir sejak hari pertama sprint ini** dan baru dibuka
+pada fase 8, setelah gerbang mutu lulus.
+
+- Fase 1: sebelas tabel, impor kandidat, tabel dataset, pelabelan cepat, audit label
+- Fase 2: snapshot, split per grup duplikat, test terkunci, validator kebocoran, active learning. **Labeli sampai 1.500 artikel unik**, ini bagian terpanjang
+- Fase 3: ekspor dataset, fine-tuning di FastAPI, progres, artefak berchecksum
+- Fase 4: metrik, confusion matrix, analisis kesalahan, simulator ambang, konsistensi pelabel
+- Fase 5: uji URL dan teks, status versi, warmup, promosi atomik, rollback
+- Fase 6: standar gerbang, pencabutan otomatis, penjaga sentimen di dua tempat, audit sampling
+- Fase 7: ulangi analisis kesalahan sampai gerbang lulus
+- Fase 8: aktifkan kembali sentimen dan dashboard-nya
+
+**Selesai bila:** seluruh kotak dokumen 10 bagian 26 tercentang, gerbang mutu
+`passed`, dan angka sentimen dihitung dari artikel yang relevansinya terukur.
+
+**Gerbang:** presisi, recall, F1, dan macro F1 minimal 0,85 pada test set
+terkunci, `perlu_review` di bawah 15%, tanpa kebocoran duplikat, dan tanpa satu
+pun label manual yang tertimpa. Menurunkan standar ini wajib beralasan dan
+tercatat di audit log.
 
 ## Sprint 7: Pemantapan dan serah terima (2 minggu)
 
@@ -384,6 +419,142 @@ hanya menyetel `dipicu_terakhir_at` saat pengiriman berhasil. Telegram yang
 menolak dengan "chat not found" akan menghasilkan baris riwayat gagal yang sama
 setiap kali scheduler jalan. Sekarang ditandai terpicu apa pun hasilnya, dan
 ada tes yang menjaganya.
+
+### Pengukuran pertama setelah relevansi pindah ke kemiripan makna
+
+Diukur pada 249 label gold set konteks utama, ronde 1, setelah seluruh 4.802
+artikel berisi dihitung ulang vektornya dengan `multilingual-e5-small`.
+
+| Aturan | Presisi | Recall | F1 |
+|---|---|---|---|
+| Semua dianggap relevan | 26,1% | 100% | 0,414 |
+| Model lama, IndoBERT relevansi ditambah pengetat | 57,0% | 93,8% | 0,709 |
+| Pengetat kata kunci saja | 56,0% | 93,8% | 0,701 |
+| Cosine >= 0,84 saja | 56,5% | 80,0% | 0,662 |
+| Pengetat dan cosine >= 0,83 | 62,8% | 90,8% | **0,742** |
+| Pengetat dan cosine >= 0,84 | 70,8% | 78,5% | **0,745** |
+| Pengetat dan cosine >= 0,845 | 78,9% | 69,2% | 0,738 |
+
+**Model relevansi lama ternyata hampir tidak menyumbang apa-apa.** Pengetat kata
+kunci sendirian mencapai 56,0% presisi dengan recall 93,8%; menambahkan
+IndoBERT relevansi di atasnya hanya menaikkan presisi satu poin, ke 57,0%,
+dengan recall yang sama persis. Selama ini yang bekerja adalah aturan kata
+kuncinya, bukan modelnya. Melepas model itu praktis tidak berbiaya.
+
+**Cosine menyumbang sinyal yang benar-benar baru.** Digabung dengan pengetat,
+F1 naik dari 0,709 ke 0,745, dan itu kenaikan yang tidak bisa dicapai oleh
+keduanya sendiri-sendiri.
+
+**Target belum tercapai.** Presisi 80% dengan recall 85% tidak terjangkau pada
+data ini: menaikkan ambang ke 0,86 memang membawa presisi ke 78,6% tapi recall
+runtuh ke 16,9%. Titik terbaik yang masuk akal sekarang ada di sekitar 0,83
+sampai 0,84.
+
+Tiga peringatan yang harus dibaca bersama angka di atas:
+
+1. **Tidak ada data tahan.** Ambang di tabel ini dipilih dengan melihat seluruh
+   249 label, jadi angkanya optimistis. Ambang produksi harus dipilih dari
+   validation set dan dilaporkan dari test set beku, sesuai dokumen 05 bagian 5.1.
+2. **Labelnya dibuat dengan aturan lama.** Gold set ini dilabeli saat masih ada
+   tiga konteks. Sebagian keputusannya bisa berubah di bawah definisi konteks
+   tunggal, dan pengukuran ini perlu diulang setelah pelabelan ulang di sprint 6
+   fase 3.
+3. **Sebaran skornya rapat.** Artikel relevan bermedian 0,848 dan tidak relevan
+   0,829, dengan rentang yang hampir seluruhnya bertumpang tindih. Ini wajar
+   untuk e5, yang skornya memang terkumpul di kisaran sempit, tapi berarti
+   ambangnya peka: selisih 0,005 menggeser presisi belasan poin.
+
+Kesimpulan sementara: perpindahan ini menguntungkan, tapi bukan karena e5 lebih
+pintar dari IndoBERT. Ia menguntungkan karena satu model bisa dilepas tanpa
+kehilangan apa pun, dan karena skornya kini bisa disetel ulang tanpa inferensi.
+Yang menaikkan presisi ke angka yang layak masih pekerjaan gold set, bukan
+pekerjaan model.
+
+### Hasil setelah ambang dipasang dan korpus dinilai ulang
+
+Ambang 0,84 dan 0,83 dipasang, lalu seluruh 4.137 artikel asli dinilai ulang.
+Hasil `evaluasi:model` atas 250 label gold set konteks utama:
+
+| Metrik relevansi | Model lama | Sekarang |
+|---|---:|---:|
+| Presisi | 57,0% | **69,9%** |
+| Recall | 93,8% | 78,5% |
+| F1 | 0,709 | **0,739** |
+| Salah dianggap relevan | 107 | **22** |
+| Relevan yang terlewat | 4 | 14 |
+
+| Metrik sentimen | Nilai |
+|---|---:|
+| F1 macro | 0,7375 |
+| Akurasi | 79,0% |
+| F1 negatif | 0,889 (16 sampel) |
+| F1 netral | 0,500 (6 sampel) |
+| F1 positif | 0,824 (31 sampel) |
+
+Sebaran korpus setelah penilaian ulang, dari 4.137 artikel asli:
+
+| Hasil | Jumlah | Porsi |
+|---|---:|---:|
+| Relevan, sudah dinilai sentimennya | 1.115 | 27,0% |
+| Perlu review, menunggu manusia | 746 | 18,0% |
+| Tidak relevan | 2.276 | 55,0% |
+
+Artikel yang salah masuk dashboard turun dari 107 menjadi 22 pada gold set.
+Harganya sepuluh artikel relevan yang kini terlewat, dan itu pertukaran yang
+disengaja: artikel keliru yang lolos akan terlihat pimpinan dan merusak
+kepercayaan pada seluruh angka, sedangkan artikel yang terlewat hilang tanpa
+terlihat. Meski begitu, yang terlewat tidak boleh dianggap gratis, dan 746
+artikel di antrean review adalah tempat sebagiannya bisa diselamatkan.
+
+**Presisi 69,9% masih di bawah target 80%.** Itu sudah diperkirakan. Yang
+menaikkannya bukan lagi pekerjaan model melainkan pekerjaan gold set:
+pelabelan ulang dengan definisi konteks tunggal, ditambah hard negative untuk
+artikel Pemprov, instansi vertikal, dan Kendari sebagai lokasi. Sprint 6 fase 3.
+
+### Keputusan yang diambil dari angka ini, 4 Agustus 2026
+
+Kalimat terakhir di atas dijadikan rencana, dan rencananya menjadi sprint 8.
+
+Kalau yang menaikkan presisi memang pekerjaan dataset, maka yang perlu dibangun
+adalah alat untuk mengerjakan dataset, bukan penilai relevansi ketiga. Itulah
+isi dokumen 10: pelabelan yang cepat dan tercatat, snapshot yang bisa
+direproduksi, test set yang terkunci, dan evaluasi yang bisa menunjuk jenis
+kesalahannya. Fine-tuning adalah muara dari alat itu, bukan penggantinya.
+
+Tiga akibat yang diputuskan bersamaan:
+
+1. **Relevansi berpindah ke classifier hasil fine-tuning.** Bukan pembatalan
+   atas kesimpulan di atas. Yang dulu diukur adalah checkpoint bawaan tanpa
+   pelatihan, dan itu memang hanya menambah satu poin. Yang dilatih dengan
+   label Kendari sendiri belum pernah diukur sama sekali.
+2. **e5-small turun menjadi pendeteksi salinan.** Perannya di relevansi selesai.
+   Deduplikasi tidak berubah, dan pengukuran ulang `DEDUP_AMBANG_COSINE` tetap
+   utang yang harus dibayar.
+3. **Sentimen diblokir sampai gerbang mutu lulus.** Ini yang paling mahal, dan
+   diambil dengan sadar. Tiga dari sepuluh artikel di dashboard tidak membahas
+   Pemkot, dan menampilkan analisis nada atas kumpulan itu berarti melaporkan
+   angka yang sudah diketahui salah. Dashboard yang kosong bisa dijelaskan,
+   dashboard yang salah tidak.
+
+Angka di seluruh bagian ini tetap dipertahankan apa adanya. Ia menjadi
+pembanding dasar: model hasil fine-tuning yang tidak mengalahkan presisi 69,9%
+tidak layak dipromosikan, dan tanpa catatan ini tidak akan ada yang tahu
+apakah pekerjaan berbulan-bulan itu benar-benar menghasilkan sesuatu.
+
+### Dua bug yang ditemukan sambil merapikan
+
+**Kata kunci halaman isu hangat tidak pernah dihitung ulang dengan benar.**
+`PenghitungKataKunci` memakai `upsert`, sehingga istilah yang tidak lagi lolos
+saringan tidak pernah terhapus. Ketika daftar kata umum diperpanjang, "melalui"
+dan "serta" tetap duduk di peringkat teratas selamanya karena tidak ada baris
+baru yang menimpanya. Sekarang baris periode dihapus lebih dulu, lalu ditulis
+ulang. Halaman yang melaporkan "melalui" sebagai isu yang sedang naik tidak
+akan dipercaya untuk hal lain apa pun.
+
+**Daftar kata umum terlalu pendek untuk korpus 4.800 artikel.** Enam istilah
+teratas semuanya kata sambung. Daftarnya diperpanjang dan angka murni dibuang,
+karena "2026" muncul di hampir setiap berita dan selalu naik ke puncak padahal
+tahun bukan isu.
 
 ## Yang masih menunggu pekerjaan manusia
 

@@ -42,6 +42,12 @@ services:
     volumes:
       - ./nlp:/nlp
       - modelnlp:/model
+      # Dataset hasil ekspor dan artefak model, dipasang di path yang sama
+      # persis dengan sisi Laravel. Kontrak pelatihan mengirim lokasi berkas,
+      # bukan isinya (dokumen 10 bagian 19.3), dan itu mengandaikan keduanya
+      # melihat filesystem yang sama seperti di server produksi. Di compose
+      # keduanya container terpisah, jadi kesamaan path harus dibuat sendiri.
+      - ./storage/app/private:/app/storage/app/private
     ports:
       # Di produksi ikat ke 127.0.0.1 saja, tidak ada endpoint publik dan tidak
       # ada autentikasi selain binding itu (dokumen 02 bagian 1 dan dokumen 06).
