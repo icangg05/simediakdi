@@ -17,7 +17,7 @@ class PeringkatMediaController extends Controller
 
         return Inertia::render('eksekutif/PeringkatMedia', [
             ...$periode->untukInertia(),
-            'peringkat' => $ringkasan->peringkatMedia($periode->dari, $periode->sampai, $periode->konteksId, 25),
+            'peringkat' => $ringkasan->peringkatMedia($periode->dari, $periode->sampai, 25),
         ]);
     }
 }

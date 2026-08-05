@@ -24,19 +24,12 @@ class HitungKataKunci extends Command
             return self::FAILURE;
         }
 
-        $konteks = $penghitung->konteksAktif();
         $total = 0;
 
         for ($i = (int) $this->option('hari') - 1; $i >= 0; $i--) {
             $tanggal = Waktu::tanggalWita(now()->subDays($i));
 
-            // Baris lintas konteks (konteks_pantauan_id null) dihitung juga:
-            // halaman isu bisa dilihat tanpa memilih konteks.
-            $baris = $penghitung->hitung($tanggal, null, $granularitas);
-
-            foreach ($konteks as $satu) {
-                $baris += $penghitung->hitung($tanggal, $satu->id, $granularitas);
-            }
+            $baris = $penghitung->hitung($tanggal, $granularitas);
 
             $this->line("  {$tanggal}: {$baris} istilah");
             $total += $baris;

@@ -34,7 +34,7 @@ const props = defineProps<{
         gagal_proses: number;
         sumber_aktif: number;
     };
-    kesehatan: { crawler: StatusKesehatan; sumber: StatusKesehatan; nlp: StatusKesehatan };
+    kesehatan: { crawler: StatusKesehatan; sumber: StatusKesehatan; gemini: StatusKesehatan };
     proporsiSumber: {
         otomatis: number;
         laporan_media: number;
@@ -151,7 +151,7 @@ onUnmounted(() => clearInterval(pewaktu));
                 <CardContent class="space-y-3">
                     <IndikatorKesehatan label="Crawler" v-bind="kesehatan.crawler" />
                     <IndikatorKesehatan label="Sumber feed" v-bind="kesehatan.sumber" />
-                    <IndikatorKesehatan label="Layanan NLP" v-bind="kesehatan.nlp" />
+                    <IndikatorKesehatan label="Gemini" v-bind="kesehatan.gemini" />
                 </CardContent>
             </Card>
 

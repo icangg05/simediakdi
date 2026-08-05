@@ -45,8 +45,8 @@ class PengunduhHalaman
     }
 
     /**
-     * @throws UrlDitolak         URL internal, skema salah, atau dilarang robots.txt
-     * @throws GagalMengunduh     jaringan, HTTP bukan 2xx, atau isi terlalu besar
+     * @throws UrlDitolak URL internal, skema salah, atau dilarang robots.txt
+     * @throws GagalMengunduh jaringan, HTTP bukan 2xx, atau isi terlalu besar
      */
     public function unduh(string $url): string
     {

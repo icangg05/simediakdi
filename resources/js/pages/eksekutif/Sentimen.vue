@@ -3,7 +3,6 @@ import ChartDonatSentimen from '@/components/chart/ChartDonatSentimen.vue';
 import SentimenBelumTersedia from '@/components/domain/SentimenBelumTersedia.vue';
 import ChartTrenSentimen from '@/components/chart/ChartTrenSentimen.vue';
 import KartuArtikel from '@/components/domain/KartuArtikel.vue';
-import PemilihKonteks from '@/components/domain/PemilihKonteks.vue';
 import PemilihRentangTanggal from '@/components/domain/PemilihRentangTanggal.vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useFormatAngka } from '@/composables/useFormatAngka';
@@ -24,8 +23,6 @@ interface Berita {
 
 const props = defineProps<{
     periode: { dari: string; sampai: string };
-    konteksId: number | null;
-    daftarKonteks: Array<{ id: number; nama: string; utama: boolean }>;
     kpi: {
         negatif: number;
         netral: number;
@@ -36,12 +33,11 @@ const props = defineProps<{
     deret: Array<Record<string, number | string>>;
     beritaNegatif: Berita[];
     perluReview: Berita[];
-    evaluasi: { f1_macro: number; jumlah_sampel: number; dievaluasi_at: string } | null;
 }>();
 
 const { formatAngka, formatPersen } = useFormatAngka();
 const { sentimenTersedia, alasanSentimen } = useGerbangSentimen();
-const { pindah } = usePeriodeEksekutif(props.periode, props.konteksId, '/eksekutif/sentimen');
+const { pindah } = usePeriodeEksekutif(props.periode, '/eksekutif/sentimen');
 </script>
 
 <template>
@@ -51,7 +47,6 @@ const { pindah } = usePeriodeEksekutif(props.periode, props.konteksId, '/eksekut
         <header class="flex flex-wrap items-center justify-between gap-3">
             <h1 class="text-2xl font-semibold">Analisis sentimen</h1>
             <div class="flex flex-wrap items-center gap-2">
-                <PemilihKonteks :daftar="daftarKonteks" :terpilih="konteksId" @ubah="(id) => pindah({ konteks: id })" />
                 <PemilihRentangTanggal
                     :dari="periode.dari"
                     :sampai="periode.sampai"
@@ -140,10 +135,9 @@ const { pindah } = usePeriodeEksekutif(props.periode, props.konteksId, '/eksekut
             </Card>
         </div>
 
-        <p v-if="evaluasi" class="text-center text-xs text-muted-foreground">
-            Analisis otomatis. Akurasi terukur {{ evaluasi.f1_macro }} F1 macro pada
-            {{ formatAngka(evaluasi.jumlah_sampel) }} artikel uji, dievaluasi
-            {{ format(new Date(evaluasi.dievaluasi_at), 'd MMMM yyyy', { locale: id }) }}.
+        <p class="text-center text-xs text-muted-foreground">
+            Label dihasilkan Gemini dan dapat dikoreksi admin. Akurasinya belum diukur terhadap
+            kumpulan uji berlabel manusia.
         </p>
         </template>
     </LayoutEksekutif>

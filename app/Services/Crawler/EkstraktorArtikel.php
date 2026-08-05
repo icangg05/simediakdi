@@ -66,7 +66,6 @@ class EkstraktorArtikel
         );
     }
 
-
     /**
      * Tanggal dari metadata halaman. Lebih bisa dipercaya daripada pubDate feed,
      * yang sering menunjukkan waktu feed dibuat ulang, bukan waktu terbit.
@@ -92,6 +91,4 @@ class EkstraktorArtikel
 
         return null;
     }
-
-
 }

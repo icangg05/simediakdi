@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Console\Commands\PeriksaKesehatanNlp;
 use App\Enums\StatusDedup;
 use App\Http\Controllers\Controller;
 use App\Models\Artikel;
@@ -131,40 +130,33 @@ class DashboardController extends Controller
                     ? 'Semua sumber feed berjalan normal.'
                     : "{$sumberMati} sumber dinonaktifkan otomatis. Periksa URL-nya di halaman sumber feed.",
             ],
-            'nlp' => $this->kesehatanNlp(),
+            'gemini' => $this->kesehatanGemini(),
         ];
     }
 
     /**
-     * Diisi command nlp:health yang berjalan tiap 5 menit, bukan dengan
-     * memanggil layanan saat request, halaman admin tidak boleh ikut lambat
-     * atau ikut gagal hanya karena model sedang sibuk.
+     * Kunci Gemini terpasang atau tidak, tanpa memanggil API.
+     *
+     * Panggilan nyata sengaja tidak dilakukan di sini. Halaman admin tidak
+     * boleh ikut lambat atau ikut gagal hanya karena penyedia sedang sibuk, dan
+     * satu panggilan per pembukaan dashboard memakan kuota free tier untuk
+     * pertanyaan yang jawabannya sudah ada di konfigurasi.
      *
      * @return array{status: string, keterangan: string}
      */
-    private function kesehatanNlp(): array
+    private function kesehatanGemini(): array
     {
-        $status = PeriksaKesehatanNlp::statusTerakhir();
-
-        if ($status === null) {
+        if (blank(config('ai.providers.gemini.key'))) {
             return [
-                'status' => 'kuning',
-                'keterangan' => 'Belum pernah diperiksa. Pastikan scheduler berjalan.',
-            ];
-        }
-
-        if ($status['sehat']) {
-            return [
-                'status' => 'hijau',
-                'keterangan' => 'Model '.($status['model_sentimen'] ?? 'sentimen')
-                    .' siap, diperiksa '.\Carbon\CarbonImmutable::parse($status['diperiksa_at'])->diffForHumans(),
+                'status' => 'merah',
+                'keterangan' => 'GEMINI_API_KEY belum diisi. Klasifikasi tidak bisa dijalankan.',
             ];
         }
 
         return [
-            'status' => ($status['gagal_berturut'] ?? 0) >= 3 ? 'merah' : 'kuning',
-            'keterangan' => 'Layanan NLP tidak menjawab. Analisis menumpuk di antrean dan akan '
-                .'diproses setelah layanan hidup, tidak ada data yang hilang.',
+            'status' => 'hijau',
+            'keterangan' => 'Model '.config('ai.providers.gemini.models.text.default')
+                .' terkonfigurasi. Klasifikasi dijalankan manual dari Antrean Klasifikasi.',
         ];
     }
 

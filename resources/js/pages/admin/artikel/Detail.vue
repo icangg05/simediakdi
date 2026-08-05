@@ -17,19 +17,18 @@ type Label = 'negatif' | 'netral' | 'positif';
 interface Analisis {
     id: number;
     relevan: boolean;
-    skor_relevansi: number | null;
+    relevan_manual: boolean | null;
     label_model: Label | null;
     label_manual: Label | null;
     label_efektif: Label | null;
-    skor_negatif: number | null;
-    skor_netral: number | null;
-    skor_positif: number | null;
-    keyakinan: number | null;
     perlu_review: boolean;
     model_versi: string | null;
+    provider: string | null;
+    reason_code: string | null;
+    reason_summary: string | null;
+    evidence: string[] | null;
     catatan_koreksi: string | null;
     dikoreksi_at: string | null;
-    konteks: { id: number; nama: string; utama: boolean };
     pengoreksi: { id: number; name: string } | null;
 }
 
@@ -52,8 +51,6 @@ const props = defineProps<{
         salinan: Array<{ id: number; judul: string; media: { nama: string } | null }>;
         analisis_sentimen: Analisis[];
     };
-    evaluasi: { f1_macro: number; akurasi: number; dievaluasi_at: string; jumlah_sampel: number } | null;
-    ambang: { sentimen: number; relevansi_atas: number | null; relevansi_bawah: number | null };
 }>();
 
 const { formatAngka, formatPersen } = useFormatAngka();
@@ -84,19 +81,6 @@ function cabut(analisis: Analisis) {
 const waktu = (nilai: string | null) =>
     nilai ? format(new Date(nilai), 'd MMMM yyyy, HH:mm', { locale: id }) : '-';
 
-/** Tiga desimal, karena selisih 0,005 pada skor ini menggeser presisi belasan poin. */
-const formatDesimal = (nilai: number) => nilai.toFixed(3).replace('.', ',');
-
-function statusRelevansi(analisis: Analisis): 'relevan' | 'review' | 'tidak' {
-    if (analisis.relevan) return 'relevan';
-
-    const skor = analisis.skor_relevansi;
-    const { relevansi_atas: atas, relevansi_bawah: bawah } = props.ambang;
-
-    if (skor === null || atas === null || bawah === null) return 'review';
-
-    return skor >= bawah && skor < atas ? 'review' : 'tidak';
-}
 </script>
 
 <template>
@@ -168,7 +152,7 @@ function statusRelevansi(analisis: Analisis): 'relevan' | 'review' | 'tidak' {
                     </CardHeader>
                     <CardContent class="space-y-3">
                         <p v-if="!artikel.analisis_sentimen.length" class="text-xs text-muted-foreground">
-                            Belum dianalisis. Artikel dinilai setelah antrean NLP memprosesnya.
+                            Belum diklasifikasi. Jalankan lewat tombol di halaman Antrean Klasifikasi.
                         </p>
 
                         <div
@@ -178,8 +162,7 @@ function statusRelevansi(analisis: Analisis): 'relevan' | 'review' | 'tidak' {
                         >
                             <div class="flex items-start justify-between gap-2">
                                 <p class="text-sm font-medium">
-                                    {{ analisis.konteks.nama }}
-                                    <Badge v-if="analisis.konteks.utama" variant="secondary" class="ml-1">utama</Badge>
+                                    Hasil klasifikasi
                                 </p>
                                 <BadgeSentimen
                                     v-if="analisis.relevan"
@@ -188,37 +171,30 @@ function statusRelevansi(analisis: Analisis): 'relevan' | 'review' | 'tidak' {
                                 />
                             </div>
 
-                            <div class="space-y-1 rounded bg-muted/50 p-2">
-                                <div class="flex items-center justify-between gap-2 text-xs">
-                                    <span class="text-muted-foreground">Kemiripan dengan konteks</span>
-                                    <span class="angka font-medium">
-                                        {{ analisis.skor_relevansi === null ? '-' : formatDesimal(analisis.skor_relevansi) }}
-                                    </span>
-                                </div>
-
-                                <!--
-                                    Ditulis "kemiripan", tidak pernah sebagai persentase keyakinan.
-                                    Isinya cosine similarity: 0,84 tidak berarti yakin 84%, hanya
-                                    berarti lebih mirip daripada 0,83.
-                                -->
+                            <!--
+                                Alasan dan kutipan bukti, bukan angka skor. Gemini tidak
+                                mengeluarkan probabilitas, ia menunjuk kalimat di artikel.
+                                Kutipan di bawah sudah diverifikasi ada di isi artikel;
+                                yang tidak lolos verifikasi tidak pernah menjadi label.
+                            -->
+                            <div v-if="analisis.reason_summary" class="space-y-1 rounded bg-muted/50 p-2">
                                 <p class="text-[11px] leading-snug text-muted-foreground">
-                                    <template v-if="analisis.skor_relevansi === null">
-                                        Belum dinilai, vektor artikel belum dihitung.
-                                    </template>
-                                    <template v-else-if="statusRelevansi(analisis) === 'relevan'">
-                                        Di atas ambang {{ ambang.relevansi_atas }} dan menyebut konteks cukup sering.
-                                    </template>
-                                    <template v-else-if="statusRelevansi(analisis) === 'review'">
-                                        Di antara ambang {{ ambang.relevansi_bawah }} dan {{ ambang.relevansi_atas }},
-                                        terlalu ragu untuk diputuskan sendiri oleh sistem.
-                                    </template>
-                                    <template v-else-if="analisis.skor_relevansi < (ambang.relevansi_bawah ?? 0)">
-                                        Di bawah ambang {{ ambang.relevansi_bawah }}, tidak membahas konteks ini.
-                                    </template>
-                                    <template v-else>
-                                        Kemiripannya cukup, tetapi konteks hanya disebut sepintas. Penyebutan bukan pembahasan.
-                                    </template>
-                                    Angka ini kemiripan makna, bukan persentase keyakinan.
+                                    {{ analisis.reason_summary }}
+                                </p>
+
+                                <details v-if="analisis.evidence?.length" class="text-[11px]">
+                                    <summary class="cursor-pointer text-muted-foreground hover:text-foreground">
+                                        Bukti ({{ analisis.evidence.length }})
+                                    </summary>
+                                    <ul class="mt-1 space-y-1 border-l pl-2 text-muted-foreground">
+                                        <li v-for="(kutipan, i) in analisis.evidence" :key="i">
+                                            “{{ kutipan }}”
+                                        </li>
+                                    </ul>
+                                </details>
+
+                                <p v-if="analisis.provider" class="text-[11px] text-muted-foreground">
+                                    Dinilai {{ analisis.provider }} {{ analisis.model_versi ?? '' }}.
                                 </p>
                             </div>
 
@@ -228,11 +204,8 @@ function statusRelevansi(analisis: Analisis): 'relevan' | 'review' | 'tidak' {
 
                             <template v-else>
                                 <p class="text-xs text-muted-foreground">
-                                    Analisis otomatis: cenderung {{ analisis.label_model ?? '-' }},
-                                    keyakinan {{ analisis.keyakinan }}
-                                    <span v-if="analisis.perlu_review">,
-di bawah ambang {{ ambang.sentimen }}, belum dapat dianggap pasti
-                                    </span>
+                                    Analisis otomatis: cenderung {{ analisis.label_model ?? 'belum diputuskan' }}
+                                    <span v-if="analisis.perlu_review">, ditandai untuk diperiksa manusia</span>
                                 </p>
 
                                 <p v-if="analisis.label_manual" class="text-xs">
@@ -287,14 +260,6 @@ di bawah ambang {{ ambang.sentimen }}, belum dapat dianggap pasti
                                 </Button>
                             </template>
                         </div>
-                    </CardContent>
-                </Card>
-
-                <Card v-if="evaluasi">
-                    <CardContent class="p-3 text-xs text-muted-foreground">
-                        Akurasi model pada gold set terakhir: F1 macro
-                        <strong class="angka">{{ evaluasi.f1_macro }}</strong>
-                        dari {{ formatAngka(evaluasi.jumlah_sampel) }} sampel, diukur {{ waktu(evaluasi.dievaluasi_at) }}.
                     </CardContent>
                 </Card>
 

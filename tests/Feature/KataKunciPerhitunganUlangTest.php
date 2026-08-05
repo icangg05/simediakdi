@@ -50,14 +50,13 @@ class KataKunciPerhitunganUlangTest extends TestCase
             $this->artikel('Pembangunan drainase berjalan lancar di Kadia.');
         }
 
-        app(PenghitungKataKunci::class)->hitung($tanggal, null);
+        app(PenghitungKataKunci::class)->hitung($tanggal);
 
         $this->assertDatabaseHas('kata_kunci_periode', ['istilah' => 'drainase']);
 
         // Baris palsu yang mewakili istilah yang tidak akan pernah muncul lagi,
         // persis seperti stopword yang baru ditambahkan ke daftar.
         DB::table('kata_kunci_periode')->insert([
-            'konteks_pantauan_id' => null,
             'granularitas' => 'harian',
             'periode_mulai' => $tanggal,
             'periode_akhir' => $tanggal,
@@ -67,7 +66,7 @@ class KataKunciPerhitunganUlangTest extends TestCase
             'created_at' => now(),
         ]);
 
-        app(PenghitungKataKunci::class)->hitung($tanggal, null);
+        app(PenghitungKataKunci::class)->hitung($tanggal);
 
         $this->assertDatabaseMissing('kata_kunci_periode', ['istilah' => 'melalui']);
         $this->assertDatabaseHas('kata_kunci_periode', ['istilah' => 'drainase']);
@@ -79,7 +78,7 @@ class KataKunciPerhitunganUlangTest extends TestCase
             $this->artikel('Anggaran 2026 dipakai membangun drainase di Kadia.');
         }
 
-        app(PenghitungKataKunci::class)->hitung(Waktu::tanggalWita(now()), null);
+        app(PenghitungKataKunci::class)->hitung(Waktu::tanggalWita(now()));
 
         // Tahun muncul di hampir setiap berita dan selalu naik ke peringkat
         // teratas, padahal tahun bukan isu.
@@ -93,7 +92,7 @@ class KataKunciPerhitunganUlangTest extends TestCase
             $this->artikel('Bantuan disalurkan melalui kelurahan serta seluruh kecamatan.');
         }
 
-        app(PenghitungKataKunci::class)->hitung(Waktu::tanggalWita(now()), null);
+        app(PenghitungKataKunci::class)->hitung(Waktu::tanggalWita(now()));
 
         foreach (['melalui', 'serta', 'seluruh'] as $sambung) {
             $this->assertDatabaseMissing('kata_kunci_periode', ['istilah' => $sambung]);

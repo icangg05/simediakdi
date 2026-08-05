@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Enums\LabelSentimen;
 use App\Models\AnalisisSentimen;
 use App\Models\Artikel;
-use App\Models\KonteksPantauan;
 use App\Models\Media;
 use App\Models\User;
 use App\Services\Agregasi\RingkasanHarian;
@@ -23,8 +22,6 @@ class HalamanEksekutifTest extends TestCase
 {
     use RefreshDatabase;
 
-    private KonteksPantauan $utama;
-
     private User $walikota;
 
     protected function setUp(): void
@@ -32,7 +29,6 @@ class HalamanEksekutifTest extends TestCase
         parent::setUp();
 
         $this->walikota = User::factory()->walikota()->create();
-        $this->utama = KonteksPantauan::create(['nama' => 'Pemkot', 'slug' => 'pemkot', 'utama' => true]);
 
         $media = Media::create(['nama' => 'Kendari Pos', 'slug' => 'kp', 'domain' => 'kp.test']);
 
@@ -49,10 +45,8 @@ class HalamanEksekutifTest extends TestCase
 
             AnalisisSentimen::create([
                 'artikel_id' => $artikel->id,
-                'konteks_pantauan_id' => $this->utama->id,
                 'relevan' => true,
                 'label_model' => $label,
-                'keyakinan' => 0.95,
             ]);
         }
 
@@ -140,12 +134,5 @@ class HalamanEksekutifTest extends TestCase
         $this->actingAs($this->walikota)
             ->get('/eksekutif')
             ->assertInertia(fn ($page) => $page->where('peringatan', null));
-    }
-
-    public function test_konteks_utama_dipilih_saat_tidak_diminta(): void
-    {
-        $this->actingAs($this->walikota)
-            ->get('/eksekutif')
-            ->assertInertia(fn ($page) => $page->where('konteksId', $this->utama->id));
     }
 }

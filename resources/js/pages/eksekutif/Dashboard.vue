@@ -4,7 +4,6 @@ import ChartTrenSentimen from '@/components/chart/ChartTrenSentimen.vue';
 import SentimenBelumTersedia from '@/components/domain/SentimenBelumTersedia.vue';
 import BadgeSentimen from '@/components/domain/BadgeSentimen.vue';
 import KartuArtikel from '@/components/domain/KartuArtikel.vue';
-import PemilihKonteks from '@/components/domain/PemilihKonteks.vue';
 import PemilihRentangTanggal from '@/components/domain/PemilihRentangTanggal.vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useFormatAngka } from '@/composables/useFormatAngka';
@@ -20,8 +19,6 @@ type Label = 'negatif' | 'netral' | 'positif';
 
 const props = defineProps<{
     periode: { dari: string; sampai: string };
-    konteksId: number | null;
-    daftarKonteks: Array<{ id: number; nama: string; utama: boolean }>;
     kpi: {
         artikel: number;
         artikel_selisih: number;
@@ -51,13 +48,12 @@ const props = defineProps<{
         perlu_review: boolean;
     }>;
     peringatan: { jumlah: number; terbaru: string; dipicu_at: string } | null;
-    evaluasi: { f1_macro: number; jumlah_sampel: number; dievaluasi_at: string } | null;
 }>();
 
 const { formatAngka, formatPersen } = useFormatAngka();
 
 function pindah(parameter: Record<string, string | number | null>) {
-    router.get('/eksekutif', { ...props.periode, konteks: props.konteksId, ...parameter }, {
+    router.get('/eksekutif', { ...props.periode, ...parameter }, {
         preserveState: true,
         preserveScroll: true,
         replace: true,
@@ -72,7 +68,7 @@ function pindah(parameter: Record<string, string | number | null>) {
 const negatifMenonjol = computed(() => props.kpi.negatif_persen > 40);
 
 /**
- * Sentimen diblokir sampai model relevansi produksi lolos gerbang mutu.
+ * Sentimen tidak tersedia selama GEMINI_API_KEY belum diisi.
  *
  * Yang tidak bergantung pada model tetap tampil apa adanya: berita masuk,
  * media aktif memuat, isu teratas, dan berita terbaru. Yang bergantung padanya
@@ -108,7 +104,7 @@ const arah = (n: number) => (n > 0 ? 'naik' : n < 0 ? 'turun' : 'tetap');
 const tautanPeriode = computed(() => ({
     dari: props.periode.dari,
     sampai: props.periode.sampai,
-    konteks: props.konteksId,
+   
 }));
 </script>
 
@@ -126,11 +122,6 @@ const tautanPeriode = computed(() => ({
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
-                <PemilihKonteks
-                    :daftar="daftarKonteks"
-                    :terpilih="konteksId"
-                    @ubah="(id) => pindah({ konteks: id })"
-                />
                 <PemilihRentangTanggal
                     :dari="periode.dari"
                     :sampai="periode.sampai"
@@ -249,15 +240,9 @@ const tautanPeriode = computed(() => ({
         </div>
 
         <p class="pt-2 text-center text-xs text-muted-foreground">
-            <template v-if="evaluasi">
-                Analisis otomatis. Akurasi terukur {{ evaluasi.f1_macro }} F1 macro pada
-                {{ formatAngka(evaluasi.jumlah_sampel) }} artikel uji, dievaluasi
-                {{ format(new Date(evaluasi.dievaluasi_at), 'd MMMM yyyy', { locale: id }) }}.
-            </template>
-            <template v-else>
-                Analisis otomatis. Akurasi model belum diukur, angka di halaman ini belum dapat
-                dipertanggungjawabkan.
-            </template>
+            Label dihasilkan Gemini dan dapat dikoreksi admin. Akurasinya belum diukur terhadap
+            kumpulan uji berlabel manusia, jadi angka di halaman ini masih perlu dibaca dengan
+            hati-hati.
         </p>
     </LayoutEksekutif>
 </template>

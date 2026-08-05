@@ -28,8 +28,6 @@ Schedule::command('hitung:ringkasan-harian --hari=7')
     ->dailyAt('03:10')
     ->withoutOverlapping();
 
-Schedule::command('nlp:health')->everyFiveMinutes();
-
 // Isu hangat. Lebih berat daripada ringkasan harian karena menghitung n-gram
 // dari seluruh artikel periode itu, jadi sejam sekali sudah cukup.
 Schedule::command('hitung:kata-kunci --hari=1')
@@ -53,8 +51,3 @@ Schedule::command('alert:periksa')
 // Pagi hari sebelum jam kerja: peringatan tenggat kontrak berguna saat masih
 // ada waktu menindaklanjutinya hari itu juga.
 Schedule::command('kontrak:periksa-tenggat')->dailyAt('07:00');
-
-// Kamus entitas jarang berubah, tapi artikelnya bertambah terus.
-Schedule::command('hitung:entitas --hari=2')
-    ->dailyAt('03:55')
-    ->withoutOverlapping();

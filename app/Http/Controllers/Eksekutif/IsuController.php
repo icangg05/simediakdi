@@ -34,11 +34,6 @@ class IsuController extends Controller
     private function istilah(Periode $periode): array
     {
         return DB::table('kata_kunci_periode')
-            ->when(
-                $periode->konteksId,
-                fn ($q) => $q->where('konteks_pantauan_id', $periode->konteksId),
-                fn ($q) => $q->whereNull('konteks_pantauan_id'),
-            )
             ->where('granularitas', 'harian')
             ->whereBetween('periode_mulai', [$periode->dari->toDateString(), $periode->sampai->toDateString()])
             ->groupBy('istilah')

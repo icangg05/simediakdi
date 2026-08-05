@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import DataTable from '@/components/data-table/DataTable.vue';
 import BadgeSentimen from '@/components/domain/BadgeSentimen.vue';
-import PemilihKonteks from '@/components/domain/PemilihKonteks.vue';
 import PemilihRentangTanggal from '@/components/domain/PemilihRentangTanggal.vue';
 import { Button } from '@/components/ui/button';
 import { usePeriodeEksekutif } from '@/composables/usePeriodeEksekutif';
@@ -26,14 +25,12 @@ interface Baris {
 
 const props = defineProps<{
     periode: { dari: string; sampai: string };
-    konteksId: number | null;
-    daftarKonteks: Array<{ id: number; nama: string; utama: boolean }>;
     artikel: { data: Baris[] } & PaginasiMeta;
     istilah: string | null;
     opsi: Record<string, OpsiFilter[]>;
 }>();
 
-const { pindah } = usePeriodeEksekutif(props.periode, props.konteksId, '/eksekutif/berita');
+const { pindah } = usePeriodeEksekutif(props.periode, '/eksekutif/berita');
 
 const kolom: KolomDefinisi[] = [
     { kunci: 'judul', judul: 'Judul', bisaDiurutkan: true },
@@ -65,7 +62,6 @@ const waktu = (n: string) => format(new Date(n), 'd MMM yyyy, HH:mm', { locale: 
         <header class="flex flex-wrap items-center justify-between gap-3">
             <h1 class="text-2xl font-semibold">Arsip berita</h1>
             <div class="flex flex-wrap items-center gap-2">
-                <PemilihKonteks :daftar="daftarKonteks" :terpilih="konteksId" @ubah="(id) => pindah({ konteks: id })" />
                 <PemilihRentangTanggal
                     :dari="periode.dari"
                     :sampai="periode.sampai"

@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Enums\LabelSentimen;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class KataKunciPeriode extends Model
 {
@@ -22,10 +21,5 @@ class KataKunciPeriode extends Model
             'sentimen_dominan' => LabelSentimen::class,
             'created_at' => 'datetime',
         ];
-    }
-
-    public function konteks(): BelongsTo
-    {
-        return $this->belongsTo(KonteksPantauan::class, 'konteks_pantauan_id');
     }
 }

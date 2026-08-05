@@ -3,9 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\EvaluasiModel;
 use App\Services\Arsip\PenangkapLayar;
-use App\Services\Nlp\KlienNlp;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -30,57 +28,49 @@ use Inertia\Response;
  */
 class PengaturanController extends Controller
 {
-    public function __invoke(KlienNlp $nlp, PenangkapLayar $arsip): Response
+    public function __invoke(PenangkapLayar $arsip): Response
     {
-        $evaluasi = EvaluasiModel::query()->latest('dievaluasi_at')->first();
-
         return Inertia::render('admin/Pengaturan', [
             'kelompok' => [
                 [
-                    'judul' => 'Ambang model',
+                    'judul' => 'Klasifikasi Gemini',
                     'catatan' => 'Mengubah nilai di sini mengubah seluruh angka dashboard secara surut, termasuk untuk periode yang sudah dilaporkan.',
                     'nilai' => [
                         [
-                            'label' => 'Ambang keyakinan sentimen',
-                            'nilai' => config('nlp.ambang.sentimen'),
-                            'env' => 'SENTIMEN_AMBANG_KEYAKINAN',
-                            'diukur' => 'Sebaran keyakinan bimodal pada 24 pasangan nyata: 0,60-0,67 lalu kosong lalu di atas 0,998. 0,90 berada di tengah jurang itu.',
+                            'label' => 'Kunci API Gemini',
+                            'nilai' => filled(config('ai.providers.gemini.key')) ? 'terisi' : 'belum diisi',
+                            'env' => 'GEMINI_API_KEY',
+                            'diukur' => 'Nilainya sengaja tidak ditampilkan. Kunci yang pernah muncul di layar admin harus dianggap bocor.',
                         ],
                         [
-                            'label' => 'Ambang atas relevansi',
-                            'nilai' => config('nlp.ambang.relevansi_atas'),
-                            'env' => 'RELEVANSI_AMBANG_ATAS',
-                            'diukur' => 'Belum diukur. Selama kosong, seluruh artikel masuk antrean perlu review dan tidak ada yang otomatis masuk dashboard. Pilih dari titik presisi mencapai 80% pada validation set.',
+                            'label' => 'Model Gemini',
+                            'nilai' => config('ai.providers.gemini.models.text.default'),
+                            'env' => 'GEMINI_MODEL',
+                            'diukur' => 'Rerata 1,5 sampai 2,7 detik per artikel pada pengukuran awal.',
                         ],
                         [
-                            'label' => 'Ambang bawah relevansi',
-                            'nilai' => config('nlp.ambang.relevansi_bawah'),
-                            'env' => 'RELEVANSI_AMBANG_BAWAH',
-                            'diukur' => 'Belum diukur. Pilih dari titik recall mencapai 85% pada validation set. Isinya kemiripan makna, bukan probabilitas.',
+                            'label' => 'Versi prompt relevansi',
+                            'nilai' => config('ai.prompt.relevansi'),
+                            'env' => 'AI_RELEVANCE_PROMPT_VERSION',
+                            'diukur' => 'Berkasnya ada di resources/prompts. Naikkan versinya saat isinya berubah, jangan sunting berkas lama.',
                         ],
                         [
-                            'label' => 'Minimal sebutan kata kunci',
-                            'nilai' => config('nlp.minimal_sebutan'),
-                            'env' => 'RELEVANSI_MINIMAL_SEBUTAN',
-                            'diukur' => 'Presisi 54,2% ke 80,0% dengan recall 100% ke 92,3%, diukur pada 254 label manusia dengan separuh data ditahan.',
+                            'label' => 'Versi prompt sentimen',
+                            'nilai' => config('ai.prompt.sentimen'),
+                            'env' => 'AI_SENTIMENT_PROMPT_VERSION',
+                            'diukur' => null,
                         ],
                     ],
                 ],
                 [
                     'judul' => 'Deduplikasi',
-                    'catatan' => null,
+                    'catatan' => 'Lapis kemiripan makna dicabut bersama layanan NLP. Yang tersisa hash isi persis dan simhash, jadi salinan yang ditulis ulang dengan kalimat berbeda akan lebih sering lolos.',
                     'nilai' => [
                         [
                             'label' => 'Ambang jarak simhash',
                             'nilai' => config('crawler.dedup.ambang_simhash'),
                             'env' => 'DEDUP_AMBANG_SIMHASH',
                             'diukur' => 'Near-duplicate terukur berjarak 8-10 bit, berita yang benar-benar berbeda 30-34 bit.',
-                        ],
-                        [
-                            'label' => 'Ambang kemiripan kosinus',
-                            'nilai' => config('crawler.dedup.ambang_cosine'),
-                            'env' => 'DEDUP_AMBANG_COSINE',
-                            'diukur' => null,
                         ],
                     ],
                 ],
@@ -104,13 +94,12 @@ class PengaturanController extends Controller
                 ],
             ],
             'layanan' => [
-                ['nama' => 'Layanan NLP', 'sehat' => $nlp->sehat(), 'url' => config('nlp.base_url')],
+                [
+                    'nama' => 'Gemini',
+                    'sehat' => filled(config('ai.providers.gemini.key')),
+                    'url' => config('ai.providers.gemini.url'),
+                ],
                 ['nama' => 'Layanan arsip (tangkapan layar)', 'sehat' => $arsip->sehat(), 'url' => config('arsip.base_url')],
-            ],
-            'evaluasi' => $evaluasi === null ? null : [
-                'f1_macro' => $evaluasi->f1_macro,
-                'jumlah_sampel' => $evaluasi->jumlah_sampel,
-                'dievaluasi_at' => $evaluasi->dievaluasi_at,
             ],
         ]);
     }

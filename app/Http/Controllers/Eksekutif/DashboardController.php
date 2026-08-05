@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Eksekutif;
 
 use App\Http\Controllers\Controller;
 use App\Models\Artikel;
-use App\Models\EvaluasiModel;
 use App\Models\RiwayatAlert;
 use App\Services\Agregasi\RingkasanEksekutif;
 use App\Support\Periode;
@@ -25,15 +24,14 @@ class DashboardController extends Controller
 
         return Inertia::render('eksekutif/Dashboard', [
             ...$periode->untukInertia(),
-            'kpi' => $ringkasan->kpi($periode->dari, $periode->sampai, $periode->konteksId),
-            'deret' => $ringkasan->deretHarian($periode->dari, $periode->sampai, $periode->konteksId),
+            'kpi' => $ringkasan->kpi($periode->dari, $periode->sampai),
+            'deret' => $ringkasan->deretHarian($periode->dari, $periode->sampai),
             'isuTeratas' => $this->isuTeratas($periode),
             'beritaTerbaru' => $this->beritaTerbaru($periode),
             'peringatan' => $this->peringatan(),
             // Footer transparansi. Baris ini yang membuat pengguna berpikir
             // "sistemnya memang tidak sempurna dan itu diakui" saat menemukan
             // satu label yang jelas salah, dan itu pasti terjadi.
-            'evaluasi' => EvaluasiModel::terbaru(),
         ]);
     }
 
@@ -46,11 +44,6 @@ class DashboardController extends Controller
     private function isuTeratas(Periode $periode): array
     {
         return DB::table('kata_kunci_periode')
-            ->when(
-                $periode->konteksId,
-                fn ($q) => $q->where('konteks_pantauan_id', $periode->konteksId),
-                fn ($q) => $q->whereNull('konteks_pantauan_id'),
-            )
             ->where('granularitas', 'harian')
             ->whereBetween('periode_mulai', [$periode->dari->toDateString(), $periode->sampai->toDateString()])
             ->groupBy('istilah')
@@ -72,7 +65,6 @@ class DashboardController extends Controller
         return Artikel::query()
             ->asli()
             ->with(['media:id,nama', 'analisisSentimen' => fn ($q) => $q
-                ->when($periode->konteksId, fn ($k) => $k->where('konteks_pantauan_id', $periode->konteksId))
                 ->where('relevan', true),
             ])
             ->whereBetween('diambil_at', [$periode->mulaiUtc(), $periode->akhirUtc()])

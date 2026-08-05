@@ -22,7 +22,6 @@ return [
         // di tengah celah itu. Kalibrasi ulang di sprint 3 dengan 100 pasangan
         // manual sesuai dokumen 07.
         'ambang_simhash' => (int) env('DEDUP_AMBANG_SIMHASH', 12),
-        'ambang_cosine' => (float) env('DEDUP_AMBANG_COSINE', 0.92),
         // Tanpa batas ini, berita banjir tahun lalu bisa dianggap salinan
         // berita banjir hari ini.
         'jendela_hari' => 7,
@@ -41,4 +40,5 @@ return [
         // Di bawah ini biasanya hanya teaser, ditandai untuk audit.
         'minimal_kata' => 80,
     ],
+
 ];

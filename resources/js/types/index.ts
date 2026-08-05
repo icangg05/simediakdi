@@ -23,7 +23,7 @@ export interface SharedData {
     /** Pesan hasil aksi. Dirender terpusat di AppLayout sebagai toast. */
     flash?: { sukses?: string | null; galat?: string | null };
     /**
-     * Sentimen diblokir sampai model relevansi produksi lolos gerbang mutu.
+     * Sentimen tidak tersedia selama GEMINI_API_KEY belum diisi.
      * Halaman mana pun yang menampilkan angka sentimen wajib memeriksanya.
      */
     sentimen?: { tersedia: boolean; alasan: string | null };

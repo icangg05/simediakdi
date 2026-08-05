@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use App\Services\Relevance\RelevanceQualityGateService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -61,10 +60,14 @@ class HandleInertiaRequests extends Middleware
             // sebelahnya tetap menampilkan angka adalah keadaan yang lebih
             // membingungkan daripada keduanya salah.
             //
-            // Closure, jadi kuerinya hanya jalan pada halaman yang membacanya.
-            'sentimen' => fn () => [
-                'tersedia' => app(RelevanceQualityGateService::class)->lolos(),
-                'alasan' => app(RelevanceQualityGateService::class)->alasan(),
+            // Sejak IndoBERT dihapus, satu-satunya syarat sentimen tersedia
+            // adalah kunci Gemini terpasang. Tidak ada lagi gerbang mutu yang
+            // menahan, karena tidak ada lagi model lokal yang perlu diukur.
+            'sentimen' => [
+                'tersedia' => filled(config('ai.providers.gemini.key')),
+                'alasan' => filled(config('ai.providers.gemini.key'))
+                    ? null
+                    : 'GEMINI_API_KEY belum diisi, jadi klasifikasi tidak bisa dijalankan.',
             ],
         ]);
     }

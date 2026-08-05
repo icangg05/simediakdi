@@ -59,8 +59,6 @@ class PemeriksaAturan
             ->join('artikel', 'artikel.id', '=', 'analisis_sentimen.artikel_id')
             ->where('analisis_sentimen.relevan', true)
             ->where('analisis_sentimen.label_efektif', LabelSentimen::Negatif)
-            ->when($aturan->konteks_pantauan_id, fn ($q) => $q
-                ->where('analisis_sentimen.konteks_pantauan_id', $aturan->konteks_pantauan_id))
             // Artikel yang model sendiri ragukan biasanya bukan bahan yang
             // pantas membangunkan orang di luar jam kerja.
             ->when($abaikanRagu, fn ($q) => $q->where('analisis_sentimen.perlu_review', false));
@@ -88,18 +86,16 @@ class PemeriksaAturan
             return null;
         }
 
-        $konteks = $aturan->konteks?->nama ?? 'semua konteks';
         $banding = $rata > 0
             ? sprintf('rata-rata %s jendela sebelumnya %.1f', 4, $rata)
             : 'tidak ada pembanding di jendela sebelumnya';
 
         return [
-            'ringkasan' => "{$kini} berita negatif dalam {$jendela} jam terakhir pada {$konteks} ({$banding}).",
+            'ringkasan' => "{$kini} berita negatif dalam {$jendela} jam terakhir ({$banding}).",
             'payload' => [
                 'jumlah' => $kini,
                 'rata_sebelumnya' => round($rata, 2),
                 'jendela_jam' => $jendela,
-                'konteks' => $konteks,
             ],
         ];
     }

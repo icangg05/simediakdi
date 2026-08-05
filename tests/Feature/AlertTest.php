@@ -6,7 +6,6 @@ use App\Enums\LabelSentimen;
 use App\Models\AnalisisSentimen;
 use App\Models\Artikel;
 use App\Models\AturanAlert;
-use App\Models\KonteksPantauan;
 use App\Models\Media;
 use App\Models\RiwayatAlert;
 use App\Models\User;
@@ -27,8 +26,6 @@ class AlertTest extends TestCase
 {
     use RefreshDatabase;
 
-    private KonteksPantauan $konteks;
-
     private Media $media;
 
     protected function setUp(): void
@@ -38,9 +35,6 @@ class AlertTest extends TestCase
         Http::preventStrayRequests();
 
         $this->media = Media::create(['nama' => 'Contoh', 'slug' => 'contoh', 'domain' => 'contoh.test']);
-        $this->konteks = KonteksPantauan::create([
-            'nama' => 'Pemerintah Kota Kendari', 'slug' => 'pemkot', 'utama' => true, 'aktif' => true,
-        ]);
     }
 
     public function test_lonjakan_negatif_terpicu_saat_melewati_kedua_syarat(): void
@@ -147,7 +141,6 @@ class AlertTest extends TestCase
         return AturanAlert::create([
             'nama' => 'Lonjakan negatif Pemkot',
             'jenis' => 'lonjakan_negatif',
-            'konteks_pantauan_id' => $this->konteks->id,
             'kondisi' => [
                 'minimal_artikel' => 3,
                 'kelipatan_dari_rata_rata' => 2.0,
@@ -176,10 +169,8 @@ class AlertTest extends TestCase
 
             AnalisisSentimen::create([
                 'artikel_id' => $artikel->id,
-                'konteks_pantauan_id' => $this->konteks->id,
                 'relevan' => true,
                 'label_model' => LabelSentimen::Negatif,
-                'keyakinan' => 0.99,
                 'perlu_review' => false,
                 'model_versi' => 'uji',
                 'dianalisis_at' => now(),

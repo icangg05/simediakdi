@@ -48,10 +48,17 @@ class KoreksiLabelController extends Controller
             : "Label dikoreksi menjadi {$label}.");
     }
 
-    /** Saat koreksi dicabut, status review kembali ditentukan keyakinan model. */
+    /**
+     * Saat koreksi dicabut, status review kembali ditentukan hasil model.
+     *
+     * Dulu yang dibaca angka keyakinan IndoBERT. Gemini tidak mengeluarkan
+     * angka semacam itu, ia menyatakan keraguannya dengan menolak memilih
+     * label, dan penolakan itu tersimpan sebagai `label_model` kosong. Jadi
+     * pertanyaannya sekarang bukan seberapa yakin modelnya, melainkan apakah
+     * ia pernah memutuskan sama sekali.
+     */
     private function perluReviewUlang(AnalisisSentimen $analisis): bool
     {
-        return $analisis->keyakinan !== null
-            && $analisis->keyakinan < (float) config('nlp.ambang.sentimen');
+        return $analisis->label_model === null;
     }
 }

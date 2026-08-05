@@ -2,15 +2,14 @@
 
 namespace App\Services\Crawler;
 
-use App\Jobs\HitungEmbedding;
 use App\Models\Artikel;
 use App\Services\Dedup\PencariDuplikat;
 use App\Services\Dedup\PenghitungSimhash;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Langkah setelah isi artikel tersedia: simpan, hitung sidik jari, deduplikasi
- * lapis 1 dan 2, lalu teruskan ke analisis.
+ * Langkah setelah isi artikel tersedia: simpan, hitung sidik jari, lalu
+ * deduplikasi. Artikel yang lolos berhenti di sini menunggu diklasifikasi.
  *
  * Dipakai dua jalur, pengambilan halaman satu per satu (AmbilIsiArtikel) dan
  * penarikan arsip massal (crawl:backfill). Keduanya wajib memproses artikel
@@ -73,10 +72,12 @@ class PenyelesaiArtikel
             return false;
         }
 
-        // Dedup lapis 1 dan 2 lewat tanpa temuan. Lanjut ke lapis 3 dan
-        // analisis, yang seluruhnya berjalan di antrean `nlp`.
-        HitungEmbedding::dispatch($artikel->id);
-
+        // Dedup lewat tanpa temuan, jadi artikel ini asli dan siap dinilai.
+        //
+        // Rantai job berhenti di sini dengan sengaja. Klasifikasi Gemini
+        // dijalankan lewat tombol di halaman Antrean Klasifikasi, satu artikel
+        // satu klik, sampai alurnya terbukti cukup stabil untuk dilepas ke
+        // latar belakang. Artikel menunggu dengan status `isi_diambil`.
         return true;
     }
 }

@@ -5,8 +5,8 @@ namespace App\Models;
 use App\Enums\LabelSentimen;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Spatie\Activitylog\Support\LogOptions;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 class AnalisisSentimen extends Model
 {
@@ -22,6 +22,8 @@ class AnalisisSentimen extends Model
         return [
             'relevan' => 'boolean',
             'perlu_review' => 'boolean',
+            'fallback_used' => 'boolean',
+            'evidence' => 'array',
             'label_model' => LabelSentimen::class,
             'label_manual' => LabelSentimen::class,
             'label_efektif' => LabelSentimen::class,
@@ -40,11 +42,6 @@ class AnalisisSentimen extends Model
     public function artikel(): BelongsTo
     {
         return $this->belongsTo(Artikel::class);
-    }
-
-    public function konteks(): BelongsTo
-    {
-        return $this->belongsTo(KonteksPantauan::class, 'konteks_pantauan_id');
     }
 
     public function pengoreksi(): BelongsTo

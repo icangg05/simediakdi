@@ -2,13 +2,12 @@
 
 namespace App\Support;
 
-use App\Models\KonteksPantauan;
 use App\Services\Agregasi\RingkasanEksekutif;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 
 /**
- * Rentang tanggal dan konteks yang dipilih pengguna.
+ * Rentang tanggal yang dipilih pengguna.
  *
  * Dipakai seluruh halaman eksekutif supaya pembacaan parameter, batas rentang,
  * dan konversi WITA hanya ditulis satu kali. Tanggal yang dipilih pengguna
@@ -22,9 +21,6 @@ readonly class Periode
     public function __construct(
         public CarbonImmutable $dari,
         public CarbonImmutable $sampai,
-        public ?int $konteksId,
-        /** @var list<array<string, mixed>> */
-        public array $daftarKonteks,
     ) {}
 
     public static function dariRequest(Request $request, RingkasanEksekutif $ringkasan): self
@@ -43,19 +39,7 @@ readonly class Periode
             $dari = $sampai->subDays(self::MAKS_HARI);
         }
 
-        $daftar = KonteksPantauan::query()->aktif()->get(['id', 'nama', 'utama']);
-        $diminta = $request->query('konteks');
-
-        $konteks = $daftar->firstWhere('id', (int) $diminta)
-            ?? $daftar->firstWhere('utama', true)
-            ?? $daftar->first();
-
-        return new self(
-            dari: $dari,
-            sampai: $sampai,
-            konteksId: $konteks?->id,
-            daftarKonteks: $daftar->map(fn ($k) => $k->only(['id', 'nama', 'utama']))->all(),
-        );
+        return new self(dari: $dari, sampai: $sampai);
     }
 
     private static function tanggal(mixed $nilai, CarbonImmutable $bawaan): CarbonImmutable
@@ -90,8 +74,6 @@ readonly class Periode
                 'dari' => $this->dari->toDateString(),
                 'sampai' => $this->sampai->toDateString(),
             ],
-            'konteksId' => $this->konteksId,
-            'daftarKonteks' => $this->daftarKonteks,
         ];
     }
 
@@ -101,7 +83,6 @@ readonly class Periode
         return [
             'dari' => $this->dari->toDateString(),
             'sampai' => $this->sampai->toDateString(),
-            'konteks' => $this->konteksId,
         ];
     }
 }

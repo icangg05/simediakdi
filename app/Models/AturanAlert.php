@@ -3,10 +3,9 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Spatie\Activitylog\Support\LogOptions;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 class AturanAlert extends Model
 {
@@ -29,11 +28,6 @@ class AturanAlert extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()->logFillable()->logOnlyDirty();
-    }
-
-    public function konteks(): BelongsTo
-    {
-        return $this->belongsTo(KonteksPantauan::class, 'konteks_pantauan_id');
     }
 
     public function riwayat(): HasMany

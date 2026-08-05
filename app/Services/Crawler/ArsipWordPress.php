@@ -31,7 +31,7 @@ class ArsipWordPress
      * Satu halaman arsip.
      *
      * @return list<array{item: ItemFeed, hasil: HasilEkstraksi}>|null
-     *                                                                null berarti situsnya tidak punya arsip yang bisa dibaca
+     *                                                                 null berarti situsnya tidak punya arsip yang bisa dibaca
      */
     public function halaman(string $host, int $halaman): ?array
     {

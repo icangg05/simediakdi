@@ -21,15 +21,13 @@ class ArsipBeritaController extends Controller
         $kueri = Artikel::query()
             ->asli()
             ->with(['media:id,nama', 'analisisSentimen' => fn ($q) => $q
-                ->when($periode->konteksId, fn ($k) => $k->where('konteks_pantauan_id', $periode->konteksId))
                 ->where('relevan', true),
             ])
             ->whereBetween('diambil_at', [$periode->mulaiUtc(), $periode->akhirUtc()])
             ->when($request->query('sentimen'), fn ($q, $label) => $q->whereHas(
                 'analisisSentimen',
                 fn ($s) => $s->where('relevan', true)
-                    ->whereIn('label_efektif', explode(',', $label))
-                    ->when($periode->konteksId, fn ($k) => $k->where('konteks_pantauan_id', $periode->konteksId)),
+                    ->whereIn('label_efektif', explode(',', $label)),
             ))
             // Filter istilah dari halaman isu: klik satu istilah membuka arsip
             // yang sudah tersaring.

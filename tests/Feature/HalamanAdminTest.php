@@ -7,6 +7,7 @@ use App\Models\LogCrawl;
 use App\Models\Media;
 use App\Models\SumberFeed;
 use App\Models\User;
+use App\Support\Waktu;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -51,13 +52,12 @@ class HalamanAdminTest extends TestCase
 
         $halaman = [
             '/admin', '/admin/artikel', '/admin/log-crawl', '/admin/media',
-            '/admin/sumber-feed', '/admin/konteks', '/admin/pelabelan', '/admin/evaluasi',
+            '/admin/sumber-feed',
             '/admin/kontrak', '/admin/kontrak/create',
             '/admin/pengguna', '/admin/pengguna/create',
             '/admin/pemuatan', '/admin/pengaturan',
             '/admin/alert', '/admin/alert/create',
-            '/admin/entitas', '/admin/entitas/create',
-            '/admin/media/create', '/admin/sumber-feed/create', '/admin/konteks/create',
+            '/admin/media/create', '/admin/sumber-feed/create',
             '/admin/artikel/'.Artikel::withoutGlobalScopes()->value('id'),
         ];
 
@@ -104,7 +104,7 @@ class HalamanAdminTest extends TestCase
         Artikel::withoutGlobalScopes()->create([
             'media_id' => $media->id, 'judul' => 'Berita malam',
             'url' => 'https://contoh.id/malam', 'url_kanonik' => 'https://contoh.id/malam',
-            'diambil_at' => \App\Support\Waktu::awalHariIni()->addHours(23),
+            'diambil_at' => Waktu::awalHariIni()->addHours(23),
             'status_proses' => 'selesai',
         ]);
 

@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\SimpanAturanAlertRequest;
 use App\Models\AturanAlert;
-use App\Models\KonteksPantauan;
 use App\Models\RiwayatAlert;
 use App\Services\Alert\PemeriksaAturan;
 use App\Services\Alert\PengirimTelegram;
@@ -19,13 +18,11 @@ class AturanAlertController extends Controller
     {
         return Inertia::render('admin/alert/Index', [
             'aturan' => AturanAlert::query()
-                ->with('konteks:id,nama')
                 ->withCount('riwayat')
                 ->orderBy('nama')
                 ->get()
                 ->map(fn (AturanAlert $a) => [
                     ...$a->only(['id', 'nama', 'jenis', 'kanal', 'aktif', 'jendela_jam', 'jeda_minimal_jam', 'riwayat_count']),
-                    'konteks' => $a->konteks?->nama,
                     'dipicu_terakhir_at' => $a->dipicu_terakhir_at,
                 ])
                 ->all(),
@@ -52,7 +49,6 @@ class AturanAlertController extends Controller
     {
         return Inertia::render('admin/alert/Form', [
             'aturan' => null,
-            'daftarKonteks' => self::daftarKonteks(),
         ]);
     }
 
@@ -67,7 +63,6 @@ class AturanAlertController extends Controller
     {
         return Inertia::render('admin/alert/Form', [
             'aturan' => $alert,
-            'daftarKonteks' => self::daftarKonteks(),
         ]);
     }
 
@@ -123,19 +118,6 @@ class AturanAlertController extends Controller
         $data['kondisi'] = $data['kondisi'] ?? [];
         $data['aktif'] = $data['aktif'] ?? true;
 
-        // Jenis selain lonjakan tidak dinilai per konteks. Menyimpan konteks
-        // di sana hanya menyesatkan orang yang membacanya nanti.
-        if ($data['jenis'] !== 'lonjakan_negatif') {
-            $data['konteks_pantauan_id'] = null;
-        }
-
         return $data;
-    }
-
-    /** @return list<array{nilai: string, label: string}> */
-    private static function daftarKonteks(): array
-    {
-        return KonteksPantauan::query()->where('aktif', true)->orderBy('nama')->get(['id', 'nama'])
-            ->map(fn (KonteksPantauan $k) => ['nilai' => (string) $k->id, 'label' => $k->nama])->all();
     }
 }

@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Enums\LabelSentimen;
 use App\Models\AnalisisSentimen;
 use App\Models\Artikel;
-use App\Models\KonteksPantauan;
 use App\Models\Media;
 use App\Models\RingkasanHarian as BarisRingkasan;
 use App\Services\Agregasi\RingkasanHarian;
@@ -21,8 +20,6 @@ class RingkasanHarianTest extends TestCase
 
     private Media $mediaA;
 
-    private KonteksPantauan $utama;
-
     private string $hariIni;
 
     protected function setUp(): void
@@ -33,10 +30,6 @@ class RingkasanHarianTest extends TestCase
         $this->hariIni = Waktu::tanggalWita(now());
 
         $this->mediaA = Media::create(['nama' => 'Media A', 'slug' => 'media-a', 'domain' => 'a.test']);
-
-        $this->utama = KonteksPantauan::create([
-            'nama' => 'Pemerintah Kota Kendari', 'slug' => 'pemkot', 'utama' => true,
-        ]);
     }
 
     private function artikel(?Media $media, string $status = 'asli', ?int $indukId = null): Artikel
@@ -60,10 +53,8 @@ class RingkasanHarianTest extends TestCase
     {
         AnalisisSentimen::create([
             'artikel_id' => $artikel->id,
-            'konteks_pantauan_id' => $this->utama->id,
             'relevan' => true,
             'label_model' => $label,
-            'keyakinan' => $perluReview ? 0.4 : 0.9,
             'perlu_review' => $perluReview,
         ]);
     }
@@ -75,7 +66,7 @@ class RingkasanHarianTest extends TestCase
 
         $this->ringkasan->hitung($this->hariIni);
 
-        $agregat = BarisRingkasan::whereNull('media_id')->whereNull('konteks_pantauan_id')->first();
+        $agregat = BarisRingkasan::whereNull('media_id')->first();
 
         $this->assertNotNull($agregat, 'Baris agregat untuk dashboard eksekutif harus ada.');
         $this->assertSame(1, $agregat->jumlah_artikel);
@@ -98,7 +89,7 @@ class RingkasanHarianTest extends TestCase
         $this->assertSame($jumlahAwal, BarisRingkasan::count());
         $this->assertSame(
             2,
-            BarisRingkasan::whereNull('media_id')->whereNull('konteks_pantauan_id')->first()->jumlah_artikel,
+            BarisRingkasan::whereNull('media_id')->first()->jumlah_artikel,
         );
     }
 
@@ -110,32 +101,12 @@ class RingkasanHarianTest extends TestCase
 
         $this->ringkasan->hitung($this->hariIni);
 
-        $agregat = BarisRingkasan::whereNull('media_id')->whereNull('konteks_pantauan_id')->first();
+        $agregat = BarisRingkasan::whereNull('media_id')->first();
 
         // Keduanya masuk agregat; yang tanpa media tidak membuat baris per-media
         // sendiri yang kuncinya bentrok dengan baris agregat.
         $this->assertSame(2, $agregat->jumlah_artikel);
-        $this->assertSame(1, BarisRingkasan::whereNotNull('media_id')->whereNull('konteks_pantauan_id')->count());
-    }
-
-    public function test_jumlah_sentimen_terpisah_per_konteks(): void
-    {
-        $this->nilai($this->artikel($this->mediaA), LabelSentimen::Negatif);
-        $this->nilai($this->artikel($this->mediaA), LabelSentimen::Negatif);
-        $this->nilai($this->artikel($this->mediaA), LabelSentimen::Positif);
-        $this->nilai($this->artikel($this->mediaA), LabelSentimen::Netral, perluReview: true);
-
-        $this->ringkasan->hitung($this->hariIni);
-
-        $baris = BarisRingkasan::whereNull('media_id')
-            ->where('konteks_pantauan_id', $this->utama->id)
-            ->first();
-
-        $this->assertSame(2, $baris->jumlah_negatif);
-        $this->assertSame(1, $baris->jumlah_positif);
-        $this->assertSame(1, $baris->jumlah_netral);
-        // Perlu review dihitung terpisah, tidak disembunyikan di dalam netral.
-        $this->assertSame(1, $baris->jumlah_perlu_review);
+        $this->assertSame(1, BarisRingkasan::whereNotNull('media_id')->count());
     }
 
     public function test_koreksi_label_ikut_terhitung_saat_dihitung_ulang(): void
@@ -145,9 +116,7 @@ class RingkasanHarianTest extends TestCase
 
         $this->ringkasan->hitung($this->hariIni);
 
-        $baris = fn () => BarisRingkasan::whereNull('media_id')
-            ->where('konteks_pantauan_id', $this->utama->id)
-            ->first();
+        $baris = fn () => BarisRingkasan::whereNull('media_id')->first();
 
         $this->assertSame(1, $baris()->jumlah_negatif);
 

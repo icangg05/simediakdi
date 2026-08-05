@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import ChartPeringkatMedia from '@/components/chart/ChartPeringkatMedia.vue';
-import PemilihKonteks from '@/components/domain/PemilihKonteks.vue';
 import PemilihRentangTanggal from '@/components/domain/PemilihRentangTanggal.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -24,13 +23,11 @@ interface Baris {
 
 const props = defineProps<{
     periode: { dari: string; sampai: string };
-    konteksId: number | null;
-    daftarKonteks: Array<{ id: number; nama: string; utama: boolean }>;
     peringkat: Baris[];
 }>();
 
 const { formatAngka, formatProporsi } = useFormatAngka();
-const { pindah } = usePeriodeEksekutif(props.periode, props.konteksId, '/eksekutif/media');
+const { pindah } = usePeriodeEksekutif(props.periode, '/eksekutif/media');
 
 // Grafik hanya menampilkan sepuluh teratas; sisanya tetap terbaca di tabel.
 const sepuluhTeratas = computed(() => props.peringkat.slice(0, 10));
@@ -49,7 +46,6 @@ const warnaTier: Record<string, string> = {
         <header class="flex flex-wrap items-center justify-between gap-3">
             <h1 class="text-2xl font-semibold">Peringkat media</h1>
             <div class="flex flex-wrap items-center gap-2">
-                <PemilihKonteks :daftar="daftarKonteks" :terpilih="konteksId" @ubah="(id) => pindah({ konteks: id })" />
                 <PemilihRentangTanggal
                     :dari="periode.dari"
                     :sampai="periode.sampai"

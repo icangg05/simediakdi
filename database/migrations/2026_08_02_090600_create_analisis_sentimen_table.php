@@ -37,8 +37,8 @@ return new class extends Migration
             CHECK (label_manual IS NULL OR label_manual IN ('negatif','netral','positif'))");
 
         // Kolom generated agar tidak ada satu query pun yang lupa COALESCE.
-        DB::statement("ALTER TABLE analisis_sentimen ADD COLUMN label_efektif varchar(10)
-            GENERATED ALWAYS AS (COALESCE(label_manual, label_model)) STORED");
+        DB::statement('ALTER TABLE analisis_sentimen ADD COLUMN label_efektif varchar(10)
+            GENERATED ALWAYS AS (COALESCE(label_manual, label_model)) STORED');
 
         DB::statement('CREATE UNIQUE INDEX uq_analisis_artikel_konteks
             ON analisis_sentimen (artikel_id, konteks_pantauan_id)');

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Enums\TipeSumber;
 use App\Models\LogCrawl;
 use App\Models\SumberFeed;
+use App\Services\Crawler\ItemFeed;
 use App\Services\Crawler\PembacaRss;
 use App\Services\Crawler\PembacaScrape;
 use App\Services\Crawler\PencatatArtikel;
@@ -123,8 +124,8 @@ class CrawlFeeds extends Command
      *
      * Sumber tanpa kata kunci tidak disaring sama sekali.
      *
-     * @param  list<\App\Services\Crawler\ItemFeed>  $item
-     * @return list<\App\Services\Crawler\ItemFeed>
+     * @param  list<ItemFeed>  $item
+     * @return list<ItemFeed>
      */
     private function saringKataKunci(array $item, SumberFeed $sumber): array
     {

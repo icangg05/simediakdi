@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Artikel;
-use App\Models\EvaluasiModel;
 use App\Models\Media;
 use App\Support\KueriTabel;
 use App\Support\Waktu;
@@ -76,14 +75,6 @@ class ArtikelController extends Controller
 
         return Inertia::render('admin/artikel/Detail', [
             'artikel' => $artikel,
-            // Angka akurasi terbaru tampil berdampingan dengan hasil model,
-            // supaya pembacanya tahu seberapa jauh label ini bisa dipercaya.
-            'evaluasi' => EvaluasiModel::terbaru(),
-            'ambang' => [
-                'sentimen' => (float) config('nlp.ambang.sentimen'),
-                'relevansi_atas' => config('nlp.ambang.relevansi_atas'),
-                'relevansi_bawah' => config('nlp.ambang.relevansi_bawah'),
-            ],
         ]);
     }
 

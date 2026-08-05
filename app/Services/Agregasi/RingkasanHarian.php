@@ -12,12 +12,8 @@ use Illuminate\Support\Facades\DB;
  *, itulah alasan halamannya bisa selesai di bawah dua detik. Menghitung ini
  * saat request berarti membuang alasan tabelnya ada.
  *
- * Arti baris NULL:
- * - `media_id` NULL, `konteks_pantauan_id` NULL: seluruh media, seluruh konteks
- * - `konteks_pantauan_id` terisi: hanya artikel yang relevan dengan konteks itu
- * - `konteks_pantauan_id` NULL: jumlah sentimen dijumlahkan lintas konteks,
- *   jadi totalnya bisa melebihi `jumlah_artikel`, satu artikel bisa negatif
- *   terhadap satu konteks dan netral terhadap konteks lain
+ * Arti baris NULL: `media_id` NULL berarti seluruh media digabung. Satu baris
+ * lagi per media. Sejak konteks pantauan dihapus, dua dimensi menjadi satu.
  */
 class RingkasanHarian
 {
@@ -27,7 +23,8 @@ class RingkasanHarian
         $mulai = Waktu::awalHari($tanggalWita);
         $akhir = Waktu::akhirHari($tanggalWita);
 
-        // GROUPING SETS menghasilkan keempat kombinasi dalam satu pemindaian.
+        // GROUPING SETS menghasilkan baris total dan baris per media dalam
+        // satu pemindaian.
         //
         // HAVING-nya bukan hiasan: GROUPING SETS menandai kolom yang sedang
         // diagregasi dengan NULL, dan `media_id` juga bernilai NULL untuk
@@ -36,7 +33,7 @@ class RingkasanHarian
         // yang sama lalu saling menimpa.
         $sql = <<<'SQL'
         INSERT INTO ringkasan_harian (
-            tanggal, media_id, konteks_pantauan_id,
+            tanggal, media_id,
             jumlah_artikel, jumlah_salinan,
             jumlah_negatif, jumlah_netral, jumlah_positif, jumlah_perlu_review,
             dihitung_at
@@ -44,7 +41,6 @@ class RingkasanHarian
         SELECT
             ?::date,
             a.media_id,
-            s.konteks_pantauan_id,
             count(DISTINCT a.id) FILTER (WHERE a.status_dedup = 'asli'),
             count(DISTINCT a.id) FILTER (WHERE a.status_dedup = 'salinan'),
             count(*) FILTER (WHERE s.label_efektif = 'negatif'),
@@ -58,13 +54,10 @@ class RingkasanHarian
         WHERE a.diambil_at >= ? AND a.diambil_at <= ?
         GROUP BY GROUPING SETS (
             (),
-            (a.media_id),
-            (s.konteks_pantauan_id),
-            (a.media_id, s.konteks_pantauan_id)
+            (a.media_id)
         )
         HAVING NOT (GROUPING(a.media_id) = 0 AND a.media_id IS NULL)
-           AND NOT (GROUPING(s.konteks_pantauan_id) = 0 AND s.konteks_pantauan_id IS NULL)
-        ON CONFLICT (tanggal, media_id, konteks_pantauan_id) DO UPDATE SET
+        ON CONFLICT (tanggal, media_id) DO UPDATE SET
             jumlah_artikel = EXCLUDED.jumlah_artikel,
             jumlah_salinan = EXCLUDED.jumlah_salinan,
             jumlah_negatif = EXCLUDED.jumlah_negatif,

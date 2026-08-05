@@ -28,9 +28,4 @@ class RingkasanHarian extends Model
     {
         return $this->belongsTo(Media::class);
     }
-
-    public function konteks(): BelongsTo
-    {
-        return $this->belongsTo(KonteksPantauan::class, 'konteks_pantauan_id');
-    }
 }

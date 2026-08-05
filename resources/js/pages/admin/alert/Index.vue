@@ -18,7 +18,6 @@ interface Aturan {
     jendela_jam: number;
     jeda_minimal_jam: number;
     riwayat_count: number;
-    konteks: string | null;
     dipicu_terakhir_at: string | null;
 }
 
@@ -96,7 +95,7 @@ const hapus = (a: Aturan) => {
                 <KeadaanKosong
                     v-if="!props.aturan.length"
                     judul="Belum ada aturan alert"
-                    keterangan="Mulai dari satu aturan lonjakan negatif untuk konteks Pemerintah Kota Kendari. Aturan yang terlalu banyak sejak awal membuat grup Telegram ramai dan orang berhenti membacanya."
+                    keterangan="Mulai dari satu aturan lonjakan negatif. Aturan yang terlalu banyak sejak awal membuat grup Telegram ramai dan orang berhenti membacanya."
                 />
                 <ul v-else class="divide-y">
                     <li v-for="a in props.aturan" :key="a.id" class="flex flex-wrap items-start justify-between gap-3 px-4 py-3">
@@ -107,7 +106,6 @@ const hapus = (a: Aturan) => {
                             </div>
                             <p class="text-xs text-muted-foreground">
                                 {{ labelJenis[a.jenis] ?? a.jenis }}
-                                <template v-if="a.konteks"> · {{ a.konteks }}</template>
                                 · jendela {{ a.jendela_jam }} jam · jeda kirim {{ a.jeda_minimal_jam }} jam
                             </p>
                             <p class="text-xs text-muted-foreground">

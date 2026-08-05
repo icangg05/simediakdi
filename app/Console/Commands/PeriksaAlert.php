@@ -21,7 +21,6 @@ class PeriksaAlert extends Command
         $aturan = AturanAlert::query()
             ->where('aktif', true)
             ->when($this->option('aturan'), fn ($q, $id) => $q->where('id', $id))
-            ->with('konteks:id,nama')
             ->get();
 
         if ($aturan->isEmpty()) {

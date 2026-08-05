@@ -2,7 +2,6 @@
 
 namespace App\Services\Agregasi;
 
-use App\Models\KonteksPantauan;
 use App\Support\Waktu;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -22,15 +21,10 @@ class RingkasanEksekutif
      *
      * @return list<array<string, mixed>>
      */
-    public function deretHarian(CarbonImmutable $dari, CarbonImmutable $sampai, ?int $konteksId): array
+    public function deretHarian(CarbonImmutable $dari, CarbonImmutable $sampai): array
     {
         return DB::table('ringkasan_harian')
             ->whereNull('media_id')
-            ->when(
-                $konteksId,
-                fn ($q) => $q->where('konteks_pantauan_id', $konteksId),
-                fn ($q) => $q->whereNull('konteks_pantauan_id'),
-            )
             ->whereBetween('tanggal', [$dari->toDateString(), $sampai->toDateString()])
             ->orderBy('tanggal')
             ->get([
@@ -50,11 +44,11 @@ class RingkasanEksekutif
      *
      * @return array<string, mixed>
      */
-    public function kpi(CarbonImmutable $dari, CarbonImmutable $sampai, ?int $konteksId): array
+    public function kpi(CarbonImmutable $dari, CarbonImmutable $sampai): array
     {
         $panjang = $dari->diffInDays($sampai) + 1;
-        $sekarang = $this->total($dari, $sampai, $konteksId);
-        $sebelumnya = $this->total($dari->subDays($panjang), $dari->subDay(), $konteksId);
+        $sekarang = $this->total($dari, $sampai);
+        $sebelumnya = $this->total($dari->subDays($panjang), $dari->subDay());
 
         $totalBerlabel = $sekarang['negatif'] + $sekarang['netral'] + $sekarang['positif'];
 
@@ -72,20 +66,15 @@ class RingkasanEksekutif
             'netral' => $sekarang['netral'],
             'perlu_review' => $sekarang['perlu_review'],
             'salinan' => $sekarang['salinan'],
-            'media_aktif' => $this->mediaAktif($dari, $sampai, $konteksId),
+            'media_aktif' => $this->mediaAktif($dari, $sampai),
         ];
     }
 
     /** @return array<string, int> */
-    private function total(CarbonImmutable $dari, CarbonImmutable $sampai, ?int $konteksId): array
+    private function total(CarbonImmutable $dari, CarbonImmutable $sampai): array
     {
         $baris = DB::table('ringkasan_harian')
             ->whereNull('media_id')
-            ->when(
-                $konteksId,
-                fn ($q) => $q->where('konteks_pantauan_id', $konteksId),
-                fn ($q) => $q->whereNull('konteks_pantauan_id'),
-            )
             ->whereBetween('tanggal', [$dari->toDateString(), $sampai->toDateString()])
             ->selectRaw('
                 coalesce(sum(jumlah_artikel), 0) AS artikel,
@@ -101,15 +90,10 @@ class RingkasanEksekutif
     }
 
     /** Media yang memuat minimal satu artikel pada periode itu. */
-    private function mediaAktif(CarbonImmutable $dari, CarbonImmutable $sampai, ?int $konteksId): int
+    private function mediaAktif(CarbonImmutable $dari, CarbonImmutable $sampai): int
     {
         return DB::table('ringkasan_harian')
             ->whereNotNull('media_id')
-            ->when(
-                $konteksId,
-                fn ($q) => $q->where('konteks_pantauan_id', $konteksId),
-                fn ($q) => $q->whereNull('konteks_pantauan_id'),
-            )
             ->whereBetween('tanggal', [$dari->toDateString(), $sampai->toDateString()])
             ->where('jumlah_artikel', '>', 0)
             ->distinct()
@@ -121,16 +105,11 @@ class RingkasanEksekutif
      *
      * @return list<array<string, mixed>>
      */
-    public function peringkatMedia(CarbonImmutable $dari, CarbonImmutable $sampai, ?int $konteksId, int $batas = 10): array
+    public function peringkatMedia(CarbonImmutable $dari, CarbonImmutable $sampai, int $batas = 10): array
     {
         return DB::table('ringkasan_harian as r')
             ->join('media as m', 'm.id', '=', 'r.media_id')
             ->whereNotNull('r.media_id')
-            ->when(
-                $konteksId,
-                fn ($q) => $q->where('r.konteks_pantauan_id', $konteksId),
-                fn ($q) => $q->whereNull('r.konteks_pantauan_id'),
-            )
             ->whereBetween('r.tanggal', [$dari->toDateString(), $sampai->toDateString()])
             ->groupBy('m.id', 'm.nama', 'm.tier')
             ->havingRaw('sum(r.jumlah_artikel) > 0')
@@ -153,10 +132,5 @@ class RingkasanEksekutif
         $sampai = CarbonImmutable::parse(Waktu::tanggalWita(now()));
 
         return [$sampai->subDays(6), $sampai];
-    }
-
-    public function konteksUtama(): ?KonteksPantauan
-    {
-        return KonteksPantauan::utama() ?? KonteksPantauan::query()->aktif()->first();
     }
 }

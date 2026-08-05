@@ -9,7 +9,6 @@ use App\Services\Crawler\EkstraktorWordPress;
 use App\Services\Crawler\GagalMengunduh;
 use App\Services\Crawler\HasilEkstraksi;
 use App\Services\Crawler\PengunduhHalaman;
-use App\Jobs\HitungEmbedding;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
 use Mockery;
@@ -28,9 +27,10 @@ class AmbilIsiArtikelTest extends TestCase
     {
         parent::setUp();
 
-        // Rantai berhenti di sini: yang diuji cara isi diambil, bukan seluruh
-        // pipeline. Tanpa ini HitungEmbedding jalan sinkron dan menembak
-        // layanan NLP sungguhan.
+        // Yang diuji cara isi diambil, bukan seluruh pipeline. Rantai job
+        // memang sudah berhenti setelah dedup sejak klasifikasi berpindah ke
+        // tombol, tetapi fake ini tetap dipertahankan supaya test ini tidak
+        // ikut gagal kalau nanti ada job baru yang disambungkan di sana.
         Bus::fake();
     }
 
@@ -73,7 +73,6 @@ class AmbilIsiArtikelTest extends TestCase
         $artikel->refresh();
         $this->assertSame('isi_diambil', $artikel->status_proses);
         $this->assertGreaterThan(80, $artikel->jumlah_kata);
-        Bus::assertDispatched(HitungEmbedding::class);
     }
 
     public function test_wp_api_dipakai_saat_halaman_tidak_bisa_diunduh(): void

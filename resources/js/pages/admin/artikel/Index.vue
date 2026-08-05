@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import DataTable from '@/components/data-table/DataTable.vue';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import LayoutAdmin from '@/layouts/LayoutAdmin.vue';
@@ -8,7 +9,7 @@ import type { FilterDefinisi, KolomDefinisi, OpsiFilter, PaginasiMeta } from '@/
 import { Head, router } from '@inertiajs/vue3';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { ExternalLink } from 'lucide-vue-next';
+import { ExternalLink, Sparkles } from 'lucide-vue-next';
 import { ref, watch } from 'vue';
 
 interface BarisArtikel {
@@ -40,6 +41,7 @@ const kolom: KolomDefinisi[] = [
     { kunci: 'jumlah_kata', judul: 'Kata', bisaDiurutkan: true, kelas: 'angka text-right', lebar: 'w-20' },
     { kunci: 'status_dedup', judul: 'Dedup', lebar: 'w-28' },
     { kunci: 'status_proses', judul: 'Proses', lebar: 'w-28' },
+    { kunci: 'aksi', judul: '', lebar: 'w-32' },
 ];
 
 const filter: FilterDefinisi[] = [
@@ -47,6 +49,26 @@ const filter: FilterDefinisi[] = [
     { kunci: 'dedup', label: 'Dedup', opsi: props.opsi.dedup },
     { kunci: 'proses', label: 'Proses', opsi: props.opsi.proses },
 ];
+
+/**
+ * Id artikel yang sedang dinilai, supaya tombolnya terkunci satu per satu.
+ *
+ * Klasifikasi berjalan sinkron dan memakan satu sampai tiga detik. Tanpa
+ * penanda ini, klik kedua pada baris yang sama mengirim permintaan kedua ke
+ * Gemini untuk artikel yang hasilnya sebentar lagi datang, dan kuota free tier
+ * terpakai dua kali untuk satu jawaban.
+ */
+const sedangJalan = ref<number | null>(null);
+
+function klasifikasi(id: number) {
+    sedangJalan.value = id;
+
+    router.post(
+        `/admin/review/${id}/klasifikasi`,
+        {},
+        { preserveScroll: true, onFinish: () => (sedangJalan.value = null) },
+    );
+}
 
 const dari = ref(props.tanggal.dari ?? '');
 const sampai = ref(props.tanggal.sampai ?? '');
@@ -145,6 +167,28 @@ const labelProses: Record<string, string> = {
                 <Badge :variant="baris.status_proses === 'gagal' ? 'destructive' : 'outline'">
                     {{ labelProses[baris.status_proses] ?? baris.status_proses }}
                 </Badge>
+            </template>
+
+            <!--
+                Tombol yang sama persis dengan yang ada di Antrean Klasifikasi,
+                menembak route yang sama. Salinan hanya berupa markup, logikanya
+                tetap satu di KlasifikasiArtikel.
+
+                Artikel salinan tidak diberi tombol: ia sudah menunjuk induknya,
+                dan menilainya berarti membayar Gemini dua kali untuk berita
+                yang sama.
+            -->
+            <template #sel-aksi="{ baris }">
+                <Button
+                    v-if="baris.status_dedup === 'asli'"
+                    size="sm"
+                    variant="outline"
+                    :disabled="sedangJalan === baris.id"
+                    @click="klasifikasi(baris.id)"
+                >
+                    <Sparkles class="size-3.5" />
+                    {{ sedangJalan === baris.id ? 'Menilai...' : 'Klasifikasi' }}
+                </Button>
             </template>
         </DataTable>
     </LayoutAdmin>

@@ -13,7 +13,6 @@ interface Aturan {
     id: number;
     nama: string;
     jenis: string;
-    konteks_pantauan_id: number | null;
     ambang: number | null;
     jendela_jam: number;
     jeda_minimal_jam: number;
@@ -23,14 +22,13 @@ interface Aturan {
     kondisi: Record<string, unknown> | null;
 }
 
-const props = defineProps<{ aturan: Aturan | null; daftarKonteks: OpsiFilter[] }>();
+const props = defineProps<{ aturan: Aturan | null }>();
 
 const kondisi = (props.aturan?.kondisi ?? {}) as Record<string, never>;
 
 const form = useForm({
     nama: props.aturan?.nama ?? '',
     jenis: props.aturan?.jenis ?? 'lonjakan_negatif',
-    konteks_pantauan_id: props.aturan?.konteks_pantauan_id ?? null,
     ambang: props.aturan?.ambang ?? null,
     jendela_jam: props.aturan?.jendela_jam ?? 6,
     jeda_minimal_jam: props.aturan?.jeda_minimal_jam ?? 6,
@@ -94,19 +92,6 @@ function simpan() {
                     </div>
 
                     <template v-if="form.jenis === 'lonjakan_negatif'">
-                        <div class="grid gap-1.5">
-                            <Label for="konteks">Konteks</Label>
-                            <select
-                                id="konteks"
-                                v-model="form.konteks_pantauan_id"
-                                class="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                            >
-                                <option :value="null">Semua konteks</option>
-                                <option v-for="k in props.daftarKonteks" :key="k.nilai" :value="Number(k.nilai)">
-                                    {{ k.label }}
-                                </option>
-                            </select>
-                        </div>
 
                         <div class="grid gap-3 sm:grid-cols-2">
                             <div class="grid gap-1.5">

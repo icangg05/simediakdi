@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Eksekutif;
 
 use App\Http\Controllers\Controller;
 use App\Models\Artikel;
-use App\Models\EvaluasiModel;
 use App\Services\Agregasi\RingkasanEksekutif;
 use App\Support\Periode;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -19,11 +19,10 @@ class SentimenController extends Controller
 
         return Inertia::render('eksekutif/Sentimen', [
             ...$periode->untukInertia(),
-            'kpi' => $ringkasan->kpi($periode->dari, $periode->sampai, $periode->konteksId),
-            'deret' => $ringkasan->deretHarian($periode->dari, $periode->sampai, $periode->konteksId),
+            'kpi' => $ringkasan->kpi($periode->dari, $periode->sampai),
+            'deret' => $ringkasan->deretHarian($periode->dari, $periode->sampai),
             'beritaNegatif' => $this->beritaBerlabel($periode, 'negatif'),
             'perluReview' => $this->perluReview($periode),
-            'evaluasi' => EvaluasiModel::terbaru(),
         ]);
     }
 
@@ -37,8 +36,7 @@ class SentimenController extends Controller
         return $this->artikel($periode)
             ->whereHas('analisisSentimen', fn ($q) => $q
                 ->where('relevan', true)
-                ->where('label_efektif', $label)
-                ->when($periode->konteksId, fn ($k) => $k->where('konteks_pantauan_id', $periode->konteksId)))
+                ->where('label_efektif', $label))
             ->limit(20)
             ->get(['id', 'media_id', 'judul', 'url', 'diambil_at'])
             ->map($this->bentuk(...))
@@ -56,15 +54,14 @@ class SentimenController extends Controller
         return $this->artikel($periode)
             ->whereHas('analisisSentimen', fn ($q) => $q
                 ->where('relevan', true)
-                ->where('perlu_review', true)
-                ->when($periode->konteksId, fn ($k) => $k->where('konteks_pantauan_id', $periode->konteksId)))
+                ->where('perlu_review', true))
             ->limit(10)
             ->get(['id', 'media_id', 'judul', 'url', 'diambil_at'])
             ->map($this->bentuk(...))
             ->all();
     }
 
-    private function artikel(Periode $periode): \Illuminate\Database\Eloquent\Builder
+    private function artikel(Periode $periode): Builder
     {
         return Artikel::query()
             ->asli()

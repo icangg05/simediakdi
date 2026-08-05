@@ -1,181 +1,228 @@
 <script setup lang="ts">
+import DataTable from '@/components/data-table/DataTable.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import LayoutAdmin from '@/layouts/LayoutAdmin.vue';
-import { Head, router, useForm } from '@inertiajs/vue3';
+import type { FilterDefinisi, KolomDefinisi, PaginasiMeta } from '@/types/tabel';
+import { Head, router } from '@inertiajs/vue3';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { CheckCircle2, ExternalLink, XCircle } from 'lucide-vue-next';
-import { onMounted, onUnmounted } from 'vue';
+import { ExternalLink, Sparkles, ThumbsDown, ThumbsUp } from 'lucide-vue-next';
+import { ref } from 'vue';
 
-interface ArtikelReview {
+type LabelSentimen = 'negatif' | 'netral' | 'positif';
+
+interface Analisis {
     id: number;
-    analisis_id: number;
+    relevan: boolean;
+    relevan_manual: boolean | null;
+    label_model: LabelSentimen | null;
+    label_manual: LabelSentimen | null;
+    label_efektif: LabelSentimen | null;
+    perlu_review: boolean;
+    provider: string | null;
+    reason_code: string | null;
+    reason_summary: string | null;
+    evidence: string[] | null;
+}
+
+interface BarisArtikel {
+    id: number;
     judul: string;
     url: string;
-    ringkasan: string | null;
-    isi: string;
     media: string | null;
     diambil_at: string;
-    skor_relevansi: number | null;
-    sebutan: { judul: number; isi: number };
+    status_proses: string;
+    analisis: Analisis | null;
 }
 
 const props = defineProps<{
-    artikel: ArtikelReview | null;
-    sisa: number;
-    ambang: { atas: number | null; bawah: number | null };
-    konteks: { id: number; nama: string } | null;
+    status: string;
+    saringan: { nilai: string; label: string; jumlah: number }[];
+    pantauan: string;
+    artikel: { data: BarisArtikel[] } & PaginasiMeta;
 }>();
 
-const form = useForm({ analisis_id: 0, relevan: false, alasan: '' });
+const kolom: KolomDefinisi[] = [
+    { kunci: 'judul', judul: 'Berita' },
+    { kunci: 'media', judul: 'Media', lebar: 'w-36' },
+    { kunci: 'diambil_at', judul: 'Masuk', lebar: 'w-28' },
+    { kunci: 'hasil', judul: 'Hasil AI', lebar: 'w-72' },
+    { kunci: 'aksi', judul: '', lebar: 'w-40' },
+];
 
-function putuskan(relevan: boolean) {
-    if (!props.artikel) return;
+const filter: FilterDefinisi[] = [
+    {
+        kunci: 'status',
+        label: 'Tahap',
+        opsi: props.saringan.map((s) => ({
+            nilai: s.nilai,
+            label: `${s.label} (${s.jumlah})`,
+        })),
+    },
+];
 
-    form.analisis_id = props.artikel.analisis_id;
-    form.relevan = relevan;
-    form.post('/admin/review', {
-        preserveScroll: false,
-        onSuccess: () => form.reset('alasan'),
-    });
+/** Id artikel yang sedang dikirim, supaya tombolnya terkunci satu per satu. */
+const sedangJalan = ref<number | null>(null);
+
+function klasifikasi(baris: BarisArtikel) {
+    sedangJalan.value = baris.id;
+
+    router.post(
+        `/admin/review/${baris.id}/klasifikasi`,
+        {},
+        {
+            preserveScroll: true,
+            onFinish: () => (sedangJalan.value = null),
+        },
+    );
 }
 
-// Satu tangan menjangkau keduanya, sama seperti halaman pelabelan. Antrean 746
-// artikel tidak akan selesai kalau tiap keputusan menuntut memindahkan tangan
-// ke tetikus.
-function pintasan(e: KeyboardEvent) {
-    if (e.target instanceof HTMLInputElement) return;
-    if (e.key === '1') putuskan(true);
-    if (e.key === '2') putuskan(false);
+function putuskan(analisis: Analisis, relevan: boolean) {
+    router.post('/admin/review', { analisis_id: analisis.id, relevan }, { preserveScroll: true });
 }
 
-onMounted(() => window.addEventListener('keydown', pintasan));
-onUnmounted(() => window.removeEventListener('keydown', pintasan));
-
-const desimal = (n: number | null) => (n === null ? '-' : n.toFixed(3).replace('.', ','));
+const warnaSentimen: Record<LabelSentimen, string> = {
+    positif: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
+    netral: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+    negatif: 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300',
+};
 
 const waktu = (n: string) => format(new Date(n), 'd MMM yyyy', { locale: id });
 </script>
 
 <template>
-    <Head title="Antrean perlu review" />
+    <Head title="Antrean Klasifikasi" />
 
-    <LayoutAdmin :breadcrumbs="[{ title: 'Antrean review', href: '/admin/review' }]">
-        <div class="mx-auto w-full max-w-3xl space-y-4">
-            <!--
-                Header berbeda warna dari halaman pelabelan. Keduanya mirip
-                bentuknya dan berbeda akibatnya, dan tertukar sekali saja sudah
-                cukup untuk mengotori dashboard atau gold set.
-            -->
-            <div class="rounded-md border-l-4 border-sentimen-review bg-sentimen-review-lembut p-3">
-                <p class="text-sm font-medium">Antrean perlu review</p>
-                <p class="text-xs text-muted-foreground">
-                    Keputusan di sini langsung mengubah dashboard. Sisa
-                    <strong class="angka">{{ sisa }}</strong> artikel.
-                    Skornya di antara ambang {{ ambang.bawah ?? '-' }} dan {{ ambang.atas ?? '-' }},
-                    terlalu ragu untuk diputuskan sistem sendiri.
+    <LayoutAdmin>
+        <div class="space-y-4 p-4">
+            <div>
+                <h1 class="text-xl font-semibold">Antrean Klasifikasi</h1>
+                <p class="text-sm text-muted-foreground">
+                    Berita masuk dinilai Gemini lewat tombol Klasifikasi, satu artikel satu klik.
+                    Hasilnya relevan atau tidak, lalu sentimen negatif, netral, atau positif.
+                    Yang dinilai: {{ pantauan }}.
                 </p>
             </div>
 
-            <Card v-if="!artikel">
-                <CardContent class="p-8 text-center">
-                    <CheckCircle2 class="mx-auto mb-2 h-8 w-8 text-sentimen-positif" aria-hidden="true" />
-                    <p class="text-sm font-medium">Antrean kosong.</p>
-                    <p class="mt-1 text-xs text-muted-foreground">
-                        Tidak ada artikel yang menunggu keputusan.
-                    </p>
-                    <Button variant="outline" class="mt-4" @click="router.get('/admin/artikel')">
-                        Lihat daftar artikel
-                    </Button>
-                </CardContent>
-            </Card>
+            <DataTable
+                :kolom="kolom"
+                :data="artikel.data"
+                :meta="artikel"
+                :filter="filter"
+                pencarian
+                url-basis="/admin/review"
+                judul-kosong="Tidak ada berita pada tahap ini"
+                keterangan-kosong="Pilih tahap lain di filter, atau tunggu crawler mengambil berita baru."
+            >
+                <template #sel-judul="{ baris }">
+                    <a
+                        :href="baris.url"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="inline-flex items-start gap-1 font-medium hover:underline"
+                    >
+                        {{ baris.judul }}
+                        <ExternalLink class="mt-1 size-3 shrink-0 opacity-60" />
+                    </a>
+                </template>
 
-            <template v-else>
-                <Card>
-                    <CardContent class="space-y-3 p-4">
-                        <div class="flex flex-wrap items-center gap-2 text-xs">
-                            <Badge variant="outline">{{ artikel.media ?? 'Media belum ditautkan' }}</Badge>
-                            <span class="text-muted-foreground">{{ waktu(artikel.diambil_at) }}</span>
+                <template #sel-media="{ baris }">
+                    <span class="text-sm text-muted-foreground">{{ baris.media ?? '-' }}</span>
+                </template>
+
+                <template #sel-diambil_at="{ baris }">
+                    <span class="text-sm text-muted-foreground">{{ waktu(baris.diambil_at) }}</span>
+                </template>
+
+                <template #sel-hasil="{ baris }">
+                    <div v-if="baris.analisis === null" class="text-sm text-muted-foreground">
+                        Belum dinilai
+                    </div>
+
+                    <div v-else class="space-y-1.5">
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <Badge variant="outline">
+                                {{ baris.analisis.relevan ? 'Relevan' : 'Tidak relevan' }}
+                            </Badge>
+
+                            <Badge
+                                v-if="baris.analisis.label_efektif"
+                                :class="warnaSentimen[baris.analisis.label_efektif]"
+                            >
+                                {{ baris.analisis.label_efektif }}
+                            </Badge>
+
+                            <Badge v-if="baris.analisis.perlu_review" variant="secondary">
+                                Perlu review
+                            </Badge>
+
+                            <!-- Penanda bahwa nilainya keputusan manusia, bukan Gemini.
+                                 Tanpa ini admin tidak bisa membedakan baris yang sudah
+                                 diperiksa dari baris yang kebetulan sependapat. -->
+                            <Badge
+                                v-if="baris.analisis.relevan_manual !== null || baris.analisis.label_manual"
+                                variant="secondary"
+                            >
+                                Dikoreksi
+                            </Badge>
                         </div>
 
-                        <h1 class="text-lg font-semibold leading-snug">{{ artikel.judul }}</h1>
-
-                        <p v-if="artikel.ringkasan" class="text-sm text-muted-foreground">
-                            {{ artikel.ringkasan }}
+                        <p v-if="baris.analisis.reason_summary" class="text-xs text-muted-foreground">
+                            {{ baris.analisis.reason_summary }}
                         </p>
 
-                        <div class="grid gap-2 sm:grid-cols-3">
-                            <div class="rounded border p-2">
-                                <p class="text-[11px] text-muted-foreground">Kemiripan konteks</p>
-                                <p class="angka text-base font-semibold">{{ desimal(artikel.skor_relevansi) }}</p>
-                            </div>
-                            <div class="rounded border p-2">
-                                <p class="text-[11px] text-muted-foreground">Sebutan di judul</p>
-                                <p class="angka text-base font-semibold">{{ artikel.sebutan.judul }}</p>
-                            </div>
-                            <div class="rounded border p-2">
-                                <p class="text-[11px] text-muted-foreground">Sebutan di isi</p>
-                                <p class="angka text-base font-semibold">{{ artikel.sebutan.isi }}</p>
-                            </div>
-                        </div>
+                        <details v-if="baris.analisis.evidence?.length" class="text-xs">
+                            <summary class="cursor-pointer text-muted-foreground hover:text-foreground">
+                                Bukti ({{ baris.analisis.evidence.length }})
+                            </summary>
+                            <ul class="mt-1 space-y-1 border-l pl-2 text-muted-foreground">
+                                <li v-for="(kutipan, i) in baris.analisis.evidence" :key="i">
+                                    &ldquo;{{ kutipan }}&rdquo;
+                                </li>
+                            </ul>
+                        </details>
+                    </div>
+                </template>
 
-                        <p class="text-[11px] leading-snug text-muted-foreground">
-                            Kemiripan makna, bukan persentase keyakinan. Sebutan nol di judul dan
-                            satu atau dua di isi biasanya berarti konteks hanya disinggung sepintas,
-                            dan penyebutan bukan pembahasan.
-                        </p>
-
-                        <a
-                            :href="artikel.url"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="inline-flex items-center gap-1 text-xs underline"
+                <template #sel-aksi="{ baris }">
+                    <div class="flex flex-col gap-1.5">
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            :disabled="sedangJalan === baris.id"
+                            @click="klasifikasi(baris)"
                         >
-                            Buka halaman aslinya <ExternalLink class="h-3 w-3" aria-hidden="true" />
-                        </a>
-                    </CardContent>
-                </Card>
+                            <Sparkles class="size-3.5" />
+                            {{ sedangJalan === baris.id ? 'Menilai...' : 'Klasifikasi' }}
+                        </Button>
 
-                <Card>
-                    <CardContent class="p-4">
-                        <p class="mb-2 text-xs font-medium text-muted-foreground">Awal isi artikel</p>
-                        <p class="max-h-64 overflow-y-auto whitespace-pre-line text-sm leading-relaxed">
-                            {{ artikel.isi }}
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardContent class="space-y-3 p-4">
-                        <p class="text-sm font-medium">
-                            Apakah artikel ini secara substantif membahas
-                            {{ konteks?.nama ?? 'konteks utama' }}?
-                        </p>
-
-                        <div class="flex flex-wrap gap-2">
-                            <Button :disabled="form.processing" @click="putuskan(true)">
-                                <CheckCircle2 class="mr-1 h-4 w-4" aria-hidden="true" />
-                                Relevan
-                                <kbd class="ml-2 rounded bg-background/20 px-1 text-[10px]">1</kbd>
+                        <!-- Koreksi relevansi hanya muncul kalau barisnya sudah ada.
+                             Menandai relevan sebelum Gemini menilai tidak punya baris
+                             untuk ditulisi. -->
+                        <div v-if="baris.analisis" class="flex gap-1">
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                class="flex-1"
+                                title="Tandai relevan"
+                                @click="putuskan(baris.analisis, true)"
+                            >
+                                <ThumbsUp class="size-3.5" />
                             </Button>
-                            <Button variant="outline" :disabled="form.processing" @click="putuskan(false)">
-                                <XCircle class="mr-1 h-4 w-4" aria-hidden="true" />
-                                Tidak relevan
-                                <kbd class="ml-2 rounded bg-muted px-1 text-[10px]">2</kbd>
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                class="flex-1"
+                                title="Tandai tidak relevan"
+                                @click="putuskan(baris.analisis, false)"
+                            >
+                                <ThumbsDown class="size-3.5" />
                             </Button>
                         </div>
-
-                        <Input v-model="form.alasan" placeholder="Alasan, opsional" class="text-sm" />
-
-                        <p class="text-[11px] text-muted-foreground">
-                            Keputusan Anda tidak pernah ditimpa analisis ulang.
-                        </p>
-                    </CardContent>
-                </Card>
-            </template>
+                    </div>
+                </template>
+            </DataTable>
         </div>
     </LayoutAdmin>
 </template>

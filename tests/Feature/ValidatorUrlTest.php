@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Services\Crawler\UrlDitolak;
 use App\Services\Crawler\ValidatorUrl;
 use Tests\TestCase;
 
@@ -53,7 +54,7 @@ class ValidatorUrlTest extends TestCase
         try {
             $this->validator->pastikanAman('http://127.0.0.1/feed');
             $this->fail('Seharusnya melempar UrlDitolak.');
-        } catch (\App\Services\Crawler\UrlDitolak $e) {
+        } catch (UrlDitolak $e) {
             $this->assertStringContainsString('internal', $e->getMessage());
         }
     }

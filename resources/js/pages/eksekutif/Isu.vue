@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import BadgeSentimen from '@/components/domain/BadgeSentimen.vue';
-import PemilihKonteks from '@/components/domain/PemilihKonteks.vue';
 import PemilihRentangTanggal from '@/components/domain/PemilihRentangTanggal.vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -16,8 +15,6 @@ type Label = 'negatif' | 'netral' | 'positif';
 
 const props = defineProps<{
     periode: { dari: string; sampai: string };
-    konteksId: number | null;
-    daftarKonteks: Array<{ id: number; nama: string; utama: boolean }>;
     istilah: Array<{
         istilah: string;
         frekuensi: number;
@@ -29,7 +26,7 @@ const props = defineProps<{
 
 const { formatAngka } = useFormatAngka();
 const { sentimenTersedia } = useGerbangSentimen();
-const { pindah, kueri } = usePeriodeEksekutif(props.periode, props.konteksId, '/eksekutif/isu');
+const { pindah, kueri } = usePeriodeEksekutif(props.periode, '/eksekutif/isu');
 
 /**
  * Word cloud diganti daftar sepuluh teratas di layar sempit, word cloud tidak
@@ -48,7 +45,6 @@ const naikTajam = computed(() =>
         <header class="flex flex-wrap items-center justify-between gap-3">
             <h1 class="text-2xl font-semibold">Isu hangat</h1>
             <div class="flex flex-wrap items-center gap-2">
-                <PemilihKonteks :daftar="daftarKonteks" :terpilih="konteksId" @ubah="(id) => pindah({ konteks: id })" />
                 <PemilihRentangTanggal
                     :dari="periode.dari"
                     :sampai="periode.sampai"

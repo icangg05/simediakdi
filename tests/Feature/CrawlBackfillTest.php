@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\HitungEmbedding;
 use App\Models\Artikel;
 use App\Models\Media;
 use App\Services\Crawler\PengunduhHalaman;
@@ -80,15 +79,28 @@ class CrawlBackfillTest extends TestCase
         $this->assertSame('isi_diambil', $artikel->status_proses);
     }
 
-    public function test_artikel_asli_diteruskan_ke_analisis(): void
+    /**
+     * Artikel asli berhenti menunggu diklasifikasi, bukan menghilang.
+     *
+     * Rantai job memang sengaja putus setelah dedup: klasifikasi Gemini
+     * dijalankan lewat tombol, bukan di latar belakang. Yang diuji di sini
+     * adalah bahwa artikelnya tetap berstatus `isi_diambil`, yaitu tahap yang
+     * dibaca halaman Antrean Klasifikasi. Status lain berarti artikel itu
+     * tidak akan pernah muncul untuk dinilai siapa pun.
+     */
+    public function test_artikel_asli_menunggu_diklasifikasi(): void
     {
         $this->pengunduh($this->halamanArsip([
             ['Judul A', str_repeat('kalimat pertama berbeda. ', 40)],
         ]));
 
-        $this->artisan('crawl:backfill --halaman=1');
+        $this->artisan('crawl:backfill --halaman=1')->assertSuccessful();
 
-        Bus::assertDispatched(HitungEmbedding::class);
+        $artikel = Artikel::withoutGlobalScopes()->where('judul', 'Judul A')->firstOrFail();
+
+        $this->assertSame('asli', $artikel->status_dedup->value);
+        $this->assertSame('isi_diambil', $artikel->status_proses);
+        Bus::assertNothingDispatched();
     }
 
     /** Deduplikasi harus berlaku sama seperti jalur crawl biasa. */

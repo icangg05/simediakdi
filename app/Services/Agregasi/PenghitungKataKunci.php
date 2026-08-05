@@ -2,8 +2,8 @@
 
 namespace App\Services\Agregasi;
 
-use App\Models\KonteksPantauan;
 use App\Support\Waktu;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -63,11 +63,11 @@ class PenghitungKataKunci
     /**
      * @return int jumlah baris yang ditulis
      */
-    public function hitung(string $tanggalWita, ?int $konteksId, string $granularitas = 'harian'): int
+    public function hitung(string $tanggalWita, string $granularitas = 'harian'): int
     {
         [$mulai, $akhir, $periodeMulai, $periodeAkhir] = $this->periode($tanggalWita, $granularitas);
 
-        $artikel = $this->artikel($mulai, $akhir, $konteksId);
+        $artikel = $this->artikel($mulai, $akhir);
 
         if ($artikel === []) {
             return 0;
@@ -83,7 +83,7 @@ class PenghitungKataKunci
         $hitungan = array_slice($hitungan, 0, self::BATAS_ISTILAH, preserve_keys: true);
 
         $sentimenDominan = $this->sentimenDominan($artikel, array_keys($hitungan));
-        $rataSebelumnya = $this->rataSebelumnya(array_keys($hitungan), $konteksId, $granularitas, $periodeMulai);
+        $rataSebelumnya = $this->rataSebelumnya(array_keys($hitungan), $granularitas, $periodeMulai);
 
         $baris = [];
 
@@ -91,7 +91,6 @@ class PenghitungKataKunci
             $rata = $rataSebelumnya[$istilah] ?? 0.0;
 
             $baris[] = [
-                'konteks_pantauan_id' => $konteksId,
                 'granularitas' => $granularitas,
                 'periode_mulai' => $periodeMulai,
                 'periode_akhir' => $periodeAkhir,
@@ -117,11 +116,6 @@ class PenghitungKataKunci
         DB::table('kata_kunci_periode')
             ->where('granularitas', $granularitas)
             ->where('periode_mulai', $periodeMulai)
-            ->when(
-                $konteksId === null,
-                fn ($q) => $q->whereNull('konteks_pantauan_id'),
-                fn ($q) => $q->where('konteks_pantauan_id', $konteksId),
-            )
             ->delete();
 
         DB::table('kata_kunci_periode')->insert($baris);
@@ -129,10 +123,10 @@ class PenghitungKataKunci
         return count($baris);
     }
 
-    /** @return array{0: \Carbon\CarbonImmutable, 1: \Carbon\CarbonImmutable, 2: string, 3: string} */
+    /** @return array{0: CarbonImmutable, 1: CarbonImmutable, 2: string, 3: string} */
     private function periode(string $tanggalWita, string $granularitas): array
     {
-        $tanggal = \Carbon\CarbonImmutable::parse($tanggalWita);
+        $tanggal = CarbonImmutable::parse($tanggalWita);
 
         if ($granularitas === 'mingguan') {
             $awal = $tanggal->startOfWeek();
@@ -151,22 +145,21 @@ class PenghitungKataKunci
     }
 
     /**
-     * Artikel asli pada periode, beserta label efektifnya untuk konteks itu.
+     * Artikel asli pada periode, beserta label sentimen efektifnya.
      *
      * @return list<array{teks: string, label: ?string}>
      */
-    private function artikel(\Carbon\CarbonImmutable $mulai, \Carbon\CarbonImmutable $akhir, ?int $konteksId): array
+    private function artikel(CarbonImmutable $mulai, CarbonImmutable $akhir): array
     {
         return DB::table('artikel as a')
-            ->when(
-                $konteksId,
-                fn ($q) => $q->join('analisis_sentimen as s', function ($j) use ($konteksId) {
-                    $j->on('s.artikel_id', '=', 'a.id')
-                        ->where('s.konteks_pantauan_id', '=', $konteksId)
-                        ->where('s.relevan', '=', true);
-                })->addSelect('s.label_efektif as label'),
-                fn ($q) => $q->selectRaw('NULL AS label'),
-            )
+            // LEFT JOIN, bukan JOIN. Artikel yang belum diklasifikasi tetap
+            // ikut menyumbang istilah ke daftar isu hangat, hanya tanpa
+            // sentimen dominan. Membuangnya berarti isu yang baru muncul tidak
+            // pernah terlihat sampai seseorang menekan tombol Klasifikasi.
+            ->leftJoin('analisis_sentimen as s', function ($j) {
+                $j->on('s.artikel_id', '=', 'a.id')->where('s.relevan', '=', true);
+            })
+            ->addSelect('s.label_efektif as label')
             ->where('a.status_dedup', 'asli')
             ->whereNotNull('a.isi')
             ->whereBetween('a.diambil_at', [$mulai, $akhir])
@@ -275,28 +268,17 @@ class PenghitungKataKunci
      * @param  list<string>  $istilah
      * @return array<string, float>
      */
-    private function rataSebelumnya(array $istilah, ?int $konteksId, string $granularitas, string $periodeMulai): array
+    private function rataSebelumnya(array $istilah, string $granularitas, string $periodeMulai): array
     {
         return DB::table('kata_kunci_periode')
-            ->when(
-                $konteksId,
-                fn ($q) => $q->where('konteks_pantauan_id', $konteksId),
-                fn ($q) => $q->whereNull('konteks_pantauan_id'),
-            )
             ->where('granularitas', $granularitas)
             ->where('periode_mulai', '<', $periodeMulai)
             ->whereIn('istilah', $istilah)
-            ->where('periode_mulai', '>=', \Carbon\CarbonImmutable::parse($periodeMulai)
+            ->where('periode_mulai', '>=', CarbonImmutable::parse($periodeMulai)
                 ->subDays($granularitas === 'mingguan' ? 28 : 4)->toDateString())
             ->groupBy('istilah')
             ->pluck(DB::raw('avg(frekuensi)'), 'istilah')
             ->map(fn ($n) => (float) $n)
             ->all();
-    }
-
-    /** @return list<KonteksPantauan> */
-    public function konteksAktif(): array
-    {
-        return KonteksPantauan::query()->aktif()->get()->all();
     }
 }

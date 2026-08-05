@@ -36,22 +36,17 @@ class EksporController extends Controller
 
         $penulis = SimpleExcelWriter::create($jalur)->addHeader([
             'Judul', 'Media', 'Penulis', 'Terbit', 'Diambil', 'Jumlah kata',
-            'Status dedup', 'Konteks', 'Nada', 'Keyakinan', 'Perlu review', 'URL',
+            'Status dedup', 'Konteks', 'Nada', 'Kode alasan', 'Perlu review', 'URL',
         ]);
 
         Artikel::query()
-            ->with(['media:id,nama', 'analisisSentimen.konteks:id,nama'])
+            ->with(['media:id,nama', 'analisisSentimen'])
             ->whereBetween('diambil_at', [$periode->mulaiUtc(), $periode->akhirUtc()])
             // chunkById, bukan get(): jumlah barisnya tidak dibatasi apa pun
             // selain rentang tanggal.
-            ->chunkById(500, function ($kumpulan) use ($penulis, $periode) {
+            ->chunkById(500, function ($kumpulan) use ($penulis) {
                 foreach ($kumpulan as $artikel) {
-                    $analisis = $artikel->analisisSentimen
-                        ->when(
-                            $periode->konteksId,
-                            fn ($c) => $c->where('konteks_pantauan_id', $periode->konteksId),
-                        )
-                        ->where('relevan', true);
+                    $analisis = $artikel->analisisSentimen->where('relevan', true);
 
                     // Artikel tanpa analisis relevan tetap diekspor satu baris,
                     // menyembunyikannya membuat total di Excel tidak cocok
@@ -86,9 +81,8 @@ class EksporController extends Controller
             Waktu::tanggalWita($artikel->diambil_at),
             $artikel->jumlah_kata,
             $artikel->status_dedup->value,
-            $analisis?->konteks?->nama,
             $analisis?->label_efektif?->value,
-            $analisis?->keyakinan,
+            $analisis?->reason_code,
             $analisis?->perlu_review ? 'ya' : 'tidak',
             $artikel->url,
         ];

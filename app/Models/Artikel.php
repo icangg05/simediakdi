@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Pgvector\Laravel\HasNeighbors;
 use Pgvector\Laravel\Vector;
@@ -55,12 +54,6 @@ class Artikel extends Model
     public function analisisSentimen(): HasMany
     {
         return $this->hasMany(AnalisisSentimen::class);
-    }
-
-    public function entitas(): BelongsToMany
-    {
-        return $this->belongsToMany(Entitas::class, 'artikel_entitas')
-            ->withPivot('jumlah_sebutan');
     }
 
     /** Hampir semua agregasi mengecualikan salinan. */
