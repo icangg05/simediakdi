@@ -357,18 +357,23 @@ class DatasetRelevansiTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->where('sampel.id', $belumDitinjau->id)
-                ->where('sampel.sisa_antrean', 1)
+                // Antreannya berisi satu baris dan ini barisnya, jadi tidak ada
+                // sisa. Sisa dihitung dari posisi, bukan dari besar antrean.
+                ->where('sampel.nomor_antrean', 1)
+                ->where('sampel.total_antrean', 1)
+                ->where('sampel.sisa_antrean', 0)
                 ->where('sampel.antrean', 'Belum ditinjau ulang'));
     }
 
     /**
-     * Sampel yang baru dikerjakan turun ke urutan belakang.
+     * Simpan dan lanjut maju ke baris berikutnya, bukan mengulang yang sama.
      *
-     * Tanpa aturan ini, antrean yang tidak menyusut sendiri, misalnya saringan
-     * satu media, akan menyodorkan artikel yang sama berulang kali dan pelabel
-     * berputar di tempat.
+     * Kursor `setelah` yang menjaminnya. Pada antrean yang isinya tidak berubah
+     * setelah dilabeli, misalnya saringan satu media atau "Model ragu",
+     * mengambil baris teratas berarti menyodorkan artikel yang sama berulang
+     * kali dan pelabel berputar di tempat.
      */
-    public function test_sampel_yang_baru_disimpan_tidak_disodorkan_lagi(): void
+    public function test_simpan_dan_lanjut_maju_ke_baris_berikutnya(): void
     {
         $pertama = $this->sampel('Artikel pertama', 'https://kp.test/satu');
         $pertama->update(['priority_score' => 90]);
@@ -380,9 +385,64 @@ class DatasetRelevansiTest extends TestCase
             ->post("/admin/model-relevansi/sampel/{$pertama->id}/label", ['label' => 'relevan']);
 
         $this->actingAs($this->admin)
-            ->get('/admin/model-relevansi?tab=dataset&labeli=1')
+            ->get("/admin/model-relevansi?tab=dataset&labeli=1&setelah={$pertama->id}")
             ->assertOk()
-            ->assertInertia(fn ($page) => $page->where('sampel.id', $kedua->id));
+            ->assertInertia(fn ($page) => $page
+                ->where('sampel.id', $kedua->id)
+                ->where('sampel.nomor_antrean', 2)
+                ->where('sampel.sisa_antrean', 0));
+    }
+
+    /**
+     * Nama antrean menyebut seluruh filter yang menyala.
+     *
+     * Bug nyata: penamaannya memakai `match` yang berhenti di kecocokan
+     * pertama, dan "Model ragu" tidak ada dalam daftarnya sama sekali. Pelabel
+     * menyaring 100 sampel paling berharga, panel menulis "Seluruh dataset",
+     * dan tidak ada cara mengetahui mana yang benar tanpa membaca URL.
+     */
+    public function test_nama_antrean_menyebut_semua_filter_aktif(): void
+    {
+        $sampel = $this->sampel('Artikel ragu', 'https://kp.test/ragu');
+
+        $this->actingAs($this->admin)
+            ->get('/admin/model-relevansi?tab=dataset&labeli=1')
+            ->assertInertia(fn ($page) => $page->where('sampel.antrean', 'Seluruh dataset')->etc());
+
+        $this->actingAs($this->admin)
+            ->get("/admin/model-relevansi?tab=dataset&labeli=1&sampel={$sampel->id}&status=belum_dilabeli&kesulitan=hard_negative")
+            ->assertInertia(fn ($page) => $page
+                ->where('sampel.antrean', 'Belum dilabeli + Hard negative')
+                ->etc());
+    }
+
+    /**
+     * Panel dan tabel menunjuk baris yang sama.
+     *
+     * Bug nyata yang dilaporkan pelabel: panel menyodorkan artikel yang
+     * posisinya di tabel entah di mana. Sebabnya dua urutan yang berbeda, tabel
+     * memakai skor prioritas sedangkan panel memakai `last_reviewed_at`.
+     *
+     * Diuji lewat kolom urut yang tidak biasa, supaya yang dijamin bukan
+     * kebetulan urutan bawaan melainkan bahwa panel benar-benar mengikuti
+     * urutan tabel apa pun kolomnya.
+     */
+    public function test_panel_mengikuti_urutan_tabel(): void
+    {
+        $this->sampel('Cerita ketiga', 'https://kp.test/c')->update(['priority_score' => 99]);
+        $this->sampel('Artikel pertama', 'https://kp.test/a')->update(['priority_score' => 10]);
+        $this->sampel('Berita kedua', 'https://kp.test/b')->update(['priority_score' => 50]);
+
+        $this->actingAs($this->admin)
+            ->get('/admin/model-relevansi?tab=dataset&labeli=1&urut=judul&arah=asc')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('sampel.judul', 'Artikel pertama')
+                ->where('dataset.data.0.judul', 'Artikel pertama')
+                ->where('sampel.nomor_antrean', 1)
+                ->where('sampel.total_antrean', 3)
+                ->where('sampel.sisa_antrean', 2)
+                ->etc());
     }
 
     /**

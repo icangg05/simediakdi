@@ -4,6 +4,7 @@ namespace App\Services\Relevance;
 
 use App\Models\Artikel;
 use App\Models\KonteksPantauan;
+use App\Models\SampelRelevansi;
 
 /**
  * Urutan antrean pelabelan, beserta alasan urutannya.
@@ -17,13 +18,13 @@ use App\Models\KonteksPantauan;
  * ditanya alasannya akan diabaikan pelabel pada hari ketiga, dan antrean yang
  * diabaikan sama saja dengan tidak ada.
  *
- * Versi fase 1 memakai sinyal kata kunci saja. Sembilan komponen lain di
- * dokumen 10 bagian 8, mulai dari kedekatan dengan ambang sampai perbedaan
- * pendapat antar-model, semuanya membutuhkan prediksi model yang belum ada.
- * Menambahkannya sekarang berarti menulis rumus yang seluruh sukunya nol.
+ * Dua tingkat, dan bedanya besar. Tanpa model, yang bisa dihitung hanya sinyal
+ * kata kunci, dan ribuan sampel berakhir berskor nol tanpa bisa dibedakan satu
+ * sama lain. Dengan prediksi, antrean bisa menunjuk tempat model sendiri ragu,
+ * dan di situlah satu jam pelabelan bernilai paling banyak.
  *
- * ponytail: skor dari sinyal kata kunci saja, tambahkan komponen berbasis
- * prediksi begitu model pertama lolos fase 3.
+ * ponytail: komponen perbedaan pendapat antar-model belum ada, ia baru berarti
+ * setelah ada dua versi model yang bisa dibandingkan.
  */
 class SkorPrioritasPelabelan
 {
@@ -53,19 +54,100 @@ class SkorPrioritasPelabelan
         'kabupaten',
     ];
 
+    /** Model paling ragu di sekitar 0,5. Di situlah pelabelan paling berguna. */
+    private const BOBOT_DEKAT_AMBANG = 40;
+
+    /** Model yakin tetapi berlawanan dengan sinyal kata kunci. */
+    private const BOBOT_BERTENTANGAN = 35;
+
+    /**
+     * Skor prioritas satu sampel setelah modelnya memberi prediksi.
+     *
+     * Inilah yang menyalakan active learning. Sebelum ada model, antrean hanya
+     * punya empat sinyal kata kunci dan 2.312 sampel berskor nol yang tidak
+     * bisa dibedakan satu sama lain. Prediksi menambahkan hal yang tidak bisa
+     * ditebak aturan: di mana model sendiri ragu.
+     *
+     * Yang dikejar bukan artikel yang paling mungkin relevan, melainkan yang
+     * paling banyak mengajari. Artikel berkeyakinan 0,99 tidak menambah apa pun
+     * bagi model, sedangkan artikel di 0,52 adalah tempat batas keputusannya
+     * masih kabur.
+     *
+     * @param  array<string, mixed>  $prediksi
+     * @return array{priority_score: int, priority_reasons: array<string, int>}
+     */
+    public function hitungDenganPrediksi(SampelRelevansi $sampel, array $prediksi): array
+    {
+        $komponen = $this->dariTeks($sampel->judul, (string) $sampel->isi);
+
+        $peluang = (float) $prediksi['probabilitas_relevan'];
+
+        // Jarak dari 0,5, dibalik lalu diskalakan. Peluang 0,50 memberi bobot
+        // penuh, 0,99 hampir nol.
+        $kedekatan = 1 - abs($peluang - 0.5) * 2;
+
+        if ($kedekatan > 0.2) {
+            $komponen['dekat_ambang'] = (int) round(self::BOBOT_DEKAT_AMBANG * $kedekatan);
+        }
+
+        // Model yakin tidak relevan padahal kata kuncinya menonjol, atau
+        // sebaliknya. Salah satu dari keduanya pasti keliru, dan menemukan yang
+        // mana adalah pekerjaan yang paling berharga untuk pelabel.
+        $sinyalKuat = isset($komponen['kabur_judul_bersih']) || ! isset($komponen['sebutan_tipis']);
+
+        if ($peluang < 0.2 && $sinyalKuat && isset($komponen['kabur_judul_bersih'])) {
+            $komponen['bertentangan_dengan_sinyal'] = self::BOBOT_BERTENTANGAN;
+        }
+
+        if ($peluang > 0.8 && isset($komponen['sebutan_tipis'])) {
+            $komponen['bertentangan_dengan_sinyal'] = self::BOBOT_BERTENTANGAN;
+        }
+
+        // Komponen `input_terpotong` sempat ada di sini lalu dibuang. Ia
+        // menyala pada 2.746 dari 4.137 sampel, dua pertiga korpus, dan
+        // komponen yang menyala hampir di mana-mana tidak membedakan apa pun:
+        // ia hanya menggeser seluruh skor ke atas secara merata lalu
+        // menenggelamkan `dekat_ambang` yang menyala 150 kali dan justru
+        // paling berharga.
+        //
+        // Pemotongannya sendiri tetap masalah dan tercatat di `input_truncated`
+        // milik tiap prediksi, tempat yang benar untuk menyelidikinya.
+
+        return [
+            'priority_score' => array_sum($komponen),
+            'priority_reasons' => $komponen,
+        ];
+    }
+
     /**
      * @return array{total: int, komponen: array<string, int>}
      */
     public function hitung(Artikel $artikel): array
     {
+        $komponen = $this->dariTeks($artikel->judul, (string) $artikel->isi);
+
+        return ['total' => array_sum($komponen), 'komponen' => $komponen];
+    }
+
+    /**
+     * Sinyal kata kunci, satu-satunya yang bisa dihitung tanpa model.
+     *
+     * Dipakai bersama artikel produksi dan sampel dataset. Menyalinnya ke dua
+     * tempat berarti antrean pelabelan dan antrean impor lambat laun mengurut
+     * dengan aturan yang berbeda, dan tidak ada yang akan menyadarinya.
+     *
+     * @return array<string, int>
+     */
+    private function dariTeks(string $judulAsli, string $isiAsli): array
+    {
         $konteks = KonteksPantauan::utama();
 
         if ($konteks === null) {
-            return ['total' => 0, 'komponen' => []];
+            return [];
         }
 
-        $judul = $this->normalkan($artikel->judul);
-        $isi = $this->normalkan((string) $artikel->isi);
+        $judul = $this->normalkan($judulAsli);
+        $isi = $this->normalkan($isiAsli);
         $kataKunci = array_map(fn ($k) => $this->normalkan((string) $k), $konteks->kata_kunci ?? []);
 
         $diJudul = $this->hitungSebutan($judul, $kataKunci);
@@ -91,16 +173,14 @@ class SkorPrioritasPelabelan
             $komponen['pola_kontras'] = self::BOBOT_KONTRAS;
         }
 
-        // Komponen kelima, tag menyebut Pemkot padahal isinya tidak, belum bisa
-        // dihitung. Kolom `kategori_sumber` dan `tag_sumber` belum ada di tabel
-        // artikel dan crawler belum memanennya, jadi sukunya akan selalu nol.
-        // Sprint 6 fase 2 yang membukanya.
+        // Komponen berbasis tag belum bisa dihitung: kolom `kategori_sumber`
+        // dan `tag_sumber` belum ada di tabel artikel dan crawler belum
+        // memanennya. Sprint 6 fase 2 yang membukanya.
         //
-        // ponytail: empat komponen dari sinyal kata kunci, tambahkan komponen
-        // berbasis tag setelah sprint 6 fase 2 dan komponen berbasis prediksi
-        // setelah model pertama lolos fase 3.
+        // ponytail: tiga komponen dari kata kunci, tambahkan komponen berbasis
+        // tag setelah sprint 6 fase 2.
 
-        return ['total' => array_sum($komponen), 'komponen' => $komponen];
+        return $komponen;
     }
 
     /** @param list<string> $kataKunci */

@@ -30,6 +30,8 @@ interface Sampel {
     pelabel: string | null;
     labeled_at: string | null;
     sisa_antrean: number;
+    nomor_antrean: number | null;
+    total_antrean: number;
     antrean: string;
 }
 
@@ -61,13 +63,35 @@ const alasanWajib = computed(
 
 const bisaSimpan = computed(() => form.label !== '' && (!alasanWajib.value || form.alasan !== null));
 
+/**
+ * Hard case hanya punya satu bentuk untuk tiap label, jadi yang salah tidak
+ * pernah ditawarkan.
+ *
+ * `hard_negative` berarti artikel yang tidak relevan tetapi terlihat relevan,
+ * dan `hard_positive` kebalikannya. Server menolak pasangan yang tertukar,
+ * tetapi menolak setelah orang menekan simpan berarti satu putaran hilang.
+ * Keterangannya ikut ditulis di sini karena istilah "hard positive" tidak
+ * memberi tahu siapa pun arah mana yang dimaksud.
+ */
+const opsiKesulitan = computed(() => [
+    { nilai: 'normal', label: 'Normal' },
+    form.label === 'relevan'
+        ? { nilai: 'hard_positive', label: 'Hard positive, tidak terlihat relevan padahal iya' }
+        : { nilai: 'hard_negative', label: 'Hard negative, terlihat relevan padahal bukan' },
+]);
+
 // Alasan lama ikut terbawa kalau labelnya berganti, dan alasan yang tidak
 // cocok dengan labelnya ditolak server. Dikosongkan supaya pelabel memilih
 // ulang, bukan mendapat galat validasi yang tidak dia sebabkan.
+//
+// Kesulitan disetel ulang karena alasan yang sama. Memilih hard positive lalu
+// berganti ke tidak relevan meninggalkan pasangan yang mustahil, dan pilihannya
+// tidak lagi ada di daftar sehingga tampak seperti Normal padahal bukan.
 watch(
     () => form.label,
     () => {
         form.alasan = null;
+        form.kesulitan = 'normal';
     },
 );
 
@@ -85,15 +109,22 @@ function lewati() {
 }
 
 /**
- * Sampel berikutnya diambil server menurut skor prioritas, tanpa memuat ulang
- * seluruh halaman. `sampel` dibuang dari URL supaya yang datang antrean
- * berikutnya, bukan artikel yang sama.
+ * Sampel berikutnya adalah baris tepat di bawahnya pada tabel, dengan filter
+ * dan kolom urut yang sedang dipakai.
+ *
+ * `setelah` yang menggantikan `sampel`, bukan sekadar membuangnya. Tanpa kursor
+ * server hanya bisa mengambil baris teratas antrean, dan pada antrean yang
+ * isinya tidak berubah setelah dilabeli, misalnya "Model ragu", baris teratas
+ * itu artikel yang sama terus.
  */
 function berikutnya() {
+    const kursor = props.sampel.id;
+
     form.reset();
 
     const params = new URLSearchParams(window.location.search);
     params.delete('sampel');
+    params.set('setelah', String(kursor));
     params.set('labeli', '1');
 
     router.get('/admin/model-relevansi', Object.fromEntries(params), {
@@ -106,6 +137,7 @@ function tutup() {
     const params = new URLSearchParams(window.location.search);
     params.delete('labeli');
     params.delete('sampel');
+    params.delete('setelah');
 
     router.get('/admin/model-relevansi', Object.fromEntries(params), { preserveScroll: true });
 }
@@ -126,8 +158,6 @@ function pintasan(e: KeyboardEvent) {
 
 onMounted(() => window.addEventListener('keydown', pintasan));
 onUnmounted(() => window.removeEventListener('keydown', pintasan));
-
-const isiPanjang = ref(false);
 
 const panel = ref<HTMLElement | null>(null);
 
@@ -176,15 +206,28 @@ const namaAlasanPrioritas: Record<string, string> = {
     sebutan_tipis: 'Disebut sekali lalu tidak lagi',
     pola_kontras: 'Memuat instansi lain yang sering tertukar',
     tag_bertentangan: 'Tag menyebut Pemkot padahal isinya tidak',
+    dekat_ambang: 'Model sendiri ragu, peluangnya di sekitar 0,5',
+    bertentangan_dengan_sinyal: 'Model yakin tapi berlawanan dengan sinyal kata kunci',
 };
 </script>
 
 <template>
     <div ref="panel" class="scroll-mt-4">
-        <Card class="border-primary/40">
-            <CardContent class="space-y-4 p-4">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                    <div class="flex flex-wrap items-center gap-2 text-xs">
+        <!--
+            Setinggi layar, tidak lebih. Yang menggulir di dalamnya hanya isi
+            artikel, sementara pertanyaan dan tombol simpan tetap terlihat.
+            Sebelumnya artikel panjang mendorong tombol simpan ke luar layar,
+            dan pelabel menggulir turun lalu naik lagi untuk setiap satu sampel.
+            Dikalikan seribu artikel, itu ongkos yang nyata.
+
+            Pembatasnya mulai dari `sm`. Di ponsel tinggi layar sudah habis
+            duluan oleh blok keputusan, dan memaksakan aturan yang sama di sana
+            menyisakan jendela artikel setinggi dua baris.
+        -->
+        <Card class="flex flex-col border-primary/40 sm:max-h-[calc(100vh-6rem)]">
+            <CardContent class="flex min-h-0 flex-1 flex-col gap-3 p-4">
+                <div class="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                    <div class="flex min-w-0 flex-wrap items-center gap-2 text-xs">
                         <Badge variant="outline">{{ sampel.media ?? 'Media belum ditautkan' }}</Badge>
                         <span class="text-muted-foreground">{{ tanggal(sampel.tanggal_publikasi) }}</span>
                         <Badge v-if="sampel.status_label === 'terkunci_test'" variant="destructive"> Test terkunci </Badge>
@@ -193,10 +236,17 @@ const namaAlasanPrioritas: Record<string, string> = {
                         </Badge>
                     </div>
 
-                    <span class="text-xs text-muted-foreground">
+                    <!--
+                        Nomor urut yang sama dengan kolom No di tabel. Itu yang
+                        membuat pelabel bisa memastikan panel dan tabel memang
+                        menunjuk baris yang sama.
+                    -->
+                    <span class="min-w-0 text-xs text-muted-foreground">
                         Antrean <strong>{{ sampel.antrean }}</strong
-                        >, sisa
-                        <strong class="angka">{{ sampel.sisa_antrean }}</strong>
+                        >, nomor
+                        <strong class="angka">{{ sampel.nomor_antrean ?? '-' }}</strong>
+                        dari <strong class="angka">{{ sampel.total_antrean }}</strong
+                        >, sisa <strong class="angka">{{ sampel.sisa_antrean }}</strong>
                     </span>
                 </div>
 
@@ -216,8 +266,6 @@ const namaAlasanPrioritas: Record<string, string> = {
                     </Button>
                 </div>
 
-                <p v-if="sampel.excerpt" class="text-sm text-muted-foreground">{{ sampel.excerpt }}</p>
-
                 <div v-if="sampel.tag_sumber?.length || sampel.kategori_sumber?.length" class="flex flex-wrap gap-1">
                     <Badge v-for="k in sampel.kategori_sumber ?? []" :key="`k-${k}`" variant="outline" class="text-[10px]">
                         {{ k }}
@@ -228,53 +276,67 @@ const namaAlasanPrioritas: Record<string, string> = {
                 </div>
 
                 <!--
-                Alasan artikel ini muncul di urutan atas. Antrean prioritas yang
-                tidak bisa ditanya alasannya akan diabaikan pada hari ketiga.
-            -->
-                <div v-if="sampel.priority_reasons && Object.keys(sampel.priority_reasons).length" class="rounded border p-2">
-                    <p class="text-[11px] font-medium text-muted-foreground">Mengapa artikel ini didahulukan (skor {{ sampel.priority_score }})</p>
-                    <ul class="mt-1 space-y-0.5">
-                        <li v-for="(bobot, kunci) in sampel.priority_reasons" :key="kunci" class="text-[11px] text-muted-foreground">
-                            {{ namaAlasanPrioritas[kunci] ?? kunci }}
-                            <span class="angka">+{{ bobot }}</span>
-                        </li>
-                    </ul>
-                </div>
+                    Alasan artikel ini muncul di urutan atas. Antrean prioritas
+                    yang tidak bisa ditanya alasannya akan diabaikan pada hari
+                    ketiga.
 
-                <div>
-                    <p class="overflow-y-auto whitespace-pre-line text-sm leading-relaxed" :class="isiPanjang ? 'max-h-none' : 'max-h-56'">
-                        {{ sampel.isi }}
-                    </p>
-                    <button type="button" class="mt-1 text-xs underline" @click="isiPanjang = !isiPanjang">
-                        {{ isiPanjang ? 'Ringkas isi' : 'Tampilkan seluruh isi' }}
-                    </button>
-                </div>
+                    Satu baris yang membungkus, bukan daftar. Isinya keterangan
+                    yang dibaca sekilas lalu diabaikan, dan sebagai daftar ia
+                    memakan seperlima layar yang seharusnya jadi jatah isi
+                    artikel.
+                -->
+                <p
+                    v-if="sampel.priority_reasons && Object.keys(sampel.priority_reasons).length"
+                    class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground"
+                >
+                    <span class="font-medium">Didahulukan (skor {{ sampel.priority_score }}):</span>
+                    <span v-for="(bobot, kunci) in sampel.priority_reasons" :key="kunci">
+                        {{ namaAlasanPrioritas[kunci] ?? kunci }}
+                        <span class="angka">+{{ bobot }}</span>
+                    </span>
+                </p>
+
+                <!--
+                    Excerpt sengaja tidak ditampilkan. Isinya paragraf pembuka
+                    dari `isi` yang sudah ada tepat di bawahnya, jadi yang
+                    dihasilkan cuma paragraf yang sama dua kali dan satu layar
+                    yang lebih pendek untuk membacanya.
+                -->
+                <!--
+                    `min-w-0` dan `break-words` mencegah kartu melebar melewati
+                    layar. Anak flex tidak boleh menyusut di bawah lebar kata
+                    terpanjangnya, jadi satu tautan panjang di badan artikel
+                    cukup untuk mendorong seluruh kartu keluar layar dan
+                    memunculkan gulir horizontal di halaman.
+                -->
+                <p class="min-w-0 whitespace-pre-line break-words text-sm leading-relaxed sm:min-h-0 sm:flex-1 sm:overflow-y-auto">
+                    {{ sampel.isi }}
+                </p>
 
                 <a
                     v-if="sampel.url"
                     :href="sampel.url"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="inline-flex items-center gap-1 text-xs underline"
+                    class="inline-flex shrink-0 items-center gap-1 text-xs underline"
                 >
                     Buka halaman aslinya <ExternalLink class="h-3 w-3" aria-hidden="true" />
                 </a>
 
-                <div class="space-y-3 border-t pt-3">
-                    <p class="text-sm font-medium">Apakah artikel ini secara substantif membahas Pemerintah Kota Kendari?</p>
-
-                    <div class="flex flex-wrap gap-2">
-                        <Button :variant="form.label === 'relevan' ? 'default' : 'outline'" @click="form.label = 'relevan'">
+                <div class="shrink-0 space-y-3 border-t pt-3">
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+                        <p class="text-sm font-medium">Apakah artikel ini secara substantif membahas Pemerintah Kota Kendari?</p>
+                        <Button size="sm" :variant="form.label === 'relevan' ? 'default' : 'outline'" @click="form.label = 'relevan'">
                             <CheckCircle2 class="mr-1 h-4 w-4" aria-hidden="true" />
                             Relevan
                             <kbd class="ml-2 rounded bg-muted px-1 text-[10px] text-foreground">R</kbd>
                         </Button>
-                        <Button :variant="form.label === 'tidak_relevan' ? 'default' : 'outline'" @click="form.label = 'tidak_relevan'">
+                        <Button size="sm" :variant="form.label === 'tidak_relevan' ? 'default' : 'outline'" @click="form.label = 'tidak_relevan'">
                             <XCircle class="mr-1 h-4 w-4" aria-hidden="true" />
                             Tidak relevan
                             <kbd class="ml-2 rounded bg-muted px-1 text-[10px] text-foreground">T</kbd>
                         </Button>
-                        <Button variant="ghost" @click="lewati">
+                        <Button size="sm" variant="ghost" @click="lewati">
                             <SkipForward class="mr-1 h-4 w-4" aria-hidden="true" />
                             Lewati
                             <kbd class="ml-2 rounded bg-muted px-1 text-[10px]">S</kbd>
@@ -303,27 +365,26 @@ const namaAlasanPrioritas: Record<string, string> = {
 
                         <div class="flex flex-wrap items-center gap-2 pt-1">
                             <label class="text-xs font-medium">Tingkat kesulitan</label>
-                            <select v-model="form.kesulitan" class="h-7 rounded border bg-background px-2 text-xs">
-                                <option value="normal">Normal</option>
-                                <option value="hard_positive">Hard positive</option>
-                                <option value="hard_negative">Hard negative</option>
+                            <select v-model="form.kesulitan" class="h-7 max-w-full rounded border bg-background px-2 text-xs">
+                                <option v-for="k in opsiKesulitan" :key="k.nilai" :value="k.nilai">{{ k.label }}</option>
                             </select>
                         </div>
 
                         <p v-if="form.errors.alasan" class="text-xs text-sentimen-negatif">{{ form.errors.alasan }}</p>
+                        <p v-if="form.errors.kesulitan" class="text-xs text-sentimen-negatif">{{ form.errors.kesulitan }}</p>
                     </div>
 
-                    <div class="flex items-center gap-2">
+                    <div class="flex flex-wrap items-center gap-2">
                         <Button :disabled="!bisaSimpan || form.processing" @click="simpan">
                             Simpan dan lanjut
                             <kbd class="ml-2 rounded bg-background/20 px-1 text-[10px]">Enter</kbd>
                         </Button>
                         <Button variant="ghost" size="sm" @click="tutup">Tutup</Button>
-                    </div>
 
-                    <p class="text-[11px] text-muted-foreground">
-                        Keputusan Anda tidak pernah ditimpa analisis ulang. Setiap perubahan label tercatat beserta nilai sebelum dan sesudahnya.
-                    </p>
+                        <p class="ml-auto hidden max-w-md text-[11px] text-muted-foreground lg:block">
+                            Keputusan Anda tidak pernah ditimpa analisis ulang. Setiap perubahannya tercatat beserta nilai sebelum dan sesudahnya.
+                        </p>
+                    </div>
                 </div>
             </CardContent>
         </Card>

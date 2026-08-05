@@ -104,8 +104,15 @@ function labelUrut(kolom: KolomDefinisi): string {
                     </TableRow>
 
                     <TableRow v-for="(baris, i) in data" :key="baris.id ?? i" class="h-10">
-                        <TableCell v-for="kol in kolom" :key="kol.kunci" :class="kol.kelas">
-                            <slot :name="`sel-${kol.kunci}`" :baris="baris" :nilai="baris[kol.kunci]">
+                        <!--
+                            `lebar` ikut dipasang di sel, bukan hanya di header.
+                            Tabel auto-layout menawar lebar kolom dari isi
+                            terlebar di seluruh kolom, jadi lebar yang hanya
+                            dideklarasikan di th akan kalah oleh sel yang isinya
+                            panjang.
+                        -->
+                        <TableCell v-for="kol in kolom" :key="kol.kunci" :class="[kol.lebar, kol.kelas]">
+                            <slot :name="`sel-${kol.kunci}`" :baris="baris" :nilai="baris[kol.kunci]" :indeks="i">
                                 {{ baris[kol.kunci] ?? '-' }}
                             </slot>
                         </TableCell>

@@ -6,9 +6,11 @@ use App\Models\Media;
 use App\Models\SampelRelevansi;
 use App\Models\SnapshotDatasetRelevansi;
 use App\Models\User;
+use App\Services\Relevance\RelevanceDatasetExporter;
 use App\Services\Relevance\RelevanceSnapshotService;
 use App\Services\Relevance\RelevanceSplitValidator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 /**
@@ -195,6 +197,52 @@ class SnapshotRelevansiTest extends TestCase
         );
     }
 
+    /**
+     * Test set snapshot lama tetap jadi test di snapshot berikutnya.
+     *
+     * Tanpa ini pembagian diacak ulang dari nol tiap snapshot, dan F1 dua model
+     * diukur dengan penggaris yang berbeda: kenaikan angka tidak bisa dibedakan
+     * dari test set yang kebetulan lebih mudah. Anggota lama tidak boleh bocor
+     * ke train, karena di situlah kebocoran menaikkan angka tanpa ada yang
+     * curiga.
+     */
+    public function test_test_set_terkunci_dipertahankan_di_snapshot_berikutnya(): void
+    {
+        $this->banyakSampel(100, 'relevan');
+        $this->banyakSampel(100, 'tidak_relevan');
+
+        $pertama = $this->buat();
+
+        $this->actingAs($this->admin)
+            ->post("/admin/model-relevansi/snapshot/{$pertama->id}/kunci")
+            ->assertRedirect();
+
+        $idTest = $pertama->item()->where('split', 'test')->pluck('sampel_relevansi_id')->sort()->values();
+
+        // Dataset tumbuh sebelum snapshot kedua dibuat.
+        $this->banyakSampel(40, 'relevan');
+        $this->banyakSampel(40, 'tidak_relevan');
+
+        $kedua = $this->buat();
+
+        $this->assertSame(
+            $idTest->all(),
+            $kedua->item()->where('split', 'test')->pluck('sampel_relevansi_id')->sort()->values()->all(),
+            'Test set berubah antar snapshot, jadi metrik dua model tidak bisa dibandingkan.',
+        );
+
+        $this->assertSame(
+            0,
+            $kedua->item()->whereIn('sampel_relevansi_id', $idTest)->whereIn('split', ['train', 'validation'])->count(),
+            'Sampel test lama bocor ke data latih.',
+        );
+
+        // Seluruh sampel baru masuk train atau validation, tidak ada yang
+        // diam-diam jatuh ke test lewat sisa pembulatan.
+        $this->assertSame(280, $kedua->item()->count());
+        $this->assertSame(280 - $idTest->count(), $kedua->total_train + $kedua->total_validation);
+    }
+
     public function test_sampel_tanpa_label_tidak_pernah_masuk_snapshot(): void
     {
         $this->banyakSampel(60, 'relevan');
@@ -265,6 +313,32 @@ class SnapshotRelevansiTest extends TestCase
         $this->assertSame(120, SampelRelevansi::layakLatih()->count());
     }
 
+    /**
+     * Berkas ekspor ikut dibuang bersama snapshot-nya.
+     *
+     * JSONL di disk tidak dijaga database mana pun, dan ia memuat judul serta
+     * isi artikel selengkapnya. Meninggalkannya bukan cuma soal disk: itu
+     * salinan isi berita yang tidak lagi ditunjuk apa pun dan tidak akan
+     * pernah ditinjau siapa pun.
+     */
+    public function test_menghapus_draft_ikut_membuang_dataset_ekspornya(): void
+    {
+        $this->banyakSampel(120);
+        $this->banyakSampel(120, 'tidak_relevan');
+
+        $snapshot = $this->buat();
+        $direktori = app(RelevanceDatasetExporter::class)->direktori($snapshot);
+
+        // Draft tidak bisa diekspor, jadi berkasnya dibuat langsung untuk
+        // meniru sisa ekspor dari snapshot yang pernah terkunci.
+        File::ensureDirectoryExists($direktori);
+        File::put($direktori.'/train.jsonl', '{}');
+
+        $this->actingAs($this->admin)->delete("/admin/model-relevansi/snapshot/{$snapshot->id}");
+
+        $this->assertDirectoryDoesNotExist($direktori);
+    }
+
     public function test_peran_walikota_tidak_bisa_membuat_snapshot(): void
     {
         $walikota = User::factory()->create(['peran' => 'walikota']);
@@ -289,7 +363,7 @@ class SnapshotRelevansiTest extends TestCase
         );
     }
 
-    private function banyakSampel(int $jumlah, string $label): void
+    private function banyakSampel(int $jumlah, string $label = 'relevan'): void
     {
         for ($i = 0; $i < $jumlah; $i++) {
             $this->sampel("Artikel {$label} {$i}", $label);

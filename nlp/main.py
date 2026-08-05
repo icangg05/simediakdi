@@ -21,14 +21,16 @@ import secrets
 import torch
 from fastapi import FastAPI, Header, HTTPException
 
-from relevancy import training
+from relevancy import inference, training
 from sentence_transformers import SentenceTransformer
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 from models import (
     PermintaanEmbed,
     PermintaanPelatihan,
+    PermintaanPrediksiRelevansi,
     TanggapanPelatihan,
+    TanggapanPrediksiRelevansi,
     PermintaanPasangan,
     HasilSentimen,
     SkorSentimen,
@@ -215,3 +217,54 @@ def batalkan_pelatihan(
     _periksa_rahasia(x_internal_secret)
 
     return {"dibatalkan": training.batalkan(run_id)}
+
+
+@app.post("/relevancy/predict", response_model=TanggapanPrediksiRelevansi)
+def prediksi_relevansi(
+    permintaan: PermintaanPrediksiRelevansi,
+    x_internal_secret: str | None = Header(default=None),
+) -> TanggapanPrediksiRelevansi:
+    """Menilai relevansi satu batch sampel.
+
+    Ambang tidak diterapkan di sini. Yang dikembalikan probabilitas mentah, dan
+    Laravel yang memutuskan labelnya memakai ambang berversi. Itu yang membuat
+    penyetelan ambang tidak memerlukan inferensi ulang, sifat yang sengaja
+    dibawa dari rancangan cosine yang digantikan.
+    """
+    _periksa_rahasia(x_internal_secret)
+
+    try:
+        hasil = inference.prediksi(
+            permintaan.model_version,
+            permintaan.artifact_path,
+            [p.model_dump() for p in permintaan.pasangan],
+            permintaan.max_length,
+        )
+    except inference.ChecksumTidakCocok as e:
+        # 409, bukan 500. Ini bukan kesalahan tak terduga melainkan penolakan
+        # yang disengaja, dan Laravel perlu membedakannya supaya bisa mencabut
+        # gerbang mutu alih-alih mencoba lagi.
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+    return TanggapanPrediksiRelevansi(model_version=permintaan.model_version, hasil=hasil)
+
+
+@app.post("/relevancy/models/{versi}/unload")
+def lupakan_model(
+    versi: str,
+    x_internal_secret: str | None = Header(default=None),
+) -> dict:
+    """Membuang model dari memori.
+
+    Dipakai saat rollback dan saat artefaknya diganti. Tanpa ini, model lama
+    tetap melayani permintaan sampai proses dimulai ulang, dan itu berarti
+    rollback yang dilaporkan berhasil tetapi tidak berlaku.
+    """
+    _periksa_rahasia(x_internal_secret)
+
+    sebelumnya = inference.versi_dimuat()
+    inference.lupakan()
+
+    return {"dilupakan": sebelumnya}

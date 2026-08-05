@@ -28,6 +28,7 @@ interface BarisSampel {
     labeled_at: string | null;
     media: { id: number; nama: string } | null;
     pelabel: { id: number; name: string } | null;
+    prediksi_terakhir: { probabilitas_relevan: number; label_prediksi: string } | null;
 }
 
 const props = defineProps<{
@@ -52,13 +53,15 @@ const props = defineProps<{
  * memutuskan sampel mana yang dibuka.
  */
 const kolom: KolomDefinisi[] = [
+    { kunci: 'nomor', judul: 'No', lebar: 'w-12', kelas: 'angka text-right text-muted-foreground' },
     { kunci: 'judul', judul: 'Artikel', bisaDiurutkan: true, kelas: 'w-full max-w-0' },
-    { kunci: 'media', judul: 'Media', lebar: 'w-36', kelas: 'hidden md:table-cell' },
-    { kunci: 'tanggal_publikasi', judul: 'Terbit', bisaDiurutkan: true, lebar: 'w-28', kelas: 'hidden lg:table-cell' },
-    { kunci: 'label_manual', judul: 'Label', lebar: 'w-32' },
-    { kunci: 'tingkat_kesulitan', judul: 'Kesulitan', lebar: 'w-28', kelas: 'hidden xl:table-cell' },
+    { kunci: 'media', judul: 'Media', lebar: 'w-36', kelas: 'hidden truncate md:table-cell' },
+    { kunci: 'tanggal_publikasi', judul: 'Terbit', bisaDiurutkan: true, lebar: 'w-24', kelas: 'hidden whitespace-nowrap lg:table-cell' },
+    { kunci: 'label_manual', judul: 'Label', lebar: 'w-28' },
+    { kunci: 'prediksi_terakhir', judul: 'Prediksi', lebar: 'w-24', kelas: 'hidden whitespace-nowrap md:table-cell' },
+    { kunci: 'tingkat_kesulitan', judul: 'Kesulitan', lebar: 'w-24', kelas: 'hidden xl:table-cell' },
     { kunci: 'priority_score', judul: 'Prioritas', bisaDiurutkan: true, kelas: 'angka text-right', lebar: 'w-20' },
-    { kunci: 'pelabel', judul: 'Pelabel', lebar: 'w-32', kelas: 'hidden lg:table-cell' },
+    { kunci: 'pelabel', judul: 'Pelabel', lebar: 'w-32', kelas: 'hidden truncate lg:table-cell' },
 ];
 
 const filter = computed<FilterDefinisi[]>(() => [
@@ -73,6 +76,8 @@ const filter = computed<FilterDefinisi[]>(() => [
 /** Filter cepat, dokumen 10 bagian 7.3. Semuanya berubah menjadi query string. */
 const cepat = [
     { label: 'Belum dilabeli', param: 'status=belum_dilabeli' },
+    { label: 'Calon test set', param: 'evaluasi=1' },
+    { label: 'Model ragu', param: 'ragu=1' },
     { label: 'Belum ditinjau ulang', param: 'belum_direview=1' },
     { label: 'Hard negative', param: 'kesulitan=hard_negative' },
     { label: 'Hard positive', param: 'kesulitan=hard_positive' },
@@ -128,6 +133,10 @@ function buka(sampelId?: number) {
     const params = new URLSearchParams(window.location.search);
     params.set('labeli', '1');
 
+    // Kursor dari sesi pelabelan sebelumnya dibuang. Membuka baris tertentu
+    // berarti mulai dari sana, dan tombol mulai berarti dari urutan teratas.
+    params.delete('setelah');
+
     if (sampelId) params.set('sampel', String(sampelId));
     else params.delete('sampel');
 
@@ -142,6 +151,14 @@ function buka(sampelId?: number) {
 }
 
 const tanggal = (w: string | null) => (w ? format(new Date(w), 'd MMM yyyy', { locale: id }) : '-');
+
+/** Kuning di zona ragu, supaya mata menemukannya tanpa membaca angkanya. */
+function warnaPeluang(p: number): string {
+    if (p >= 0.7) return 'text-sentimen-positif';
+    if (p <= 0.3) return 'text-muted-foreground';
+
+    return 'text-sentimen-review';
+}
 
 const labelKesulitan: Record<string, string> = {
     normal: 'Normal',
@@ -194,9 +211,24 @@ const labelKesulitan: Record<string, string> = {
             keterangan-kosong="Jalankan relevance:import-crawled untuk memasukkan artikel yang sudah terkumpul."
             :aksi-baris="[{ label: 'Labeli sampel ini', onKlik: (b: BarisSampel) => buka(b.id) }]"
         >
+            <!--
+                Nomor urut mengikuti paginasi, bukan indeks halaman. Baris
+                pertama halaman kedua adalah 26, bukan 1, supaya angka yang
+                disebut orang saat berdiskusi menunjuk sampel yang sama.
+            -->
+            <template #sel-nomor="{ indeks }">
+                {{ (dataset.from ?? 1) + indeks }}
+            </template>
+
             <template #sel-judul="{ baris }">
                 <div class="min-w-0">
-                    <button type="button" class="block truncate text-left hover:underline" @click="buka(baris.id)">
+                    <!--
+                        `w-full` wajib di sini. Button memakai lebar fit-content
+                        meski sudah display:block, jadi tanpa itu `truncate`
+                        tidak pernah menyala dan judul panjang menimpa kolom di
+                        sebelahnya.
+                    -->
+                    <button type="button" class="block w-full truncate text-left hover:underline" @click="buka(baris.id)">
                         {{ baris.judul }}
                     </button>
                     <p v-if="baris.excerpt" class="truncate text-[11px] text-muted-foreground">
@@ -226,6 +258,22 @@ const labelKesulitan: Record<string, string> = {
                         {{ baris.alasan_label }}
                     </p>
                 </div>
+            </template>
+
+            <!--
+                Peluang model, bukan labelnya saja. Angka 0,52 dan 0,99
+                keduanya berlabel relevan, tetapi yang pertama adalah tempat
+                batas keputusan model masih kabur dan justru paling layak
+                dilabeli manusia.
+            -->
+            <template #sel-prediksi_terakhir="{ baris }">
+                <div v-if="baris.prediksi_terakhir" class="text-xs">
+                    <span class="angka font-medium" :class="warnaPeluang(baris.prediksi_terakhir.probabilitas_relevan)">
+                        {{ (baris.prediksi_terakhir.probabilitas_relevan * 100).toFixed(0) }}%
+                    </span>
+                    <span class="text-muted-foreground"> relevan</span>
+                </div>
+                <span v-else class="text-xs text-muted-foreground">-</span>
             </template>
 
             <template #sel-tingkat_kesulitan="{ baris }">

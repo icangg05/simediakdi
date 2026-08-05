@@ -461,10 +461,14 @@ Dua penghematan yang tetap berlaku di mesin mana pun:
 
 Keduanya menjadi preset di `config/relevance.php`, bukan hardcode.
 
-Setiap versi model menempati sekitar 500 MB. Sepuluh versi berarti 5 GB, dan
-itu alasan disk naik ke 120 GB. Retensi artefak diatur di dokumen 10 bagian
-15.4, dengan satu pengecualian yang tidak boleh dilanggar: model yang pernah
-menjadi produksi tidak pernah dihapus otomatis, karena itulah target rollback.
+**Setiap versi model menempati 1,3 GB**, terukur dari pelatihan pertama, bukan
+diperkirakan. Angka 500 MB pada revisi pertama catatan ini mengasumsikan
+IndoBERT base; checkpoint yang dipakai ternyata large. Sepuluh versi berarti 13
+GB, dan itu alasan disk naik ke 120 GB.
+
+Retensi artefak diatur di dokumen 10 bagian 15.4, dengan satu pengecualian yang
+tidak boleh dilanggar: model yang pernah menjadi produksi tidak pernah dihapus
+otomatis, karena itulah target rollback.
 
 ### Susunan proses
 

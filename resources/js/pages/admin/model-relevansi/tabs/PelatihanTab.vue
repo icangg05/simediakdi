@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { router, useForm } from '@inertiajs/vue3';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { AlertTriangle, CheckCircle2, Loader2, XCircle } from 'lucide-vue-next';
+import { AlertTriangle, CheckCircle2, Loader2, Sparkles, Trash2, XCircle } from 'lucide-vue-next';
 import { computed, onMounted, onUnmounted } from 'vue';
 
 interface Riwayat {
@@ -35,6 +35,9 @@ interface Riwayat {
         berlalu_detik: number;
         selesai_sekitar: string;
     } | null;
+    durasi_detik: number | null;
+    ukuran_byte: number | null;
+    bisa_dihapus: boolean;
 }
 
 const props = defineProps<{
@@ -42,8 +45,29 @@ const props = defineProps<{
         preset: Record<string, any>;
         snapshot: Array<{ id: number; label: string }>;
         riwayat: Riwayat[];
+        ada_model: boolean;
     };
 }>();
+
+/**
+ * Menjalankan model atas seluruh dataset lalu menghitung ulang prioritasnya.
+ *
+ * Bukan untuk memakai modelnya di produksi, melainkan untuk memilih artikel
+ * mana yang paling berguna dilabeli manusia berikutnya. Prediksinya tidak
+ * pernah menjadi label.
+ */
+function prediksi() {
+    if (
+        !confirm(
+            'Jalankan prediksi atas seluruh dataset?\n\n' +
+                'Sekitar setengah jam untuk 4.000 sampel, berjalan di latar. ' +
+                'Hasilnya memperbarui kolom Prediksi model dan urutan antrean pelabelan di tab Dataset.',
+        )
+    )
+        return;
+
+    router.post('/admin/model-relevansi/prediksi', {}, { preserveScroll: true });
+}
 
 const form = useForm({
     nama: '',
@@ -130,6 +154,26 @@ function durasi(detik: number): string {
 const waktu = (w: string | null) => (w ? format(new Date(w), 'd MMM yyyy, HH:mm', { locale: id }) : '-');
 
 const jam = (w: string) => format(new Date(w), 'HH:mm', { locale: id });
+
+/** Byte menjadi satuan yang bisa dibaca sekilas. */
+function ukuran(byte: number): string {
+    if (byte < 1024 ** 2) return `${Math.round(byte / 1024)} KB`;
+    if (byte < 1024 ** 3) return `${Math.round(byte / 1024 ** 2)} MB`;
+
+    return `${(byte / 1024 ** 3).toFixed(1)} GB`;
+}
+
+/**
+ * Riwayat kegagalan yang bisa dibuang, tetapi hanya yang gagal atau dibatalkan.
+ *
+ * Pelatihan berhasil punya model kandidat yang menunjuk kepadanya, dan
+ * menghapusnya meninggalkan model tanpa asal usul.
+ */
+function hapus(r: Riwayat) {
+    if (!confirm(`Hapus riwayat pelatihan "${r.nama}"? Artefak setengah jadinya ikut dibuang.`)) return;
+
+    router.delete(`/admin/model-relevansi/pelatihan/${r.id}`, { preserveScroll: true });
+}
 
 const persen = (n: number | null | undefined) => (n === null || n === undefined ? '-' : `${(n * 100).toFixed(1)}%`);
 
@@ -232,6 +276,21 @@ const labelStatus: Record<string, string> = {
             </CardContent>
         </Card>
 
+        <Card v-if="pelatihan.ada_model">
+            <CardContent class="space-y-2 p-4">
+                <p class="text-sm font-medium">Prediksi dataset</p>
+                <p class="text-xs leading-relaxed text-muted-foreground">
+                    Menjalankan model atas seluruh dataset lalu mengurutkan ulang antrean pelabelan. Yang dikejar bukan artikel yang paling mungkin
+                    relevan, melainkan yang model sendiri ragukan, karena di situ satu label manusia mengajari paling banyak. Prediksinya tidak pernah
+                    dipakai sebagai label.
+                </p>
+
+                <Button size="sm" variant="outline" @click="prediksi">
+                    <Sparkles class="mr-1 h-3 w-3" aria-hidden="true" /> Jalankan prediksi dataset
+                </Button>
+            </CardContent>
+        </Card>
+
         <KeadaanKosong
             v-if="!pelatihan.riwayat.length"
             judul="Belum ada pelatihan"
@@ -246,6 +305,15 @@ const labelStatus: Record<string, string> = {
                         <p class="text-xs text-muted-foreground">
                             {{ r.snapshot ?? '-' }}, {{ r.base_model }}, oleh {{ r.pembuat ?? '-' }},
                             {{ waktu(r.started_at) }}
+                        </p>
+                        <p v-if="r.durasi_detik || r.ukuran_byte" class="text-xs text-muted-foreground">
+                            <template v-if="r.durasi_detik">
+                                Lama latih <strong>{{ durasi(r.durasi_detik) }}</strong>
+                            </template>
+                            <template v-if="r.durasi_detik && r.ukuran_byte">, </template>
+                            <template v-if="r.ukuran_byte">
+                                ukuran model <strong>{{ ukuran(r.ukuran_byte) }}</strong>
+                            </template>
                         </p>
                     </div>
 
@@ -334,7 +402,18 @@ const labelStatus: Record<string, string> = {
                     Tersimpan sebagai model kandidat. Promosi ke produksi menuntut gerbang mutu lulus, dan itu tidak pernah terjadi otomatis.
                 </p>
 
-                <Button v-if="!r.selesai" size="sm" variant="ghost" class="text-destructive" @click="batalkan(r)"> Batalkan </Button>
+                <div class="flex flex-wrap gap-2">
+                    <Button v-if="!r.selesai" size="sm" variant="ghost" class="text-destructive" @click="batalkan(r)"> Batalkan </Button>
+
+                    <!--
+                        Hanya untuk yang gagal atau dibatalkan. Pelatihan
+                        berhasil punya model kandidat yang menunjuk kepadanya,
+                        dan menghapusnya meninggalkan model tanpa asal usul.
+                    -->
+                    <Button v-if="r.bisa_dihapus" size="sm" variant="ghost" class="text-destructive hover:text-destructive" @click="hapus(r)">
+                        <Trash2 class="mr-1 h-3 w-3" aria-hidden="true" /> Hapus riwayat
+                    </Button>
+                </div>
             </CardContent>
         </Card>
     </div>

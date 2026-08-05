@@ -4,9 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\KonteksPantauan;
 use App\Models\Media;
+use App\Models\PelatihanModelRelevansi;
 use App\Models\SampelRelevansi;
 use App\Models\SnapshotDatasetRelevansi;
 use App\Models\User;
+use App\Models\VersiKonteksRelevansi;
 use App\Services\Relevance\RelevanceDatasetExporter;
 use App\Services\Relevance\RelevanceInputBuilder;
 use App\Services\Relevance\RelevanceSnapshotService;
@@ -171,6 +173,55 @@ class PelatihanRelevansiTest extends TestCase
             $this->assertSame($diharapkan, $satu['label'], "Pemetaan label sampel {$satu['id']} terbalik.");
             $this->assertSame('Pemerintah Kota Kendari', $satu['konteks']);
         }
+    }
+
+    /**
+     * Pelatihan berhasil punya model kandidat yang menunjuk kepadanya, dan
+     * menghapusnya meninggalkan model tanpa asal usul: tidak ada lagi cara
+     * mengetahui snapshot dan konfigurasi apa yang menghasilkannya.
+     */
+    public function test_pelatihan_berhasil_tidak_bisa_dihapus_dari_riwayat(): void
+    {
+        $run = $this->pelatihan('selesai');
+
+        $this->actingAs($this->admin)
+            ->delete("/admin/model-relevansi/pelatihan/{$run->id}")
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('pelatihan_model_relevansi', ['id' => $run->id]);
+    }
+
+    public function test_pelatihan_gagal_bisa_dihapus_dari_riwayat(): void
+    {
+        $run = $this->pelatihan('gagal');
+
+        $this->actingAs($this->admin)
+            ->delete("/admin/model-relevansi/pelatihan/{$run->id}")
+            ->assertRedirect();
+
+        $this->assertDatabaseMissing('pelatihan_model_relevansi', ['id' => $run->id]);
+    }
+
+    private function pelatihan(string $status): PelatihanModelRelevansi
+    {
+        $this->sampelBanyak(240);
+        $snapshot = $this->snapshot();
+        app(RelevanceSnapshotService::class)->kunci($snapshot, $this->admin);
+
+        $versiKonteks = VersiKonteksRelevansi::create([
+            'nama' => 'Pemkot', 'versi' => 'v1', 'slug' => 'pemkot-v1',
+            'deskripsi_manusia' => 'Pemkot', 'deskripsi_model' => 'Pemerintah Kota Kendari',
+            'aturan_inklusi' => [], 'aturan_eksklusi' => [], 'status' => 'active',
+            'created_by' => $this->admin->id,
+        ]);
+
+        return PelatihanModelRelevansi::create([
+            'nama' => 'uji', 'base_model' => 'apriandito/indobert-relevancy-classifier',
+            'snapshot_dataset_relevansi_id' => $snapshot->id,
+            'versi_konteks_relevansi_id' => $versiKonteks->id,
+            'versi_panduan_label' => '2.1', 'status' => $status,
+            'configuration' => [], 'created_by' => $this->admin->id,
+        ]);
     }
 
     private function snapshot(): SnapshotDatasetRelevansi

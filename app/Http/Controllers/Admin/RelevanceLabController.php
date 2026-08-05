@@ -110,6 +110,7 @@ class RelevanceLabController extends Controller
 
         return [
             'preset' => config('relevance.preset'),
+            'ada_model' => \App\Models\VersiModelRelevansi::exists(),
             'snapshot' => SnapshotDatasetRelevansi::sudahTerkunci()
                 ->latest('id')
                 ->get(['id', 'nama', 'versi', 'total_train', 'total_validation', 'total_test'])
@@ -140,6 +141,11 @@ class RelevanceLabController extends Controller
                     'finished_at' => $p->finished_at,
                     'selesai' => $p->selesai(),
                     'perkiraan' => $this->perkiraanWaktu($p),
+                    'durasi_detik' => $p->started_at && $p->finished_at
+                        ? $p->finished_at->diffInSeconds($p->started_at, absolute: true)
+                        : null,
+                    'ukuran_byte' => $this->ukuranArtefak($p),
+                    'bisa_dihapus' => in_array($p->status, ['gagal', 'dibatalkan'], strict: true),
                 ])->all(),
         ];
     }
@@ -171,6 +177,25 @@ class RelevanceLabController extends Controller
             // tinggal basi, dan itu jauh lebih baik daripada 500.
             rescue(fn () => $service->tarikStatus($run), report: false);
         }
+    }
+
+    /**
+     * Ukuran artefak, dijumlahkan dari manifest.
+     *
+     * Dibaca dari manifest, bukan dari disk. Manifest sudah mencatat ukuran
+     * tiap berkas saat artefak dibuat, jadi angkanya tetap benar meski
+     * direktorinya sudah dipindahkan ke server lain, dan halaman ini tidak
+     * perlu menyentuh filesystem sama sekali.
+     */
+    private function ukuranArtefak(PelatihanModelRelevansi $run): ?int
+    {
+        $berkas = $run->artifact_manifest['berkas'] ?? null;
+
+        if (! is_array($berkas) || $berkas === []) {
+            return null;
+        }
+
+        return (int) array_sum(array_column($berkas, 'bytes'));
     }
 
     /**
@@ -317,7 +342,7 @@ class RelevanceLabController extends Controller
     private function dataset(Request $request): mixed
     {
         $kueri = $this->kueriTersaring($request)
-            ->with(['media:id,nama', 'pelabel:id,name'])
+            ->with(['media:id,nama', 'pelabel:id,name', 'prediksiTerakhir'])
             ->select([
                 'id', 'artikel_id', 'media_id', 'judul', 'excerpt', 'url',
                 'tanggal_publikasi', 'label_manual', 'alasan_label', 'status_label',
@@ -326,13 +351,26 @@ class RelevanceLabController extends Controller
                 'last_reviewed_at', 'updated_at',
             ]);
 
-        return KueriTabel::untuk($kueri, $request)
-            ->urut(
-                ['judul', 'tanggal_publikasi', 'priority_score', 'labeled_at', 'updated_at'],
-                'priority_score',
-                'desc',
-            )
-            ->halaman();
+        return KueriTabel::untuk($this->urutSepertiTabel($kueri, $request), $request)->halaman();
+    }
+
+    /**
+     * Urutan tabel dataset, dipakai bersama oleh tabel dan panel pelabelan.
+     *
+     * Satu tempat, karena dua tempat sudah pernah dicoba dan hasilnya panel
+     * menyodorkan sampel yang posisinya di tabel entah di mana. Yang menentukan
+     * isi antrean adalah filter, yang menentukan urutannya adalah kolom urut
+     * yang sedang dipakai tabel. Keduanya terbaca di layar.
+     */
+    private function urutSepertiTabel(Builder $kueri, Request $request): Builder
+    {
+        KueriTabel::untuk($kueri, $request)->urut(
+            ['judul', 'tanggal_publikasi', 'priority_score', 'labeled_at', 'updated_at'],
+            'priority_score',
+            'desc',
+        );
+
+        return $kueri;
     }
 
     /**
@@ -408,21 +446,40 @@ class RelevanceLabController extends Controller
         if ($grup = $request->query('grup')) {
             $kueri->where('duplicate_group_id', (int) $grup);
         }
+
+        // Artikel yang model sendiri ragu, peluangnya antara 0,3 dan 0,7.
+        // Inilah antrean paling berharga setelah ada prediksi: satu label di
+        // sini mengajari jauh lebih banyak daripada label pada artikel yang
+        // sudah dijawab model dengan 0,99.
+        // Calon anggota test set, diambil acak oleh relevance:test-set siapkan.
+        // Antrean ini tidak boleh diurutkan menurut prioritas maknanya: yang
+        // dikejar justru sebaran apa adanya, karena test set yang isinya
+        // artikel sulit mengukur model terlalu pesimistis.
+        if ($request->query('evaluasi') === '1') {
+            $kueri->whereRaw("metadata_sumber->'evaluasi_acak' IS NOT NULL");
+        }
+
+        if ($request->query('ragu') === '1') {
+            $kueri->whereExists(fn ($sub) => $sub->selectRaw('1')
+                ->from('prediksi_relevansi')
+                ->whereColumn('prediksi_relevansi.sampel_relevansi_id', 'sampel_relevansi.id')
+                ->whereBetween('prediksi_relevansi.probabilitas_relevan', [0.3, 0.7]));
+        }
     }
 
     /**
      * Sampel yang sedang dibuka di panel pelabelan.
      *
-     * Tanpa `sampel` di URL, yang diambil adalah sampel berikutnya **dari
-     * antrean yang sedang disaring pelabel**, bukan dari antrean bawaan.
-     * Filter di URL adalah antreannya, dan panel harus menghormatinya.
+     * Isi antrean ditentukan filter di URL, urutannya sama persis dengan tabel
+     * di bawah panel. Sebelumnya panel punya urutan sendiri, yaitu
+     * `last_reviewed_at` kosong lebih dulu, dan akibatnya "Simpan dan lanjut"
+     * melompat ke baris yang entah di urutan berapa pada tabel yang sedang
+     * dilihat pelabel.
      *
-     * Urutannya `last_reviewed_at` kosong lebih dulu, baru skor prioritas. Yang
-     * pertama itu yang membuat "Simpan dan lanjut" selalu maju: setiap
-     * penyimpanan mengisi `last_reviewed_at`, jadi sampel yang baru dikerjakan
-     * langsung turun ke urutan paling belakang. Tanpa aturan itu, filter yang
-     * tidak menyusut sendiri (misalnya menyaring satu media) akan menyodorkan
-     * artikel yang sama berulang kali.
+     * "Simpan dan lanjut" maju lewat kursor `setelah`, bukan dengan mengambil
+     * ulang baris teratas. Pada antrean yang tidak menyusut sendiri, misalnya
+     * "Model ragu" yang isinya tetap sama setelah dilabeli, mengambil yang
+     * teratas berarti menyodorkan artikel yang sama berulang kali.
      *
      * @return array<string, mixed>|null
      */
@@ -434,13 +491,25 @@ class RelevanceLabController extends Controller
 
         $antrean = $this->kueriTersaring($request);
 
-        $sampel = $request->query('sampel')
-            ? SampelRelevansi::with(['media:id,nama', 'pelabel:id,name'])->find($request->query('sampel'))
-            : (clone $antrean)->with('media:id,nama')
-                ->orderByRaw('last_reviewed_at ASC NULLS FIRST')
-                ->orderByDesc('priority_score')
-                ->orderBy('id')
-                ->first();
+        // Seluruh id antrean, terurut. Dipakai untuk dua hal sekaligus: mencari
+        // baris sesudah kursor, dan menghitung sisa antrean tanpa kueri kedua.
+        //
+        // Naif tapi sepadan: 4.137 id sekitar 33 KB dan satu kueri indeks.
+        // Kalau dataset tumbuh ke ratusan ribu, gantilah dengan keyset
+        // pagination memakai kolom urut yang sedang aktif.
+        $urutan = $this->urutSepertiTabel(clone $antrean, $request)->pluck('id');
+
+        $posisi = match (true) {
+            (bool) $request->query('sampel') => $urutan->search((int) $request->query('sampel')),
+            (bool) $request->query('setelah') => $this->posisiSetelah($urutan, (int) $request->query('setelah')),
+            default => $urutan->isEmpty() ? false : 0,
+        };
+
+        // Sampel yang dibuka lewat tautan bisa saja tidak ada di antrean yang
+        // sedang aktif. Yang diminta tetap ditampilkan, sisanya dihitung nol.
+        $id = $posisi === false ? $request->query('sampel') : $urutan->get($posisi);
+
+        $sampel = $id ? SampelRelevansi::with(['media:id,nama', 'pelabel:id,name'])->find($id) : null;
 
         if ($sampel === null) {
             return null;
@@ -473,9 +542,39 @@ class RelevanceLabController extends Controller
             // Sisa antrean yang sedang dikerjakan, bukan sisa seluruh dataset.
             // Angka 3.887 yang muncul saat menyaring 250 sampel tinjauan bukan
             // sekadar salah, ia menyembunyikan bahwa antreannya sudah berganti.
-            'sisa_antrean' => (clone $antrean)->count(),
+            //
+            // Dihitung dari posisi, jadi angkanya benar-benar berkurang tiap
+            // kali menekan Simpan dan lanjut, termasuk di antrean yang isinya
+            // tidak menyusut.
+            'sisa_antrean' => $posisi === false ? 0 : $urutan->count() - $posisi - 1,
+            'nomor_antrean' => $posisi === false ? null : $posisi + 1,
+            'total_antrean' => $urutan->count(),
             'antrean' => $this->namaAntrean($request),
         ];
+    }
+
+    /**
+     * Posisi baris sesudah kursor.
+     *
+     * Kursor yang sudah tidak ada di antrean berarti barisnya keluar setelah
+     * dilabeli, misalnya pada antrean "Belum dilabeli". Antreannya bergeser
+     * naik, jadi yang berikutnya adalah baris teratas.
+     *
+     * @param  \Illuminate\Support\Collection<int, int>  $urutan
+     */
+    private function posisiSetelah($urutan, int $setelah): int|false
+    {
+        if ($urutan->isEmpty()) {
+            return false;
+        }
+
+        $kini = $urutan->search($setelah);
+
+        if ($kini === false) {
+            return 0;
+        }
+
+        return $kini + 1 < $urutan->count() ? $kini + 1 : false;
     }
 
     /**
@@ -484,22 +583,72 @@ class RelevanceLabController extends Controller
      * Pelabel harus bisa melihat sedang mengerjakan apa tanpa membaca URL.
      * Berpindah antrean tanpa disadari adalah cara 250 sampel tinjauan
      * terlewat sama sekali sementara layarnya terlihat baik-baik saja.
+     *
+     * Seluruh filter aktif ikut disebut, bukan yang pertama cocok. Versi
+     * sebelumnya memakai `match` yang berhenti di kecocokan pertama, dan
+     * "Model ragu" bahkan tidak ada dalam daftarnya, jadi menyaring 100 sampel
+     * paling berharga tetap tertulis "Seluruh dataset". Nama antrean yang salah
+     * lebih berbahaya daripada tidak ada nama sama sekali, karena ia meyakinkan
+     * pelabel bahwa dia sedang mengerjakan sesuatu yang lain.
      */
     private function namaAntrean(Request $request): string
     {
-        return match (true) {
-            $request->query('belum_direview') === '1' => 'Belum ditinjau ulang',
-            $request->query('dikeluarkan') === '1' => 'Dikeluarkan dari dataset',
-            $request->query('duplikat') === '1' => 'Kelompok duplikat',
-            $request->query('status') === 'belum_dilabeli' => 'Belum dilabeli',
-            $request->query('status') === 'perlu_review' => 'Perlu review',
-            (string) $request->query('cari') !== '' => 'Hasil pencarian',
-            default => 'Seluruh dataset',
-        };
+        $bagian = [];
+
+        foreach ([
+            'belum_direview' => 'Belum ditinjau ulang',
+            'evaluasi' => 'Calon test set acak',
+            'ragu' => 'Model ragu',
+            'duplikat' => 'Kelompok duplikat',
+            'dikeluarkan' => 'Dikeluarkan dari dataset',
+        ] as $parameter => $nama) {
+            if ($request->query($parameter) === '1') {
+                $bagian[] = $nama;
+            }
+        }
+
+        // Filter kolom boleh berisi beberapa nilai sekaligus, dipisah koma,
+        // dan semuanya disebut. "Relevan, Tidak relevan" memang panjang, tetapi
+        // itu memang yang sedang disaring.
+        $opsi = $this->opsiStatis();
+
+        foreach ($opsi as $parameter => $daftar) {
+            foreach (array_filter(explode(',', (string) $request->query($parameter, '')), 'strlen') as $nilai) {
+                $bagian[] = collect($daftar)->firstWhere('nilai', $nilai)['label'] ?? $nilai;
+            }
+        }
+
+        // Media dan pelabel tidak disebut namanya. Menerjemahkan id menjadi nama
+        // butuh kueri tambahan di tiap pemuatan halaman, sementara yang perlu
+        // diketahui pelabel cuma bahwa saringannya sedang menyala.
+        if ($request->query('media')) {
+            $bagian[] = 'Media terpilih';
+        }
+
+        if ($request->query('pelabel')) {
+            $bagian[] = 'Pelabel terpilih';
+        }
+
+        if ($grup = $request->query('grup')) {
+            $bagian[] = "Kelompok duplikat {$grup}";
+        }
+
+        if (($kata = trim((string) $request->query('cari'))) !== '') {
+            $bagian[] = "Pencarian \"{$kata}\"";
+        }
+
+        return $bagian === [] ? 'Seluruh dataset' : implode(' + ', $bagian);
     }
 
-    /** @return array<string, mixed> */
-    private function opsi(): array
+    /**
+     * Opsi filter yang daftarnya tetap, tidak dibaca dari database.
+     *
+     * Dipisah dari `opsi()` supaya nama antrean bisa menerjemahkan nilai filter
+     * menjadi label tanpa ikut menjalankan kueri media dan pelabel.
+     *
+     * @return array<string, list<array{nilai: string, label: string}>>
+     */
+    private function opsiStatis(): array
     {
         return [
             'status' => [
@@ -525,6 +674,13 @@ class RelevanceLabController extends Controller
                 ['nilai' => 'production_error', 'label' => 'Kesalahan produksi'],
                 ['nilai' => 'import', 'label' => 'Impor'],
             ],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function opsi(): array
+    {
+        return $this->opsiStatis() + [
             'media' => Media::query()->orderBy('nama')->get(['id', 'nama'])
                 ->map(fn (Media $m) => ['nilai' => (string) $m->id, 'label' => $m->nama])->all(),
             'pelabel' => User::query()

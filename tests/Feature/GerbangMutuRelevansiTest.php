@@ -58,7 +58,7 @@ class GerbangMutuRelevansiTest extends TestCase
 
     public function test_analisis_relevansi_menahan_artikel_saat_gerbang_belum_lulus(): void
     {
-        (new AnalisisRelevansi($this->artikel->id))->handle(app(RelevanceQualityGateService::class));
+        app()->call([new AnalisisRelevansi($this->artikel->id), 'handle']);
 
         $this->assertSame('model_belum_lulus_gate', $this->artikel->fresh()->status_proses);
     }

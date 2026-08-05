@@ -85,6 +85,13 @@ class KueriTabel
 
         $this->kueri->orderBy($kolom, $arah);
 
+        // Pemecah seri yang pasti. Postgres tidak menjanjikan apa pun tentang
+        // urutan baris yang nilai kolom urutnya sama, dan kolom seperti
+        // priority_score penuh nilai kembar. Tanpa ini urutannya boleh berbeda
+        // di tiap permintaan: halaman dua mengulang baris halaman satu, dan
+        // panel pelabelan melompat ke sampel yang sudah lewat.
+        $this->kueri->orderBy($this->kueri->getModel()->getQualifiedKeyName());
+
         return $this;
     }
 

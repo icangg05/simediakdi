@@ -1,0 +1,51 @@
+# Dependency PHP
+vendor/
+
+# Dependency frontend
+node_modules/
+
+# Laravel runtime
+storage/framework/
+storage/logs/
+storage/app/private/
+bootstrap/cache/
+
+# Build frontend
+public/build/
+public/hot
+
+# Testing dan coverage
+coverage/
+.phpunit.cache/
+.phpunit.result.cache
+.php-cs-fixer.cache
+
+# IDE
+.idea/
+.vscode/
+
+# Git
+.git/
+
+# Environment dan rahasia
+.env
+.env.*
+!.env.example
+
+# Database lokal dan dump
+*.sqlite
+*.sqlite3
+*.sql
+*.dump
+
+# File sementara
+*.log
+*.tmp
+*.cache
+
+# Docker volume lokal
+docker-data/
+mysql-data/
+
+# Graphify tidak perlu membaca hasilnya sendiri
+graphify-out/

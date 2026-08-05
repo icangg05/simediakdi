@@ -28,6 +28,13 @@ return [
     'training_timeout' => (int) env('RELEVANSI_TRAINING_TIMEOUT', 300),
 
     /*
+     * Inferensi di CPU untuk BERT large sekitar 400 ms per artikel, dan batch
+     * 32 berarti belasan detik. Ditambah pemuatan model pertama kali yang
+     * menyapu 1,3 GB untuk verifikasi checksum.
+     */
+    'inferensi_timeout' => (int) env('RELEVANSI_INFERENSI_TIMEOUT', 180),
+
+    /*
      * Preset konfigurasi pelatihan.
      *
      * Berbeda dari default dokumen 10 bagian 10.2, dan sengaja. Dokumen itu

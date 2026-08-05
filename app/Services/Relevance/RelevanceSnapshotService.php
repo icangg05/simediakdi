@@ -2,6 +2,7 @@
 
 namespace App\Services\Relevance;
 
+use App\Enums\StatusLabelRelevansi;
 use App\Models\ItemSnapshotDatasetRelevansi;
 use App\Models\SampelRelevansi;
 use App\Models\SnapshotDatasetRelevansi;
@@ -132,7 +133,7 @@ class RelevanceSnapshotService
     private function sampelLayak(): Collection
     {
         return SampelRelevansi::layakLatih()
-            ->get(['id', 'judul', 'isi', 'url', 'label_manual', 'duplicate_group_id', 'tingkat_kesulitan']);
+            ->get(['id', 'judul', 'isi', 'url', 'label_manual', 'status_label', 'duplicate_group_id', 'tingkat_kesulitan']);
     }
 
     /** @return array{train: int, validation: int, test: int} */
@@ -167,12 +168,50 @@ class RelevanceSnapshotService
     {
         $grup = $sampel->groupBy(fn (SampelRelevansi $s) => $s->duplicate_group_id ?? $s->id);
 
+        $hasil = ['train' => [], 'validation' => [], 'test' => []];
+
+        // Sampel yang sudah pernah jadi anggota test tetap di test, selamanya.
+        //
+        // Tanpa aturan ini pembagian diacak ulang dari nol tiap snapshot, dan
+        // F1 model v1 dan v2 diukur dengan penggaris yang berbeda: kenaikan
+        // angka tidak bisa dibedakan dari test set yang kebetulan lebih mudah.
+        //
+        // Ongkosnya nyata dan disengaja: sampel test tidak pernah ikut melatih.
+        // Test juga tidak bertambah sendiri, jadi pada dataset yang tumbuh
+        // besar ia akan terasa kecil. Kalau itu terjadi, tambahkan anggota baru
+        // sekali lalu kunci lagi, jangan mengacak ulang seluruhnya.
+        [$grupTest, $grupBebas] = $grup->partition(
+            fn (Collection $anggota) => $anggota->contains(
+                fn (SampelRelevansi $s) => $s->status_label === StatusLabelRelevansi::TerkunciTest,
+            ),
+        );
+
+        // Satu anggota terkunci menarik seluruh grup duplikatnya, termasuk
+        // salinan yang baru dilabeli setelah snapshot lalu. Memisahkan grup
+        // berarti menguji model dengan artikel yang sudah pernah dilihatnya.
+        foreach ($grupTest as $anggota) {
+            foreach ($anggota as $satu) {
+                $hasil['test'][] = $satu;
+            }
+        }
+
+        $adaTestTerkunci = $grupTest->isNotEmpty();
+
+        if ($adaTestTerkunci) {
+            // Jatah test sudah terisi, sisanya dibagi train dan validation
+            // menurut perbandingan aslinya.
+            $sisa = $porsi['train'] + $porsi['validation'];
+            $porsi = [
+                'train' => (int) round($porsi['train'] / $sisa * 100),
+                'validation' => 100 - (int) round($porsi['train'] / $sisa * 100),
+                'test' => 0,
+            ];
+        }
+
         // Label grup diambil dari anggota pertama. Grup dengan label campur
         // adalah tanda pelabelan tidak konsisten, dan validator yang
         // melaporkannya, bukan pembagi yang diam-diam memilih salah satu.
-        $perLabel = $grup->groupBy(fn (Collection $anggota) => $anggota->first()->label_manual->value);
-
-        $hasil = ['train' => [], 'validation' => [], 'test' => []];
+        $perLabel = $grupBebas->groupBy(fn (Collection $anggota) => $anggota->first()->label_manual->value);
 
         foreach ($perLabel as $daftarGrup) {
             $kunci = $daftarGrup->keys()->all();
@@ -187,10 +226,14 @@ class RelevanceSnapshotService
             $batasValidation = $batasTrain + (int) floor($jumlah * $porsi['validation'] / 100);
 
             foreach ($kunci as $i => $kunciGrup) {
+                // Sisa pembulatan jatuh ke train saat test sudah terkunci.
+                // Tanpa cabang ini `floor` menyisakan beberapa grup yang
+                // diam-diam masuk test, dan test berhenti sebanding dengan
+                // milik snapshot sebelumnya.
                 $split = match (true) {
                     $i < $batasTrain => 'train',
                     $i < $batasValidation => 'validation',
-                    default => 'test',
+                    default => $adaTestTerkunci ? 'train' : 'test',
                 };
 
                 foreach ($daftarGrup[$kunciGrup] as $satu) {

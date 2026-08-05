@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\StatusGerbangMutu;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
@@ -28,6 +29,19 @@ class VersiModelRelevansi extends Model
             'activated_at' => 'datetime',
             'archived_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Ambang yang dipakai model ini, bukan angka global.
+     *
+     * Dokumen 05 bagian 7.3: model produksi selalu menunjuk pasangan versi model
+     * dan versi ambang sekaligus. Mempromosikan model baru sambil memakai ambang
+     * lama adalah salah satu cara paling mudah membuat sistem berperilaku aneh
+     * tanpa satu pun galat muncul, karena sebaran skor tiap model berbeda.
+     */
+    public function ambang(): BelongsTo
+    {
+        return $this->belongsTo(VersiThresholdRelevansi::class, 'versi_threshold_relevansi_id');
     }
 
     public function gerbangMutu(): HasMany

@@ -98,6 +98,10 @@ Route::prefix('admin')->name('admin.')->middleware('peran:superadmin,walikota')-
             ->name('model-relevansi.pelatihan.store');
         Route::post('model-relevansi/pelatihan/{pelatihan}/batalkan', [RelevanceTrainingController::class, 'batalkan'])
             ->name('model-relevansi.pelatihan.batalkan');
+        Route::delete('model-relevansi/pelatihan/{pelatihan}', [RelevanceTrainingController::class, 'hapus'])
+            ->name('model-relevansi.pelatihan.hapus');
+        Route::post('model-relevansi/prediksi', [RelevanceTrainingController::class, 'prediksi'])
+            ->name('model-relevansi.prediksi');
     });
 
     Route::resource('media', MediaController::class)->except('show');

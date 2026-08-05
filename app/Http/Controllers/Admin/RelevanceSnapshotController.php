@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\SnapshotDatasetRelevansi;
+use App\Services\Relevance\RelevanceDatasetExporter;
 use App\Services\Relevance\RelevanceSnapshotService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Validation\Rule;
 use RuntimeException;
 
@@ -85,9 +87,29 @@ class RelevanceSnapshotController extends Controller
 
         $nama = "{$snapshot->nama} {$snapshot->versi}";
 
-        // Item ikut terhapus lewat cascade di foreign key-nya.
+        // Dataset hasil ekspor ikut dibuang. Item snapshot memang terhapus
+        // lewat cascade foreign key, tetapi berkas JSONL di disk tidak dijaga
+        // database mana pun, dan ia memuat judul serta isi artikel selengkapnya.
+        // Meninggalkannya bukan cuma soal disk: itu salinan isi berita yang
+        // tidak lagi ditunjuk apa pun dan tidak akan pernah ditinjau siapa pun.
+        $direktori = app(RelevanceDatasetExporter::class)->direktori($snapshot);
+        $sisa = null;
+
+        if (File::isDirectory($direktori)) {
+            File::deleteDirectory($direktori);
+
+            // Diperiksa, bukan dipercaya. Berkasnya ditulis proses ini tetapi
+            // pernah ditulis proses lain dengan pemilik berbeda, dan
+            // `deleteDirectory` mengembalikan false tanpa melempar apa pun.
+            $sisa = File::isDirectory($direktori) ? $direktori : null;
+        }
+
         $snapshot->delete();
 
-        return back()->with('sukses', "Snapshot {$nama} dihapus.");
+        if ($sisa !== null) {
+            return back()->with('galat', "Snapshot {$nama} dihapus, tetapi dataset ekspornya di {$sisa} tidak bisa dibuang. Periksa kepemilikan berkasnya lalu hapus manual.");
+        }
+
+        return back()->with('sukses', "Snapshot {$nama} dihapus beserta dataset ekspornya.");
     }
 }

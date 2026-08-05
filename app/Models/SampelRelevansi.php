@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -75,6 +76,19 @@ class SampelRelevansi extends Model
     public function prediksi(): HasMany
     {
         return $this->hasMany(PrediksiRelevansi::class);
+    }
+
+    /**
+     * Prediksi paling akhir, dari model mana pun.
+     *
+     * Prediksi tidak pernah ditimpa, tiap kali menambah baris, jadi tanpa
+     * pembatas ini satu sampel bisa punya beberapa prediksi dari beberapa versi
+     * model dan tabel akan menampilkan yang mana saja yang kebetulan lebih
+     * dulu terbaca.
+     */
+    public function prediksiTerakhir(): HasOne
+    {
+        return $this->hasOne(PrediksiRelevansi::class)->latestOfMany('predicted_at');
     }
 
     /** Kandidat yang masih menunggu keputusan manusia. */

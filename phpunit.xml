@@ -30,6 +30,16 @@
         <env name="MAIL_MAILER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
+        <!--
+            Database sudah terpisah ke simedia_test, filesystemnya belum, dan
+            itu terbukti berbahaya. Ekspor dataset menamai direktorinya
+            `snapshot-{id}`, dan id snapshot di tes berjalan pada deret yang
+            sama dengan pengembangan. Satu tes yang mengekspor snapshot id 1
+            akan menimpa dataset asli milik snapshot terkunci, yaitu berkas
+            yang justru dijamin tidak berubah oleh manifest hash-nya.
+        -->
+        <env name="RELEVANSI_DATASET_PATH" value="storage/framework/testing/relevance-datasets"/>
+        <env name="RELEVANSI_ARTEFAK_PATH" value="storage/framework/testing/relevance-models"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
     </php>

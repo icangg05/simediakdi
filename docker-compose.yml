@@ -12,6 +12,30 @@ services:
     depends_on: [db, redis]
     command: php artisan serve --host=0.0.0.0 --port=8000
 
+  # Worker antrean. Sempat tidak ada sama sekali, dan akibatnya baru terasa saat
+  # laboratorium relevansi dibangun: job pemantau pelatihan menumpuk di Redis
+  # tanpa pernah dijalankan, jadi progres di layar berhenti di 0% sementara
+  # pelatihannya berjalan normal. Dokumen 02 bagian susunan proses memang sudah
+  # menyebut tiga worker di produksi, compose pengembangan yang tertinggal.
+  #
+  # Satu proses untuk antrean `default` saja. Antrean `nlp` sengaja tidak ikut:
+  # ia berbagi CPU dengan pelatihan dan inferensi model, dan menambah pesaing di
+  # sana hanya memperlambat keduanya.
+  worker:
+    build: ./docker/php
+    working_dir: /app
+    user: "1000:1000"
+    environment:
+      HOME: /tmp
+    volumes:
+      - .:/app
+    depends_on: [db, redis]
+    # Urutan antrean adalah prioritasnya. `default` lebih dulu karena isinya
+    # pemantau pelatihan dan prediksi dataset yang menyegarkan layar admin,
+    # sedangkan `nlp` boleh menunggu beberapa detik. Tanpa `nlp` di daftar,
+    # seluruh analisis relevansi dan sentimen menumpuk tanpa satu pun galat.
+    command: php artisan queue:work --queue=default,nlp --tries=1 --timeout=5400
+
   db:
     image: pgvector/pgvector:pg16
     environment:
@@ -39,6 +63,12 @@ services:
     build:
       context: ./nlp
       dockerfile: ../docker/nlp/Dockerfile
+    # Uid yang sama dengan `app`, dan itu wajib bukan kosmetik. Artefak model
+    # ditulis proses ini lalu dihapus Laravel saat riwayat pelatihan gagal
+    # dibuang. Kalau ditulis root, penghapusan dari sisi Laravel gagal tanpa
+    # suara: barisnya hilang dari database dan direktori 1,3 GB tertinggal
+    # tanpa satu pun catatan yang menunjuknya.
+    user: "1000:1000"
     volumes:
       - ./nlp:/nlp
       - modelnlp:/model

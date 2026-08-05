@@ -86,3 +86,39 @@ class TanggapanPelatihan(BaseModel):
     accepted: bool
     run_id: int
     status: str
+
+
+class PasanganRelevansi(BaseModel):
+    """Satu sampel yang teksnya sudah disusun Laravel.
+
+    Konteks dan teks dikirim jadi, bukan judul dan isi mentah. Dokumen 10
+    bagian 19.2 menggambarkan bentuk yang kedua, tetapi menyusun teks di sini
+    berarti susunannya ditulis di dua tempat, dan pelatihan sudah memakai
+    susunan buatan `RelevanceInputBuilder`. Dua susunan yang berbeda antara
+    latih dan inferensi tetap menghasilkan angka yang tampak wajar dan salah.
+    """
+
+    id: int
+    konteks: str
+    teks: str
+
+
+class PermintaanPrediksiRelevansi(BaseModel):
+    model_version: str
+    artifact_path: str
+    max_length: int = 256
+    pasangan: list[PasanganRelevansi] = Field(min_length=1, max_length=32)
+
+
+class HasilPrediksiRelevansi(BaseModel):
+    id: int
+    probabilitas_relevan: float
+    probabilitas_tidak_relevan: float
+    input_tokens: int
+    input_truncated: bool
+    inference_ms: int
+
+
+class TanggapanPrediksiRelevansi(BaseModel):
+    model_version: str
+    hasil: list[HasilPrediksiRelevansi]

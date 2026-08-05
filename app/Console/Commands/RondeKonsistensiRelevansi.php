@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\StatusLabelRelevansi;
 use App\Models\SampelRelevansi;
 use Illuminate\Console\Command;
 
@@ -54,7 +55,14 @@ class RondeKonsistensiRelevansi extends Command
     {
         $jumlah = (int) $this->option('jumlah');
 
+        // Anggota test set dikecualikan. Ronde ini mengosongkan
+        // `last_reviewed_at` supaya sampelnya muncul lagi di antrean tinjauan,
+        // dan melabeli ulang anggota test berarti mengubah penggaris yang
+        // dipakai mengukur model. Kalau label ronde 2 berbeda, metrik seluruh
+        // model yang pernah diukur di sana berubah artinya tanpa ada yang
+        // menyadarinya.
         $sampel = SampelRelevansi::layakLatih()
+            ->where('status_label', '!=', StatusLabelRelevansi::TerkunciTest->value)
             ->whereRaw("COALESCE(metadata_sumber->>'ronde_konsistensi', '') = ''")
             ->inRandomOrder((string) $this->option('seed'))
             ->limit($jumlah)
