@@ -61,17 +61,26 @@ class KlasifikasiArtikel
         // relevan tetap perlu barisnya, karena di situlah alasan artikel tidak
         // muncul di dashboard bisa ditelusuri. Menghapusnya berarti tidak ada
         // bedanya antara "dinilai tidak relevan" dan "belum pernah dinilai".
-        $baris = AnalisisSentimen::updateOrCreate(
-            ['artikel_id' => $artikel->id],
-            [
-                'relevan' => $relevan,
-                'provider' => $relevansi->penyedia,
-                'reason_code' => $relevansi->alasanKode,
-                'reason_summary' => $relevansi->alasanRingkas,
-                'evidence' => $relevansi->bukti,
-                'prompt_version' => $relevansi->versiPrompt,
-            ],
-        );
+        $kolom = [
+            'relevan' => $relevan,
+            'provider' => $relevansi->penyedia,
+            'reason_code' => $relevansi->alasanKode,
+            'reason_summary' => $relevansi->alasanRingkas,
+            'evidence' => $relevansi->bukti,
+            'prompt_version' => $relevansi->versiPrompt,
+        ];
+
+        // Jawaban tidak relevan membatalkan sentimen yang pernah dinilai
+        // sebelumnya. Tanpa ini barisnya menyimpan dua jawaban yang bertentangan
+        // sekaligus, dan yang lama menang di layar: `provider` sudah berbunyi
+        // gemini sementara `model_versi` masih menyebut IndoBERT dari pipeline
+        // lama, sehingga halaman detail berbunyi "Dinilai gemini:
+        // indobert-sentiment-classifier-2.0.0".
+        if (! $relevan) {
+            $kolom += AnalisisSentimen::SENTIMEN_KOSONG;
+        }
+
+        $baris = AnalisisSentimen::updateOrCreate(['artikel_id' => $artikel->id], $kolom);
 
         $hasil = [$relevansi];
 

@@ -1,3 +1,5 @@
+Kakanwil Kemenkum Sultra Koordinasikan Penguatan Kekayaan Intelektual Di Sultra ke DJKI
+
 # SIMEDIA Kendari
 
 Sistem Monitoring dan Analisis Sentimen Media untuk Pemerintah Kota Kendari.

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\KunciGemini;
 use App\Models\PengaturanAi;
+use App\Services\Ai\RotasiKunciGemini;
 use App\Services\Arsip\PenangkapLayar;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -33,7 +34,7 @@ use Inertia\Response;
  */
 class PengaturanController extends Controller
 {
-    public function __invoke(PenangkapLayar $arsip): Response
+    public function __invoke(PenangkapLayar $arsip, RotasiKunciGemini $rotasi): Response
     {
         return Inertia::render('admin/Pengaturan', [
             'pengaturanAi' => PengaturanAi::aktif()->only([
@@ -53,7 +54,37 @@ class PengaturanController extends Controller
                 'limit_sampai' => $k->sedangLimit() ? $k->limit_sampai->toIso8601String() : null,
                 'alasan_limit' => $k->sedangLimit() ? $k->alasan_limit : null,
                 'terakhir_dipakai_at' => $k->terakhir_dipakai_at?->toIso8601String(),
+                // Galat terakhir yang belum tercabut oleh pemakaian yang
+                // berhasil. Dengan tiga kunci, satu kunci yang salah ketik
+                // hanya terbaca sebagai "klasifikasi kadang gagal" kalau
+                // galatnya tidak ditempelkan pada kuncinya sendiri.
+                'galat_terakhir' => $k->galat_terakhir,
+                'galat_at' => $k->galat_at?->toIso8601String(),
+
+                // Batas harian yang berlaku, beserta asalnya. Membedakan angka
+                // yang disebutkan Google dari angka tebakan config penting:
+                // yang pertama fakta, yang kedua salinan halaman dokumentasi
+                // free tier yang bisa saja sudah tidak berlaku untuk kunci ini.
+                'rpd_batas' => $rotasi->batasHarian($k),
+                'rpd_terpakai' => $rotasi->terpakaiHarian($k),
+                'rpd_dari_google' => $k->rpd_google !== null,
+                'rpd_google_at' => $k->rpd_google_at?->toIso8601String(),
             ]),
+
+            /*
+             * Satu waktu reset untuk seluruh kunci, bukan satu per kunci.
+             *
+             * Google memulangkan jatah harian pada pergantian hari kalender
+             * waktu Pasifik, jadi tiga kunci yang habis pada jam yang berbeda
+             * tetap pulih pada detik yang sama. Menampilkannya berulang di tiap
+             * kunci hanya membuat admin mengira ketiganya bisa berbeda, lalu
+             * menunggu kunci kedua pulih lebih dulu, padahal tidak akan pernah.
+             *
+             * Yang memang berbeda per kunci adalah `limit_sampai`, karena limit
+             * per menit dihitung sejak permintaan kunci itu sendiri. Itu tetap
+             * ditampilkan menempel pada kuncinya masing-masing.
+             */
+            'resetHarian' => $rotasi->resetHarian()->toIso8601String(),
             'kelompok' => [
                 [
                     'judul' => 'Deduplikasi',

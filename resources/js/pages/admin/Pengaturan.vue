@@ -5,11 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useFormatAngka } from '@/composables/useFormatAngka';
 import LayoutAdmin from '@/layouts/LayoutAdmin.vue';
-import { Head, router, useForm } from '@inertiajs/vue3';
+import type { SharedData } from '@/types';
+import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { computed } from 'vue';
+import { Loader2 } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 interface Nilai {
     label: string;
@@ -33,15 +36,26 @@ interface Kunci {
     limit_sampai: string | null;
     alasan_limit: string | null;
     terakhir_dipakai_at: string | null;
+    galat_terakhir: string | null;
+    galat_at: string | null;
+    rpd_batas: number;
+    rpd_terpakai: number;
+    rpd_dari_google: boolean;
+    rpd_google_at: string | null;
 }
 
 const props = defineProps<{
     pengaturanAi: PengaturanAi;
     kunci: Kunci[];
+    resetHarian: string;
     kelompok: { judul: string; catatan: string | null; nilai: Nilai[] }[];
     layanan: { nama: string; sehat: boolean; url: string }[];
     evaluasi: { f1_macro: number; jumlah_sampel: number; dievaluasi_at: string } | null;
 }>();
+
+const page = usePage<SharedData>();
+
+const { formatAngka } = useFormatAngka();
 
 const formAi = useForm({ ...props.pengaturanAi });
 const formKunci = useForm({ label: '', kunci: '' });
@@ -67,12 +81,60 @@ function hapusKunci(k: Kunci) {
     }
 }
 
+/** Kunci yang sedang diketuk, supaya tombolnya terkunci satu per satu. */
+const sedangUji = ref<number | null>(null);
+
+/**
+ * Jeda 15 detik per kunci setelah diuji, dihitung mundur di layar.
+ *
+ * Penegakan yang sebenarnya ada di server, karena tombol yang diredupkan bukan
+ * aturan dan permintaannya tetap bisa dikirim langsung. Yang di sini hanya
+ * supaya admin melihat sisa waktunya alih-alih menekan tombol lalu menerima
+ * penolakan yang terasa seperti kerusakan.
+ */
+const JEDA_UJI = 15;
+
+const jedaUji = ref<Record<number, number>>({});
+
+setInterval(() => {
+    for (const [id, sisa] of Object.entries(jedaUji.value)) {
+        if (sisa <= 1) delete jedaUji.value[Number(id)];
+        else jedaUji.value[Number(id)] = sisa - 1;
+    }
+}, 1000);
+
+/**
+ * Hasil uji dibaca dari flash session, bukan disimpan di komponen.
+ *
+ * Menyegarkan halaman membuangnya, dan itu memang benar: hasil uji adalah
+ * potret sesaat, dan potret yang bertahan setelah reload akan terbaca sebagai
+ * keadaan kunci sekarang padahal bisa saja sudah berubah.
+ */
+const uji = computed(() => page.props.flash?.ujiKunci ?? null);
+
+function ujiKunci(k: Kunci) {
+    sedangUji.value = k.id;
+    jedaUji.value[k.id] = JEDA_UJI;
+
+    router.post(`/admin/pengaturan/kunci/${k.id}/uji`, {}, {
+        preserveScroll: true,
+        showProgress: false,
+        onFinish: () => (sedangUji.value = null),
+    });
+}
+
+const bisaDiuji = (k: Kunci) => sedangUji.value === null && !jedaUji.value[k.id];
+
 const waktu = (iso: string) => format(new Date(iso), 'd MMM yyyy HH:mm', { locale: id });
 
 const alasan: Record<string, string> = {
     kuota_harian: 'kuota harian habis',
     kuota_menit: 'kuota per menit habis',
     retry_delay: 'diminta menunggu oleh Google',
+    // Ditahan hitungan sendiri, sebelum Google sempat menolak. Dibedakan dari
+    // dua yang di atas supaya admin tahu kuncinya belum benar-benar ditolak.
+    kuota_harian_lokal: 'batas harian tercapai, ditahan sendiri',
+    kuota_menit_lokal: 'batas per menit tercapai, ditahan sendiri',
 };
 
 const jumlahAktif = computed(() => props.kunci.filter((k) => k.aktif).length);
@@ -86,6 +148,18 @@ function bisaDimatikan(k: Kunci): boolean {
 function bisaDihapus(k: Kunci): boolean {
     return props.kunci.length > 1 && (!k.aktif || jumlahAktif.value > 1);
 }
+
+const sisaHarian = (k: Kunci) => Math.max(0, k.rpd_batas - k.rpd_terpakai);
+
+/**
+ * Hasil uji menggantikan kotak galat terakhir untuk kunci yang sama.
+ *
+ * Uji yang gagal menulis galatnya ke kolom `galat_terakhir` kunci itu juga,
+ * jadi tanpa penjaga ini kalimat galat yang sama muncul dua kali bertumpuk
+ * persis setelah tombol Uji ditekan. Yang ditampilkan hasil ujinya, karena ia
+ * yang baru saja diminta admin dan ia memuat lebih banyak keterangan.
+ */
+const adaHasilUji = (k: Kunci) => uji.value !== null && uji.value.id === k.id;
 
 function status(k: Kunci): string {
     if (!k.aktif) return 'Dimatikan';
@@ -145,32 +219,158 @@ function status(k: Kunci): string {
                 <CardTitle class="text-sm font-medium">Kunci API Gemini</CardTitle>
                 <p class="text-xs text-muted-foreground">
                     Satu kunci berarti satu kuota harian. Kunci yang kena limit ditandai beserta waktu pulihnya dan dilewati sampai waktu itu, jadi
-                    kuota tidak habis untuk permintaan yang sudah pasti ditolak. Kuota harian Gemini pulih pada tengah malam waktu Pasifik, bukan 24
-                    jam setelah pemakaian.
+                    kuota tidak habis untuk permintaan yang sudah pasti ditolak.
                 </p>
             </CardHeader>
             <CardContent class="space-y-4">
+                <!-- Waktu reset ditulis sekali di sini, bukan diulang di tiap
+                     kunci. Google memulangkan jatah harian pada pergantian hari
+                     kalender waktu Pasifik, jadi seluruh kunci pulih pada detik
+                     yang sama betapapun berbedanya jam mereka kehabisan. Yang
+                     memang berbeda per kunci adalah limit per menit, dan itu
+                     ditempelkan pada kuncinya masing-masing di bawah. -->
+                <div v-if="props.kunci.length > 0" class="rounded-md border bg-muted/40 px-3 py-2 text-xs">
+                    <p>
+                        <span class="text-muted-foreground">Kuota harian seluruh kunci reset bersamaan:</span>
+                        <span class="angka font-medium">{{ waktu(props.resetHarian) }}</span>
+                    </p>
+                    <p class="mt-0.5 text-muted-foreground">
+                        Tengah malam waktu Pasifik, jam kalender Google, bukan 24 jam setelah kunci mulai dipakai. Limit per menit pulih sendiri jauh
+                        lebih cepat dan waktunya berbeda tiap kunci, jadi ditampilkan pada kuncinya masing-masing.
+                    </p>
+                </div>
+
                 <p v-if="props.kunci.length === 0" class="text-sm text-muted-foreground">
                     Belum ada kunci di database, jadi klasifikasi tidak bisa dijalankan sampai ada satu kunci.
                 </p>
 
                 <ul v-else class="divide-y rounded-md border">
-                    <li v-for="k in props.kunci" :key="k.id" class="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
-                        <div class="space-y-0.5">
-                            <p class="text-sm">{{ k.label }}</p>
-                            <p class="text-xs text-muted-foreground">
-                                {{ status(k) }}
-                                <template v-if="k.terakhir_dipakai_at"> · terakhir dipakai {{ waktu(k.terakhir_dipakai_at) }} </template>
+                    <li v-for="k in props.kunci" :key="k.id" class="space-y-2 px-3 py-2">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div class="space-y-0.5">
+                                <p class="text-sm">{{ k.label }}</p>
+                                <p class="text-xs text-muted-foreground">
+                                    {{ status(k) }}
+                                    <template v-if="k.terakhir_dipakai_at"> · terakhir dipakai {{ waktu(k.terakhir_dipakai_at) }} </template>
+                                </p>
+                                <!-- Asal angkanya ikut disebut. Yang dari Google
+                                     adalah batas sebenarnya, dibaca dari badan
+                                     galat 429 saat kunci ini pernah kehabisan.
+                                     Yang dari config hanya salinan halaman
+                                     dokumentasi free tier, dan salinan itu
+                                     meleset untuk kunci berbayar maupun setelah
+                                     Google mengubah jatahnya. -->
+                                <p class="text-xs text-muted-foreground">
+                                    Kuota harian
+                                    <span class="angka text-foreground">{{ formatAngka(sisaHarian(k)) }}</span>
+                                    sisa dari <span class="angka">{{ formatAngka(k.rpd_batas) }}</span>
+                                    <template v-if="k.rpd_dari_google">
+                                        · angka dari Google<template v-if="k.rpd_google_at">, {{ waktu(k.rpd_google_at) }}</template>
+                                    </template>
+                                    <template v-else> · perkiraan dari <code class="text-[11px]">GEMINI_BATAS_RPD</code>, Google belum menyebut angkanya </template>
+                                </p>
+                            </div>
+                            <!-- Satu kunci harus selalu tersisa menyala. Tombol yang akan mematikan
+                                 kunci terakhir tidak ditampilkan, karena menghentikan klasifikasi
+                                 seluruh sistem bukan yang dimaksud siapa pun yang menekannya. -->
+                            <div class="flex gap-2">
+                                <!-- Menguji memakai kuota sungguhan, jadi tombolnya
+                                     terkunci selama permintaannya berjalan supaya
+                                     klik kedua tidak mengirim ketukan kedua. -->
+                                <!-- Ketiganya diwarnai berbeda karena akibatnya
+                                     berbeda jauh. Uji hanya memakai satu
+                                     permintaan, Matikan menghentikan kunci ini
+                                     dipakai, dan Hapus tidak bisa dibatalkan
+                                     karena kuncinya tersimpan terenkripsi dan
+                                     tidak pernah bisa dibaca kembali. Tiga
+                                     tombol abu-abu berjajar membuat ketiganya
+                                     terlihat sama beratnya. -->
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    class="border-sky-500/40 text-sky-700 hover:bg-sky-50 hover:text-sky-800 dark:text-sky-300 dark:hover:bg-sky-950/40"
+                                    :disabled="!bisaDiuji(k)"
+                                    @click="ujiKunci(k)"
+                                >
+                                    <Loader2 v-if="sedangUji === k.id" class="size-3.5 animate-spin" />
+                                    <template v-if="sedangUji === k.id">Menguji</template>
+                                    <template v-else-if="jedaUji[k.id]">Tunggu {{ jedaUji[k.id] }}s</template>
+                                    <template v-else>Uji</template>
+                                </Button>
+                                <Button
+                                    v-if="bisaDimatikan(k)"
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    :class="
+                                        k.aktif
+                                            ? 'border-amber-500/40 text-amber-700 hover:bg-amber-50 hover:text-amber-800 dark:text-amber-300 dark:hover:bg-amber-950/40'
+                                            : 'border-emerald-500/40 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-950/40'
+                                    "
+                                    @click="ubahAktif(k)"
+                                >
+                                    {{ k.aktif ? 'Matikan' : 'Nyalakan' }}
+                                </Button>
+                                <Button v-if="bisaDihapus(k)" type="button" variant="destructive" size="sm" @click="hapusKunci(k)">Hapus</Button>
+                            </div>
+                        </div>
+
+                        <!-- Galat terakhir yang belum tercabut oleh pemakaian
+                             yang berhasil. Menempel pada kuncinya sendiri, bukan
+                             di log: dengan tiga kunci, satu kunci yang salah
+                             ketik hanya terbaca sebagai "klasifikasi kadang
+                             gagal" kalau galatnya tidak ditunjukkan di sini.
+                             Hilang sendiri begitu kunci ini berhasil dipakai
+                             lagi, baik oleh antrean maupun oleh tombol Uji.
+
+                             Disembunyikan saat ada hasil uji untuk kunci ini,
+                             karena uji yang gagal menulis galatnya ke kolom yang
+                             sama. Tanpa penjaga itu kalimat galat yang sama
+                             muncul dua kali bertumpuk persis setelah tombol Uji
+                             ditekan. -->
+                        <div
+                            v-if="k.galat_terakhir && !adaHasilUji(k)"
+                            class="rounded-md border border-rose-500/40 bg-rose-50 p-2 text-xs dark:bg-rose-950/40"
+                        >
+                            <p class="font-medium text-rose-700 dark:text-rose-300">
+                                Galat terakhir
+                                <span v-if="k.galat_at" class="font-normal opacity-70">· {{ waktu(k.galat_at) }}</span>
+                            </p>
+                            <p class="mt-1 break-words text-rose-700 dark:text-rose-300">{{ k.galat_terakhir }}</p>
+                            <p class="mt-1 text-muted-foreground">
+                                Peringatan ini hilang sendiri begitu kunci berhasil dipakai lagi.
                             </p>
                         </div>
-                        <!-- Satu kunci harus selalu tersisa menyala. Tombol yang akan mematikan
-                             kunci terakhir tidak ditampilkan, karena menghentikan klasifikasi
-                             seluruh sistem bukan yang dimaksud siapa pun yang menekannya. -->
-                        <div class="flex gap-2">
-                            <Button v-if="bisaDimatikan(k)" type="button" variant="outline" size="sm" @click="ubahAktif(k)">
-                                {{ k.aktif ? 'Matikan' : 'Nyalakan' }}
-                            </Button>
-                            <Button v-if="bisaDihapus(k)" type="button" variant="ghost" size="sm" @click="hapusKunci(k)">Hapus</Button>
+
+                        <!-- Hasil uji ditempel di bawah kuncinya sendiri, bukan di
+                             toast. Jawaban model dan kalimat galat dari Google
+                             adalah isi yang ingin dibaca dan dibandingkan, bukan
+                             pemberitahuan yang lewat lalu hilang. -->
+                        <div
+                            v-if="uji && uji.id === k.id"
+                            class="rounded-md border p-2 text-xs"
+                            :class="
+                                uji.berhasil
+                                    ? 'border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40'
+                                    : 'border-rose-500/40 bg-rose-50 dark:bg-rose-950/40'
+                            "
+                        >
+                            <p class="font-medium" :class="uji.berhasil ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'">
+                                <!-- Jawaban yang kembali tetapi tidak memuat label
+                                     kunci bukan kegagalan kunci. Paketnya sampai,
+                                     yang meleset instruksinya, dan menyebutnya
+                                     "gagal dipakai" akan membuat admin mengganti
+                                     kunci yang sebenarnya baik. -->
+                                {{ uji.berhasil ? 'Kunci berfungsi' : uji.jawaban ? 'Jawaban tidak sesuai' : 'Kunci gagal dipakai' }}
+                                <span class="angka font-normal opacity-70">({{ formatAngka(uji.ms) }} ms)</span>
+                            </p>
+                            <p v-if="uji.jawaban" class="mt-1 text-muted-foreground">
+                                Jawaban Gemini: <span class="text-foreground">{{ uji.jawaban }}</span>
+                            </p>
+                            <p v-if="uji.galat" class="mt-1 break-words text-rose-700 dark:text-rose-300">
+                                {{ uji.galat }}
+                            </p>
                         </div>
                     </li>
                 </ul>

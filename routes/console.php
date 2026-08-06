@@ -7,13 +7,13 @@ use Illuminate\Support\Facades\Schedule;
 
 // withoutOverlapping() wajib pada seluruh perintah crawl dan agregasi: satu
 // sumber yang lambat tidak boleh memicu dua proses yang menulis baris sama.
+// Tiga jam sekali. Media daerah di Kendari menerbitkan beberapa berita per
+// hari, bukan per menit, jadi menyisir tiap 15 menit hanya menghasilkan log
+// penuh baris "0 baru" dan permintaan HTTP yang sia-sia ke 28 portal. Kalau
+// ada kebutuhan mendesak, tombol Crawl sekarang di halaman Log crawl menarik
+// seluruh sumber seketika tanpa menunggu jadwal.
 Schedule::command('crawl:feeds')
-    ->everyFifteenMinutes()
-    ->withoutOverlapping()
-    ->runInBackground();
-
-Schedule::command('crawl:google-news')
-    ->hourly()
+    ->everyThreeHours()
     ->withoutOverlapping()
     ->runInBackground();
 
@@ -51,3 +51,16 @@ Schedule::command('alert:periksa')
 // Pagi hari sebelum jam kerja: peringatan tenggat kontrak berguna saat masih
 // ada waktu menindaklanjutinya hari itu juga.
 Schedule::command('kontrak:periksa-tenggat')->dailyAt('07:00');
+
+// Antrean klasifikasi Gemini, dua irama untuk dua pekerjaan yang berbeda
+// biayanya. Pengisian menyisir seluruh tabel artikel dengan tiga kueri
+// whereHas, jadi sejam sekali. Pelepasan hanya membaca tabel antrean yang sudah
+// terindeks, jadi tiap menit supaya worker tidak pernah menganggur menunggu
+// jadwal berikutnya sementara kuota hari itu terbuang.
+Schedule::command('gemini:antre --isi')
+    ->hourly()
+    ->withoutOverlapping();
+
+Schedule::command('gemini:antre')
+    ->everyMinute()
+    ->withoutOverlapping();

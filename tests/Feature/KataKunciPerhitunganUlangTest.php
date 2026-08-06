@@ -23,7 +23,7 @@ class KataKunciPerhitunganUlangTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function artikel(string $isi): void
+    private function artikel(string $isi, ?string $diambil = null): void
     {
         $media = Media::firstOrCreate(
             ['slug' => 'kp'],
@@ -36,9 +36,43 @@ class KataKunciPerhitunganUlangTest extends TestCase
             'url' => 'https://kp.test/'.uniqid(),
             'url_kanonik' => 'https://kp.test/'.uniqid(),
             'isi' => $isi,
-            'diambil_at' => now(),
+            'diambil_at' => $diambil ?? now(),
             'status_proses' => 'selesai',
         ]);
+    }
+
+    public function test_skor_lonjakan_dihitung_dari_periode_sebelumnya(): void
+    {
+        $kemarin = now()->subDay();
+
+        for ($i = 0; $i < 3; $i++) {
+            $this->artikel('Pembangunan drainase berjalan lancar di Kadia.', $kemarin->toDateTimeString());
+        }
+
+        app(PenghitungKataKunci::class)->hitung(Waktu::tanggalWita($kemarin));
+
+        for ($i = 0; $i < 3; $i++) {
+            $this->artikel('Pembangunan drainase berjalan lancar di Kadia.');
+        }
+
+        app(PenghitungKataKunci::class)->hitung(Waktu::tanggalWita(now()));
+
+        // Istilah yang sudah muncul kemarin dinilai sebagai rasio terhadap
+        // kemarin, bukan sebagai frekuensi mentah. Frekuensi yang sama persis
+        // dua hari berturut-turut berarti skor 1, bukan lonjakan.
+        //
+        // Jalur ini sempat mati sama sekali di Postgres: rata-rata periode
+        // sebelumnya diambil dengan pluck tanpa alias, dan galatnya hanya
+        // muncul kalau memang ada periode sebelumnya yang cocok. Seluruh test
+        // lain di berkas ini menghitung satu hari saja, jadi tidak ada yang
+        // pernah menyentuhnya.
+        $baris = DB::table('kata_kunci_periode')
+            ->where('istilah', 'drainase')
+            ->where('periode_mulai', Waktu::tanggalWita(now()))
+            ->first();
+
+        $this->assertNotNull($baris);
+        $this->assertSame(1.0, (float) $baris->skor_lonjakan);
     }
 
     public function test_baris_usang_dihapus_saat_dihitung_ulang(): void

@@ -1,5 +1,6 @@
 import '../css/app.css';
 
+import NotifikasiFlash from '@/components/NotifikasiFlash.vue';
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import type { DefineComponent } from 'vue';
@@ -28,7 +29,12 @@ createInertiaApp({
     title: (title) => `${title} - ${appName}`,
     resolve: (name) => resolvePageComponent(`./pages/${name}.vue`, import.meta.glob<DefineComponent>('./pages/**/*.vue')),
     setup({ el, App, props, plugin }) {
-        createApp({ render: () => h(App, props) })
+        // NotifikasiFlash sengaja disandingkan dengan App, bukan ditaruh di
+        // dalam layout. Adapter Inertia mengganti `key` komponen halaman pada
+        // setiap kunjungan tanpa `preserveState`, jadi apa pun di bawah App
+        // ikut dibongkar dan dipasang ulang. Toast yang sedang tampil akan
+        // hilang di tengah jalan kalau ia ikut di dalam pohon itu.
+        createApp({ render: () => [h(App, props), h(NotifikasiFlash)] })
             .use(plugin)
             .use(ZiggyVue)
             .mount(el);

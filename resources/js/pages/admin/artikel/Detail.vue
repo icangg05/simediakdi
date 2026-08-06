@@ -105,7 +105,10 @@ function reset() {
     router.post(
         `/admin/artikel/${props.artikel.id}/reset`,
         {},
-        { preserveScroll: true, onFinish: () => (sedangReset.value = false) },
+        // Sama seperti di halaman daftar: tombolnya sudah terkunci dengan ikon
+        // berputar, jadi bilah progres bawaan Inertia hanya menambah penanda
+        // kedua untuk satu pekerjaan yang sama.
+        { preserveScroll: true, showProgress: false, onFinish: () => (sedangReset.value = false) },
     );
 }
 
@@ -247,9 +250,9 @@ const waktu = (nilai: string | null) =>
                                     :perlu-review="analisis.perlu_review"
                                 />
 
-                                <Badge v-if="analisis.perlu_review" variant="outline">
+                                <!-- <Badge v-if="analisis.perlu_review" variant="outline">
                                     Perlu review
-                                </Badge>
+                                </Badge> -->
 
                                 <!-- Membedakan keputusan manusia dari kebetulan
                                      model sependapat. -->
@@ -300,7 +303,7 @@ const waktu = (nilai: string | null) =>
                                 </details>
 
                                 <p v-if="analisis.provider" class="text-[11px] text-muted-foreground">
-                                    Dinilai {{ analisis.provider }} {{ analisis.model_versi ?? '' }}.
+                                    Dinilai {{ analisis.provider }}: {{ analisis.model_versi ?? '' }}.
                                 </p>
                             </div>
 

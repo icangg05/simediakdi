@@ -27,11 +27,20 @@ class CrawlFeeds extends Command
         PembacaScrape $pembacaScrape,
         PencatatArtikel $pencatat,
     ): int {
+        $satuSumber = $this->option('sumber');
+
         $sumber = SumberFeed::withoutGlobalScopes()
-            ->when($this->option('sumber'), fn ($q, $id) => $q->where('id', $id))
-            ->when(! $this->option('paksa') && ! $this->option('sumber'), fn ($q) => $q->jatuhTempo())
-            // Google News punya command sendiri agar jadwalnya bisa berbeda.
-            ->whereIn('tipe', [TipeSumber::Rss, TipeSumber::Scrape])
+            ->when($satuSumber, fn ($q, $id) => $q->where('id', $id))
+            // Saringan aktif berdiri sendiri, di luar jatuhTempo(). Sebelumnya
+            // ia hanya hidup di dalam scope itu, jadi `--paksa` ikut menarik
+            // sumber yang sudah dimatikan karena gagal lima kali berturut-turut.
+            // Tombol crawl manual memakai `--paksa`, dan satu klik akan
+            // menghidupkan kembali seluruh sumber rusak yang sengaja dibungkam.
+            //
+            // `--sumber` tetap dikecualikan: admin yang menyebut satu id memang
+            // sedang menguji sumber yang baru diperbaiki.
+            ->when(! $satuSumber, fn ($q) => $q->where('aktif', true))
+            ->when(! $this->option('paksa') && ! $satuSumber, fn ($q) => $q->jatuhTempo())
             ->get();
 
         if ($sumber->isEmpty()) {

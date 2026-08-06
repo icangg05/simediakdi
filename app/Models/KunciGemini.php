@@ -30,7 +30,21 @@ class KunciGemini extends Model
             'aktif' => 'boolean',
             'limit_sampai' => 'datetime',
             'terakhir_dipakai_at' => 'datetime',
+            'galat_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Kunci yang galat terakhirnya belum tercabut oleh pemakaian yang berhasil.
+     *
+     * Dibaca sebagai peringatan di halaman Pengaturan. Tanpa penanda per kunci,
+     * satu kunci yang salah ketik di antara tiga kunci hanya terbaca sebagai
+     * "klasifikasi kadang gagal", dan tidak ada yang tahu kunci mana yang harus
+     * diganti.
+     */
+    public function bermasalah(): bool
+    {
+        return $this->galat_terakhir !== null;
     }
 
     /** Kunci yang boleh dipanggil sekarang: dinyalakan dan tidak sedang kena limit. */

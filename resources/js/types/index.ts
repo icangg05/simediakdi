@@ -27,6 +27,24 @@ export interface SharedData {
         nonce?: string | null;
         /** Tombol opsional di dalam toast, misalnya membuka data yang barusan berpindah. */
         tautan?: { url: string; label: string } | null;
+        /**
+         * Hasil relevansi, mewarnai border toast. Hijau relevan, merah tidak
+         * relevan, kuning saat Gemini menolak memutuskan.
+         */
+        nada?: 'relevan' | 'tidak_relevan' | 'perlu_review' | null;
+        /** Sentimen artikel relevan, ditampilkan sebagai kata berwarna di dalam toast. */
+        sentimen?: 'positif' | 'netral' | 'negatif' | null;
+        /** Keterangan yang tidak terbaca dari hasilnya sendiri, misalnya koreksi yang dicabut. */
+        catatan?: string | null;
+        /** Hasil uji satu kunci Gemini, dirender di halaman Pengaturan. */
+        ujiKunci?: {
+            id: number;
+            label: string;
+            berhasil: boolean;
+            jawaban: string | null;
+            galat: string | null;
+            ms: number;
+        } | null;
     };
     /**
      * Sentimen tidak tersedia selama GEMINI_API_KEY belum diisi.

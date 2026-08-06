@@ -14,7 +14,7 @@ interface SumberFeed {
     id: number;
     media_id: number | null;
     nama: string;
-    tipe: 'rss' | 'scrape' | 'google_news';
+    tipe: 'rss' | 'scrape';
     url: string;
     selector: { item?: string; judul?: string; tautan?: string } | null;
     kata_kunci: string | null;
@@ -46,7 +46,6 @@ function simpan() {
         // Kirim selector hanya untuk tipe scrape, supaya baris RSS tidak
         // menyimpan objek kosong yang membingungkan saat dibaca ulang.
         selector: data.tipe === 'scrape' ? data.selector : null,
-        kata_kunci: data.tipe === 'google_news' ? data.kata_kunci : null,
     }));
 
     if (props.sumberFeed) {
@@ -83,7 +82,6 @@ function simpan() {
                             <SelectContent>
                                 <SelectItem value="rss">RSS</SelectItem>
                                 <SelectItem value="scrape">Scraping</SelectItem>
-                                <SelectItem value="google_news">Google News</SelectItem>
                             </SelectContent>
                         </Select>
                         <InputError :message="form.errors.tipe" />
@@ -100,7 +98,7 @@ function simpan() {
                             </SelectContent>
                         </Select>
                         <p class="text-xs text-muted-foreground">
-                            Kosongkan untuk sumber Google News yang menangkap banyak media sekaligus.
+                            Kosongkan untuk sumber yang menangkap banyak media sekaligus.
                         </p>
                         <InputError :message="form.errors.media_id" />
                     </div>
@@ -129,9 +127,21 @@ function simpan() {
                         </div>
                     </template>
 
-                    <div v-if="form.tipe === 'google_news'" class="grid gap-1.5 sm:col-span-2">
-                        <Label for="kata_kunci">Kata kunci</Label>
-                        <Input id="kata_kunci" v-model="form.kata_kunci" placeholder="Pemkot Kendari" />
+                    <!--
+                        Berlaku untuk semua tipe, bukan hanya sebagian.
+                        Sebelumnya kolom ini cuma muncul untuk Google News,
+                        sementara sumber Tempo dan Detik justru bergantung
+                        padanya sebagai saringan. Menyunting keduanya lewat form
+                        ini menghapus saringannya tanpa peringatan, dan feed
+                        nasional utuh langsung membanjiri tabel artikel.
+                    -->
+                    <div class="grid gap-1.5 sm:col-span-2">
+                        <Label for="kata_kunci">Kata kunci saringan</Label>
+                        <Input id="kata_kunci" v-model="form.kata_kunci" placeholder="Kendari" />
+                        <p class="text-xs text-muted-foreground">
+                            Opsional. Kalau diisi, hanya item yang judul atau ringkasannya memuat kata ini yang
+                            disimpan. Dipakai untuk feed media nasional yang isinya kebanyakan di luar Kendari.
+                        </p>
                         <InputError :message="form.errors.kata_kunci" />
                     </div>
 

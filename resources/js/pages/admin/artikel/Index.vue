@@ -2,6 +2,7 @@
 import DataTable from '@/components/data-table/DataTable.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,7 +13,7 @@ import type { KolomDefinisi, OpsiFilter, PaginasiMeta } from '@/types/tabel';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { ExternalLink, Loader2, RotateCcw, Sparkles, ThumbsDown, ThumbsUp } from 'lucide-vue-next';
+import { ExternalLink, Loader2, RotateCcw, Sparkles, ThumbsDown, ThumbsUp, Trash2, UserPen } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
 type LabelSentimen = 'negatif' | 'netral' | 'positif';
@@ -35,6 +36,7 @@ interface BarisArtikel {
     judul: string;
     url: string;
     media: string | null;
+    dipublikasikan_at: string | null;
     diambil_at: string;
     status_proses: string;
     analisis: Analisis | null;
@@ -47,22 +49,32 @@ const props = defineProps<{
     daftarRelevansi: { nilai: string; label: string; jumlah: number }[];
     sentimen: LabelSentimen | null;
     media: string | null;
+    koreksi: boolean;
     pantauan: string;
     opsiMedia: OpsiFilter[];
     tanggal: { dari: string | null; sampai: string | null };
     artikel: { data: BarisArtikel[] } & PaginasiMeta;
+    pembuangan: { boleh: boolean; jumlah: number };
 }>();
 
 const page = usePage();
 
-const kolom: KolomDefinisi[] = [
+// Kolom centang hanya ada saat pembuangan diizinkan, yaitu pada daftar Tidak
+// relevan dan Menunggu review. Membiarkannya selalu tampil berarti kotak centang
+// menganggur di daftar artikel relevan, dan kotak centang yang tidak menuju
+// tindakan apa pun terbaca sebagai fitur yang rusak.
+const kolom = computed<KolomDefinisi[]>(() => [
+    ...(props.pembuangan.boleh ? [{ kunci: 'pilih', judul: '', lebar: 'w-10' }] : []),
     { kunci: 'no', judul: 'No', lebar: 'w-12', kelas: 'angka' },
     { kunci: 'judul', judul: 'Berita' },
     { kunci: 'media', judul: 'Media', lebar: 'w-36' },
-    { kunci: 'diambil_at', judul: 'Masuk', lebar: 'w-28' },
+    // Dua tanggal dalam satu kolom. Keduanya sering berbeda beberapa hari, dan
+    // menjejerkannya membuat jeda antara berita terbit dan crawler mengambilnya
+    // terbaca sekali lihat.
+    { kunci: 'tanggal', judul: 'Terbit / Masuk', lebar: 'w-44' },
     { kunci: 'hasil', judul: 'Hasil AI', lebar: 'w-72' },
     { kunci: 'aksi', judul: '', lebar: 'w-40' },
-];
+]);
 
 /**
  * Mengubah satu parameter tanpa menghapus sisanya.
@@ -147,6 +159,125 @@ const saringanSentimen: { nilai: LabelSentimen; label: string }[] = [
 const sedangJalan = ref<number | null>(null);
 
 /**
+ * Opsi yang sama untuk ketiga aksi baris: klasifikasi, relevansi, dan reset.
+ *
+ * `showProgress: false` mematikan bilah progres bawaan Inertia di puncak
+ * halaman. Bilah itu berguna untuk perpindahan halaman, tetapi di sini ia
+ * menunjuk tempat yang salah: yang sedang bekerja adalah satu baris, dan
+ * barisnya sudah punya penandanya sendiri berupa tombol yang terkunci dengan
+ * ikon berputar. Dua penanda untuk satu pekerjaan membuat halaman terlihat
+ * sedang dimuat ulang seluruhnya, padahal tidak.
+ */
+/**
+ * Jeda antar penilaian manual, dihitung mundur di layar.
+ *
+ * Satu klik adalah satu sampai dua permintaan Gemini yang dihitung penuh oleh
+ * Google, dan kuotanya kuota yang sama dengan yang dipakai antrean otomatis.
+ * Tanpa jeda, admin yang menyapu daftar dengan klik beruntun bisa menghabiskan
+ * jatah harian dalam beberapa menit, dan antrean latar belakang berhenti
+ * sampai tengah malam waktu Pasifik tanpa ada yang tahu sebabnya.
+ *
+ * Penegakan yang sebenarnya ada di server. Tombol yang diredupkan bukan aturan,
+ * permintaannya tetap bisa dikirim langsung.
+ */
+const JEDA_DETIK = 15;
+
+const jeda = ref(0);
+
+setInterval(() => {
+    if (jeda.value > 0) jeda.value--;
+}, 1000);
+
+/** Terkunci selama satu penilaian berjalan, dan selama jeda setelahnya. */
+const terkunci = computed(() => sedangJalan.value !== null || jeda.value > 0);
+
+const opsiAksi = {
+    preserveScroll: true,
+    showProgress: false,
+    onFinish: () => {
+        sedangJalan.value = null;
+        jeda.value = JEDA_DETIK;
+    },
+};
+
+const terpilih = ref<number[]>([]);
+const sedangBuang = ref(false);
+
+/**
+ * Pilihan dibersihkan tiap kali isi tabel berganti.
+ *
+ * Pindah halaman, ganti saringan, atau ganti tahap membuat baris yang tadi
+ * dicentang tidak terlihat lagi. Membiarkan id-nya tetap tersimpan berarti
+ * tombol "Buang 12 terpilih" merujuk baris yang tidak ada satu pun di layar,
+ * dan admin menekan tombol yang menghapus sesuatu yang tidak sedang dilihatnya.
+ */
+watch(
+    () => props.artikel.data,
+    () => (terpilih.value = []),
+);
+
+const idHalamanIni = computed(() => props.artikel.data.map((b) => b.id));
+
+const semuaTercentang = computed(
+    () => idHalamanIni.value.length > 0 && terpilih.value.length === idHalamanIni.value.length,
+);
+
+function alihkanSemua() {
+    terpilih.value = semuaTercentang.value ? [] : [...idHalamanIni.value];
+}
+
+function alihkanSatu(id: number) {
+    terpilih.value = terpilih.value.includes(id)
+        ? terpilih.value.filter((satu) => satu !== id)
+        : [...terpilih.value, id];
+}
+
+const opsiBuang = {
+    preserveScroll: true,
+    preserveState: true,
+    showProgress: false,
+    onFinish: () => {
+        sedangBuang.value = false;
+        terpilih.value = [];
+    },
+};
+
+function buang(id: number[]) {
+    sedangBuang.value = true;
+    router.delete('/admin/artikel/buang', { data: { id }, ...opsiBuang });
+}
+
+function buangSatu(baris: BarisArtikel) {
+    if (confirm(`Buang artikel "${baris.judul}"? URL-nya dicatat supaya tidak masuk lagi lewat crawl.`)) {
+        buang([baris.id]);
+    }
+}
+
+function buangTerpilih() {
+    if (confirm(`Buang ${terpilih.value.length} artikel terpilih? Tindakan ini tidak bisa dibatalkan.`)) {
+        buang([...terpilih.value]);
+    }
+}
+
+function buangSemua() {
+    // Dua pertanyaan, bukan satu. Yang pertama menyebut angkanya, yang kedua
+    // memaksa jeda sebelum ribuan baris hilang tanpa bisa dikembalikan.
+    if (!confirm(`Buang seluruh ${props.pembuangan.jumlah} artikel yang cocok dengan saringan ini?`)) {
+        return;
+    }
+
+    if (!confirm('Sekali lagi: artikel dan analisisnya hilang permanen. Lanjutkan?')) {
+        return;
+    }
+
+    sedangBuang.value = true;
+
+    // Saringan yang sedang terpasang ikut dikirim lewat query string, supaya
+    // yang terhapus persis yang terlihat di tabel, bukan seluruh tabel.
+    router.delete(`/admin/artikel/buang-semua${window.location.search}`, opsiBuang);
+}
+
+/**
  * Baris yang koreksi manusianya akan dicabut.
  *
  * Dicabut berarti dinilai ulang, bukan dikembalikan ke putusan AI yang lama.
@@ -163,7 +294,7 @@ function reset() {
     konfirmasiReset.value = null;
     sedangJalan.value = id;
 
-    router.post(`/admin/artikel/${id}/reset`, {}, { preserveScroll: true, onFinish: () => (sedangJalan.value = null) });
+    router.post(`/admin/artikel/${id}/reset`, {}, opsiAksi);
 }
 
 /** Hanya baris yang benar-benar punya koreksi manusia yang bisa direset. */
@@ -189,7 +320,7 @@ function jalankan(id: number) {
     konfirmasi.value = null;
     sedangJalan.value = id;
 
-    router.post(`/admin/artikel/${id}/klasifikasi`, {}, { preserveScroll: true, onFinish: () => (sedangJalan.value = null) });
+    router.post(`/admin/artikel/${id}/klasifikasi`, {}, opsiAksi);
 }
 
 /**
@@ -214,7 +345,7 @@ function putuskan() {
     konfirmasiRelevansi.value = null;
     sedangJalan.value = baris.id;
 
-    router.post(`/admin/artikel/${baris.id}/relevansi`, { relevan }, { preserveScroll: true, onFinish: () => (sedangJalan.value = null) });
+    router.post(`/admin/artikel/${baris.id}/relevansi`, { relevan }, opsiAksi);
 }
 
 /**
@@ -358,12 +489,77 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                         </SelectContent>
                     </Select>
 
+                    <!-- Menyala berarti hanya baris yang pernah disentuh
+                         manusia. Penanda yang sama sudah tampil sebagai badge
+                         Dikoreksi di kolom Hasil AI, jadi tombol ini menyaring
+                         hal yang persis sama, bukan pengertian baru. -->
+                    <button
+                        type="button"
+                        class="inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-colors"
+                        :class="koreksi ? 'border-transparent bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'"
+                        :aria-pressed="koreksi"
+                        @click="pindah({ koreksi: koreksi ? null : 1 })"
+                    >
+                        <UserPen class="size-3.5" />
+                        Dikoreksi
+                    </button>
+
                     <div class="flex items-center gap-1">
                         <Label for="dari" class="text-xs text-muted-foreground">Dari</Label>
                         <Input id="dari" v-model="dari" type="date" class="h-8 w-36" />
                         <Label for="sampai" class="text-xs text-muted-foreground">sampai</Label>
                         <Input id="sampai" v-model="sampai" type="date" class="h-8 w-36" />
                     </div>
+
+                    <!-- Hanya pada daftar Tidak relevan dan Menunggu review.
+                         Artikel relevan tidak pernah dapat tombol buang, berapa
+                         pun sentimennya, karena justru itu isi laporan. -->
+                    <template v-if="pembuangan.boleh">
+                        <button
+                            v-if="artikel.data.length > 0"
+                            type="button"
+                            class="inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                            @click="alihkanSemua"
+                        >
+                            {{ semuaTercentang ? 'Bersihkan pilihan' : 'Pilih halaman ini' }}
+                        </button>
+
+                        <Button
+                            v-if="terpilih.length > 0"
+                            size="sm"
+                            variant="outline"
+                            class="h-8"
+                            :disabled="sedangBuang"
+                            @click="buangTerpilih"
+                        >
+                            <Trash2 class="size-3.5" />
+                            Buang {{ terpilih.length }} terpilih
+                        </Button>
+
+                        <Button
+                            size="sm"
+                            variant="destructive"
+                            class="h-8"
+                            :disabled="sedangBuang || pembuangan.jumlah === 0"
+                            @click="buangSemua"
+                        >
+                            <Loader2 v-if="sedangBuang" class="size-3.5 animate-spin" />
+                            <Trash2 v-else class="size-3.5" />
+                            Buang semua ({{ formatAngka(pembuangan.jumlah) }})
+                        </Button>
+                    </template>
+                </template>
+
+                <template #sel-pilih="{ baris }">
+                    <!-- radix-vue v1 memakai `checked`, bukan `model-value`.
+                         Nama yang salah membuat prop-nya diabaikan dan kotaknya
+                         jalan sendiri: tampak tercentang, tetapi `terpilih`
+                         tidak pernah terisi dan tombol buang tidak muncul. -->
+                    <Checkbox
+                        :checked="terpilih.includes(baris.id)"
+                        :aria-label="`Pilih ${baris.judul}`"
+                        @update:checked="alihkanSatu(baris.id)"
+                    />
                 </template>
 
                 <!-- Nomor urut meneruskan hitungan halaman, bukan mulai dari 1
@@ -388,8 +584,16 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                     <span class="text-sm text-muted-foreground">{{ baris.media ?? '-' }}</span>
                 </template>
 
-                <template #sel-diambil_at="{ baris }">
-                    <span class="text-sm text-muted-foreground">{{ waktu(baris.diambil_at) }}</span>
+                <!-- Tanda hubung untuk tanggal terbit yang kosong, bukan
+                     diisi tanggal masuk. Tidak semua feed mencantumkannya, dan
+                     menyalin tanggal masuk ke sana membuat jeda yang justru
+                     ingin dibaca menjadi selalu nol. -->
+                <template #sel-tanggal="{ baris }">
+                    <span class="text-sm whitespace-nowrap text-muted-foreground">
+                        {{ baris.dipublikasikan_at ? waktu(baris.dipublikasikan_at) : '-' }}
+                        <span class="opacity-40">/</span>
+                        {{ waktu(baris.diambil_at) }}
+                    </span>
                 </template>
 
                 <template #sel-hasil="{ baris }">
@@ -440,28 +644,36 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                 <template #sel-aksi="{ baris }">
                     <div class="flex flex-col gap-1.5">
                         <!--
-                            Dikunci selama satu artikel dinilai, bukan seluruh
-                            tabel. Klasifikasi memakan satu sampai tiga detik,
-                            dan tanpa penguncian klik kedua mengirim permintaan
-                            kedua ke Gemini untuk jawaban yang sebentar lagi
-                            datang sendiri.
+                            Seluruh tabel dikunci selama satu artikel dinilai,
+                            bukan barisnya saja. Klasifikasi berjalan sinkron dan
+                            memakan satu sampai tiga detik, dan permintaan kedua
+                            yang berangkat di tengah jalan memakai satu jatah
+                            kuota Gemini untuk hasil yang belum tentu sempat
+                            terbaca. Barisnya sendiri tetap dibedakan lewat ikon
+                            berputar, jadi admin tahu mana yang sedang dikerjakan.
                         -->
                         <Button
                             size="sm"
                             class="bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-70"
-                            :disabled="sedangJalan === baris.id"
+                            :disabled="terkunci"
                             @click="klasifikasi(baris)"
                         >
                             <Loader2 v-if="sedangJalan === baris.id" class="size-3.5 animate-spin" />
                             <Sparkles v-else class="size-3.5" />
-                            {{ sedangJalan === baris.id ? 'Menilai' : 'Klasifikasi' }}
+                            <!-- Hitungan mundur tampil di seluruh baris, bukan
+                                 hanya di baris yang barusan ditekan. Jedanya
+                                 memang berlaku untuk seluruh tabel, dan tombol
+                                 redup tanpa keterangan terbaca sebagai rusak. -->
+                            <template v-if="sedangJalan === baris.id">Menilai</template>
+                            <template v-else-if="jeda > 0">Tunggu {{ jeda }}s</template>
+                            <template v-else>Klasifikasi</template>
                         </Button>
 
                         <button
                             v-if="adaKoreksi(baris)"
                             type="button"
                             class="inline-flex items-center justify-center gap-1 rounded-md border px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
-                            :disabled="sedangJalan === baris.id"
+                            :disabled="terkunci"
                             @click="konfirmasiReset = baris"
                         >
                             <RotateCcw class="size-3" />
@@ -472,7 +684,7 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                             <button
                                 type="button"
                                 class="inline-flex flex-1 items-center justify-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 transition-colors hover:bg-emerald-200 disabled:opacity-50 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
-                                :disabled="sedangJalan === baris.id"
+                                :disabled="terkunci"
                                 @click="tanyakan(baris, true)"
                             >
                                 <ThumbsUp class="size-3" />
@@ -481,13 +693,24 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                             <button
                                 type="button"
                                 class="inline-flex flex-1 items-center justify-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-800 transition-colors hover:bg-rose-200 disabled:opacity-50 dark:bg-rose-950 dark:text-rose-300 dark:hover:bg-rose-900"
-                                :disabled="sedangJalan === baris.id"
+                                :disabled="terkunci"
                                 @click="tanyakan(baris, false)"
                             >
                                 <ThumbsDown class="size-3" />
                                 Tidak
                             </button>
                         </div>
+
+                        <button
+                            v-if="pembuangan.boleh"
+                            type="button"
+                            class="inline-flex items-center justify-center gap-1 rounded-md border px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:hover:bg-rose-950"
+                            :disabled="sedangBuang"
+                            @click="buangSatu(baris)"
+                        >
+                            <Trash2 class="size-3" />
+                            Buang
+                        </button>
                     </div>
                 </template>
             </DataTable>

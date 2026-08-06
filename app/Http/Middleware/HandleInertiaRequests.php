@@ -60,6 +60,23 @@ class HandleInertiaRequests extends Middleware
                 // menyebut apa yang terjadi tidak banyak menolong kalau
                 // datanya sendiri sudah tidak bisa dijangkau dari situ.
                 'tautan' => fn () => $request->session()->get('tautan'),
+                // Hasil penilaian yang mewarnai toast: `nada` berisi relevan
+                // atau tidak_relevan, `sentimen` berisi salah satu dari tiga
+                // nada. Dikirim sebagai data, bukan disimpulkan dari kalimat
+                // pesannya. Menebak warna dengan mencari kata "relevan" di
+                // dalam teks akan salah pada pesan "ditandai tidak relevan",
+                // dan salahnya justru pada arah yang berlawanan.
+                'nada' => fn () => $request->session()->get('nada'),
+                'sentimen' => fn () => $request->session()->get('sentimen'),
+                // Keterangan tambahan yang tidak terbaca dari hasilnya sendiri,
+                // misalnya koreksi yang barusan dicabut atau Gemini yang
+                // sengaja dilewati karena keputusan manusia sudah ada.
+                'catatan' => fn () => $request->session()->get('catatan'),
+                // Hasil uji satu kunci Gemini. Dirender sebagai kotak di bawah
+                // kuncinya sendiri, bukan sebagai toast, karena jawaban model
+                // dan kalimat galat dari Google adalah isi yang ingin dibaca
+                // dan dibandingkan, bukan pemberitahuan yang lewat lalu hilang.
+                'ujiKunci' => fn () => $request->session()->get('ujiKunci'),
                 'nonce' => fn () => $request->session()->has('sukses')
                     || $request->session()->has('galat')
                     ? (string) Str::uuid7()

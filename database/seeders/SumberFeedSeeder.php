@@ -135,25 +135,14 @@ class SumberFeedSeeder extends Seeder
 
         foreach ([...array_keys(self::TANPA_FEED), ...self::NASIONAL_JANGAN_FEED_UTUH] as $slug) {
             Media::withoutGlobalScopes()->where('slug', $slug)->update([
-                'catatan' => self::TANPA_FEED[$slug] ?? 'Nasional. Jangan tarik feed utuh, pakai Google News berkata kunci Kendari.',
+                'catatan' => self::TANPA_FEED[$slug] ?? 'Nasional. Jangan tarik feed utuh, pakai feed yang disaring kata kunci Kendari.',
             ]);
         }
 
-        // F-05: menjangkau media di luar daftar, sekaligus menangkap liputan
-        // Kendari di media nasional tanpa menarik feed utuhnya.
-        foreach (['Kendari', 'Pemkot Kendari', 'Wali Kota Kendari'] as $kataKunci) {
-            SumberFeed::updateOrCreate(
-                ['url' => 'https://news.google.com/rss/search?q='.urlencode($kataKunci)],
-                [
-                    'media_id' => null,
-                    'nama' => "Google News: {$kataKunci}",
-                    'tipe' => 'google_news',
-                    'kata_kunci' => $kataKunci,
-                    'interval_menit' => 60,
-                    'aktif' => true,
-                ],
-            );
-        }
+        // Tiga sumber Google News pernah didaftarkan di sini untuk F-05, dan
+        // sudah dicabut. robots.txt milik news.google.com melarang pengambilan
+        // `/rss/search`, jadi ketiganya gagal pada setiap kali jalan tanpa
+        // pernah menghasilkan satu artikel pun.
 
         $this->command?->info(
             SumberFeed::withoutGlobalScopes()->count().' sumber feed terdaftar, '

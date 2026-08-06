@@ -277,7 +277,14 @@ class PenghitungKataKunci
             ->where('periode_mulai', '>=', CarbonImmutable::parse($periodeMulai)
                 ->subDays($granularitas === 'mingguan' ? 28 : 4)->toDateString())
             ->groupBy('istilah')
-            ->pluck(DB::raw('avg(frekuensi)'), 'istilah')
+            // Aliasnya wajib. Tanpa `as rata`, Postgres menamai kolom hasilnya
+            // `avg`, sedangkan pluck mencari properti bernama `avg(frekuensi)`
+            // persis seperti yang ditulis. Perintahnya mati dengan galat
+            // "Undefined property", dan hanya saat ada istilah yang memang
+            // muncul di periode sebelumnya, jadi bug ini lolos selama periode
+            // pertama masih kosong.
+            ->selectRaw('istilah, avg(frekuensi) as rata')
+            ->pluck('rata', 'istilah')
             ->map(fn ($n) => (float) $n)
             ->all();
     }

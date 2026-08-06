@@ -12,7 +12,7 @@ import { AlertTriangle, Plus } from 'lucide-vue-next';
 interface BarisSumber {
     id: number;
     nama: string;
-    tipe: 'rss' | 'scrape' | 'google_news';
+    tipe: 'rss' | 'scrape';
     url: string;
     aktif: boolean;
     gagal_berturut: number;
@@ -57,7 +57,6 @@ const aksiBaris: AksiBaris<BarisSumber>[] = [
 const labelTipe: Record<BarisSumber['tipe'], string> = {
     rss: 'RSS',
     scrape: 'Scraping',
-    google_news: 'Google News',
 };
 
 function sejak(waktu: string | null): string {

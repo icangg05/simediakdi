@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\KunciGemini;
 use App\Models\PengaturanAi;
+use App\Services\Ai\RotasiKunciGemini;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -90,6 +91,30 @@ class PengaturanAiController extends Controller
         $kunci->delete();
 
         return back()->with('sukses', "Kunci {$kunci->label} dihapus.");
+    }
+
+    /**
+     * Mengetuk Gemini dengan satu kunci tertentu, lalu melaporkan apa adanya.
+     *
+     * Hasilnya dikirim lewat session, bukan lewat toast biasa, karena yang
+     * dicari admin justru isinya: jawaban model membuktikan paket benar-benar
+     * sampai dan kembali, dan kalimat galat dari Google menyebut sebabnya jauh
+     * lebih tepat daripada tebakan mana pun, misalnya "API key not valid" untuk
+     * kunci yang salah ketik.
+     *
+     * Uji ini memakai kuota. Satu ketukan adalah satu permintaan yang dihitung
+     * Google sama seperti permintaan penilaian, jadi throttle rutenya sengaja
+     * ketat dan pemakaiannya ikut tercatat pada penjaga kuota.
+     */
+    public function ujiKunci(KunciGemini $kunci, RotasiKunciGemini $rotasi): RedirectResponse
+    {
+        $hasil = $rotasi->uji($kunci, (string) PengaturanAi::aktif()->model);
+
+        return back()->with('ujiKunci', [
+            'id' => $kunci->id,
+            'label' => $kunci->label,
+            ...$hasil,
+        ]);
     }
 
     /**

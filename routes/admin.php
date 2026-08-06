@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AntreanAiController;
 use App\Http\Controllers\Admin\ArtikelController;
 use App\Http\Controllers\Admin\AturanAlertController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -22,25 +23,74 @@ Route::prefix('admin')->name('admin.')->middleware('peran:superadmin,walikota')-
     // artikel lewat tombol, bukan di latar belakang, sampai alurnya terbukti
     // cukup stabil untuk dilepas.
     Route::get('artikel', [ArtikelController::class, 'index'])->name('artikel.index');
+
+    // Pembuangan artikel. Didaftarkan sebelum `artikel/{artikel}` karena
+    // `artikel/buang` akan tertangkap route model binding kalau urutannya
+    // terbalik, dan Laravel menjawabnya 404 untuk artikel bernama "buang".
+    //
+    // Throttle-nya bukan soal beban server. Ini aksi yang tidak bisa
+    // dibatalkan, dan tombol tanpa batas adalah tombol yang cepat atau lambat
+    // ditekan dua kali.
+    Route::delete('artikel/buang', [ArtikelController::class, 'hapus'])
+        ->middleware('throttle:20,1,buang-artikel')
+        ->name('artikel.buang');
+    Route::delete('artikel/buang-semua', [ArtikelController::class, 'hapusSemua'])
+        ->middleware('throttle:3,1,buang-artikel-semua')
+        ->name('artikel.buang-semua');
+
     Route::get('artikel/{artikel}', [ArtikelController::class, 'show'])->name('artikel.show');
+    // Satu penilaian tiap 15 detik, bukan 30 semenit. `0.25` menit adalah
+    // 15 detik, dan middleware throttle mengalikannya dengan 60 apa adanya.
+    //
+    // Angkanya bukan soal beban server. Satu klik adalah satu sampai dua
+    // permintaan Gemini yang dihitung penuh oleh Google, dan kuotanya kuota
+    // yang sama dengan yang dipakai antrean otomatis. Tanpa jeda, admin yang
+    // menyapu daftar dengan klik beruntun menghabiskan jatah harian dalam
+    // beberapa menit, dan antrean latar belakang berhenti sampai tengah malam
+    // waktu Pasifik tanpa ada yang tahu sebabnya.
+    // Parameter ketiga adalah awalan ember throttle, dan tanpanya seluruh rute
+    // di aplikasi ini berbagi satu penghitung. Kunci bawaan ThrottleRequests
+    // hanya id pengguna, bukan id pengguna ditambah rutenya, jadi menekan
+    // Sisir artikel di halaman Antrean AI akan ikut memakan jatah tombol
+    // Klasifikasi. Ketiga rute di bawah sengaja memakai awalan yang sama:
+    // ketiganya memanggil Gemini, jadi jedanya memang satu untuk bertiga.
     Route::post('artikel/{artikel}/klasifikasi', [ArtikelController::class, 'klasifikasi'])
-        ->middleware('throttle:30,1')
+        ->middleware('throttle:1,0.25,gemini-manual')
         ->name('artikel.klasifikasi');
+    // Menandai relevan meneruskan artikelnya ke penilaian sentimen, jadi ia
+    // ikut memakai kuota dan ikut dibatasi. Menandai tidak relevan tidak
+    // memanggil Gemini sama sekali, tetapi keduanya lewat rute yang sama.
     Route::post('artikel/{artikel}/relevansi', [ArtikelController::class, 'relevansi'])
+        ->middleware('throttle:1,0.25,gemini-manual')
         ->name('artikel.relevansi');
-    // Mencabut koreksi manusia lalu menilai ulang. Ikut dibatasi throttle
-    // karena ia memanggil Gemini, sama seperti tombol Klasifikasi.
+    // Mencabut koreksi manusia lalu menilai ulang. Ikut dibatasi karena ia
+    // memanggil Gemini, sama seperti tombol Klasifikasi.
     Route::post('artikel/{artikel}/reset', [ArtikelController::class, 'reset'])
-        ->middleware('throttle:30,1')
+        ->middleware('throttle:1,0.25,gemini-manual')
         ->name('artikel.reset');
     Route::put('analisis/{analisis}', [KoreksiLabelController::class, 'update'])->name('analisis.update');
 
+    // Pemantauan antrean klasifikasi otomatis. Halamannya menarik dirinya
+    // sendiri tiap beberapa detik, jadi rutenya harus tetap murah: seluruh
+    // isinya hitungan agregat di atas tabel yang sudah terindeks.
+    Route::get('antrean-ai', [AntreanAiController::class, 'index'])->name('antrean-ai.index');
+    Route::post('antrean-ai/isi', [AntreanAiController::class, 'isi'])
+        ->middleware('throttle:6,1,antrean-isi')
+        ->name('antrean-ai.isi');
+
     Route::get('log-crawl', [LogCrawlController::class, 'index'])->name('log-crawl.index');
+    // Satu crawl penuh menarik 28 feed dari 28 server milik orang lain. Dua
+    // kali semenit sudah lebih dari cukup, dan menahan admin yang menekan
+    // tombolnya berulang kali dari membuat kita terlihat seperti penyerang di
+    // log mereka.
+    Route::post('log-crawl/jalankan', [LogCrawlController::class, 'crawl'])
+        ->middleware('throttle:2,1,crawl-manual')
+        ->name('log-crawl.jalankan');
 
     // Rate limit lebih ketat daripada rute biasa: satu ekspor bisa menyapu
     // puluhan ribu baris (dokumen 06 bagian 7).
     Route::get('ekspor/artikel', [EksporController::class, 'artikel'])
-        ->middleware('throttle:10,1')
+        ->middleware('throttle:10,1,ekspor')
         ->name('ekspor.artikel');
 
     Route::post('kontrak/{kontrak}/cocokkan', [KontrakController::class, 'cocokkan'])->name('kontrak.cocokkan');
@@ -68,6 +118,12 @@ Route::prefix('admin')->name('admin.')->middleware('peran:superadmin,walikota')-
         Route::post('pengaturan/kunci', [PengaturanAiController::class, 'simpanKunci'])->name('pengaturan.kunci.simpan');
         Route::put('pengaturan/kunci/{kunci}', [PengaturanAiController::class, 'ubahKunci'])->name('pengaturan.kunci.ubah');
         Route::delete('pengaturan/kunci/{kunci}', [PengaturanAiController::class, 'hapusKunci'])->name('pengaturan.kunci.hapus');
+        // Throttle ketat, dan bukan karena beban server. Satu ketukan adalah
+        // satu permintaan yang dihitung penuh oleh Google, jadi tombol yang
+        // ditekan berulang kali memakan kuota penilaian artikel.
+        Route::post('pengaturan/kunci/{kunci}/uji', [PengaturanAiController::class, 'ujiKunci'])
+            ->middleware('throttle:10,1,uji-kunci')
+            ->name('pengaturan.kunci.uji');
     });
 
     Route::resource('media', MediaController::class)->except('show');

@@ -56,7 +56,7 @@ function labelTerpilih(): string {
 
         <DropdownMenuContent align="start" class="w-56">
             <DropdownMenuItem v-for="opsi in filter.opsi" :key="opsi.nilai" class="gap-2" @select.prevent="alihkan(opsi.nilai)">
-                <Checkbox :model-value="terpilih.includes(opsi.nilai)" class="pointer-events-none" />
+                <Checkbox :checked="terpilih.includes(opsi.nilai)" class="pointer-events-none" />
                 <span>{{ opsi.label }}</span>
             </DropdownMenuItem>
 

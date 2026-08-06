@@ -221,27 +221,33 @@ class KlasifikasiGeminiTest extends TestCase
      * yang jatuh paling kiri, dan itu yang ditekan orang tanpa membaca.
      */
     /**
-     * Pesan hasil menyebut judul dan tahap tujuannya.
+     * Judul jadi kepala pesan, hasilnya menyusul sebagai data terpisah.
      *
-     * Artikel yang selesai dinilai langsung berpindah tahap dan hilang dari
-     * daftar yang sedang dibuka. Pesan yang hanya berbunyi "selesai dinilai"
-     * meninggalkan admin menebak baris mana yang barusan diproses dan ke mana
-     * perginya, terutama saat menilai belasan artikel berturut-turut.
+     * Judulnya penting, bukan hiasan. Artikel yang selesai dinilai langsung
+     * berpindah tahap dan hilang dari daftar yang sedang dibuka, jadi pesan
+     * tanpa judul meninggalkan admin menebak baris mana yang barusan diproses,
+     * terutama saat menilai belasan artikel berturut-turut.
+     *
+     * Relevansi dan sentimen dikirim sebagai `nada` dan `sentimen`, bukan
+     * dirangkai menjadi kalimat di sini. Frontend perlu mewarnai kata
+     * sentimennya sendiri, dan satu kalimat utuh tidak bisa diwarnai sebagian.
      */
-    public function test_pesan_hasil_menyebut_judul_dan_tahap_tujuan(): void
+    public function test_pesan_hasil_memuat_judul_beserta_nada_dan_sentimen(): void
     {
         RelevanceClassifier::fake([$this->jawaban('relevan')]);
         SentimentClassifier::fake([$this->jawaban('positif')]);
 
         $this->actingAs(User::factory()->create(['peran' => 'superadmin']))
             ->post("/admin/artikel/{$this->artikel->id}/klasifikasi")
-            ->assertRedirect();
+            ->assertRedirect()
+            ->assertSessionHas('nada', 'relevan')
+            ->assertSessionHas('sentimen', 'positif');
 
-        $pesan = session('sukses');
+        $this->assertStringContainsString('Pemkot Kendari memperbaiki drainase', session('sukses'));
 
-        $this->assertStringContainsString('Pemkot Kendari memperbaiki drainase', $pesan);
-        $this->assertStringContainsString('relevan, positif', $pesan);
-        $this->assertStringContainsString('Selesai', $pesan);
+        // Tanpa catatan. Klasifikasi yang berjalan normal tidak punya apa pun
+        // yang tidak terbaca dari hasilnya sendiri.
+        $this->assertNull(session('catatan'));
 
         // Tautan ikut dikirim supaya toast bisa menampilkan tombol Lihat.
         // Menyebut judulnya saja membuat admin tahu apa yang terjadi tetapi
@@ -317,6 +323,8 @@ class KlasifikasiGeminiTest extends TestCase
             'artikel_id' => $this->artikel->id,
             'relevan' => true,
             'label_model' => 'netral',
+            'model_versi' => 'indobert-sentiment-classifier-2.0.0',
+            'dianalisis_at' => now()->subDay(),
             'perlu_review' => true,
             'reason_code' => 'bukti_kosong',
             'reason_summary' => 'Kutipan bukti dari model tidak ditemukan di isi artikel.',
@@ -335,6 +343,138 @@ class KlasifikasiGeminiTest extends TestCase
         $this->assertNull($baris->label_model);
         $this->assertNull($baris->evidence);
         $this->assertSame('keputusan_manusia', $baris->reason_code);
+        $this->assertNull($baris->model_versi);
+        $this->assertNull($baris->dianalisis_at);
+    }
+
+    /**
+     * Jalur AI membuang sisa sentimen yang sama dengan jalur keputusan manusia.
+     *
+     * Sempat hanya jalur manusia yang membersihkannya, dan akibatnya terlihat di
+     * layar: baris tidak relevan menyimpan `provider` gemini berdampingan dengan
+     * `model_versi` indobert-sentiment-classifier-2.0.0 dari pipeline lama,
+     * lalu halaman detail merangkai keduanya menjadi satu kalimat yang menuduh
+     * Gemini memakai model IndoBERT.
+     */
+    public function test_klasifikasi_ai_tidak_relevan_membuang_sisa_sentimen_lama(): void
+    {
+        $baris = BarisAnalisis::create([
+            'artikel_id' => $this->artikel->id,
+            'relevan' => true,
+            'label_model' => 'positif',
+            'model_versi' => 'indobert-sentiment-classifier-2.0.0',
+            'dianalisis_at' => now()->subDay(),
+            'perlu_review' => true,
+        ]);
+
+        RelevanceClassifier::fake([$this->jawaban('tidak_relevan')]);
+
+        $this->actingAs(User::factory()->create(['peran' => 'superadmin']))
+            ->post("/admin/artikel/{$this->artikel->id}/klasifikasi")
+            ->assertRedirect();
+
+        $baris->refresh();
+
+        $this->assertFalse($baris->relevan);
+        $this->assertSame('gemini', $baris->provider);
+        $this->assertNull($baris->model_versi, 'Model IndoBERT tidak boleh menempel pada penilaian Gemini.');
+        $this->assertNull($baris->label_model);
+        $this->assertNull($baris->dianalisis_at);
+        $this->assertFalse($baris->perlu_review);
+    }
+
+    /**
+     * Gemini yang ragu tidak boleh terbaca sebagai Gemini yang menolak.
+     *
+     * Keraguan relevansi tersimpan sebagai `relevan` bernilai false, dan itu
+     * satu-satunya cara menyimpannya. Toast yang membaca kolom itu apa adanya
+     * berbunyi "Tidak relevan" berikut border merah untuk artikel yang justru
+     * belum diputuskan apa pun, dan admin yang membacanya mengira keputusannya
+     * sudah jatuh.
+     */
+    public function test_relevansi_yang_diragukan_dikirim_sebagai_nada_perlu_review(): void
+    {
+        RelevanceClassifier::fake([$this->jawaban('perlu_review')]);
+
+        $this->actingAs(User::factory()->create(['peran' => 'superadmin']))
+            ->post("/admin/artikel/{$this->artikel->id}/klasifikasi")
+            ->assertSessionHas('nada', 'perlu_review');
+
+        $this->assertSame('perlu_review', $this->artikel->fresh()->status_proses);
+        $this->assertNull(session('sentimen'), 'Artikel yang relevansinya belum diputuskan belum punya sentimen.');
+    }
+
+    /**
+     * Bentuk keraguan yang kedua: relevansinya jelas, nadanya yang tidak.
+     *
+     * Artikelnya tetap relevan dan tetap masuk tahap Selesai, jadi nadanya
+     * relevan. Yang kosong hanya sentimennya, dan frontend membaca kekosongan
+     * itu sebagai "sentimen perlu review" karena sentimen selalu dijalankan
+     * begitu relevansinya berbunyi relevan.
+     */
+    public function test_sentimen_yang_diragukan_dikirim_sebagai_relevan_tanpa_sentimen(): void
+    {
+        RelevanceClassifier::fake([$this->jawaban('relevan')]);
+        SentimentClassifier::fake([$this->jawaban('perlu_review')]);
+
+        $this->actingAs(User::factory()->create(['peran' => 'superadmin']))
+            ->post("/admin/artikel/{$this->artikel->id}/klasifikasi")
+            ->assertSessionHas('nada', 'relevan');
+
+        $this->assertNull(session('sentimen'));
+        $this->assertTrue(BarisAnalisis::firstOrFail()->perlu_review);
+    }
+
+    /**
+     * Klasifikasi manual dibatasi satu per 15 detik, ditegakkan di server.
+     *
+     * Tombol yang diredupkan bukan aturan, permintaannya tetap bisa dikirim
+     * langsung. Satu klik adalah satu sampai dua permintaan Gemini yang
+     * dihitung penuh oleh Google, dan kuotanya kuota yang sama dengan yang
+     * dipakai antrean otomatis. Tanpa jeda, admin yang menyapu daftar dengan
+     * klik beruntun menghabiskan jatah harian dalam beberapa menit.
+     */
+    public function test_klasifikasi_manual_menolak_klik_kedua_dalam_15_detik(): void
+    {
+        RelevanceClassifier::fake([$this->jawaban('relevan')]);
+        SentimentClassifier::fake([$this->jawaban('positif')]);
+
+        $pengguna = User::factory()->create(['peran' => 'superadmin']);
+
+        $this->actingAs($pengguna)
+            ->post("/admin/artikel/{$this->artikel->id}/klasifikasi")
+            ->assertRedirect();
+
+        $this->actingAs($pengguna)
+            ->post("/admin/artikel/{$this->artikel->id}/klasifikasi")
+            ->assertStatus(429);
+    }
+
+    /**
+     * Warna toast dikirim sebagai data, bukan disimpulkan dari kalimat pesannya.
+     *
+     * Pesannya berbunyi "ditandai tidak relevan", dan kata "relevan" ada di
+     * dalamnya. Frontend yang menebak warna dengan mencari kata itu akan
+     * mewarnai toast hijau untuk keputusan yang justru sebaliknya.
+     */
+    public function test_keputusan_tidak_relevan_mengirim_nada_merah_tanpa_sentimen(): void
+    {
+        BarisAnalisis::create([
+            'artikel_id' => $this->artikel->id,
+            'relevan' => true,
+            'label_model' => 'positif',
+        ]);
+
+        $this->actingAs(User::factory()->create(['peran' => 'superadmin']))
+            ->post("/admin/artikel/{$this->artikel->id}/relevansi", ['relevan' => '0'])
+            ->assertSessionHas('nada', 'tidak_relevan');
+
+        // Label lama tidak ikut. Artikel yang dikoreksi menjadi tidak relevan
+        // tetap menyimpannya, dan label itu sudah tidak dihitung agregasi mana
+        // pun. Diperiksa lewat `session()`, bukan `assertSessionHas`, karena
+        // yang terakhir menganggap kunci bernilai null sebagai kunci yang tidak
+        // ada sama sekali.
+        $this->assertNull(session('sentimen'));
     }
 
     /**

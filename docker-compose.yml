@@ -26,11 +26,36 @@ services:
     volumes:
       - .:/app
     depends_on: [db, redis]
-    # Antrean `nlp` dihapus bersama IndoBERT. Yang tersisa `crawl` untuk
-    # pengambilan isi artikel dan arsip bukti pemuatan, plus `default`.
-    # Klasifikasi Gemini tidak lewat antrean sama sekali: ia dijalankan sinkron
-    # dari tombol di halaman Antrean Klasifikasi.
-    command: php artisan queue:work --queue=default,crawl --tries=1 --timeout=1800
+    # Urutan antrean menentukan prioritas worker. `default` dan `crawl` lebih
+    # dulu karena keduanya pendek dan pengambilan isi artikel adalah syarat
+    # sebelum artikelnya bisa dinilai sama sekali. `gemini` paling belakang
+    # karena ia pekerjaan latar yang menunda dirinya sendiri saat kuota habis,
+    # dan menaruhnya di depan akan membuat crawler menunggu di belakang ribuan
+    # pekerjaan yang sedang tidur.
+    #
+    # `--tries=1` tetap berlaku untuk antrean lain. Job Gemini menetapkan
+    # batasnya sendiri lewat properti `$tries` dan `retryUntil()`, karena
+    # penundaan karena kuota ikut terhitung sebagai percobaan dan kuota harian
+    # baru pulih tengah malam waktu Pasifik.
+    command: php artisan queue:work --queue=default,crawl,gemini --tries=1 --timeout=1800
+
+  # Penjadwal. Tanpa proses ini seluruh isi routes/console.php tidak pernah
+  # berjalan, termasuk pengisi antrean Gemini yang membuat klasifikasi otomatis
+  # jalan sendiri. Sebelumnya memang tidak ada, jadi jadwal crawl, alert, dan
+  # ringkasan harian pun hanya berjalan kalau dipanggil tangan.
+  #
+  # `schedule:work` menjaga dirinya sendiri di latar depan dan memeriksa tiap
+  # menit, jadi tidak perlu cron di dalam image.
+  scheduler:
+    build: ./docker/php
+    working_dir: /app
+    user: "1000:1000"
+    environment:
+      HOME: /tmp
+    volumes:
+      - .:/app
+    depends_on: [db, redis]
+    command: php artisan schedule:work
 
   db:
     image: pgvector/pgvector:pg16

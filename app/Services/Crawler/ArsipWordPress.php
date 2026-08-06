@@ -80,7 +80,7 @@ class ArsipWordPress
 
             $hasil[] = [
                 'item' => new ItemFeed(
-                    judul: $ekstraksi->judul ?? '(tanpa judul)',
+                    judul: $ekstraksi->judulAtauCadangan(),
                     url: $this->normalisasi->absolutkan($tautan, "https://{$host}/"),
                     dipublikasikanAt: $ekstraksi->dipublikasikanAt,
                     ringkasan: $ekstraksi->ringkasan,
