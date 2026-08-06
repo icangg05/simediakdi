@@ -82,7 +82,7 @@ class ArtikelPromptBuilder
      * Subjek yang dinilai, dibaca dari config/pantauan.php.
      *
      * Kata kuncinya ikut dikirim sebagai penunjuk, bukan sebagai aturan.
-     * Prompt di resources/prompts yang memuat aturan inklusi dan eksklusinya,
+     * Prompt di `pengaturan_ai` yang memuat aturan inklusi dan eksklusinya,
      * dan di situlah tempatnya: aturan yang panjang di sini akan diulang pada
      * setiap permintaan tanpa pernah berubah.
      */

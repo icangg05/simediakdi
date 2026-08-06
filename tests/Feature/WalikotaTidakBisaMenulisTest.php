@@ -7,6 +7,7 @@ use App\Models\AnalisisSentimen;
 use App\Models\Artikel;
 use App\Models\AturanAlert;
 use App\Models\Kontrak;
+use App\Models\KunciGemini;
 use App\Models\Media;
 use App\Models\Pemuatan;
 use App\Models\SumberFeed;
@@ -65,6 +66,8 @@ class WalikotaTidakBisaMenulisTest extends TestCase
             'jeda_minimal_jam' => 6, 'kanal' => 'telegram', 'penerima' => [], 'aktif' => true,
         ]);
 
+        $kunci = KunciGemini::create(['label' => 'Kunci uji', 'kunci' => 'kunci-uji-yang-cukup-panjang']);
+
         $this->walikota = User::factory()->walikota()->create();
 
         // Id diambil dari baris nyata: kalau route model binding 404 lebih dulu,
@@ -79,6 +82,7 @@ class WalikotaTidakBisaMenulisTest extends TestCase
             'alert' => $alert->id,
             'pengguna' => $this->walikota->id,
             'artikel' => $artikel->id,
+            'kunci' => $kunci->id,
         ];
     }
 

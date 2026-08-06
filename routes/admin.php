@@ -8,9 +8,9 @@ use App\Http\Controllers\Admin\KontrakController;
 use App\Http\Controllers\Admin\KoreksiLabelController;
 use App\Http\Controllers\Admin\LogCrawlController;
 use App\Http\Controllers\Admin\MediaController;
+use App\Http\Controllers\Admin\PengaturanAiController;
 use App\Http\Controllers\Admin\PengaturanController;
 use App\Http\Controllers\Admin\PenggunaController;
-use App\Http\Controllers\Admin\ReviewController;
 use App\Http\Controllers\Admin\SumberFeedController;
 use App\Http\Controllers\Admin\VerifikasiPemuatanController;
 use Illuminate\Support\Facades\Route;
@@ -18,20 +18,24 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('admin')->name('admin.')->middleware('peran:superadmin,walikota')->group(function () {
     Route::get('/', DashboardController::class)->name('dashboard');
 
+    // Satu halaman untuk membaca dan bertindak. Klasifikasi dijalankan per
+    // artikel lewat tombol, bukan di latar belakang, sampai alurnya terbukti
+    // cukup stabil untuk dilepas.
     Route::get('artikel', [ArtikelController::class, 'index'])->name('artikel.index');
     Route::get('artikel/{artikel}', [ArtikelController::class, 'show'])->name('artikel.show');
+    Route::post('artikel/{artikel}/klasifikasi', [ArtikelController::class, 'klasifikasi'])
+        ->middleware('throttle:30,1')
+        ->name('artikel.klasifikasi');
+    Route::post('artikel/{artikel}/relevansi', [ArtikelController::class, 'relevansi'])
+        ->name('artikel.relevansi');
+    // Mencabut koreksi manusia lalu menilai ulang. Ikut dibatasi throttle
+    // karena ia memanggil Gemini, sama seperti tombol Klasifikasi.
+    Route::post('artikel/{artikel}/reset', [ArtikelController::class, 'reset'])
+        ->middleware('throttle:30,1')
+        ->name('artikel.reset');
     Route::put('analisis/{analisis}', [KoreksiLabelController::class, 'update'])->name('analisis.update');
 
     Route::get('log-crawl', [LogCrawlController::class, 'index'])->name('log-crawl.index');
-
-    // Antrean klasifikasi: berita masuk, hasil Gemini, dan koreksi manusia
-    // dalam satu halaman. Klasifikasi dijalankan per artikel lewat tombol,
-    // bukan di latar belakang, sampai alurnya terbukti cukup stabil.
-    Route::get('review', [ReviewController::class, 'index'])->name('review.index');
-    Route::post('review', [ReviewController::class, 'store'])->name('review.store');
-    Route::post('review/{artikel}/klasifikasi', [ReviewController::class, 'klasifikasi'])
-        ->middleware('throttle:30,1')
-        ->name('review.klasifikasi');
 
     // Rate limit lebih ketat daripada rute biasa: satu ekspor bisa menyapu
     // puluhan ribu baris (dokumen 06 bagian 7).
@@ -55,6 +59,16 @@ Route::prefix('admin')->name('admin.')->middleware('peran:superadmin,walikota')-
     Route::resource('alert', AturanAlertController::class)->except('show');
 
     Route::get('pengaturan', PengaturanController::class)->name('pengaturan');
+
+    // Penyuntingan pengaturan Gemini terbatas superadmin. Walikota membaca
+    // halaman Pengaturan, tidak mengubah prompt yang menentukan seluruh angka
+    // di dashboardnya sendiri.
+    Route::middleware('peran:superadmin')->group(function () {
+        Route::put('pengaturan/ai', [PengaturanAiController::class, 'update'])->name('pengaturan.ai');
+        Route::post('pengaturan/kunci', [PengaturanAiController::class, 'simpanKunci'])->name('pengaturan.kunci.simpan');
+        Route::put('pengaturan/kunci/{kunci}', [PengaturanAiController::class, 'ubahKunci'])->name('pengaturan.kunci.ubah');
+        Route::delete('pengaturan/kunci/{kunci}', [PengaturanAiController::class, 'hapusKunci'])->name('pengaturan.kunci.hapus');
+    });
 
     Route::resource('media', MediaController::class)->except('show');
     Route::resource('sumber-feed', SumberFeedController::class)

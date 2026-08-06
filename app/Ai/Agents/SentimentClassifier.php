@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Ai\Agents;
 
+use App\Models\PengaturanAi;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\JsonSchema\Types\Type;
-use Illuminate\Support\Facades\File;
 use Laravel\Ai\Attributes\MaxTokens;
 use Laravel\Ai\Attributes\Provider;
 use Laravel\Ai\Contracts\Agent;
@@ -22,6 +22,8 @@ use Stringable;
  * final dan berbunyi relevan. Sentimen yang akurat atas artikel yang salah
  * tetap salah, dan salahnya masuk ke dashboard sebagai angka yang tampak wajar.
  *
+ * Instruksinya dibaca dari `pengaturan_ai`, sama seperti penilai relevansi.
+ *
  * `perlu_review` sengaja ada di daftar enum, sedangkan kolom `label_model` di
  * database hanya menerima negatif, netral, dan positif. Pemetaannya dilakukan
  * di job: perlu_review berarti label dikosongkan dan barisnya ditandai untuk
@@ -35,9 +37,7 @@ final class SentimentClassifier implements Agent, HasStructuredOutput
 
     public function instructions(): Stringable|string
     {
-        return File::get(resource_path(
-            'prompts/'.config('ai.prompt.sentimen').'.txt'
-        ));
+        return PengaturanAi::aktif()->prompt_sentimen;
     }
 
     /** @return array<string, Type> */

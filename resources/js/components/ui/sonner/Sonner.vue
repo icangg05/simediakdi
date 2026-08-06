@@ -1,4 +1,10 @@
 <script lang="ts" setup>
+// Gaya bawaan vue-sonner. Tanpa impor ini toast tetap dirender, hanya sebagai
+// div telanjang tanpa kotak, tanpa posisi, dan tanpa animasi, sehingga pesannya
+// muncul menempel di tengah halaman dan terlihat seperti teks yang bocor dari
+// komponen lain. Ditaruh di komponennya sendiri, bukan di app.css, supaya
+// gayanya ikut ke mana pun komponen ini dipakai.
+import "vue-sonner/style.css"
 import type { ToasterProps } from "vue-sonner"
 import { reactiveOmit } from "@vueuse/core"
 import { CircleCheckIcon, InfoIcon, Loader2Icon, OctagonXIcon, TriangleAlertIcon, XIcon } from "lucide-vue-next"

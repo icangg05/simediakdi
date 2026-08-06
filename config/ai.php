@@ -15,17 +15,29 @@ return [
     'providers' => [
         'gemini' => [
             'driver' => 'gemini',
-            'key' => env('GEMINI_API_KEY'),
+
+            /*
+             * Sengaja kosong. Kunci tersimpan terenkripsi di tabel
+             * `kunci_gemini`, dan App\Services\Ai\RotasiKunciGemini mengisi
+             * nilai ini saat runtime dengan kunci yang kuotanya masih ada.
+             *
+             * Jangan dikembalikan menjadi env(). Kunci di dua tempat berarti
+             * suatu hari keduanya berbeda, dan yang kalah tetap terbaca sebagai
+             * kunci yang berlaku oleh siapa pun yang membuka `.env`.
+             */
+            'key' => null,
+
             'url' => env('GEMINI_URL', 'https://generativelanguage.googleapis.com/v1beta/'),
 
             /*
-             * Nama model ditulis sekali di sini, bukan di job atau controller.
-             * Setiap prediksi menyimpan nilai ini, jadi hasil dari dua model
-             * berbeda tidak pernah tercampur tanpa bisa dibedakan.
+             * Hanya dipakai Laravel AI SDK sebagai model bawaan provider.
+             * Model yang benar-benar dipanggil dibaca dari `pengaturan_ai` dan
+             * dikirim eksplisit pada setiap permintaan, lihat
+             * App\Services\Ai\GeminiClassificationService.
              */
             'models' => [
                 'text' => [
-                    'default' => env('GEMINI_MODEL', 'gemini-3.5-flash-lite'),
+                    'default' => 'gemini-3.5-flash-lite',
                 ],
             ],
         ],
@@ -38,16 +50,6 @@ return [
      * menerima nilai konstan sehingga tidak bisa membaca environment.
      */
     'gemini_timeout' => (int) env('GEMINI_TIMEOUT', 60),
-
-    /*
-     * Versi prompt yang sedang berlaku, sekaligus nama berkas di
-     * resources/prompts. Setiap prediksi menyimpannya supaya perbandingan
-     * benchmark antar versi prompt tidak perlu menebak isi prompt saat itu.
-     */
-    'prompt' => [
-        'relevansi' => env('AI_RELEVANCE_PROMPT_VERSION', 'relevance-v1'),
-        'sentimen' => env('AI_SENTIMENT_PROMPT_VERSION', 'sentiment-v1'),
-    ],
 
     /*
      * Batas jumlah kutipan bukti yang diterima. Dokumen 13 bagian 13.

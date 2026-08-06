@@ -3,13 +3,21 @@ import BadgeSentimen from '@/components/domain/BadgeSentimen.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useFormatAngka } from '@/composables/useFormatAngka';
 import LayoutAdmin from '@/layouts/LayoutAdmin.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { ExternalLink } from 'lucide-vue-next';
+import { ArrowLeft, ExternalLink, RotateCcw } from 'lucide-vue-next';
 import { ref } from 'vue';
 
 type Label = 'negatif' | 'netral' | 'positif';
@@ -78,6 +86,54 @@ function cabut(analisis: Analisis) {
     simpan(analisis);
 }
 
+/**
+ * Koreksi manusia bisa dicabut, dan mencabutnya berarti menilai ulang.
+ *
+ * Sentimen menyimpan `label_model` dan `label_manual` terpisah, jadi mencabut
+ * koreksi sentimen saja akan memunculkan kembali putusan AI dengan sendirinya.
+ * Relevansi tidak: kolomnya cuma satu dan sudah ditimpa keputusan admin,
+ * sehingga putusan AI yang lama memang tidak tersimpan di mana pun.
+ */
+const konfirmasiReset = ref(false);
+
+const sedangReset = ref(false);
+
+function reset() {
+    konfirmasiReset.value = false;
+    sedangReset.value = true;
+
+    router.post(
+        `/admin/artikel/${props.artikel.id}/reset`,
+        {},
+        { preserveScroll: true, onFinish: () => (sedangReset.value = false) },
+    );
+}
+
+const adaKoreksi = (analisis: Analisis) =>
+    analisis.relevan_manual !== null || analisis.label_manual !== null;
+
+/**
+ * Status mentah tidak layak dibaca manusia.
+ *
+ * `tidak_relevan` dan `perlu_review` adalah nama kolom, bukan kalimat. Yang
+ * tampil di badge harus sama dengan nama tahap di halaman daftar, supaya admin
+ * tahu di tab mana artikel ini akan ditemukannya lagi.
+ */
+const labelProses: Record<string, string> = {
+    mentah: 'Belum diklasifikasi',
+    isi_diambil: 'Belum diklasifikasi',
+    perlu_review: 'Menunggu review',
+    dianalisis: 'Selesai',
+    selesai: 'Selesai',
+    tidak_relevan: 'Selesai',
+    gagal: 'Gagal',
+};
+
+const warnaRelevansi = (relevan: boolean) =>
+    relevan
+        ? 'border-transparent bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+        : 'border-transparent bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300';
+
 const waktu = (nilai: string | null) =>
     nilai ? format(new Date(nilai), 'd MMMM yyyy, HH:mm', { locale: id }) : '-';
 
@@ -92,6 +148,18 @@ const waktu = (nilai: string | null) =>
             { title: 'Detail', href: '#' },
         ]"
     >
+        <!-- Tombol kembali, bukan hanya breadcrumb. Halaman ini dibuka dari
+             tombol Lihat di dalam toast, jadi pengguna sering sampai di sini
+             tanpa pernah melewati daftar artikel dan tidak punya jalan pulang
+             yang jelas. -->
+        <Link
+            href="/admin/artikel"
+            class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+            <ArrowLeft class="size-4" />
+            Kembali ke daftar artikel
+        </Link>
+
         <div class="grid gap-4 lg:grid-cols-3">
             <div class="space-y-4 lg:col-span-2">
                 <Card>
@@ -99,7 +167,7 @@ const waktu = (nilai: string | null) =>
                         <div class="flex flex-wrap items-center gap-2">
                             <Badge v-if="artikel.status_dedup === 'salinan'" variant="secondary">Salinan</Badge>
                             <Badge :variant="artikel.status_proses === 'gagal' ? 'destructive' : 'outline'">
-                                {{ artikel.status_proses }}
+                                {{ labelProses[artikel.status_proses] ?? artikel.status_proses }}
                             </Badge>
                         </div>
 
@@ -160,16 +228,54 @@ const waktu = (nilai: string | null) =>
                             :key="analisis.id"
                             class="space-y-2 rounded-md border p-3"
                         >
-                            <div class="flex items-start justify-between gap-2">
-                                <p class="text-sm font-medium">
-                                    Hasil klasifikasi
-                                </p>
+                            <!--
+                                Relevansi ditampilkan lebih dulu dan selalu, bukan
+                                hanya sentimennya. Ia keputusan pertama yang
+                                menentukan segalanya: artikel yang tidak relevan
+                                tidak pernah dinilai nadanya dan tidak pernah masuk
+                                dashboard, dan tanpa badge ini layar detail tidak
+                                menyebutkan alasan itu sama sekali.
+                            -->
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <Badge variant="outline" :class="warnaRelevansi(analisis.relevan)">
+                                    {{ analisis.relevan ? 'Relevan' : 'Tidak relevan' }}
+                                </Badge>
+
                                 <BadgeSentimen
                                     v-if="analisis.relevan"
                                     :label="analisis.label_efektif"
                                     :perlu-review="analisis.perlu_review"
                                 />
+
+                                <Badge v-if="analisis.perlu_review" variant="outline">
+                                    Perlu review
+                                </Badge>
+
+                                <!-- Membedakan keputusan manusia dari kebetulan
+                                     model sependapat. -->
+                                <Badge
+                                    v-if="analisis.relevan_manual !== null || analisis.label_manual"
+                                    variant="outline"
+                                >
+                                    Dikoreksi manusia
+                                </Badge>
                             </div>
+
+                            <!-- Reset hanya muncul kalau memang ada yang bisa
+                                 dicabut. Tombol yang selalu tampil mengundang
+                                 klik pada artikel yang tidak pernah dikoreksi,
+                                 dan itu berarti satu panggilan Gemini terbuang
+                                 untuk mengulang hasil yang sudah ada. -->
+                            <button
+                                v-if="adaKoreksi(analisis)"
+                                type="button"
+                                class="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+                                :disabled="sedangReset"
+                                @click="konfirmasiReset = true"
+                            >
+                                <RotateCcw class="size-3" />
+                                {{ sedangReset ? 'Menilai ulang...' : 'Reset koreksi' }}
+                            </button>
 
                             <!--
                                 Alasan dan kutipan bukti, bukan angka skor. Gemini tidak
@@ -276,5 +382,32 @@ const waktu = (nilai: string | null) =>
                 </Card>
             </div>
         </div>
+
+        <Dialog :open="konfirmasiReset" @update:open="(buka) => (konfirmasiReset = buka)">
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Cabut koreksi dan nilai ulang?</DialogTitle>
+                    <DialogDescription>
+                        Koreksi manusia pada artikel ini dihapus, lalu Gemini menilainya kembali
+                        dari nol. Satu permintaan akan terkirim dan memakai kuota.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <p class="rounded-md bg-muted/50 p-3 text-sm font-medium">{{ artikel.judul }}</p>
+
+                <p class="text-xs text-muted-foreground">
+                    Hasilnya bisa berbeda dari penilaian AI sebelumnya, karena yang dijalankan
+                    penilaian baru, bukan pemulihan yang lama.
+                </p>
+
+                <DialogFooter>
+                    <Button variant="outline" @click="konfirmasiReset = false">Batal</Button>
+                    <Button class="bg-violet-600 text-white hover:bg-violet-700" @click="reset">
+                        Cabut dan nilai ulang
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
     </LayoutAdmin>
 </template>

@@ -14,7 +14,7 @@ import { type NavItem, type PeranPengguna, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
 import {
     BarChart3, BellRing, ClipboardCheck, FileSignature, FileText, Flame,
-    HelpCircle, LayoutGrid, Newspaper, Rss, ScrollText,
+    LayoutGrid, Newspaper, Rss, ScrollText,
     Send, Settings, Users,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
@@ -27,7 +27,6 @@ const navPerPeran: Record<PeranPengguna, NavItem[]> = {
     superadmin: [
         { title: 'Dashboard', href: '/admin', icon: LayoutGrid },
         { title: 'Artikel', href: '/admin/artikel', icon: FileText },
-        { title: 'Antrean Klasifikasi', href: '/admin/review', icon: HelpCircle },
         { title: 'Kontrak', href: '/admin/kontrak', icon: FileSignature },
         { title: 'Verifikasi Pemuatan', href: '/admin/pemuatan', icon: ClipboardCheck },
         { title: 'Alert', href: '/admin/alert', icon: BellRing },

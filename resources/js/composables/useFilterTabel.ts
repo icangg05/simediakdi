@@ -1,4 +1,4 @@
-import { router } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import type { ArahUrut } from '@/types/tabel';
 
@@ -10,8 +10,25 @@ import type { ArahUrut } from '@/types/tabel';
  * direproduksi dari satu tautan.
  */
 export function useFilterTabel(urlBasis: string) {
+    const page = usePage();
+
+    /**
+     * Dibaca dari `page.url` milik Inertia, bukan dari `window.location`.
+     *
+     * Ini pernah salah dan akibatnya halus. `computed` menyimpan hasilnya
+     * sampai salah satu dependensi reaktifnya berubah, sedangkan
+     * `window.location.search` bukan nilai reaktif. Isinya karena itu dibekukan
+     * pada query string saat halaman pertama kali dimuat, dan setiap
+     * penyaringan berikutnya menumpuk perubahannya di atas keadaan basi itu:
+     * mengetik di kotak cari mengembalikan filter media, tahap, dan tanggal ke
+     * nilai awal, dan tombol halaman mengirimkan nomor halaman bersama filter
+     * yang sudah tidak berlaku.
+     *
+     * `page.url` reaktif dan ikut berubah setiap kunjungan Inertia.
+     */
     const kueri = computed<Record<string, string>>(() => {
-        const posisi = window.location.search;
+        const posisi = page.url.split('?')[1] ?? '';
+
         return Object.fromEntries(new URLSearchParams(posisi));
     });
 

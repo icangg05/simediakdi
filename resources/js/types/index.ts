@@ -21,7 +21,13 @@ export interface SharedData {
     quote: { message: string; author: string };
     auth: Auth;
     /** Pesan hasil aksi. Dirender terpusat di AppLayout sebagai toast. */
-    flash?: { sukses?: string | null; galat?: string | null };
+    flash?: {
+        sukses?: string | null;
+        galat?: string | null;
+        nonce?: string | null;
+        /** Tombol opsional di dalam toast, misalnya membuka data yang barusan berpindah. */
+        tautan?: { url: string; label: string } | null;
+    };
     /**
      * Sentimen tidak tersedia selama GEMINI_API_KEY belum diisi.
      * Halaman mana pun yang menampilkan angka sentimen wajib memeriksanya.

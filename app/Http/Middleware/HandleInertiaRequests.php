@@ -2,8 +2,10 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\KunciGemini;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -45,9 +47,23 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            // `nonce` ikut dikirim supaya dua pesan yang isinya sama persis
+            // tetap terbaca sebagai dua kejadian. Tanpa itu, mengklasifikasi
+            // dua artikel berturut-turut yang hasilnya sama membuat toast kedua
+            // tidak pernah muncul, dan admin mengira klik keduanya tidak jalan.
             'flash' => [
                 'sukses' => fn () => $request->session()->get('sukses'),
                 'galat' => fn () => $request->session()->get('galat'),
+                // Tautan opsional yang menempel pada pesan, dirender sebagai
+                // tombol di dalam toast. Bentuknya {url, label}. Berguna untuk
+                // aksi yang memindahkan barisnya keluar dari layar: pesan yang
+                // menyebut apa yang terjadi tidak banyak menolong kalau
+                // datanya sendiri sudah tidak bisa dijangkau dari situ.
+                'tautan' => fn () => $request->session()->get('tautan'),
+                'nonce' => fn () => $request->session()->has('sukses')
+                    || $request->session()->has('galat')
+                    ? (string) Str::uuid7()
+                    : null,
             ],
             // Hasil pratinjau lapor pemuatan. Dibagikan lewat session, bukan
             // disimpan di komponen, supaya menyegarkan halaman membuangnya
@@ -63,12 +79,25 @@ class HandleInertiaRequests extends Middleware
             // Sejak IndoBERT dihapus, satu-satunya syarat sentimen tersedia
             // adalah kunci Gemini terpasang. Tidak ada lagi gerbang mutu yang
             // menahan, karena tidak ada lagi model lokal yang perlu diukur.
-            'sentimen' => [
-                'tersedia' => filled(config('ai.providers.gemini.key')),
-                'alasan' => filled(config('ai.providers.gemini.key'))
-                    ? null
-                    : 'GEMINI_API_KEY belum diisi, jadi klasifikasi tidak bisa dijalankan.',
-            ],
+            //
+            // Yang diperiksa keberadaan kunci, bukan ketersediaan kuotanya.
+            // Kuota yang sedang habis menahan klasifikasi berikutnya, bukan
+            // menghapus angka yang sudah terkumpul dari layar.
+            'sentimen' => fn () => $this->sentimen(),
         ]);
+    }
+
+    /** @return array{tersedia: bool, alasan: string|null} */
+    private function sentimen(): array
+    {
+        $ada = KunciGemini::query()->exists();
+
+        return [
+            'tersedia' => $ada,
+            'alasan' => $ada
+                ? null
+                : 'Belum ada kunci API Gemini, jadi klasifikasi tidak bisa dijalankan. '
+                    .'Tambahkan di halaman Pengaturan.',
+        ];
     }
 }

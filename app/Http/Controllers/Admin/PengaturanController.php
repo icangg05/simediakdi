@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\KunciGemini;
+use App\Models\PengaturanAi;
 use App\Services\Arsip\PenangkapLayar;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -10,19 +12,22 @@ use Inertia\Response;
 /**
  * Pengaturan sistem, `/admin/pengaturan`.
  *
- * **Menampilkan nilai, tidak menyuntingnya.** Dokumen 04 bagian B meminta form
- * yang bisa mengubah ambang keyakinan dari layar. Yang dibangun di sini adalah
- * jalur cadangan yang sudah disediakan dokumen 07 sendiri: nilainya diubah
- * lewat `.env`, dan halaman ini menunjukkan nilai efektifnya beserta kunci
- * environment yang mengaturnya.
+ * **Sebagian besar halaman ini menampilkan nilai, tidak menyuntingnya.**
+ * Dokumen 04 bagian B meminta form yang bisa mengubah ambang keyakinan dari
+ * layar. Yang dibangun di sini adalah jalur cadangan yang sudah disediakan
+ * dokumen 07 sendiri: nilainya diubah lewat `.env`, dan halaman ini
+ * menunjukkan nilai efektifnya beserta kunci environment yang mengaturnya.
  *
  * Alasannya bukan waktu. Ambang keyakinan mengubah setiap angka di dashboard
  * eksekutif secara surut, dan dokumen 06 bagian 5 mewajibkan perubahannya
- * tercatat lengkap dengan nilai sebelum dan sesudah. Menyimpannya di database
- * berarti membangun tabel pengaturan, invalidasi cache untuk seluruh proses
- * worker, dan pencatatan audit tersendiri, agar nilai yang sudah diukur dan
- * didokumentasikan bisa diubah sambil lalu oleh siapa pun yang membuka halaman
- * ini. Lewat `.env`, perubahannya melewati deploy dan tercatat di git.
+ * tercatat lengkap dengan nilai sebelum dan sesudah. Lewat `.env`,
+ * perubahannya melewati deploy dan tercatat di git.
+ *
+ * Pengecualiannya kelompok Gemini: model, kedua prompt, dan daftar kunci API
+ * disunting dari layar lewat PengaturanAiController. Prompt disetel berkali
+ * kali sampai hasilnya benar, dan kunci ditambah tepat pada saat kuota habis.
+ * Keduanya tetap tercatat lewat activity log, jadi syarat dokumen 06 terpenuhi
+ * tanpa menunggu deploy.
  *
  * Kolom "diukur dari" ada supaya angka-angka ini tidak terbaca sebagai selera.
  */
@@ -31,37 +36,25 @@ class PengaturanController extends Controller
     public function __invoke(PenangkapLayar $arsip): Response
     {
         return Inertia::render('admin/Pengaturan', [
+            'pengaturanAi' => PengaturanAi::aktif()->only([
+                'model',
+                'versi_prompt_relevansi',
+                'prompt_relevansi',
+                'versi_prompt_sentimen',
+                'prompt_sentimen',
+            ]),
+            // Kolom `kunci` sengaja tidak ikut. Kunci yang pernah muncul di
+            // layar admin harus dianggap bocor, dan tidak ada satu pun layar
+            // yang perlu membacanya kembali.
+            'kunci' => KunciGemini::query()->orderBy('id')->get()->map(fn (KunciGemini $k) => [
+                'id' => $k->id,
+                'label' => $k->label,
+                'aktif' => $k->aktif,
+                'limit_sampai' => $k->sedangLimit() ? $k->limit_sampai->toIso8601String() : null,
+                'alasan_limit' => $k->sedangLimit() ? $k->alasan_limit : null,
+                'terakhir_dipakai_at' => $k->terakhir_dipakai_at?->toIso8601String(),
+            ]),
             'kelompok' => [
-                [
-                    'judul' => 'Klasifikasi Gemini',
-                    'catatan' => 'Mengubah nilai di sini mengubah seluruh angka dashboard secara surut, termasuk untuk periode yang sudah dilaporkan.',
-                    'nilai' => [
-                        [
-                            'label' => 'Kunci API Gemini',
-                            'nilai' => filled(config('ai.providers.gemini.key')) ? 'terisi' : 'belum diisi',
-                            'env' => 'GEMINI_API_KEY',
-                            'diukur' => 'Nilainya sengaja tidak ditampilkan. Kunci yang pernah muncul di layar admin harus dianggap bocor.',
-                        ],
-                        [
-                            'label' => 'Model Gemini',
-                            'nilai' => config('ai.providers.gemini.models.text.default'),
-                            'env' => 'GEMINI_MODEL',
-                            'diukur' => 'Rerata 1,5 sampai 2,7 detik per artikel pada pengukuran awal.',
-                        ],
-                        [
-                            'label' => 'Versi prompt relevansi',
-                            'nilai' => config('ai.prompt.relevansi'),
-                            'env' => 'AI_RELEVANCE_PROMPT_VERSION',
-                            'diukur' => 'Berkasnya ada di resources/prompts. Naikkan versinya saat isinya berubah, jangan sunting berkas lama.',
-                        ],
-                        [
-                            'label' => 'Versi prompt sentimen',
-                            'nilai' => config('ai.prompt.sentimen'),
-                            'env' => 'AI_SENTIMENT_PROMPT_VERSION',
-                            'diukur' => null,
-                        ],
-                    ],
-                ],
                 [
                     'judul' => 'Deduplikasi',
                     'catatan' => 'Lapis kemiripan makna dicabut bersama layanan NLP. Yang tersisa hash isi persis dan simhash, jadi salinan yang ditulis ulang dengan kalimat berbeda akan lebih sering lolos.',
@@ -95,8 +88,11 @@ class PengaturanController extends Controller
             ],
             'layanan' => [
                 [
+                    // Sehat berarti ada kunci yang boleh dipanggil sekarang.
+                    // Kunci yang semuanya sedang kena limit sama saja dengan
+                    // tidak ada kunci sampai kuotanya pulih.
                     'nama' => 'Gemini',
-                    'sehat' => filled(config('ai.providers.gemini.key')),
+                    'sehat' => KunciGemini::query()->tersedia()->exists(),
                     'url' => config('ai.providers.gemini.url'),
                 ],
                 ['nama' => 'Layanan arsip (tangkapan layar)', 'sehat' => $arsip->sehat(), 'url' => config('arsip.base_url')],

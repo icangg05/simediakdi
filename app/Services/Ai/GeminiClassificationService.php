@@ -7,6 +7,7 @@ namespace App\Services\Ai;
 use App\Ai\Agents\RelevanceClassifier;
 use App\Ai\Agents\SentimentClassifier;
 use App\Models\Artikel;
+use App\Models\PengaturanAi;
 use App\Services\Ai\DTO\HasilKlasifikasi;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Enums\Lab;
@@ -17,47 +18,61 @@ use Laravel\Ai\Enums\Lab;
  * Tidak ada client HTTP buatan sendiri dan tidak ada perantara FastAPI. Laravel
  * AI SDK sudah menangani autentikasi, structured output, dan pemetaan galat
  * penyedia menjadi exception yang bisa dikenali kebijakan cadangan.
+ *
+ * Nama model dan versi prompt dibaca dari `pengaturan_ai`, bukan dari config.
+ * Keduanya ikut disimpan pada setiap prediksi, jadi hasil dari dua setelan
+ * berbeda tidak pernah tercampur tanpa bisa dibedakan.
  */
 class GeminiClassificationService
 {
     public function __construct(
         private ArtikelPromptBuilder $prompt,
         private EvidenceValidator $bukti,
+        private RotasiKunciGemini $rotasi,
     ) {}
 
     public function relevansi(Artikel $artikel): HasilKlasifikasi
     {
+        $pengaturan = PengaturanAi::aktif();
+
         return $this->klasifikasi(
             new RelevanceClassifier,
             $artikel,
-            (string) config('ai.prompt.relevansi'),
+            $pengaturan,
+            $pengaturan->versiRelevansi(),
         );
     }
 
     public function sentimen(Artikel $artikel): HasilKlasifikasi
     {
+        $pengaturan = PengaturanAi::aktif();
+
         return $this->klasifikasi(
             new SentimentClassifier,
             $artikel,
-            (string) config('ai.prompt.sentimen'),
+            $pengaturan,
+            $pengaturan->versiSentimen(),
         );
     }
 
     private function klasifikasi(
         Agent $agent,
         Artikel $artikel,
+        PengaturanAi $pengaturan,
         string $versiPrompt,
     ): HasilKlasifikasi {
-        $model = (string) config('ai.providers.gemini.models.text.default');
+        $model = (string) $pengaturan->model;
 
         $mulai = hrtime(true);
 
-        $tanggapan = $agent->prompt(
+        // Dibungkus rotasi kunci: kunci yang kena limit ditandai dan panggilan
+        // diulang dengan kunci berikutnya, bukan digagalkan.
+        $tanggapan = $this->rotasi->jalankan(fn () => $agent->prompt(
             $this->prompt->build($artikel),
             provider: Lab::Gemini,
             model: $model,
             timeout: (int) config('ai.gemini_timeout'),
-        );
+        ));
 
         $latensi = (int) ((hrtime(true) - $mulai) / 1_000_000);
 

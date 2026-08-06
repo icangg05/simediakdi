@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Ai\Agents;
 
+use App\Models\PengaturanAi;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\JsonSchema\Types\Type;
-use Illuminate\Support\Facades\File;
 use Laravel\Ai\Attributes\MaxTokens;
 use Laravel\Ai\Attributes\Provider;
 use Laravel\Ai\Contracts\Agent;
@@ -23,10 +23,13 @@ use Stringable;
  * membuat hasil satu artikel bergantung pada artikel yang kebetulan dinilai
  * sebelumnya.
  *
- * Instruksinya dibaca dari berkas, bukan ditulis di kelas ini. Prompt adalah
- * bagian yang paling sering disunting dan paling perlu dibandingkan antar
- * versi, dan keduanya jauh lebih mudah kalau ia berupa berkas teks yang bisa
- * dibaca diff Git tanpa ikut membaca kode PHP di sekitarnya.
+ * Instruksinya dibaca dari `pengaturan_ai`, bukan ditulis di kelas ini dan
+ * bukan lagi dari berkas. Prompt adalah bagian yang paling sering disunting,
+ * dan menyetelnya lewat deploy berarti menunggu rilis untuk memperbaiki satu
+ * kalimat. Isi awalnya ditulis di migration yang membuat tabel itu.
+ *
+ * Versi promptnya ikut disimpan pada setiap prediksi, jadi hasil dari dua
+ * prompt berbeda tetap bisa dibedakan meski promptnya sudah berubah.
  */
 #[Provider(Lab::Gemini)]
 #[MaxTokens(600)]
@@ -36,9 +39,7 @@ final class RelevanceClassifier implements Agent, HasStructuredOutput
 
     public function instructions(): Stringable|string
     {
-        return File::get(resource_path(
-            'prompts/'.config('ai.prompt.relevansi').'.txt'
-        ));
+        return PengaturanAi::aktif()->prompt_relevansi;
     }
 
     /**

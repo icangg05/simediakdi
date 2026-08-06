@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\StatusDedup;
 use App\Http\Controllers\Controller;
 use App\Models\Artikel;
+use App\Models\KunciGemini;
 use App\Models\LogCrawl;
 use App\Models\Pemuatan;
+use App\Models\PengaturanAi;
 use App\Models\SumberFeed;
 use App\Support\Waktu;
 use Inertia\Inertia;
@@ -140,22 +142,34 @@ class DashboardController extends Controller
      * Panggilan nyata sengaja tidak dilakukan di sini. Halaman admin tidak
      * boleh ikut lambat atau ikut gagal hanya karena penyedia sedang sibuk, dan
      * satu panggilan per pembukaan dashboard memakan kuota free tier untuk
-     * pertanyaan yang jawabannya sudah ada di konfigurasi.
+     * pertanyaan yang jawabannya sudah ada di tabel `kunci_gemini`.
      *
      * @return array{status: string, keterangan: string}
      */
     private function kesehatanGemini(): array
     {
-        if (blank(config('ai.providers.gemini.key'))) {
+        if (! KunciGemini::query()->exists()) {
             return [
                 'status' => 'merah',
-                'keterangan' => 'GEMINI_API_KEY belum diisi. Klasifikasi tidak bisa dijalankan.',
+                'keterangan' => 'Belum ada kunci API Gemini. Tambahkan di halaman Pengaturan, '
+                    .'klasifikasi tidak bisa dijalankan tanpa itu.',
+            ];
+        }
+
+        // Kuning, bukan merah. Kuota yang habis pulih sendiri, dan menandainya
+        // bermasalah membuat keadaan yang normal terbaca sama gawatnya dengan
+        // sistem yang belum dikonfigurasi sama sekali.
+        if (! KunciGemini::query()->tersedia()->exists()) {
+            return [
+                'status' => 'kuning',
+                'keterangan' => 'Semua kunci API Gemini sedang kena limit. Klasifikasi jalan lagi '
+                    .'setelah kuotanya pulih, waktunya terlihat di halaman Pengaturan.',
             ];
         }
 
         return [
             'status' => 'hijau',
-            'keterangan' => 'Model '.config('ai.providers.gemini.models.text.default')
+            'keterangan' => 'Model '.PengaturanAi::aktif()->model
                 .' terkonfigurasi. Klasifikasi dijalankan manual dari Antrean Klasifikasi.',
         ];
     }
