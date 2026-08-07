@@ -83,13 +83,10 @@ class AntreGemini extends Command
      * penilainya menolak memutuskan, dan yang ditunggu memang keputusan manusia
      * lewat tombol Relevan atau Tidak, bukan percobaan kedua dari mesin yang
      * sama.
-     *
-     * Salinan juga dikecualikan lewat `asli()`. Ia sudah menunjuk induknya, dan
-     * menilai keduanya berarti membayar Gemini dua kali untuk berita yang sama.
      */
     private function kandidat(int $prioritas): Builder
     {
-        $kueri = Artikel::withoutGlobalScopes()->asli()
+        $kueri = Artikel::withoutGlobalScopes()
             ->where('status_proses', '<>', 'perlu_review')
             ->whereNotNull('isi')
             ->where('isi', '<>', '');
@@ -174,7 +171,6 @@ class AntreGemini extends Command
 
         return $baris->count();
     }
-
 
     /**
      * Mengembalikan pekerjaan yang mati tanpa sempat berpamitan.

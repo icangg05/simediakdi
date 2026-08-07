@@ -9,7 +9,9 @@ use App\Models\AturanAlert;
 use App\Models\Kontrak;
 use App\Models\KunciGemini;
 use App\Models\Media;
+use App\Models\PelatihanModelRelevansi;
 use App\Models\Pemuatan;
+use App\Models\SnapshotDatasetRelevansi;
 use App\Models\SumberFeed;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -70,11 +72,30 @@ class WalikotaTidakBisaMenulisTest extends TestCase
 
         $this->walikota = User::factory()->walikota()->create();
 
+        // Snapshot dan pelatihan dibuat langsung, bukan lewat KandidatDataset.
+        // Yang diuji di sini middleware peran, dan menyiapkan puluhan artikel
+        // berlabel hanya supaya sampling punya bahan berarti tes ini ikut gagal
+        // setiap kali definisi kandidat berubah.
+        $snapshot = SnapshotDatasetRelevansi::create([
+            'nama' => 'Snapshot uji', 'random_seed' => 1,
+            'persen_relevan' => 50, 'persen_tidak_relevan' => 50,
+            'persen_train' => 80, 'persen_validation' => 10, 'persen_test' => 10,
+            'dibuat_oleh' => $this->walikota->id,
+        ]);
+
+        $pelatihan = PelatihanModelRelevansi::create([
+            'nama' => 'Pelatihan uji', 'snapshot_dataset_relevansi_id' => $snapshot->id,
+            'base_model' => 'tfidf-unigram', 'konfigurasi' => [],
+            'dibuat_oleh' => $this->walikota->id,
+        ]);
+
         // Id diambil dari baris nyata: kalau route model binding 404 lebih dulu,
         // tes akan lulus tanpa pernah menyentuh middleware yang diuji.
         $this->parameter = [
             // Route::resource('media') menunggalkan "media" jadi "{medium}".
             'medium' => $this->media->id,
+            // Rute crawl per media didaftarkan manual, jadi namanya tetap "media".
+            'media' => $this->media->id,
             'sumberFeed' => $feed->id,
             'analisis' => $analisis->id,
             'kontrak' => $kontrak->id,
@@ -83,6 +104,8 @@ class WalikotaTidakBisaMenulisTest extends TestCase
             'pengguna' => $this->walikota->id,
             'artikel' => $artikel->id,
             'kunci' => $kunci->id,
+            'snapshot' => $snapshot->id,
+            'pelatihan' => $pelatihan->id,
         ];
     }
 

@@ -17,6 +17,7 @@ class CrawlFeeds extends Command
 {
     protected $signature = 'crawl:feeds
         {--sumber= : Jalankan satu sumber saja, berdasarkan id}
+        {--media= : Jalankan seluruh sumber milik satu media, berdasarkan id}
         {--paksa : Abaikan interval_menit dan jalankan meski belum jatuh tempo}';
 
     protected $description = 'Menarik artikel baru dari sumber RSS dan scraping yang sudah jatuh tempo';
@@ -28,9 +29,11 @@ class CrawlFeeds extends Command
         PencatatArtikel $pencatat,
     ): int {
         $satuSumber = $this->option('sumber');
+        $satuMedia = $this->option('media');
 
         $sumber = SumberFeed::withoutGlobalScopes()
             ->when($satuSumber, fn ($q, $id) => $q->where('id', $id))
+            ->when($satuMedia, fn ($q, $id) => $q->where('media_id', $id))
             // Saringan aktif berdiri sendiri, di luar jatuhTempo(). Sebelumnya
             // ia hanya hidup di dalam scope itu, jadi `--paksa` ikut menarik
             // sumber yang sudah dimatikan karena gagal lima kali berturut-turut.
@@ -38,7 +41,9 @@ class CrawlFeeds extends Command
             // menghidupkan kembali seluruh sumber rusak yang sengaja dibungkam.
             //
             // `--sumber` tetap dikecualikan: admin yang menyebut satu id memang
-            // sedang menguji sumber yang baru diperbaiki.
+            // sedang menguji sumber yang baru diperbaiki. `--media` tidak,
+            // karena tombolnya menarik sekumpulan sumber sekaligus dan admin
+            // tidak sedang memeriksa satu per satu.
             ->when(! $satuSumber, fn ($q) => $q->where('aktif', true))
             ->when(! $this->option('paksa') && ! $satuSumber, fn ($q) => $q->jatuhTempo())
             ->get();
@@ -97,9 +102,8 @@ class CrawlFeeds extends Command
                 'selesai_at' => now(),
                 'jumlah_ditemukan' => $ditemukan,
                 'jumlah_baru' => $baru,
-                // Duplikat lapis 2 baru diketahui setelah isinya diunduh, jadi
-                // yang tercatat di sini hanya URL yang sudah pernah masuk,
-                // ditambah item yang dibuang saringan kata kunci.
+                // Item yang URL-nya sudah ada di tabel artikel, ditambah item
+                // yang dibuang saringan kata kunci.
                 'jumlah_salinan' => $ditemukan - $baru,
                 'status' => $ditemukan === 0 ? 'sebagian' : 'sukses',
                 'pesan' => match (true) {

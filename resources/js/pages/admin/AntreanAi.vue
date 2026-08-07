@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useFormatAngka } from '@/composables/useFormatAngka';
 import LayoutAdmin from '@/layouts/LayoutAdmin.vue';
-import { Head, Link, router, usePoll } from '@inertiajs/vue3';
+import { Head, Link, usePoll } from '@inertiajs/vue3';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { Loader2, Pause, RefreshCw } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { TriangleAlert } from 'lucide-vue-next';
+import { computed } from 'vue';
 
 interface Baris {
     id: number;
@@ -25,12 +24,15 @@ interface Baris {
 }
 
 
+type Keadaan = 'bekerja' | 'menunggu' | 'tertunda' | 'kosong' | 'macet';
+
 const props = defineProps<{
     ringkasan: { menunggu: number; berjalan: number; selesai: number; menyerah: number; total: number };
+    aktivitas: { keadaan: Keadaan; terakhir_selesai_at: string | null; dilanjutkan_at: string | null };
     prioritas: { nilai: number; label: string; jumlah: number }[];
     laju: { jam: number; hari: number };
     kuota: {
-        sisa_hari_ini: number;
+        terkirim_hari_ini: number;
         kapasitas_harian: number;
         tersisa: number;
         jeda_detik: number;
@@ -54,31 +56,17 @@ const { formatAngka } = useFormatAngka();
  * `only` wajib. Tanpanya setiap tarikan mengirim ulang seluruh prop halaman
  * termasuk menu dan data pengguna, dua belas kali semenit, selama halamannya
  * dibiarkan terbuka di layar monitor ruangan.
+ *
+ * Berjalan terus tanpa tombol jeda. Tombolnya dihapus karena penunjuk keadaan
+ * di bawah ini hanya berarti kalau angkanya segar, dan penunjuk yang membeku
+ * diam-diam karena seseorang menekan jeda kemarin adalah persis jenis
+ * kebohongan yang ingin dihindari halaman ini.
  */
-const { start, stop } = usePoll(
+usePoll(
     5000,
-    { only: ['ringkasan', 'prioritas', 'laju', 'kuota', 'terbaru', 'diperbarui'] },
+    { only: ['ringkasan', 'aktivitas', 'prioritas', 'laju', 'kuota', 'terbaru', 'diperbarui'] },
     { autoStart: true },
 );
-
-const berjalanOtomatis = ref(true);
-
-function alihkanOtomatis() {
-    berjalanOtomatis.value = !berjalanOtomatis.value;
-    berjalanOtomatis.value ? start() : stop();
-}
-
-const sedangIsi = ref(false);
-
-function isiSekarang() {
-    sedangIsi.value = true;
-
-    router.post('/admin/antrean-ai/isi', {}, {
-        preserveScroll: true,
-        showProgress: false,
-        onFinish: () => (sedangIsi.value = false),
-    });
-}
 
 const persen = computed(() =>
     props.ringkasan.total === 0
@@ -87,6 +75,68 @@ const persen = computed(() =>
 );
 
 const jam = (nilai: string | null) => (nilai ? format(new Date(nilai), 'HH:mm:ss', { locale: id }) : '-');
+
+/**
+ * Empat keadaan mesin, masing-masing dengan warna dan gerakannya sendiri.
+ *
+ * `menunggu` sengaja hijau dan tetap berdenyut, bukan abu-abu diam. Dengan
+ * jeda enam puluh detik antar artikel, keadaan inilah yang terlihat hampir
+ * sepanjang waktu pada antrean yang justru sedang sehat. Menampilkannya
+ * sebagai diam berarti melatih admin mengabaikan penunjuk yang benar.
+ */
+const INDIKATOR: Record<Keadaan, { label: string; titik: string; bingkai: string }> = {
+    bekerja: {
+        label: 'Sedang menilai',
+        titik: 'bg-sky-500',
+        bingkai: 'border-sky-300 text-sky-800 dark:border-sky-800 dark:text-sky-300',
+    },
+    menunggu: {
+        label: 'Berjalan',
+        titik: 'bg-emerald-500',
+        bingkai: 'border-emerald-300 text-emerald-800 dark:border-emerald-800 dark:text-emerald-300',
+    },
+    tertunda: {
+        label: 'Menunggu kuota',
+        titik: 'bg-amber-500',
+        bingkai: 'border-amber-300 text-amber-800 dark:border-amber-800 dark:text-amber-300',
+    },
+    kosong: {
+        label: 'Antrean kosong',
+        titik: 'bg-slate-400',
+        bingkai: 'text-muted-foreground',
+    },
+    macet: {
+        label: 'Tidak bergerak',
+        titik: 'bg-rose-500',
+        bingkai: 'border-rose-300 text-rose-800 dark:border-rose-800 dark:text-rose-300',
+    },
+};
+
+const indikator = computed(() => INDIKATOR[props.aktivitas.keadaan]);
+
+const keterangan = computed(() => {
+    const terakhir = props.aktivitas.terakhir_selesai_at;
+
+    switch (props.aktivitas.keadaan) {
+        case 'bekerja':
+            return `${formatAngka(props.ringkasan.berjalan)} artikel sedang dikirim ke Gemini`;
+        case 'menunggu':
+            return `Jeda ${formatAngka(props.kuota.jeda_detik)} detik antar artikel, ${formatAngka(props.ringkasan.menunggu)} di belakang`;
+        case 'tertunda':
+            // Pekerjaannya hidup, hanya tidur. Menyebut jam bangunnya membuat
+            // bedanya dengan macet terbaca tanpa perlu menjelaskan apa pun.
+            return `Kuota Gemini habis. Dilanjutkan pukul ${jam(props.aktivitas.dilanjutkan_at)}.`;
+        case 'kosong':
+            return 'Tidak ada artikel yang menunggu dinilai';
+        default:
+            // Yang ditunjuk worker dan scheduler, bukan kuota. Kuota yang habis
+            // punya penunjuknya sendiri di kartu Kuota Gemini, dan menyebut dua
+            // penyebab sekaligus di sini membuat keduanya tidak dipercaya.
+            return terakhir
+                ? `Tidak ada yang selesai sejak ${jam(terakhir)}. Periksa worker dan scheduler.`
+                : 'Belum ada satu pun pekerjaan selesai. Periksa worker dan scheduler.';
+    }
+});
 
 const WARNA_STATUS: Record<string, string> = {
     berjalan: 'border-transparent bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300',
@@ -127,25 +177,36 @@ const kapital = (teks: string) => teks.charAt(0).toUpperCase() + teks.slice(1);
                 </p>
             </div>
 
-            <div class="flex items-center gap-2">
-                <!-- Tombol jeda untuk layar yang dibiarkan terbuka berjam-jam.
-                     Tarikan tiap lima detik murah, tetapi tidak gratis, dan
-                     tidak ada gunanya berjalan saat tidak ada yang menonton. -->
-                <button
-                    type="button"
-                    class="inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-                    :aria-pressed="berjalanOtomatis"
-                    @click="alihkanOtomatis"
-                >
-                    <RefreshCw v-if="berjalanOtomatis" class="size-3.5 animate-spin" style="animation-duration: 3s" />
-                    <Pause v-else class="size-3.5" />
-                    {{ berjalanOtomatis ? 'Memantau' : 'Dijeda' }}
-                </button>
+            <!--
+                Penunjuk, bukan tombol. Dua tombol yang dulu berdiri di sini
+                sudah dihapus: yang satu hanya menjeda tarikan halaman dan tidak
+                pernah menyentuh antrean, yang satu lagi selalu menjawab 500.
 
-                <Button size="sm" variant="outline" :disabled="sedangIsi" @click="isiSekarang">
-                    <Loader2 v-if="sedangIsi" class="size-3.5 animate-spin" />
-                    Sisir artikel sekarang
-                </Button>
+                `aria-live` polite supaya pembaca layar mengabarkan perubahan
+                keadaan tanpa memotong bacaan yang sedang berjalan. Denyutnya
+                sendiri tidak terbaca pembaca layar, jadi labelnya yang harus
+                membawa seluruh maknanya.
+            -->
+            <div
+                class="flex items-center gap-2.5 rounded-md border px-3 py-1.5"
+                :class="indikator.bingkai"
+                role="status"
+                aria-live="polite"
+            >
+                <TriangleAlert v-if="aktivitas.keadaan === 'macet'" class="size-4 shrink-0" aria-hidden="true" />
+                <span v-else class="relative flex size-2.5 shrink-0" aria-hidden="true">
+                    <span
+                        v-if="aktivitas.keadaan !== 'kosong'"
+                        class="absolute inline-flex size-full animate-ping rounded-full opacity-75"
+                        :class="indikator.titik"
+                    />
+                    <span class="relative inline-flex size-2.5 rounded-full" :class="indikator.titik" />
+                </span>
+
+                <div class="text-sm leading-tight">
+                    <p class="font-medium">{{ indikator.label }}</p>
+                    <p class="text-xs opacity-80">{{ keterangan }}</p>
+                </div>
             </div>
         </div>
 
@@ -232,10 +293,15 @@ const kapital = (teks: string) => teks.charAt(0).toUpperCase() + teks.slice(1);
             <Card>
                 <CardContent class="space-y-1 p-4 text-sm">
                     <h2 class="text-sm font-semibold">Kuota Gemini</h2>
+                    <!-- Yang disebut pemakaian, bukan sisa. Sisa menuntut batas
+                         yang benar, dan Google tidak menyediakan cara membaca
+                         batas maupun pemakaian lewat kunci API biasa. Angka sisa
+                         yang dihitung terhadap tebakan config pernah berbunyi
+                         "497 sisa" untuk kunci yang detik itu juga ditolak
+                         Google karena kuotanya sudah habis. -->
                     <p class="text-muted-foreground">
-                        Sisa hari ini
-                        <span class="angka font-medium text-foreground">{{ formatAngka(kuota.sisa_hari_ini) }}</span>
-                        dari <span class="angka">{{ formatAngka(kuota.kapasitas_harian) }}</span> permintaan
+                        <span class="angka font-medium text-foreground">{{ formatAngka(kuota.terkirim_hari_ini) }}</span>
+                        permintaan terkirim hari ini
                     </p>
                     <p class="text-muted-foreground">
                         Jarak antar artikel
@@ -266,7 +332,8 @@ const kapital = (teks: string) => teks.charAt(0).toUpperCase() + teks.slice(1);
                 </div>
 
                 <p v-if="terbaru.length === 0" class="p-4 pt-0 text-sm text-muted-foreground">
-                    Belum ada pekerjaan yang berjalan. Tekan Sisir artikel sekarang kalau antreannya masih kosong.
+                    Belum ada pekerjaan yang bergerak. Artikel masuk antrean sendiri begitu isinya selesai
+                    diekstrak, jadi daftar ini terisi setelah crawl berikutnya berjalan.
                 </p>
 
                 <div v-else class="divide-y border-t">

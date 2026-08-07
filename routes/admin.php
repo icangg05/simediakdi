@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\KontrakController;
 use App\Http\Controllers\Admin\KoreksiLabelController;
 use App\Http\Controllers\Admin\LogCrawlController;
 use App\Http\Controllers\Admin\MediaController;
+use App\Http\Controllers\Admin\ModelRelevansiController;
 use App\Http\Controllers\Admin\PengaturanAiController;
 use App\Http\Controllers\Admin\PengaturanController;
 use App\Http\Controllers\Admin\PenggunaController;
@@ -73,10 +74,12 @@ Route::prefix('admin')->name('admin.')->middleware('peran:superadmin,walikota')-
     // Pemantauan antrean klasifikasi otomatis. Halamannya menarik dirinya
     // sendiri tiap beberapa detik, jadi rutenya harus tetap murah: seluruh
     // isinya hitungan agregat di atas tabel yang sudah terindeks.
+    //
+    // Hanya GET. Rute POST `antrean-ai/isi` dihapus bersama tombolnya: ia
+    // menunjuk ke method yang tidak pernah ada di controllernya dan selalu
+    // menjawab 500. Penyisirannya sendiri tetap berjalan lewat penjadwal, dan
+    // artikel baru sudah mengantre sendiri begitu isinya selesai diekstrak.
     Route::get('antrean-ai', [AntreanAiController::class, 'index'])->name('antrean-ai.index');
-    Route::post('antrean-ai/isi', [AntreanAiController::class, 'isi'])
-        ->middleware('throttle:6,1,antrean-isi')
-        ->name('antrean-ai.isi');
 
     Route::get('log-crawl', [LogCrawlController::class, 'index'])->name('log-crawl.index');
     // Satu crawl penuh menarik 28 feed dari 28 server milik orang lain. Dua
@@ -124,8 +127,45 @@ Route::prefix('admin')->name('admin.')->middleware('peran:superadmin,walikota')-
         Route::post('pengaturan/kunci/{kunci}/uji', [PengaturanAiController::class, 'ujiKunci'])
             ->middleware('throttle:10,1,uji-kunci')
             ->name('pengaturan.kunci.uji');
+
+        // Model Relevansi. Terbatas superadmin, sama seperti pengaturan Gemini
+        // di atasnya dan karena alasan yang sama: yang ditentukan dari halaman
+        // ini bukan angka yang dibaca, melainkan model mana yang berlaku.
+        Route::prefix('model-relevansi')->name('model-relevansi.')->group(function () {
+            Route::get('/', [ModelRelevansiController::class, 'index'])->name('index');
+
+            // Satu snapshot menyalin ratusan artikel beserta teksnya ke tabel
+            // baru dalam satu transaksi. Bukan beban yang berat, tetapi juga
+            // bukan tombol yang perlu bisa ditekan berkali-kali semenit.
+            Route::post('snapshot', [ModelRelevansiController::class, 'simpanSnapshot'])
+                ->middleware('throttle:10,1,model-relevansi')
+                ->name('snapshot.simpan');
+            Route::delete('snapshot/{snapshot}', [ModelRelevansiController::class, 'hapusSnapshot'])
+                ->name('snapshot.hapus');
+
+            Route::post('pelatihan', [ModelRelevansiController::class, 'simpanPelatihan'])
+                ->middleware('throttle:10,1,model-relevansi')
+                ->name('pelatihan.simpan');
+            Route::post('pelatihan/{pelatihan}/batal', [ModelRelevansiController::class, 'batalPelatihan'])
+                ->name('pelatihan.batal');
+            Route::post('pelatihan/{pelatihan}/aktifkan', [ModelRelevansiController::class, 'aktifkanPelatihan'])
+                ->name('pelatihan.aktifkan');
+            Route::delete('pelatihan/{pelatihan}', [ModelRelevansiController::class, 'hapusPelatihan'])
+                ->name('pelatihan.hapus');
+            Route::get('pelatihan/{pelatihan}/evaluasi', [ModelRelevansiController::class, 'unduhEvaluasi'])
+                ->name('pelatihan.evaluasi');
+
+            Route::post('uji', [ModelRelevansiController::class, 'uji'])
+                ->middleware('throttle:30,1,model-relevansi-uji')
+                ->name('uji');
+        });
     });
 
+    // Crawl satu media. Batasnya lebih longgar daripada crawl penuh karena
+    // yang ditarik hanya sumber milik satu media, bukan 28 server sekaligus.
+    Route::post('media/{media}/crawl', [MediaController::class, 'crawl'])
+        ->middleware('throttle:10,1,crawl-media')
+        ->name('media.crawl');
     Route::resource('media', MediaController::class)->except('show');
     Route::resource('sumber-feed', SumberFeedController::class)
         ->except('show')

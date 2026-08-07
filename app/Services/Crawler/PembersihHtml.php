@@ -6,12 +6,12 @@ namespace App\Services\Crawler;
  * Mengubah potongan HTML menjadi teks bersih.
  *
  * Dipakai kedua ekstraktor supaya isi artikel dari WP REST dan dari Readability
- * berbentuk sama persis, kalau berbeda, hash isi dan simhash ikut berbeda dan
- * deduplikasi gagal mengenali artikel yang sebenarnya sama.
+ * berbentuk sama persis. Isi yang bentuknya berbeda-beda membuat pencarian,
+ * ekspor, dan penilaian model membaca artikel yang sama secara berbeda.
  */
 class PembersihHtml
 {
-    /** Isi disimpan sebagai teks: model NLP tidak butuh tag, dan hash jadi stabil. */
+    /** Isi disimpan sebagai teks: model NLP tidak butuh tag. */
     public function keTeks(string $html): string
     {
         // Paragraf jadi baris baru dulu, supaya kalimat tidak menyatu.
@@ -19,7 +19,21 @@ class PembersihHtml
         $html = str_ireplace('<br>', "\n", $html);
 
         $teks = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $teks = preg_replace('/[ \t]+/u', ' ', $teks);
+
+        // `\h` menangkap seluruh spasi horizontal, bukan hanya spasi dan tab.
+        // `[ \t]` melewatkan U+00A0 yang lahir dari `&nbsp;`, dan media daerah
+        // memakainya berlimpah untuk mengatur jarak paragraf. Sisanya terbaca
+        // sebagai spasi ganda di isi artikel, lalu ikut terhitung sebagai kata
+        // dan ikut terkirim ke Gemini sebagai token yang dibayar.
+        $teks = preg_replace('/\h+/u', ' ', $teks);
+
+        // Spasi yang mengapit ganti baris dirapikan sekaligus, dan `\R`
+        // menyeragamkan CRLF dari halaman lama menjadi LF. Tanpa langkah ini
+        // baris kosong yang berisi satu spasi tidak pernah terhitung oleh
+        // pemadatan di bawahnya, sehingga jarak antar paragraf tetap menganga.
+        $teks = preg_replace('/\h*\R\h*/u', "\n", $teks);
+
+        // Maksimal satu baris kosong antar paragraf.
         $teks = preg_replace('/\n{3,}/', "\n\n", $teks);
 
         return trim($teks);
@@ -35,8 +49,11 @@ class PembersihHtml
 
     public function rapikan(string $teks): string
     {
+        // `[\h\v]` bukan `\s`. Tanpa penanda PCRE_UCP, `\s` hanya mengenal
+        // spasi ASCII walaupun polanya bertanda `u`, jadi `&nbsp;` lolos utuh
+        // ke judul dan ringkasan.
         return trim(preg_replace(
-            '/\s+/u',
+            '/[\h\v]+/u',
             ' ',
             html_entity_decode(strip_tags($teks), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
         ));

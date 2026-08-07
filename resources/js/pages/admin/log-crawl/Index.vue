@@ -79,7 +79,12 @@ function crawlSekarang() {
 
 const kolom: KolomDefinisi[] = [
     { kunci: 'dimulai_at', judul: 'Waktu', bisaDiurutkan: true, lebar: 'w-40' },
-    { kunci: 'sumber_feed', judul: 'Sumber' },
+    // `w-full max-w-0` bukan salah ketik. Tabel auto-layout menghitung lebar
+    // kolom dari lebar alami isinya, dan pesan error sepanjang 2.000 huruf di
+    // dalam truncate tetap dihitung sebagai satu baris utuh. Akibatnya kolom
+    // ini melar dan truncate-nya tidak pernah kena. max-w-0 meruntuhkan lebar
+    // alaminya, w-full membuatnya mengambil sisa ruang setelah kolom lain.
+    { kunci: 'sumber_feed', judul: 'Sumber', lebar: 'w-full max-w-0' },
     { kunci: 'jumlah_ditemukan', judul: 'Ditemukan', bisaDiurutkan: true, kelas: 'angka text-right', lebar: 'w-24' },
     { kunci: 'jumlah_baru', judul: 'Baru', bisaDiurutkan: true, kelas: 'angka text-right', lebar: 'w-20' },
     { kunci: 'jumlah_salinan', judul: 'Sudah ada', kelas: 'angka text-right', lebar: 'w-24' },
@@ -113,8 +118,8 @@ const varianStatus: Record<BarisLog['status'], string> = {
             <div class="max-w-2xl space-y-2">
                 <p class="text-xs text-muted-foreground">
                     Crawl otomatis berjalan tiap 3 jam untuk {{ jumlahSumberAktif }} sumber aktif. Log disimpan 90 hari,
-                    lalu dihapus otomatis. Kolom "sudah ada" berisi item feed yang URL-nya sudah pernah masuk; salinan
-                    yang ketahuan dari kemiripan isi baru terdeteksi setelah halamannya diunduh.
+                    lalu dihapus otomatis. Kolom "sudah ada" berisi item feed yang URL-nya sudah tercatat di database,
+                    ditambah item yang dibuang saringan kata kunci.
                 </p>
 
                 <p class="flex flex-wrap gap-x-4 gap-y-1 text-xs">

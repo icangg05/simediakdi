@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Enums\StatusDedup;
 use App\Http\Controllers\Controller;
+use App\Models\AntreanGemini;
 use App\Models\Artikel;
 use App\Models\KunciGemini;
 use App\Models\LogCrawl;
@@ -20,7 +20,7 @@ class DashboardController extends Controller
     {
         return Inertia::render('admin/Dashboard', [
             'kpi' => $this->kpi(),
-            'antrean' => $this->antrean(),
+            'ekstraksi' => $this->ekstraksi(),
             'kesehatan' => $this->kesehatan(),
             'proporsiSumber' => $this->proporsiSumber(),
             'sumberBermasalah' => $this->sumberBermasalah(),
@@ -34,35 +34,31 @@ class DashboardController extends Controller
         $mulaiPekanIni = now()->subDays(7);
         $mulaiPekanLalu = now()->subDays(14);
 
-        $pekanIni = Artikel::query()->asli()->where('diambil_at', '>=', $mulaiPekanIni)->count();
-        $pekanLalu = Artikel::query()->asli()
+        $pekanIni = Artikel::query()->where('diambil_at', '>=', $mulaiPekanIni)->count();
+        $pekanLalu = Artikel::query()
             ->whereBetween('diambil_at', [$mulaiPekanLalu, $mulaiPekanIni])
             ->count();
 
         return [
             // Batas hari WITA, bukan UTC. whereDate('diambil_at', today())
             // akan salah setiap pukul 00.00-08.00 waktu Kendari.
-            'artikel_hari_ini' => Artikel::query()->asli()
+            'artikel_hari_ini' => Artikel::query()
                 ->where('diambil_at', '>=', Waktu::awalHariIni())
                 ->count(),
             'artikel_pekan_ini' => $pekanIni,
             'selisih_pekan_lalu' => $pekanIni - $pekanLalu,
-            'salinan_pekan_ini' => Artikel::query()
-                ->where('status_dedup', StatusDedup::Salinan)
-                ->where('diambil_at', '>=', $mulaiPekanIni)
-                ->count(),
             'gagal_proses' => Artikel::query()->where('status_proses', 'gagal')->count(),
             'sumber_aktif' => SumberFeed::query()->where('aktif', true)->count(),
         ];
     }
 
     /**
-     * Berapa artikel yang masih menunggu diproses, dipecah per tahap.
+     * Kemajuan ekstraksi isi artikel mentah, tahap paling awal setelah crawl.
      *
-     * Ada karena menunggu tanpa angka terasa seperti menunggu tanpa kepastian.
-     * Penarikan arsip atau pergantian model menghasilkan ribuan artikel yang
-     * harus dianalisis ulang, dan tanpa penunjuk ini satu-satunya cara
-     * mengetahui kemajuannya adalah membuka terminal.
+     * Yang dipantau di sini adalah pengunduhan halaman, bukan penilaian Gemini.
+     * Keduanya berjalan pada kecepatan yang berbeda jauh, dan menggabungkannya
+     * dalam satu penunjuk membuat perkiraan waktu selesai tidak berarti apa-apa:
+     * ekstraksi habis dalam hitungan menit sementara penilaian butuh berhari-hari.
      *
      * Dibaca dari `artikel.status_proses`, bukan dari isi antrean Redis.
      * Alasannya: status artikel adalah kebenaran yang bertahan, sedangkan
@@ -71,38 +67,71 @@ class DashboardController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function antrean(): array
+    private function ekstraksi(): array
     {
-        $per = Artikel::query()->asli()
+        $per = Artikel::query()
             ->selectRaw('status_proses, count(*) as n')
             ->groupBy('status_proses')
             ->pluck('n', 'status_proses');
 
-        $menunggu = (int) ($per['mentah'] ?? 0)
-            + (int) ($per['isi_diambil'] ?? 0)
-            + (int) ($per['dianalisis'] ?? 0);
+        $mentah = (int) ($per['mentah'] ?? 0);
 
-        $tuntas = (int) ($per['selesai'] ?? 0)
-            + (int) ($per['tidak_relevan'] ?? 0)
-            + (int) ($per['perlu_review'] ?? 0);
+        // Batas hari WITA, sama seperti KPI di atasnya. Backfill pun terhitung
+        // hari ini, karena `diambil_at` mencatat kapan barisnya masuk, bukan
+        // kapan beritanya terbit.
+        $awalHari = Waktu::awalHariIni();
 
-        $total = $menunggu + $tuntas;
+        $masuk = Artikel::query()->where('diambil_at', '>=', $awalHari)->count();
+        $sisa = Artikel::query()
+            ->where('diambil_at', '>=', $awalHari)
+            ->where('status_proses', 'mentah')
+            ->count();
+
+        $laju = $this->lajuEkstraksi();
 
         return [
-            'menunggu' => $menunggu,
-            'tuntas' => $tuntas,
-            'total' => $total,
-            'persen' => $total > 0 ? round($tuntas / $total * 100, 1) : 100.0,
-            'tahap' => [
-                // Urutannya mengikuti rantai job, supaya terlihat di tahap mana
-                // pekerjaan menumpuk.
-                ['nama' => 'Menunggu isi diambil', 'jumlah' => (int) ($per['mentah'] ?? 0)],
-                ['nama' => 'Menunggu relevansi', 'jumlah' => (int) ($per['isi_diambil'] ?? 0)],
-                ['nama' => 'Menunggu sentimen', 'jumlah' => (int) ($per['dianalisis'] ?? 0)],
-            ],
-            'perlu_review' => (int) ($per['perlu_review'] ?? 0),
-            'gagal' => Artikel::query()->where('status_proses', 'gagal')->count(),
+            'mentah' => $mentah,
+            'masuk_hari_ini' => $masuk,
+            'diekstrak_hari_ini' => $masuk - $sisa,
+            'persen' => $masuk > 0 ? round(($masuk - $sisa) / $masuk * 100, 1) : 100.0,
+            'laju_per_menit' => $laju,
+            // Dikirim sebagai saat, bukan sebagai durasi. Durasi yang dihitung
+            // di server basi seketika di layar yang menyegarkan sendiri,
+            // sedangkan saat selesai tetap benar sampai tarikan berikutnya.
+            'estimasi_selesai_at' => $laju > 0 && $mentah > 0
+                ? now()->addSeconds((int) ceil($mentah / $laju * 60))->toJSON()
+                : null,
+            // Tahap sesudahnya, ditampilkan sebagai angka pendamping supaya
+            // terlihat bahwa artikel yang selesai diekstrak tidak menguap.
+            'belum_klasifikasi' => (int) ($per['isi_diambil'] ?? 0),
+            'antre_ai' => AntreanGemini::query()->whereIn('status', ['menunggu', 'berjalan'])->count(),
+            'gagal' => (int) ($per['gagal'] ?? 0),
         ];
+    }
+
+    /**
+     * Artikel yang selesai diekstrak per menit, diukur bukan ditebak.
+     *
+     * Kecepatannya ditentukan jeda antar permintaan dan kecepatan server media
+     * yang sedang ditarik, bukan angka yang bisa dituliskan di config. Jendela
+     * sepuluh menit cukup panjang untuk meredam satu situs lambat, cukup pendek
+     * untuk mengikuti keadaan sekarang.
+     *
+     * Dibatasi pada `isi_diambil` supaya artikel yang sudah lanjut ke penilaian
+     * tidak ikut terhitung dua kali. Yang keburu dinilai dalam sepuluh menit itu
+     * tidak terhitung sama sekali, jadi angkanya condong ke bawah, dan perkiraan
+     * yang terlalu lama jauh lebih tidak merugikan daripada yang terlalu cepat.
+     */
+    private function lajuEkstraksi(): float
+    {
+        $menit = 10;
+
+        $selesai = Artikel::query()
+            ->where('status_proses', 'isi_diambil')
+            ->where('updated_at', '>=', now()->subMinutes($menit))
+            ->count();
+
+        return round($selesai / $menit, 2);
     }
 
     /** Titik hijau, kuning, atau merah untuk crawler dan layanan NLP. */
@@ -220,7 +249,7 @@ class DashboardController extends Controller
             ->with('media:id,nama')
             ->orderByDesc('diambil_at')
             ->limit(8)
-            ->get(['id', 'media_id', 'judul', 'url', 'diambil_at', 'status_dedup', 'status_proses'])
+            ->get(['id', 'media_id', 'judul', 'url', 'diambil_at', 'status_proses'])
             ->all();
     }
 }

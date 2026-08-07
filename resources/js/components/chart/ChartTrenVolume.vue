@@ -8,7 +8,6 @@ import { computed } from 'vue';
 interface Baris {
     tanggal: string;
     jumlah_artikel: number;
-    jumlah_salinan: number;
 }
 
 const props = defineProps<{ data: Baris[]; tinggi?: number; memuat?: boolean; zoom?: boolean }>();
@@ -26,7 +25,7 @@ const opsi = computed(() => ({
     yAxis: sumbuNilai.value,
     series: [
         {
-            name: 'Berita asli',
+            name: 'Berita',
             type: 'line',
             smooth: false,
             showSymbol: false,
@@ -34,25 +33,11 @@ const opsi = computed(() => ({
             itemStyle: { color: warna.value.teks },
             data: props.data.map((b) => b.jumlah_artikel),
         },
-        {
-            // Ditampilkan terpisah supaya angka utamanya tetap dipercaya.
-            name: 'Salinan',
-            type: 'line',
-            smooth: false,
-            showSymbol: false,
-            lineStyle: { type: 'dashed', width: 1 },
-            itemStyle: { color: warna.value.teksSamar },
-            data: props.data.map((b) => b.jumlah_salinan),
-        },
     ],
 }));
 
 const barisTabel = computed(() =>
-    props.data.map((b) => [
-        format(new Date(b.tanggal), 'd MMM yyyy', { locale: id }),
-        b.jumlah_artikel,
-        b.jumlah_salinan,
-    ]),
+    props.data.map((b) => [format(new Date(b.tanggal), 'd MMM yyyy', { locale: id }), b.jumlah_artikel]),
 );
 </script>
 
@@ -62,7 +47,7 @@ const barisTabel = computed(() =>
         :opsi="opsi"
         :tinggi="tinggi"
         :memuat="memuat"
-        :kolom-tabel="['Tanggal', 'Berita asli', 'Salinan']"
+        :kolom-tabel="['Tanggal', 'Berita']"
         :baris-tabel="barisTabel"
     />
 </template>

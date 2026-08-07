@@ -64,7 +64,6 @@ class SentimenController extends Controller
     private function artikel(Periode $periode): Builder
     {
         return Artikel::query()
-            ->asli()
             ->with('media:id,nama')
             ->whereBetween('diambil_at', [$periode->mulaiUtc(), $periode->akhirUtc()])
             ->orderByDesc('diambil_at');

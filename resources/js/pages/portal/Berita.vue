@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import DataTable from '@/components/data-table/DataTable.vue';
-import { Badge } from '@/components/ui/badge';
 import LayoutPortal from '@/layouts/LayoutPortal.vue';
-import type { FilterDefinisi, KolomDefinisi, OpsiFilter, PaginasiMeta } from '@/types/tabel';
+import type { KolomDefinisi, PaginasiMeta } from '@/types/tabel';
 import { Head } from '@inertiajs/vue3';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -15,22 +14,17 @@ interface Baris {
     diambil_at: string;
     dipublikasikan_at: string | null;
     jumlah_kata: number | null;
-    status_dedup: string;
 }
 
 const props = defineProps<{
     artikel: { data: Baris[] } & PaginasiMeta;
-    opsi: Record<string, OpsiFilter[]>;
 }>();
 
 const kolom: KolomDefinisi[] = [
     { kunci: 'judul', judul: 'Judul', bisaDiurutkan: true },
     { kunci: 'diambil_at', judul: 'Terpantau', bisaDiurutkan: true, lebar: 'w-40' },
     { kunci: 'jumlah_kata', judul: 'Kata', kelas: 'angka text-right', lebar: 'w-20' },
-    { kunci: 'status_dedup', judul: 'Status', lebar: 'w-28' },
 ];
-
-const filter: FilterDefinisi[] = [{ kunci: 'status_dedup', label: 'Status', opsi: props.opsi.status_dedup }];
 
 const waktu = (n: string) => format(new Date(n), 'd MMM yyyy, HH:mm', { locale: id });
 </script>
@@ -40,15 +34,14 @@ const waktu = (n: string) => format(new Date(n), 'd MMM yyyy, HH:mm', { locale: 
 
     <LayoutPortal judul="Berita saya" :breadcrumbs="[{ title: 'Berita saya', href: '/portal/berita' }]">
         <p class="text-sm text-muted-foreground">
-            Berita media Anda yang tertangkap sistem. Berita berstatus salinan adalah rilis yang juga dimuat media
-            lain lebih dulu, dan hanya dihitung sekali dalam analisis.
+            Berita media Anda yang tertangkap sistem. Satu URL hanya masuk sekali, jadi daftar ini tidak
+            memuat baris kembar.
         </p>
 
         <DataTable
             :kolom="kolom"
             :data="props.artikel.data"
             :meta="props.artikel"
-            :filter="filter"
             pencarian
             url-basis="/portal/berita"
             judul-kosong="Belum ada berita yang tertangkap"
@@ -68,12 +61,6 @@ const waktu = (n: string) => format(new Date(n), 'd MMM yyyy, HH:mm', { locale: 
 
             <template #sel-diambil_at="{ baris }">
                 <span class="text-xs text-muted-foreground">{{ waktu(baris.diambil_at) }}</span>
-            </template>
-
-            <template #sel-status_dedup="{ baris }">
-                <Badge :variant="baris.status_dedup === 'asli' ? 'outline' : 'secondary'" class="capitalize">
-                    {{ baris.status_dedup }}
-                </Badge>
             </template>
         </DataTable>
     </LayoutPortal>

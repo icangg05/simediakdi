@@ -63,7 +63,6 @@ class DashboardController extends Controller
     private function beritaTerbaru(Periode $periode): array
     {
         return Artikel::query()
-            ->asli()
             ->with(['media:id,nama', 'analisisSentimen' => fn ($q) => $q
                 ->where('relevan', true),
             ])

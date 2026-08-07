@@ -45,6 +45,18 @@ export interface SharedData {
             galat: string | null;
             ms: number;
         } | null;
+        /** Hasil satu pengujian model, dirender di tab Pengujian Model. */
+        hasilUji?: {
+            id: number;
+            label: 'relevan' | 'tidak_relevan';
+            probabilitas_relevan: number;
+            probabilitas_tidak_relevan: number;
+            confidence: number;
+            inferensi_ms: number;
+            model: string;
+            base_model: string;
+            diuji_at: string;
+        } | null;
     };
     /**
      * Sentimen tidak tersedia selama GEMINI_API_KEY belum diisi.

@@ -133,7 +133,7 @@ class ArtikelController extends Controller
     private function kueriBuang(Request $request, string $tahap): Builder
     {
         $kueri = $this->saringanUmum(
-            Artikel::withoutGlobalScopes()->asli()
+            Artikel::withoutGlobalScopes()
                 ->whereIn('status_proses', self::TAHAP[$tahap]['status']),
             $request,
         );
@@ -195,7 +195,7 @@ class ArtikelController extends Controller
             return 'Tidak ada artikel yang dibuang.'.$dilewati;
         }
 
-        return "{$hasil['dibuang']} artikel dibuang. URL-nya dicatat supaya tidak masuk lagi lewat crawl.".$dilewati;
+        return "{$hasil['dibuang']} artikel dibuang permanen. URL-nya bisa masuk lagi kalau crawl berikutnya menemukannya.".$dilewati;
     }
 
     public function show(Artikel $artikel): Response
@@ -203,9 +203,6 @@ class ArtikelController extends Controller
         $artikel->load([
             'media:id,nama,domain',
             'sumberFeed:id,nama',
-            'induk:id,judul',
-            'salinan:id,judul,media_id,diambil_at,artikel_induk_id',
-            'salinan.media:id,nama',
             'analisisSentimen.pengoreksi:id,name',
         ]);
 
@@ -512,7 +509,7 @@ class ArtikelController extends Controller
     private function daftarRelevansi(Request $request, string $tahap): array
     {
         $jumlah = $this->saringanUmum(
-            Artikel::withoutGlobalScopes()->asli()
+            Artikel::withoutGlobalScopes()
                 ->whereIn('status_proses', self::TAHAP[$tahap]['status']),
             $request,
         )
@@ -570,7 +567,7 @@ class ArtikelController extends Controller
     private function daftarTahap(Request $request): array
     {
         $jumlah = $this->saringanUmum(
-            Artikel::withoutGlobalScopes()->asli(), $request,
+            Artikel::withoutGlobalScopes(), $request,
         )
             ->selectRaw('status_proses, count(*) as jumlah')
             ->groupBy('status_proses')
@@ -598,9 +595,6 @@ class ArtikelController extends Controller
      * Saringan itu menjawab pertanyaan lain, yaitu apa yang masuk pada rentang
      * tertentu, dan angkanya harus sama dengan seluruh grafik harian.
      *
-     * Artikel salinan dikecualikan. Ia sudah menunjuk induknya, dan menilai
-     * keduanya berarti membayar Gemini dua kali untuk berita yang sama.
-     *
      * @return array<string, mixed>
      */
     private function daftar(Request $request, string $tahap): array
@@ -611,7 +605,6 @@ class ArtikelController extends Controller
         $kueri = $this->saringanUmum(
             Artikel::withoutGlobalScopes()
                 ->with(['media:id,nama', 'analisisSentimen'])
-                ->asli()
                 ->whereIn('status_proses', self::TAHAP[$tahap]['status']),
             $request,
         )

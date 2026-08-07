@@ -1,0 +1,17 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.5
+
+# Build CPU-only lewat indeks PyTorch di Dockerfile. Jangan pasang varian CUDA
+# dari PyPI: ukurannya berlipat menjadi beberapa gigabita tanpa manfaat pada
+# mesin tanpa kartu grafis, dan mesin yang punya kartu tetap perlu image
+# tersendiri.
+torch==2.5.1
+transformers==4.48.0
+
+# accelerate wajib ada untuk Trainer. Tanpanya `transformers` menolak jalan
+# dengan pesan yang menyuruh memasang paket ini, dan pesannya baru muncul saat
+# pelatihan pertama dijalankan, bukan saat container dibangun.
+accelerate==1.2.1
+scikit-learn==1.6.0
+numpy==1.26.4

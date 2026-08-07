@@ -6,7 +6,6 @@ use App\Models\AnalisisSentimen;
 use App\Models\Artikel;
 use App\Models\Media;
 use App\Models\SumberFeed;
-use App\Models\UrlDibuang;
 use App\Models\User;
 use App\Services\Crawler\ItemFeed;
 use App\Services\Crawler\PencatatArtikel;
@@ -17,12 +16,11 @@ use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
- * Pembuangan artikel dan nisan URL-nya.
+ * Pembuangan artikel.
  *
- * Nisan ada karena penghapusan tanpa jejak tidak bertahan: deduplikasi lapis 1
- * bersandar pada index unique url_kanonik, dan begitu barisnya hilang, crawl
- * berikutnya membaca artikel yang sama sebagai berita baru lalu mengantrekannya
- * ke Gemini untuk mendapat jawaban yang sama persis.
+ * Penghapusan permanen dan tanpa jejak. URL yang dibuang bisa masuk lagi pada
+ * crawl berikutnya, dan itu memang perilaku yang dipilih: satu-satunya penjaga
+ * duplikat adalah baris yang masih ada di tabel artikel.
  */
 class BuangArtikelTest extends TestCase
 {
@@ -64,37 +62,7 @@ class BuangArtikelTest extends TestCase
         return $artikel;
     }
 
-    /**
-     * Induk salinan pun ikut terbuang, tidak ada lagi baris yang dikecualikan.
-     *
-     * Salinannya dipromosikan jadi asli, bukan sekadar kehilangan penunjuk.
-     * Constraint chk_artikel_induk_sesuai_dedup menolak baris berstatus salinan
-     * yang artikel_induk_id-nya kosong, jadi tanpa promosi itu penghapusannya
-     * gagal seluruhnya.
-     */
-    public function test_induk_salinan_ikut_dibuang_dan_salinannya_jadi_asli(): void
-    {
-        $induk = $this->artikel('https://contoh.test/induk');
-
-        $salinan = $this->artikel('https://contoh.test/salinan');
-        $salinan->forceFill([
-            'artikel_induk_id' => $induk->id,
-            'status_dedup' => 'salinan',
-        ])->save();
-
-        $hasil = app(PembuangArtikel::class)->buang([$induk->id], 'uji');
-
-        $this->assertSame(1, $hasil['dibuang']);
-        $this->assertSame(0, $hasil['dilindungi']);
-        $this->assertDatabaseMissing('artikel', ['id' => $induk->id]);
-        $this->assertDatabaseHas('artikel', [
-            'id' => $salinan->id,
-            'artikel_induk_id' => null,
-            'status_dedup' => 'asli',
-        ]);
-    }
-
-    public function test_artikel_dibuang_meninggalkan_nisan(): void
+    public function test_artikel_dibuang_hilang_dari_tabel(): void
     {
         $artikel = $this->artikel('https://contoh.test/a');
 
@@ -102,10 +70,15 @@ class BuangArtikelTest extends TestCase
 
         $this->assertSame(1, $hasil['dibuang']);
         $this->assertDatabaseMissing('artikel', ['id' => $artikel->id]);
-        $this->assertDatabaseHas('url_dibuang', ['url_kanonik' => 'https://contoh.test/a', 'alasan' => 'uji']);
     }
 
-    public function test_crawl_tidak_memasukkan_kembali_url_yang_sudah_dibuang(): void
+    /**
+     * Konsekuensi yang disengaja, dikunci tes supaya tidak berubah diam-diam.
+     *
+     * Pemeriksaan duplikat hanya membaca tabel artikel. Barisnya sudah hilang,
+     * jadi crawl berikutnya sah memasukkannya lagi sebagai berita baru.
+     */
+    public function test_url_yang_sudah_dibuang_boleh_masuk_lagi_lewat_crawl(): void
     {
         $artikel = $this->artikel('https://contoh.test/a');
         app(PembuangArtikel::class)->buang([$artikel->id], 'uji');
@@ -122,10 +95,28 @@ class BuangArtikelTest extends TestCase
             $sumber,
         );
 
-        // Inilah seluruh alasan tabel nisan ada. Tanpanya baris ini lolos,
-        // masuk antrean, dan dinilai Gemini untuk kedua kalinya.
+        $this->assertNotNull($hasil);
+        $this->assertDatabaseCount('artikel', 1);
+    }
+
+    public function test_url_yang_masih_ada_di_database_ditolak_crawl(): void
+    {
+        $this->artikel('https://contoh.test/a');
+
+        $sumber = SumberFeed::create([
+            'media_id' => $this->media()->id,
+            'nama' => 'Contoh RSS',
+            'tipe' => 'rss',
+            'url' => 'https://contoh.test/rss',
+        ]);
+
+        $hasil = app(PencatatArtikel::class)->catat(
+            new ItemFeed(judul: 'Berita contoh', url: 'https://contoh.test/a', ringkasan: ''),
+            $sumber,
+        );
+
         $this->assertNull($hasil);
-        $this->assertDatabaseCount('artikel', 0);
+        $this->assertDatabaseCount('artikel', 1);
     }
 
     public function test_artikel_relevan_tidak_pernah_masuk_daftar_kandidat(): void
@@ -200,7 +191,6 @@ class BuangArtikelTest extends TestCase
             ->assertRedirect();
 
         $this->assertDatabaseHas('artikel', ['id' => $relevan->id]);
-        $this->assertDatabaseCount('url_dibuang', 0);
     }
 
     public function test_buang_semua_menyapu_seluruh_kandidat(): void
@@ -216,8 +206,8 @@ class BuangArtikelTest extends TestCase
 
         $this->assertDatabaseCount('artikel', 1);
         $this->assertDatabaseHas('artikel', ['id' => $relevan->id]);
-        $this->assertSame(2, UrlDibuang::count());
     }
+
     public function test_tombol_buang_hanya_muncul_pada_saringan_yang_tepat(): void
     {
         $this->artikel('https://contoh.test/a');

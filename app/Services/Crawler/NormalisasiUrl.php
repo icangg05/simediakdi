@@ -3,7 +3,7 @@
 namespace App\Services\Crawler;
 
 /**
- * Deduplikasi lapis 1: satu artikel dikenali dari URL kanoniknya.
+ * Satu artikel dikenali dari URL kanoniknya, dan hanya dari itu.
  *
  * Media yang sama menyebarkan tautan berbeda untuk halaman yang sama,
  * dengan utm_source dari Facebook, dengan trailing slash, dengan host

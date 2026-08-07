@@ -50,18 +50,14 @@ const props = defineProps<{
         jumlah_kata: number | null;
         dipublikasikan_at: string | null;
         diambil_at: string;
-        status_dedup: string;
         status_proses: string;
-        skor_kemiripan: number | null;
         media: { id: number; nama: string } | null;
         sumber_feed: { id: number; nama: string } | null;
-        induk: { id: number; judul: string } | null;
-        salinan: Array<{ id: number; judul: string; media: { nama: string } | null }>;
         analisis_sentimen: Analisis[];
     };
 }>();
 
-const { formatAngka, formatPersen } = useFormatAngka();
+const { formatAngka } = useFormatAngka();
 
 const sedangKoreksi = ref<number | null>(null);
 
@@ -168,7 +164,6 @@ const waktu = (nilai: string | null) =>
                 <Card>
                     <CardContent class="space-y-3 p-4">
                         <div class="flex flex-wrap items-center gap-2">
-                            <Badge v-if="artikel.status_dedup === 'salinan'" variant="secondary">Salinan</Badge>
                             <Badge :variant="artikel.status_proses === 'gagal' ? 'destructive' : 'outline'">
                                 {{ labelProses[artikel.status_proses] ?? artikel.status_proses }}
                             </Badge>
@@ -193,16 +188,6 @@ const waktu = (nilai: string | null) =>
                         >
                             Buka halaman aslinya <ExternalLink class="h-3 w-3" aria-hidden="true" />
                         </a>
-
-                        <div v-if="artikel.induk" class="rounded-md bg-muted p-2 text-xs">
-                            Artikel ini salinan dari
-                            <Link :href="`/admin/artikel/${artikel.induk.id}`" class="underline">
-                                {{ artikel.induk.judul }}
-                            </Link>
-                            <span v-if="artikel.skor_kemiripan">
-                                (kemiripan {{ formatPersen(artikel.skor_kemiripan * 100) }})
-                            </span>
-                        </div>
                     </CardContent>
                 </Card>
 
@@ -369,18 +354,6 @@ const waktu = (nilai: string | null) =>
                                 </Button>
                             </template>
                         </div>
-                    </CardContent>
-                </Card>
-
-                <Card v-if="artikel.salinan.length">
-                    <CardHeader class="pb-2"><CardTitle class="text-base">Salinan artikel ini</CardTitle></CardHeader>
-                    <CardContent>
-                        <ul class="space-y-1 text-xs">
-                            <li v-for="salinan in artikel.salinan" :key="salinan.id">
-                                <Link :href="`/admin/artikel/${salinan.id}`" class="underline">{{ salinan.judul }}</Link>
-                                <span class="text-muted-foreground">, {{ salinan.media?.nama ?? '-' }}</span>
-                            </li>
-                        </ul>
                     </CardContent>
                 </Card>
             </div>

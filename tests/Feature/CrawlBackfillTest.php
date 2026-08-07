@@ -74,21 +74,19 @@ class CrawlBackfillTest extends TestCase
         $artikel = Artikel::withoutGlobalScopes()->where('judul', 'Pasar Baru Diresmikan')->first();
 
         $this->assertNotNull($artikel->isi, 'Isi harus ikut tersimpan dari respons arsip.');
-        $this->assertNotNull($artikel->hash_isi);
-        $this->assertNotNull($artikel->simhash);
         $this->assertSame('isi_diambil', $artikel->status_proses);
     }
 
     /**
-     * Artikel asli berhenti menunggu diklasifikasi, bukan menghilang.
+     * Artikel berhenti menunggu diklasifikasi, bukan menghilang.
      *
-     * Rantai job memang sengaja putus setelah dedup: klasifikasi Gemini
-     * dijalankan lewat tombol, bukan di latar belakang. Yang diuji di sini
-     * adalah bahwa artikelnya tetap berstatus `isi_diambil`, yaitu tahap yang
-     * dibaca halaman Antrean Klasifikasi. Status lain berarti artikel itu
+     * Rantai job memang sengaja putus setelah isinya tersimpan: klasifikasi
+     * Gemini dijalankan lewat tombol, bukan di latar belakang. Yang diuji di
+     * sini adalah bahwa artikelnya tetap berstatus `isi_diambil`, yaitu tahap
+     * yang dibaca halaman Antrean Klasifikasi. Status lain berarti artikel itu
      * tidak akan pernah muncul untuk dinilai siapa pun.
      */
-    public function test_artikel_asli_menunggu_diklasifikasi(): void
+    public function test_artikel_menunggu_diklasifikasi(): void
     {
         $this->pengunduh($this->halamanArsip([
             ['Judul A', str_repeat('kalimat pertama berbeda. ', 40)],
@@ -98,13 +96,12 @@ class CrawlBackfillTest extends TestCase
 
         $artikel = Artikel::withoutGlobalScopes()->where('judul', 'Judul A')->firstOrFail();
 
-        $this->assertSame('asli', $artikel->status_dedup->value);
         $this->assertSame('isi_diambil', $artikel->status_proses);
         Bus::assertNothingDispatched();
     }
 
-    /** Deduplikasi harus berlaku sama seperti jalur crawl biasa. */
-    public function test_isi_kembar_di_arsip_ditandai_salinan_bukan_asli(): void
+    /** Isi yang sama dengan URL berbeda adalah dua artikel, bukan satu. */
+    public function test_isi_kembar_dengan_url_berbeda_tetap_dua_baris(): void
     {
         $isi = str_repeat('kalimat berita yang sama persis. ', 40);
 
@@ -115,8 +112,7 @@ class CrawlBackfillTest extends TestCase
 
         $this->artisan('crawl:backfill --halaman=1');
 
-        $this->assertSame(1, Artikel::withoutGlobalScopes()->where('status_dedup', 'asli')->count());
-        $this->assertSame(1, Artikel::withoutGlobalScopes()->where('status_dedup', 'salinan')->count());
+        $this->assertSame(2, Artikel::withoutGlobalScopes()->count());
     }
 
     /** URL yang sudah masuk lewat RSS tidak boleh tersimpan dua kali. */

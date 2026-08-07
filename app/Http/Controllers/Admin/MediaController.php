@@ -9,6 +9,7 @@ use App\Models\Media;
 use App\Support\KueriTabel;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -52,6 +53,31 @@ class MediaController extends Controller
 
         return to_route('admin.media.index')
             ->with('sukses', "Media {$media->nama} diperbarui.");
+    }
+
+    /**
+     * Menarik seluruh sumber feed milik satu media, sekarang juga.
+     *
+     * Dilempar ke antrean dengan alasan yang sama seperti tombol crawl penuh
+     * di halaman Log crawl: permintaan HTTP tidak boleh menunggu unduhan dari
+     * server orang lain sampai PHP-FPM memutusnya di tengah jalan.
+     *
+     * `--paksa` dipakai karena admin yang menekan tombol ini memang sedang
+     * tidak mau menunggu interval_menit. Sumber yang sudah dimatikan tetap
+     * tidak ikut ditarik, penjaganya ada di CrawlFeeds.
+     */
+    public function crawl(Media $media): RedirectResponse
+    {
+        $jumlah = $media->sumberFeed()->where('aktif', true)->count();
+
+        if ($jumlah === 0) {
+            return back()->with('galat', "{$media->nama} belum punya sumber feed aktif.");
+        }
+
+        Artisan::queue('crawl:feeds', ['--media' => $media->id, '--paksa' => true]);
+
+        return back()->with('sukses', "Crawl {$media->nama} dijalankan di latar belakang, {$jumlah} sumber.")
+            ->with('catatan', 'Hasilnya muncul di halaman Log crawl beberapa saat lagi.');
     }
 
     public function destroy(Media $media): RedirectResponse

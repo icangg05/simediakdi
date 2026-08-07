@@ -149,4 +149,46 @@ class AmbilIsiArtikelTest extends TestCase
         // Keduanya di bawah ambang, tapi jangan tukar dengan yang lebih buruk.
         $this->assertGreaterThan(2, $artikel->refresh()->jumlah_kata);
     }
+
+    /**
+     * Artikel yang isinya berhasil diambil tidak boleh menunggu penyisiran
+     * `gemini:antre --isi` yang berjalan sejam sekali.
+     */
+    public function test_artikel_yang_selesai_diekstrak_langsung_masuk_antrean_ai(): void
+    {
+        $artikel = $this->artikel();
+
+        $pengunduh = Mockery::mock(PengunduhHalaman::class);
+        $pengunduh->shouldReceive('unduh')->once()->andReturn($this->halaman(400));
+        $this->app->instance(PengunduhHalaman::class, $pengunduh);
+
+        $this->app->call([new AmbilIsiArtikel($artikel->id), 'handle']);
+
+        $this->assertDatabaseHas('antrean_gemini', [
+            'artikel_id' => $artikel->id,
+            'prioritas' => 1,
+            'status' => 'menunggu',
+        ]);
+    }
+
+    /** Isi kosong berhenti di sini: tidak ada gunanya membakar kuota untuknya. */
+    public function test_isi_kosong_tidak_masuk_antrean_ai(): void
+    {
+        $artikel = $this->artikel();
+
+        $pengunduh = Mockery::mock(PengunduhHalaman::class);
+        $pengunduh->shouldReceive('unduh')->once()->andReturn('<html><body></body></html>');
+        $this->app->instance(PengunduhHalaman::class, $pengunduh);
+
+        $wordpress = Mockery::mock(EkstraktorWordPress::class);
+        $wordpress->shouldReceive('ekstrak')->andReturn(new HasilEkstraksi(
+            judul: 'Judul', isi: '', ringkasan: null, penulis: null,
+            gambarUrl: null, dipublikasikanAt: null, jumlahKata: 0,
+        ));
+        $this->app->instance(EkstraktorWordPress::class, $wordpress);
+
+        $this->app->call([new AmbilIsiArtikel($artikel->id), 'handle']);
+
+        $this->assertDatabaseMissing('antrean_gemini', ['artikel_id' => $artikel->id]);
+    }
 }

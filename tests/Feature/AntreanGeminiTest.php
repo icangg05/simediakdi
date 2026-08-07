@@ -9,9 +9,12 @@ use App\Models\Artikel;
 use App\Models\KunciGemini;
 use App\Models\Media;
 use App\Models\User;
+use App\Services\Ai\KlasifikasiArtikel;
+use App\Services\Ai\RotasiKunciGemini;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -171,12 +174,52 @@ class AntreanGeminiTest extends TestCase
         ]);
 
         $job = new KlasifikasiGemini($baris->id);
-        $job->handle(app(\App\Services\Ai\KlasifikasiArtikel::class), app(\App\Services\Ai\RotasiKunciGemini::class));
+        $job->handle(app(KlasifikasiArtikel::class), app(RotasiKunciGemini::class));
 
         $baris->refresh();
 
         $this->assertSame('menunggu', $baris->status);
         $this->assertSame(0, $baris->percobaan, 'Menunggu kuota bukan kegagalan.');
+    }
+
+    /**
+     * Pekerjaan yang menunggu kuota tidur sebentar, bukan sampai jam reset.
+     *
+     * Dulu ia tidur selama sisa waktu menuju tengah malam waktu Pasifik, dan itu
+     * bisa tujuh jam. Selama tidur barisnya tetap terhitung menggantung oleh
+     * `gemini:antre`, jadi dua puluh pekerjaan yang tidur memenuhi seluruh jatah
+     * gantung dan tidak ada pekerjaan baru yang dilepas. Antreannya membeku, dan
+     * kunci baru yang ditambahkan admin tidak membangunkan satu pun dari mereka
+     * sementara tombol Klasifikasi di layar bekerja normal dengan kunci itu.
+     */
+    public function test_penundaan_kuota_dibatasi_agar_kunci_baru_terpakai(): void
+    {
+        $artikel = $this->artikel('Belum pernah dinilai');
+
+        KunciGemini::create([
+            'label' => 'Kunci A',
+            'kunci' => 'kunci-a',
+            'aktif' => true,
+            // Kuota harian habis, pulihnya masih tujuh jam lagi.
+            'limit_sampai' => now()->addHours(7),
+        ]);
+
+        $baris = AntreanGemini::create([
+            'artikel_id' => $artikel->id,
+            'prioritas' => 1,
+            'status' => 'menunggu',
+        ]);
+
+        (new KlasifikasiGemini($baris->id))->handle(
+            app(KlasifikasiArtikel::class),
+            app(RotasiKunciGemini::class),
+        );
+
+        $this->assertLessThanOrEqual(
+            300,
+            now()->diffInSeconds($baris->refresh()->dijadwalkan_at, absolute: true),
+            'Pekerjaan harus memeriksa ulang paling lama lima menit lagi, bukan menunggu jam reset.',
+        );
     }
 
     /**
@@ -241,6 +284,80 @@ class AntreanGeminiTest extends TestCase
 
         $this->assertSame(1, $props['ringkasan']['menunggu']);
         $this->assertSame(1, collect($props['prioritas'])->firstWhere('nilai', 1)['jumlah']);
+    }
+
+    /**
+     * Penunjuk keadaan menggantikan dua tombol yang dihapus, jadi ia satu-satunya
+     * yang memberi tahu admin mesinnya masih hidup atau tidak. Empat keadaannya
+     * diuji sekaligus karena yang menentukan adalah urutan cabangnya, bukan
+     * masing-masing cabang berdiri sendiri.
+     *
+     * @return list<array{0: string, 1: string, 2: int, 3: ?int, 4: bool}>
+     */
+    public static function keadaanAntrean(): array
+    {
+        return [
+            // status baris sisa, keadaan yang diharapkan, umur selesai_at dalam
+            // detik, berapa detik lagi pekerjaannya dijadwalkan bangun, dan
+            // apakah seluruh kunci sedang kena limit
+            'antrean kosong' => ['selesai', 'kosong', 10, null, false],
+            'sedang dikirim ke Gemini' => ['berjalan', 'bekerja', 10, null, false],
+            'menunggu giliran dalam jeda' => ['menunggu', 'menunggu', 10, null, false],
+            'diam jauh melewati dua kali jeda' => ['menunggu', 'macet', 3600, null, false],
+            // Diam sama lamanya dengan kasus di atas, tetapi seluruh kuncinya
+            // sedang kena limit. Ini bukan kerusakan, dan menyebutnya macet akan
+            // membuat admin mengejar worker yang sebenarnya sehat.
+            'seluruh kunci kena limit' => ['menunggu', 'tertunda', 3600, 3600, true],
+            // Pekerjaannya tidur persis seperti kasus di atas, tetapi masih ada
+            // kunci yang siap dipakai. Layar pernah tetap berbunyi "Kuota Gemini
+            // habis" di sini, lama setelah admin menambahkan kunci baru yang
+            // jatahnya utuh, karena keadaannya ditebak dari `dijadwalkan_at`
+            // pekerjaan yang telanjur tidur alih-alih dibaca dari kuncinya.
+            'tidur padahal kuota masih ada' => ['menunggu', 'menunggu', 3600, 3600, false],
+        ];
+    }
+
+    #[DataProvider('keadaanAntrean')]
+    public function test_penunjuk_keadaan_membaca_gerak_antrean(
+        string $status,
+        string $harapan,
+        int $umur,
+        ?int $bangun,
+        bool $kuotaHabis,
+    ): void {
+        KunciGemini::create([
+            'label' => 'Kunci uji',
+            'kunci' => 'kunci-uji-yang-cukup-panjang',
+            'aktif' => true,
+            'limit_sampai' => $kuotaHabis ? now()->addHours(7) : null,
+        ]);
+
+        $artikel = $this->artikel('Berita contoh');
+
+        // Selalu ada satu baris yang pernah selesai, karena tanpanya seluruh
+        // kasus jatuh ke cabang "belum pernah ada yang selesai".
+        AntreanGemini::create([
+            'artikel_id' => $artikel->id,
+            'prioritas' => 1,
+            'status' => 'selesai',
+            'selesai_at' => now()->subSeconds($umur),
+        ]);
+
+        if ($status !== 'selesai') {
+            AntreanGemini::create([
+                'artikel_id' => $this->artikel('Berita kedua')->id,
+                'prioritas' => 1,
+                'status' => $status,
+                'dijadwalkan_at' => $bangun === null ? null : now()->addSeconds($bangun),
+            ]);
+        }
+
+        $props = $this->actingAs(User::factory()->create(['peran' => 'superadmin']))
+            ->get('/admin/antrean-ai')
+            ->assertOk()
+            ->viewData('page')['props'];
+
+        $this->assertSame($harapan, $props['aktivitas']['keadaan']);
     }
 
     private function artikel(string $judul, string $status = 'selesai'): Artikel

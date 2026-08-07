@@ -12,8 +12,9 @@ use Closure;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Laravel\Ai\Ai;
 use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Exceptions\RateLimitedException;
@@ -187,9 +188,12 @@ class RotasiKunciGemini
                 .ceil($tunggu).' detik lagi.', $mulai);
         }
 
-        $namaHarian = $this->namaHarian($kunci);
-        Cache::add($namaHarian, 0, $this->resetHarian());
-        Cache::increment($namaHarian);
+        // Jatah harian dipungut tanpa memeriksa batasnya lebih dulu. Tombol uji
+        // memang boleh dipakai pada kunci yang jatah hariannya sudah habis,
+        // karena yang ditanyakan admin adalah "kuncinya masih sah atau tidak",
+        // dan jawaban dari Google tetap berguna meski berbentuk 429. Yang wajib
+        // adalah permintaannya ikut terhitung.
+        $this->pungutJatahHarian($kunci);
 
         $this->pakai($kunci);
 
@@ -255,7 +259,7 @@ class RotasiKunciGemini
      */
     private function perintahUji(KunciGemini $kunci): string
     {
-        return "Tulis ulang baris berikut apa adanya, lalu tambahkan tanda RESPONSE BERHASIL di akhir. "
+        return 'Tulis ulang baris berikut apa adanya, lalu tambahkan tanda RESPONSE BERHASIL di akhir. '
             ."Jangan menambahkan apa pun selain itu.\n\n{$kunci->label}";
     }
 
@@ -349,8 +353,35 @@ class RotasiKunciGemini
      */
     public function tungguDetik(): int
     {
+        $pulih = $this->kuotaPulihAt();
+
+        if ($pulih !== null) {
+            return max(1, (int) now()->diffInSeconds($pulih, false));
+        }
+
+        // Tidak ada kunci yang siap dan tidak ada pula waktu pulih yang bisa
+        // dibaca, artinya tabelnya kosong atau seluruh kuncinya dimatikan. Bukan
+        // soal kuota melainkan soal pengaturan yang belum diisi, jadi menunggu
+        // sebentar lalu memeriksa lagi lebih berguna daripada menyerah.
+        return KunciGemini::query()->tersedia()->exists() ? 0 : 900;
+    }
+
+    /**
+     * Kapan kunci pertama pulih, atau null selama masih ada yang siap dipakai.
+     *
+     * Satu-satunya jawaban sah atas pertanyaan "kuotanya habis atau tidak".
+     * Pertanyaan itu sebelumnya dijawab dengan menebak dari `dijadwalkan_at`
+     * pekerjaan yang sedang tidur, dan tebakan itu tetap berbunyi habis lama
+     * setelah admin menambahkan kunci baru yang jatahnya masih utuh.
+     *
+     * Null juga dipulangkan saat tidak ada kunci aktif sama sekali. Itu bukan
+     * kehabisan kuota, dan menyebutnya begitu mengirim admin mencari jawaban
+     * pada jam reset Google alih-alih pada halaman Pengaturan.
+     */
+    public function kuotaPulihAt(): ?Carbon
+    {
         if (KunciGemini::query()->tersedia()->exists()) {
-            return 0;
+            return null;
         }
 
         $pulih = KunciGemini::query()
@@ -358,30 +389,26 @@ class RotasiKunciGemini
             ->whereNotNull('limit_sampai')
             ->min('limit_sampai');
 
-        // Tidak ada kunci aktif sama sekali. Bukan soal kuota, melainkan soal
-        // pengaturan yang belum diisi, jadi menunggu sebentar lalu memeriksa
-        // lagi lebih berguna daripada menyerah.
-        if ($pulih === null) {
-            return 900;
-        }
-
-        return max(1, (int) now()->diffInSeconds(Carbon::parse($pulih), false));
+        return $pulih === null ? null : Carbon::parse($pulih);
     }
 
     /**
-     * Sisa jatah harian seluruh kunci yang menyala, untuk ditampilkan ke admin.
+     * Berapa permintaan yang sistem ini kirim hari ini, seluruh kunci digabung.
      *
-     * Dibaca dari penghitung yang sama dengan yang dipakai penjaga kuota, jadi
-     * angka di layar tidak pernah berbeda dari angka yang benar-benar menahan
-     * permintaan.
+     * Yang dilaporkan pemakaian, bukan sisa. Sisa menuntut batas yang benar,
+     * dan batas yang benar hanya diketahui untuk kunci yang pernah kehabisan
+     * kuota sampai Google menyebut angkanya. Untuk kunci lain sisanya adalah
+     * hasil pengurangan terhadap angka salinan dokumentasi, dan angka yang
+     * terlihat pasti padahal tebakan lebih berbahaya daripada tidak ada angka.
+     *
+     * Google juga menghitung permintaan yang tidak lewat sini, misalnya kunci
+     * yang sama dipakai proyek lain, jadi angka ini adalah batas bawah
+     * pemakaian sebenarnya.
      */
-    public function sisaHarian(): int
+    public function terkirimHarian(): int
     {
         return KunciGemini::query()->where('aktif', true)->get()
-            ->sum(fn (KunciGemini $kunci) => max(
-                0,
-                $this->batasHarian($kunci) - $this->terpakaiHarian($kunci),
-            ));
+            ->sum(fn (KunciGemini $kunci) => $this->terpakaiHarian($kunci));
     }
 
     /**
@@ -397,10 +424,61 @@ class RotasiKunciGemini
         return $kunci->rpd_google ?? (int) config('ai.batas_kunci.rpd');
     }
 
-    /** Berapa permintaan kunci ini yang sudah terpakai pada hari kuota berjalan. */
+    /**
+     * Berapa permintaan kunci ini yang sudah terpakai pada hari kuota berjalan.
+     *
+     * Angkanya tersimpan di barisnya sendiri, bukan di cache. Cache pernah
+     * dipakai dan tempatnya salah: `cache:clear` saat deploy atau Redis yang
+     * dijatuhkan mengembalikannya ke nol, lalu layar melaporkan kuota utuh
+     * untuk kunci yang tinggal beberapa permintaan lagi.
+     *
+     * Tanggal ikut diperiksa, bukan diandaikan. Baris yang tanggalnya bukan
+     * hari kuota berjalan adalah sisa hitungan kemarin, dan membacanya sebagai
+     * hitungan hari ini akan menahan kunci yang jatahnya baru saja pulih.
+     */
     public function terpakaiHarian(KunciGemini $kunci): int
     {
-        return (int) Cache::get($this->namaHarian($kunci), 0);
+        return $kunci->rpd_hari?->toDateString() === $this->hariKuota()
+            ? (int) $kunci->rpd_terpakai
+            : 0;
+    }
+
+    /** Tanggal kalender di zona kuota Google, satuan yang dipakai hitungan harian. */
+    private function hariKuota(): string
+    {
+        return Carbon::now(self::ZONA_KUOTA)->toDateString();
+    }
+
+    /**
+     * Menambah satu ke hitungan harian, sekaligus menyapu hitungan hari kemarin.
+     *
+     * Satu perintah UPDATE, bukan baca lalu tulis. Tiga worker antrean ditambah
+     * tombol di layar bisa menyentuh baris yang sama pada detik yang sama, dan
+     * baca-lalu-tulis di antara mereka menghasilkan hitungan yang selalu lebih
+     * rendah daripada pemakaian sebenarnya. Persis kesalahan yang paling mahal
+     * di sini, karena hitungan yang terlalu rendah berarti permintaan dilepas
+     * melewati batas lalu dijawab 429, dan Google menghitung penolakannya.
+     *
+     * @return int hitungan setelah ditambah
+     */
+    private function pungutJatahHarian(KunciGemini $kunci): int
+    {
+        $hari = $this->hariKuota();
+
+        $baru = (int) DB::selectOne(
+            'UPDATE kunci_gemini
+             SET rpd_terpakai = CASE WHEN rpd_hari = ?::date THEN rpd_terpakai + 1 ELSE 1 END,
+                 rpd_hari = ?::date
+             WHERE id = ?
+             RETURNING rpd_terpakai',
+            [$hari, $hari, $kunci->id],
+        )->rpd_terpakai;
+
+        // Salinan di memori disamakan supaya pemanggil yang membaca modelnya
+        // segera setelah ini tidak melihat angka basi.
+        $kunci->forceFill(['rpd_terpakai' => $baru, 'rpd_hari' => $hari])->syncOriginal();
+
+        return $baru;
     }
 
     /**
@@ -471,11 +549,9 @@ class RotasiKunciGemini
         // berarti satu slot menit terpakai untuk permintaan yang tidak akan
         // pernah dikirim.
         $batasHarian = $this->batasHarian($kunci);
-        $namaHarian = $this->namaHarian($kunci);
-        $besok = $this->resetHarian();
 
-        if ($batasHarian > 0 && (int) Cache::get($namaHarian, 0) >= $batasHarian) {
-            $this->tahan($kunci, $besok, 'kuota_harian_lokal');
+        if ($batasHarian > 0 && $this->terpakaiHarian($kunci) >= $batasHarian) {
+            $this->tahan($kunci, $this->resetHarian(), 'kuota_harian_lokal');
 
             return false;
         }
@@ -486,8 +562,17 @@ class RotasiKunciGemini
             return false;
         }
 
-        Cache::add($namaHarian, 0, $besok);
-        Cache::increment($namaHarian);
+        // Baru di sini jatahnya benar-benar dipungut, dan hasilnya diperiksa
+        // ulang. Antara pembacaan di atas dan pemungutan di sini ada celah
+        // selebar beberapa milidetik yang cukup dilewati worker lain, dan
+        // UPDATE-lah yang memutuskan siapa yang mendapat slot terakhir.
+        $terpakai = $this->pungutJatahHarian($kunci);
+
+        if ($batasHarian > 0 && $terpakai > $batasHarian) {
+            $this->tahan($kunci, $this->resetHarian(), 'kuota_harian_lokal');
+
+            return false;
+        }
 
         return true;
     }
@@ -546,11 +631,6 @@ class RotasiKunciGemini
             // mengirim permintaan yang mungkin melampaui batas.
             return 1;
         }
-    }
-
-    private function namaHarian(KunciGemini $kunci): string
-    {
-        return "gemini:rpd:{$kunci->id}:".Carbon::now(self::ZONA_KUOTA)->format('Y-m-d');
     }
 
     private function tahan(KunciGemini $kunci, CarbonInterface $sampai, string $alasan): void

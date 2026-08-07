@@ -31,6 +31,16 @@ class KunciGemini extends Model
             'limit_sampai' => 'datetime',
             'terakhir_dipakai_at' => 'datetime',
             'galat_at' => 'datetime',
+            // Keempat kolom di bawah pernah ditambahkan lewat migrasi tanpa
+            // ikut didaftarkan di sini, dan akibatnya baru terasa jauh dari
+            // tempat kejadiannya. Halaman Pengaturan memanggil
+            // `rpd_google_at?->toIso8601String()`, Eloquent memulangkan string
+            // mentah dari Postgres, dan halamannya mati dengan galat yang
+            // menyebut toIso8601String tanpa menyebut kolomnya.
+            'rpd_google' => 'integer',
+            'rpd_google_at' => 'datetime',
+            'rpd_terpakai' => 'integer',
+            'rpd_hari' => 'date',
         ];
     }
 

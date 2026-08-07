@@ -7,6 +7,7 @@ use App\Models\KunciGemini;
 use App\Models\PengaturanAi;
 use App\Services\Ai\RotasiKunciGemini;
 use App\Services\Arsip\PenangkapLayar;
+use App\Services\ModelRelevansi\LayananRelevansi;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -34,7 +35,7 @@ use Inertia\Response;
  */
 class PengaturanController extends Controller
 {
-    public function __invoke(PenangkapLayar $arsip, RotasiKunciGemini $rotasi): Response
+    public function __invoke(PenangkapLayar $arsip, RotasiKunciGemini $rotasi, LayananRelevansi $relevansi): Response
     {
         return Inertia::render('admin/Pengaturan', [
             'pengaturanAi' => PengaturanAi::aktif()->only([
@@ -61,13 +62,23 @@ class PengaturanController extends Controller
                 'galat_terakhir' => $k->galat_terakhir,
                 'galat_at' => $k->galat_at?->toIso8601String(),
 
-                // Batas harian yang berlaku, beserta asalnya. Membedakan angka
-                // yang disebutkan Google dari angka tebakan config penting:
-                // yang pertama fakta, yang kedua salinan halaman dokumentasi
-                // free tier yang bisa saja sudah tidak berlaku untuk kunci ini.
-                'rpd_batas' => $rotasi->batasHarian($k),
+                // Dua angka yang benar-benar diketahui, dan tidak satu pun sisa
+                // kuota di antaranya.
+                //
+                // Sisa kuota dulu ditampilkan di sini, dihitung terhadap
+                // GEMINI_BATAS_RPD yang hanya salinan halaman dokumentasi free
+                // tier. Hasilnya angka yang terlihat pasti padahal karangan:
+                // layar menulis "497 sisa dari 500" untuk kunci yang pada detik
+                // yang sama ditolak Google karena kuotanya sudah habis. Google
+                // juga menghitung pemakaian kunci yang sama dari luar sistem
+                // ini, dan tidak menyediakan cara membacanya lewat kunci API
+                // biasa.
+                //
+                // Yang tersisa: berapa permintaan yang sistem ini kirim hari
+                // ini, dan batas yang Google sebut sendiri lewat badan galat
+                // 429. Yang kedua null selama kunci ini belum pernah kehabisan.
                 'rpd_terpakai' => $rotasi->terpakaiHarian($k),
-                'rpd_dari_google' => $k->rpd_google !== null,
+                'rpd_google' => $k->rpd_google,
                 'rpd_google_at' => $k->rpd_google_at?->toIso8601String(),
             ]),
 
@@ -86,18 +97,6 @@ class PengaturanController extends Controller
              */
             'resetHarian' => $rotasi->resetHarian()->toIso8601String(),
             'kelompok' => [
-                [
-                    'judul' => 'Deduplikasi',
-                    'catatan' => 'Lapis kemiripan makna dicabut bersama layanan NLP. Yang tersisa hash isi persis dan simhash, jadi salinan yang ditulis ulang dengan kalimat berbeda akan lebih sering lolos.',
-                    'nilai' => [
-                        [
-                            'label' => 'Ambang jarak simhash',
-                            'nilai' => config('crawler.dedup.ambang_simhash'),
-                            'env' => 'DEDUP_AMBANG_SIMHASH',
-                            'diukur' => 'Near-duplicate terukur berjarak 8-10 bit, berita yang benar-benar berbeda 30-34 bit.',
-                        ],
-                    ],
-                ],
                 [
                     'judul' => 'Etika crawling',
                     'catatan' => 'Jangan dilonggarkan tanpa alasan. Batas ini yang membuat crawler tidak membebani hosting kecil media daerah.',
@@ -127,6 +126,7 @@ class PengaturanController extends Controller
                     'url' => config('ai.providers.gemini.url'),
                 ],
                 ['nama' => 'Layanan arsip (tangkapan layar)', 'sehat' => $arsip->sehat(), 'url' => config('arsip.base_url')],
+                ['nama' => 'Layanan model relevansi (IndoBERT)', 'sehat' => $relevansi->kesehatan() !== null, 'url' => config('relevansi.base_url')],
             ],
         ]);
     }

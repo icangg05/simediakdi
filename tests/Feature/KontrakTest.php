@@ -77,21 +77,15 @@ class KontrakTest extends TestCase
         $this->assertSame('otomatis', $pemuatan->sumber_catatan);
     }
 
-    public function test_artikel_salinan_tetap_dihitung_sebagai_pemuatan(): void
+    public function test_dua_artikel_media_yang_sama_dihitung_dua_pemuatan(): void
     {
-        $asli = $this->artikel();
-
-        $salinan = $this->artikel();
-        $salinan->update([
-            'status_dedup' => 'salinan',
-            'artikel_induk_id' => $asli->id,
-        ]);
+        $this->artikel();
+        $this->artikel();
 
         $baru = app(PencocokPemuatan::class)->cocokkan($this->kontrak());
 
-        // Rilis yang sama dimuat dua kali adalah satu isu, tetapi dua
-        // pemuatan. Menyaringnya membuat media kehilangan realisasi kontrak
-        // atas halaman yang benar-benar mereka terbitkan.
+        // Kontrak menghitung pemuatan, bukan isu. Dua halaman terbit dari media
+        // yang sama adalah dua realisasi, meski isinya sejenis.
         $this->assertSame(2, $baru);
     }
 

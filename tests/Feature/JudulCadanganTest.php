@@ -26,7 +26,7 @@ class JudulCadanganTest extends TestCase
     public function test_baris_pertama_yang_pendek_dipakai_apa_adanya(): void
     {
         $isi = "Sebuah Rumah Ludes Terbakar di Kelurahan Watulondo\n\n"
-            ."KENDARI, INFORMASISULTRA.COM ".$this->pisah()." Kebakaran rumah terjadi di Perumahan Pesona King Adam 2.";
+            .'KENDARI, INFORMASISULTRA.COM '.$this->pisah().' Kebakaran rumah terjadi di Perumahan Pesona King Adam 2.';
 
         $this->assertSame(
             'Sebuah Rumah Ludes Terbakar di Kelurahan Watulondo',

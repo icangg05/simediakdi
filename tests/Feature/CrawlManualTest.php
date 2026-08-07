@@ -3,17 +3,19 @@
 namespace Tests\Feature;
 
 use App\Models\Media;
-use App\Models\User;
 use App\Models\SumberFeed;
+use App\Models\User;
 use App\Services\Crawler\PengunduhHalaman;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Console\QueuedCommand;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
 use Mockery;
 use Tests\TestCase;
 
 /**
- * Tombol Crawl sekarang di halaman Log crawl, beserta penjaga sumber mati.
+ * Tombol Crawl sekarang, baik yang menarik semuanya dari halaman Log crawl
+ * maupun yang menarik satu media dari halaman Media, beserta penjaga sumber
+ * mati dan tampilan jadwal berikutnya.
  */
 class CrawlManualTest extends TestCase
 {
@@ -90,5 +92,68 @@ class CrawlManualTest extends TestCase
         $this->actingAs($pengguna)->post('/admin/log-crawl/jalankan')->assertRedirect();
         $this->actingAs($pengguna)->post('/admin/log-crawl/jalankan')->assertRedirect();
         $this->actingAs($pengguna)->post('/admin/log-crawl/jalankan')->assertStatus(429);
+    }
+
+    public function test_tombol_crawl_per_media_melempar_pekerjaan_ke_antrean(): void
+    {
+        $sumber = $this->sumber(aktif: true);
+
+        $this->actingAs(User::factory()->create())
+            ->post("/admin/media/{$sumber->media_id}/crawl")
+            ->assertRedirect()
+            ->assertSessionHas('sukses');
+
+        Bus::assertDispatched(QueuedCommand::class);
+    }
+
+    public function test_media_tanpa_sumber_aktif_tidak_menjalankan_apa_pun(): void
+    {
+        $sumber = $this->sumber(aktif: false);
+
+        // Tanpa penjaga ini tombolnya menjawab "dijalankan" untuk pekerjaan
+        // yang tidak pernah punya satu pun sumber untuk ditarik.
+        $this->actingAs(User::factory()->create())
+            ->post("/admin/media/{$sumber->media_id}/crawl")
+            ->assertRedirect()
+            ->assertSessionHas('galat');
+
+        Bus::assertNothingDispatched();
+    }
+
+    /** Hanya menarik sumber milik media yang diminta. */
+    public function test_opsi_media_menyaring_sumber(): void
+    {
+        $ikut = $this->sumber(aktif: true);
+
+        $lain = Media::create(['nama' => 'Lain', 'slug' => 'lain', 'domain' => 'lain.test']);
+        SumberFeed::create([
+            'media_id' => $lain->id,
+            'nama' => 'Lain RSS',
+            'tipe' => 'rss',
+            'url' => 'https://lain.test/rss',
+        ]);
+
+        $pengunduh = Mockery::mock(PengunduhHalaman::class);
+        $pengunduh->shouldReceive('unduh')->once()->andReturn(
+            '<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel></channel></rss>',
+        );
+        $this->app->instance(PengunduhHalaman::class, $pengunduh);
+
+        $this->artisan("crawl:feeds --media={$ikut->media_id} --paksa")->assertSuccessful();
+
+        $this->assertDatabaseCount('log_crawl', 1);
+        $this->assertDatabaseHas('log_crawl', ['sumber_feed_id' => $ikut->id]);
+    }
+
+    /**
+     * Jadwal berikutnya dibaca dari penjadwal, dan penjadwalnya harus sudah
+     * di-bootstrap. Tanpa itu daftar event-nya kosong dan layar selalu
+     * menulis "tidak terjadwal" meski jadwalnya ada di routes/console.php.
+     */
+    public function test_halaman_log_crawl_tahu_jadwal_berikutnya(): void
+    {
+        $this->actingAs(User::factory()->create())
+            ->get('/admin/log-crawl')
+            ->assertInertia(fn ($p) => $p->whereNot('crawlBerikutnya', null));
     }
 }

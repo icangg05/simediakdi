@@ -103,7 +103,7 @@ class CrawlBackfill extends Command
                         'status_proses' => 'mentah',
                     ]));
                 } catch (UniqueConstraintViolationException) {
-                    // Sudah pernah masuk lewat RSS. Deduplikasi lapis 1.
+                    // URL-nya sudah ada di tabel artikel, biasanya lewat RSS.
                     $sudahAda++;
 
                     continue;

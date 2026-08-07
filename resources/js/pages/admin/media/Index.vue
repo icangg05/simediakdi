@@ -42,6 +42,12 @@ const filter: FilterDefinisi[] = [
 const aksiBaris: AksiBaris<BarisMedia>[] = [
     { label: 'Ubah', href: (baris) => `/admin/media/${baris.id}/edit` },
     {
+        // Crawl berjalan di worker, jadi halaman ini tidak perlu menunggu.
+        // Hasilnya dilihat di Log crawl, bukan di sini.
+        label: 'Crawl sekarang',
+        onKlik: (baris) => router.post(`/admin/media/${baris.id}/crawl`, {}, { preserveScroll: true }),
+    },
+    {
         label: 'Nonaktifkan',
         merusak: true,
         onKlik: (baris) => {

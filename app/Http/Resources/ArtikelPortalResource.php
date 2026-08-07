@@ -40,10 +40,6 @@ class ArtikelPortalResource extends JsonResource
             'dipublikasikan_at' => $this->dipublikasikan_at,
             'diambil_at' => $this->diambil_at,
             'tanggal_muat' => Waktu::tanggalWita($this->diambil_at),
-            // Status salinan tetap ditampilkan: media berhak tahu kalau
-            // beritanya dihitung sebagai salinan rilis yang sama, karena itu
-            // yang menentukan apakah ia masuk hitungan kontrak.
-            'status_dedup' => $this->status_dedup->value,
         ];
     }
 }

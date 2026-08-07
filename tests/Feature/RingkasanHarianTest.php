@@ -32,7 +32,7 @@ class RingkasanHarianTest extends TestCase
         $this->mediaA = Media::create(['nama' => 'Media A', 'slug' => 'media-a', 'domain' => 'a.test']);
     }
 
-    private function artikel(?Media $media, string $status = 'asli', ?int $indukId = null): Artikel
+    private function artikel(?Media $media): Artikel
     {
         static $n = 0;
         $n++;
@@ -43,8 +43,6 @@ class RingkasanHarianTest extends TestCase
             'url' => "https://a.test/{$n}",
             'url_kanonik' => "https://a.test/{$n}",
             'isi' => 'Isi berita.',
-            'status_dedup' => $status,
-            'artikel_induk_id' => $indukId,
             'diambil_at' => Waktu::awalHariIni()->addHours(10),
         ]);
     }
@@ -59,19 +57,17 @@ class RingkasanHarianTest extends TestCase
         ]);
     }
 
-    public function test_baris_agregat_menghitung_asli_dan_salinan_terpisah(): void
+    public function test_baris_agregat_menghitung_seluruh_artikel(): void
     {
-        $asli = $this->artikel($this->mediaA);
-        $this->artikel($this->mediaA, 'salinan', $asli->id);
+        $this->artikel($this->mediaA);
+        $this->artikel($this->mediaA);
 
         $this->ringkasan->hitung($this->hariIni);
 
         $agregat = BarisRingkasan::whereNull('media_id')->first();
 
         $this->assertNotNull($agregat, 'Baris agregat untuk dashboard eksekutif harus ada.');
-        $this->assertSame(1, $agregat->jumlah_artikel);
-        // Salinan dipisah supaya angka utamanya tetap bisa dipercaya.
-        $this->assertSame(1, $agregat->jumlah_salinan);
+        $this->assertSame(2, $agregat->jumlah_artikel);
     }
 
     public function test_menghitung_ulang_memperbarui_baris_yang_sama_bukan_menambah(): void

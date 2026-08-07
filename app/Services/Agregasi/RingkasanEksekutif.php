@@ -28,7 +28,7 @@ class RingkasanEksekutif
             ->whereBetween('tanggal', [$dari->toDateString(), $sampai->toDateString()])
             ->orderBy('tanggal')
             ->get([
-                'tanggal', 'jumlah_artikel', 'jumlah_salinan',
+                'tanggal', 'jumlah_artikel',
                 'jumlah_negatif', 'jumlah_netral', 'jumlah_positif', 'jumlah_perlu_review',
             ])
             ->map(fn ($b) => (array) $b)
@@ -65,7 +65,6 @@ class RingkasanEksekutif
             'positif_selisih' => $sekarang['positif'] - $sebelumnya['positif'],
             'netral' => $sekarang['netral'],
             'perlu_review' => $sekarang['perlu_review'],
-            'salinan' => $sekarang['salinan'],
             'media_aktif' => $this->mediaAktif($dari, $sampai),
         ];
     }
@@ -78,7 +77,6 @@ class RingkasanEksekutif
             ->whereBetween('tanggal', [$dari->toDateString(), $sampai->toDateString()])
             ->selectRaw('
                 coalesce(sum(jumlah_artikel), 0) AS artikel,
-                coalesce(sum(jumlah_salinan), 0) AS salinan,
                 coalesce(sum(jumlah_negatif), 0) AS negatif,
                 coalesce(sum(jumlah_netral), 0) AS netral,
                 coalesce(sum(jumlah_positif), 0) AS positif,

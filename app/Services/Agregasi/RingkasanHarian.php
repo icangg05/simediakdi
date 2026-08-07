@@ -34,15 +34,14 @@ class RingkasanHarian
         $sql = <<<'SQL'
         INSERT INTO ringkasan_harian (
             tanggal, media_id,
-            jumlah_artikel, jumlah_salinan,
+            jumlah_artikel,
             jumlah_negatif, jumlah_netral, jumlah_positif, jumlah_perlu_review,
             dihitung_at
         )
         SELECT
             ?::date,
             a.media_id,
-            count(DISTINCT a.id) FILTER (WHERE a.status_dedup = 'asli'),
-            count(DISTINCT a.id) FILTER (WHERE a.status_dedup = 'salinan'),
+            count(DISTINCT a.id),
             count(*) FILTER (WHERE s.label_efektif = 'negatif'),
             count(*) FILTER (WHERE s.label_efektif = 'netral'),
             count(*) FILTER (WHERE s.label_efektif = 'positif'),
@@ -59,7 +58,6 @@ class RingkasanHarian
         HAVING NOT (GROUPING(a.media_id) = 0 AND a.media_id IS NULL)
         ON CONFLICT (tanggal, media_id) DO UPDATE SET
             jumlah_artikel = EXCLUDED.jumlah_artikel,
-            jumlah_salinan = EXCLUDED.jumlah_salinan,
             jumlah_negatif = EXCLUDED.jumlah_negatif,
             jumlah_netral = EXCLUDED.jumlah_netral,
             jumlah_positif = EXCLUDED.jumlah_positif,

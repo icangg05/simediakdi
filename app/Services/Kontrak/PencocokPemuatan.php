@@ -32,16 +32,10 @@ class PencocokPemuatan
         // Rentang kontrak memakai kalender Kendari, bukan UTC: tanggal di
         // dokumen kontrak ditulis orang yang berada di WITA.
         //
-        // Salinan sengaja IKUT dihitung. Deduplikasi menjawab "berapa isu",
-        // kontrak menjawab "berapa pemuatan dari media ini", dan keduanya
-        // memang berbeda. Rilis yang sama dimuat lima media adalah satu isu
-        // tetapi lima pemuatan, masing-masing dengan URL dan halamannya
-        // sendiri, dan tiap media berhak menghitungnya ke targetnya.
-        //
-        // Lebih jauh: status `asli` menandai artikel yang lebih dulu
-        // di-crawl, bukan yang lebih dulu terbit. Ia bergantung pada jadwal
-        // crawler, jadi memakainya untuk menilai media akan menghukum media
-        // yang feed-nya kebetulan ditarik belakangan.
+        // Rilis yang sama dimuat lima media dihitung lima pemuatan, karena
+        // kontrak menjawab "berapa pemuatan dari media ini", bukan "berapa
+        // isu". Masing-masing punya URL dan halamannya sendiri, dan tiap media
+        // berhak menghitungnya ke targetnya.
         $artikel = Artikel::withoutGlobalScopes()
             ->where('media_id', $kontrak->media_id)
             ->whereBetween('diambil_at', [

@@ -13,12 +13,10 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
 /**
- * Mengunduh halaman artikel, mengekstrak isinya, lalu menjalankan deduplikasi
- * lapis 1 dan 2.
+ * Mengunduh halaman artikel lalu mengekstrak isinya.
  *
- * Rantai berhenti di sini kalau artikel ternyata salinan. Analisis NLP
- * (sprint 3) hanya dijadwalkan untuk artikel asli, supaya biaya inferensi
- * tidak dibayar berulang untuk rilis yang sama.
+ * Rantai berhenti di sini kalau isinya tidak bisa diekstrak. Klasifikasi
+ * dijalankan lewat tombol di halaman Antrean AI, bukan dari job ini.
  */
 class AmbilIsiArtikel implements ShouldQueue
 {

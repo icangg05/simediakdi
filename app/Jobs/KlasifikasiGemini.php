@@ -43,6 +43,26 @@ class KlasifikasiGemini implements ShouldQueue
 
     public int $timeout = 300;
 
+    /**
+     * Batas atas penundaan sendiri saat kuota habis.
+     *
+     * Job ini dulu tidur selama sisa waktu sampai kuota harian pulih, dan itu
+     * bisa tujuh jam. Selama tidur, barisnya tetap terhitung sebagai pekerjaan
+     * menggantung oleh `gemini:antre`, jadi dua puluh job yang tidur memenuhi
+     * seluruh jatah gantung dan tidak ada satu pun pekerjaan baru yang dilepas.
+     * Antreannya membeku total.
+     *
+     * Yang membuatnya buruk bukan lamanya, melainkan tidurnya tidak bisa
+     * dibangunkan. Admin yang menambahkan kunci baru berkuota penuh tetap
+     * menatap antrean diam sampai lewat tengah malam waktu Pasifik, sementara
+     * tombol Klasifikasi di layar bekerja normal dengan kunci yang sama.
+     *
+     * Lima menit membuat job memeriksa ulang keadaan secara berkala. Satu
+     * pemeriksaan hanya dua kueri murah, dan kunci baru mulai terpakai paling
+     * lama lima menit setelah ditambahkan.
+     */
+    private const JEDA_TUNDA_MAKS = 300;
+
     public function __construct(public int $antreanId)
     {
         $this->onQueue('gemini');
@@ -68,9 +88,7 @@ class KlasifikasiGemini implements ShouldQueue
         // dijawab 429 tetap dihitung Google sebagai permintaan, jadi mencoba
         // terus justru memperpanjang masa tunggunya sendiri.
         if (($tunggu = $rotasi->tungguDetik()) > 0) {
-            $baris->update(['status' => 'menunggu', 'dijadwalkan_at' => now()->addSeconds($tunggu)]);
-
-            $this->release($tunggu);
+            $this->tunda($baris, $tunggu);
 
             return;
         }
@@ -112,15 +130,11 @@ class KlasifikasiGemini implements ShouldQueue
             // bukan karena selesai melainkan karena semuanya sudah menyerah.
             report($galat);
 
-            $tunggu = max(60, $rotasi->tungguDetik());
-
-            $baris->update([
-                'status' => 'menunggu',
-                'dijadwalkan_at' => now()->addSeconds($tunggu),
-                'galat' => 'Menunggu kuota Gemini terbuka kembali.',
-            ]);
-
-            $this->release($tunggu);
+            // Minimal semenit meski kuncinya sudah terlihat siap lagi. Batas
+            // yang baru saja terlampaui hampir selalu batas per menit, dan
+            // mencoba lagi seketika hanya menambah satu permintaan yang
+            // dijawab 429 lalu tetap dihitung Google.
+            $this->tunda($baris, max(60, $rotasi->tungguDetik()));
 
             return;
         } catch (Throwable $galat) {
@@ -137,6 +151,26 @@ class KlasifikasiGemini implements ShouldQueue
         }
 
         $baris->update(['status' => 'selesai', 'galat' => null, 'selesai_at' => now()]);
+    }
+
+    /**
+     * Menidurkan pekerjaan ini sebentar, lalu memeriksa keadaan lagi.
+     *
+     * Waktu tidurnya dan `dijadwalkan_at` dihitung dari satu angka yang sama.
+     * Kalau keduanya berbeda, halaman pemantauan menyebut jam bangun yang tidak
+     * pernah terjadi, dan jatah gantung dilepas pada saat yang salah.
+     */
+    private function tunda(AntreanGemini $baris, int $tunggu): void
+    {
+        $tunggu = min(max($tunggu, 1), self::JEDA_TUNDA_MAKS);
+
+        $baris->update([
+            'status' => 'menunggu',
+            'dijadwalkan_at' => now()->addSeconds($tunggu),
+            'galat' => 'Menunggu kuota Gemini terbuka kembali.',
+        ]);
+
+        $this->release($tunggu);
     }
 
     /**

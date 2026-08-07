@@ -36,7 +36,7 @@ class EksporController extends Controller
 
         $penulis = SimpleExcelWriter::create($jalur)->addHeader([
             'Judul', 'Media', 'Penulis', 'Terbit', 'Diambil', 'Jumlah kata',
-            'Status dedup', 'Konteks', 'Nada', 'Kode alasan', 'Perlu review', 'URL',
+            'Konteks', 'Nada', 'Kode alasan', 'Perlu review', 'URL',
         ]);
 
         Artikel::query()
@@ -80,7 +80,6 @@ class EksporController extends Controller
             $artikel->dipublikasikan_at ? Waktu::tanggalWita($artikel->dipublikasikan_at) : null,
             Waktu::tanggalWita($artikel->diambil_at),
             $artikel->jumlah_kata,
-            $artikel->status_dedup->value,
             $analisis?->label_efektif?->value,
             $analisis?->reason_code,
             $analisis?->perlu_review ? 'ya' : 'tidak',

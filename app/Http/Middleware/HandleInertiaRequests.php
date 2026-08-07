@@ -77,6 +77,11 @@ class HandleInertiaRequests extends Middleware
                 // dan kalimat galat dari Google adalah isi yang ingin dibaca
                 // dan dibandingkan, bukan pemberitahuan yang lewat lalu hilang.
                 'ujiKunci' => fn () => $request->session()->get('ujiKunci'),
+                // Hasil satu pengujian model relevansi. Sama seperti ujiKunci,
+                // ia dirender sebagai kotak hasil di halamannya sendiri dan
+                // bukan sebagai toast: probabilitas kedua label adalah angka
+                // yang dibaca dan dibandingkan, bukan kabar yang lewat.
+                'hasilUji' => fn () => $request->session()->get('hasilUji'),
                 'nonce' => fn () => $request->session()->has('sukses')
                     || $request->session()->has('galat')
                     ? (string) Str::uuid7()

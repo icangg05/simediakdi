@@ -38,9 +38,8 @@ interface Kunci {
     terakhir_dipakai_at: string | null;
     galat_terakhir: string | null;
     galat_at: string | null;
-    rpd_batas: number;
     rpd_terpakai: number;
-    rpd_dari_google: boolean;
+    rpd_google: number | null;
     rpd_google_at: string | null;
 }
 
@@ -149,7 +148,6 @@ function bisaDihapus(k: Kunci): boolean {
     return props.kunci.length > 1 && (!k.aktif || jumlahAktif.value > 1);
 }
 
-const sisaHarian = (k: Kunci) => Math.max(0, k.rpd_batas - k.rpd_terpakai);
 
 /**
  * Hasil uji menggantikan kotak galat terakhir untuk kunci yang sama.
@@ -253,21 +251,24 @@ function status(k: Kunci): string {
                                     {{ status(k) }}
                                     <template v-if="k.terakhir_dipakai_at"> · terakhir dipakai {{ waktu(k.terakhir_dipakai_at) }} </template>
                                 </p>
-                                <!-- Asal angkanya ikut disebut. Yang dari Google
-                                     adalah batas sebenarnya, dibaca dari badan
-                                     galat 429 saat kunci ini pernah kehabisan.
-                                     Yang dari config hanya salinan halaman
-                                     dokumentasi free tier, dan salinan itu
-                                     meleset untuk kunci berbayar maupun setelah
-                                     Google mengubah jatahnya. -->
+                                <!-- Sisa kuota sengaja tidak ada di sini.
+                                     Menghitungnya menuntut batas yang benar,
+                                     dan batas yang benar hanya diketahui untuk
+                                     kunci yang pernah kehabisan sampai Google
+                                     menyebut angkanya di badan galat 429. Untuk
+                                     kunci lain sisanya adalah pengurangan
+                                     terhadap tebakan config, dan angka tebakan
+                                     yang ditulis setegas angka fakta pernah
+                                     berbunyi "497 sisa" untuk kunci yang detik
+                                     itu juga ditolak karena kuotanya habis. -->
                                 <p class="text-xs text-muted-foreground">
-                                    Kuota harian
-                                    <span class="angka text-foreground">{{ formatAngka(sisaHarian(k)) }}</span>
-                                    sisa dari <span class="angka">{{ formatAngka(k.rpd_batas) }}</span>
-                                    <template v-if="k.rpd_dari_google">
-                                        · angka dari Google<template v-if="k.rpd_google_at">, {{ waktu(k.rpd_google_at) }}</template>
+                                    <span class="angka text-foreground">{{ formatAngka(k.rpd_terpakai) }}</span>
+                                    permintaan terkirim hari ini
+                                    <template v-if="k.rpd_google !== null">
+                                        · batas dari Google <span class="angka">{{ formatAngka(k.rpd_google) }}</span>
+                                        <template v-if="k.rpd_google_at">, {{ waktu(k.rpd_google_at) }}</template>
                                     </template>
-                                    <template v-else> · perkiraan dari <code class="text-[11px]">GEMINI_BATAS_RPD</code>, Google belum menyebut angkanya </template>
+                                    <template v-else> · Google belum pernah menyebut batas harian kunci ini </template>
                                 </p>
                             </div>
                             <!-- Satu kunci harus selalu tersisa menyala. Tombol yang akan mematikan

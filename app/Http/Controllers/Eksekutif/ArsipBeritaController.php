@@ -19,7 +19,6 @@ class ArsipBeritaController extends Controller
         $periode = Periode::dariRequest($request, $ringkasan);
 
         $kueri = Artikel::query()
-            ->asli()
             ->with(['media:id,nama', 'analisisSentimen' => fn ($q) => $q
                 ->where('relevan', true),
             ])

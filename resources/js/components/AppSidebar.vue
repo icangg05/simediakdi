@@ -1,21 +1,25 @@
 <script setup lang="ts">
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
-import {
-    Sidebar,
-    SidebarContent,
-    SidebarFooter,
-    SidebarHeader,
-    SidebarMenu,
-    SidebarMenuButton,
-    SidebarMenuItem,
-} from '@/components/ui/sidebar';
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem, type PeranPengguna, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
 import {
-    BarChart3, BellRing, Bot, ClipboardCheck, FileSignature, FileText, Flame,
-    LayoutGrid, Newspaper, Rss, ScrollText,
-    Send, Settings, Users,
+    BarChart3,
+    BellRing,
+    Bot,
+    ClipboardCheck,
+    FileSignature,
+    FileText,
+    Flame,
+    FlaskConical,
+    LayoutGrid,
+    Newspaper,
+    Rss,
+    ScrollText,
+    Send,
+    Settings,
+    Users,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from './AppLogo.vue';
@@ -28,6 +32,7 @@ const navPerPeran: Record<PeranPengguna, NavItem[]> = {
         { title: 'Dashboard', href: '/admin', icon: LayoutGrid },
         { title: 'Artikel', href: '/admin/artikel', icon: FileText },
         { title: 'Antrean AI', href: '/admin/antrean-ai', icon: Bot },
+        { title: 'Model Relevansi', href: '/admin/model-relevansi', icon: FlaskConical },
         { title: 'Kontrak', href: '/admin/kontrak', icon: FileSignature },
         { title: 'Verifikasi Pemuatan', href: '/admin/pemuatan', icon: ClipboardCheck },
         { title: 'Alert', href: '/admin/alert', icon: BellRing },

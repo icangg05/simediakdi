@@ -17,20 +17,21 @@ interface StatusKesehatan {
 }
 
 const props = defineProps<{
-    antrean: {
-        menunggu: number;
-        tuntas: number;
-        total: number;
+    ekstraksi: {
+        mentah: number;
+        masuk_hari_ini: number;
+        diekstrak_hari_ini: number;
         persen: number;
-        tahap: Array<{ nama: string; jumlah: number }>;
-        perlu_review: number;
+        laju_per_menit: number;
+        estimasi_selesai_at: string | null;
+        belum_klasifikasi: number;
+        antre_ai: number;
         gagal: number;
     };
     kpi: {
         artikel_hari_ini: number;
         artikel_pekan_ini: number;
         selisih_pekan_lalu: number;
-        salinan_pekan_ini: number;
         gagal_proses: number;
         sumber_aktif: number;
     };
@@ -56,7 +57,6 @@ const props = defineProps<{
         judul: string;
         url: string;
         diambil_at: string;
-        status_dedup: string;
         media: { nama: string } | null;
     }>;
 }>();
@@ -68,16 +68,24 @@ const sejak = (waktu: string) => formatDistanceToNow(new Date(waktu), { addSuffi
 /** CSS memakai titik desimal; formatPersen() memakai koma dan tidak sah di sini. */
 const lebar = (bagian: number, total: number) => (total === 0 ? '0%' : `${((bagian / total) * 100).toFixed(2)}%`);
 
-// Menyegarkan hanya bagian antrean, dan hanya selama masih ada yang menunggu.
-// Polling yang jalan terus pada dashboard yang menganggur adalah kueri tiap
-// sepuluh detik selamanya, untuk angka yang tidak berubah.
+/** Satu desimal, koma sebagai pemisah, mengikuti penulisan angka Indonesia. */
+const formatLaju = (nilai: number) => nilai.toFixed(1).replace('.', ',');
+
+// Menyegarkan hanya bagian ekstraksi, dan hanya selama masih ada artikel
+// mentah. Polling yang jalan terus pada dashboard yang menganggur adalah kueri
+// tiap lima detik selamanya, untuk angka yang tidak berubah.
+//
+// Lima detik, bukan sepuluh. Ekstraksi menghabiskan puluhan artikel per menit,
+// jadi angka yang tertinggal sepuluh detik sudah terasa salah saat dipandangi.
+// Antrean AI di kartu yang sama bergerak sekitar satu artikel per menit dan
+// tidak butuh serapat itu; ia ikut tersegarkan karena kebetulan satu kartu.
 let pewaktu: ReturnType<typeof setInterval> | undefined;
 
 onMounted(() => {
     pewaktu = setInterval(() => {
-        if (props.antrean.menunggu === 0) return;
-        router.reload({ only: ['antrean'] });
-    }, 10_000);
+        if (props.ekstraksi.mentah === 0) return;
+        router.reload({ only: ['ekstraksi'] });
+    }, 5_000);
 });
 
 onUnmounted(() => clearInterval(pewaktu));
@@ -87,59 +95,77 @@ onUnmounted(() => clearInterval(pewaktu));
     <Head title="Dashboard admin" />
 
     <LayoutAdmin judul="Dashboard">
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <KartuKpi label="Berita hari ini" :nilai="kpi.artikel_hari_ini" keterangan="Artikel asli, tanpa salinan" />
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <KartuKpi label="Berita hari ini" :nilai="kpi.artikel_hari_ini" keterangan="Sejak pukul 00.00 WITA" />
             <KartuKpi
                 label="Berita 7 hari terakhir"
                 :nilai="kpi.artikel_pekan_ini"
                 :selisih="kpi.selisih_pekan_lalu"
                 satuan-pembanding="dari pekan sebelumnya"
             />
-            <KartuKpi
-                label="Salinan terdeteksi"
-                :nilai="kpi.salinan_pekan_ini"
-                keterangan="7 hari terakhir, tidak ikut dihitung"
-            />
             <KartuKpi label="Sumber feed aktif" :nilai="kpi.sumber_aktif" :keterangan="`${kpi.gagal_proses} artikel gagal diproses`" />
         </div>
 
         <!--
-            Hanya dirender saat ada pekerjaan tertunda. Kartu bertuliskan
-            "tidak ada antrean" menghabiskan ruang untuk mengabarkan
-            ketiadaan.
+            Hanya dirender saat ada pekerjaan tertunda, baik ekstraksi maupun
+            penilaian. Kartu bertuliskan "tidak ada antrean" menghabiskan ruang
+            untuk mengabarkan ketiadaan.
         -->
-        <Card v-if="antrean.menunggu > 0">
+        <Card v-if="ekstraksi.mentah > 0 || ekstraksi.antre_ai > 0">
             <CardHeader class="pb-3">
-                <CardTitle class="text-base">Antrean analisis</CardTitle>
+                <CardTitle class="text-base">Ekstraksi artikel mentah</CardTitle>
             </CardHeader>
             <CardContent class="space-y-3">
                 <div class="flex flex-wrap items-baseline justify-between gap-2">
                     <p class="text-sm">
-                        <span class="angka text-2xl font-semibold">{{ formatAngka(antrean.menunggu) }}</span>
-                        <span class="text-muted-foreground"> artikel menunggu diproses</span>
+                        <span class="angka text-2xl font-semibold">{{ formatAngka(ekstraksi.mentah) }}</span>
+                        <span class="text-muted-foreground"> artikel mentah menunggu diekstraksi</span>
                     </p>
                     <p class="angka text-sm text-muted-foreground">
-                        {{ formatAngka(antrean.tuntas) }} dari {{ formatAngka(antrean.total) }} tuntas
-                        ({{ formatPersen(antrean.persen) }})
+                        {{ formatAngka(ekstraksi.diekstrak_hari_ini) }} dari
+                        {{ formatAngka(ekstraksi.masuk_hari_ini) }} selesai hari ini
+                        ({{ formatPersen(ekstraksi.persen) }})
                     </p>
                 </div>
 
                 <div class="h-2 overflow-hidden rounded-full bg-muted">
-                    <div class="h-full bg-primary transition-all" :style="{ width: `${antrean.persen}%` }" />
+                    <div class="h-full bg-primary transition-all" :style="{ width: `${ekstraksi.persen}%` }" />
                 </div>
 
                 <dl class="grid gap-2 text-xs sm:grid-cols-3">
-                    <div v-for="tahap in antrean.tahap" :key="tahap.nama" class="rounded border p-2">
-                        <dt class="text-muted-foreground">{{ tahap.nama }}</dt>
-                        <dd class="angka text-base font-semibold">{{ formatAngka(tahap.jumlah) }}</dd>
+                    <div class="rounded border p-2">
+                        <dt class="text-muted-foreground">Laju ekstraksi</dt>
+                        <dd class="angka text-base font-semibold">
+                            {{ formatLaju(ekstraksi.laju_per_menit) }}
+                            <span class="text-xs font-normal text-muted-foreground">artikel/menit</span>
+                        </dd>
+                    </div>
+                    <div class="rounded border p-2">
+                        <dt class="text-muted-foreground">Perkiraan selesai</dt>
+                        <dd class="text-base font-semibold">
+                            <template v-if="ekstraksi.estimasi_selesai_at">{{ sejak(ekstraksi.estimasi_selesai_at) }}</template>
+                            <template v-else-if="ekstraksi.mentah === 0">Sudah selesai</template>
+                            <template v-else>Belum bisa dihitung</template>
+                        </dd>
+                    </div>
+                    <div class="rounded border p-2">
+                        <dt class="text-muted-foreground">Belum diklasifikasi</dt>
+                        <dd class="angka text-base font-semibold">
+                            {{ formatAngka(ekstraksi.belum_klasifikasi) }}
+                            <span class="text-xs font-normal text-muted-foreground">
+                                ({{ formatAngka(ekstraksi.antre_ai) }} antre AI)
+                            </span>
+                        </dd>
                     </div>
                 </dl>
 
                 <p class="text-xs text-muted-foreground">
-                    Angka ini menyegarkan sendiri tiap sepuluh detik selama masih ada yang menunggu.
-                    Analisis berjalan satu proses, sekitar dua belas artikel per menit.
-                    <span v-if="antrean.gagal > 0" class="text-sentimen-negatif">
-                        {{ formatAngka(antrean.gagal) }} artikel gagal diproses.
+                    Angka menyegarkan sendiri tiap lima detik selama masih ada artikel mentah. Perkiraan
+                    dihitung dari laju sepuluh menit terakhir, jadi ia bergerak mengikuti kecepatan
+                    server media yang sedang ditarik. Artikel yang selesai diekstraksi langsung mengantre
+                    penilaian relevansi.
+                    <span v-if="ekstraksi.gagal > 0" class="text-sentimen-negatif">
+                        {{ formatAngka(ekstraksi.gagal) }} artikel gagal diproses.
                     </span>
                 </p>
             </CardContent>
@@ -230,7 +256,6 @@ onUnmounted(() => clearInterval(pewaktu));
                     <li v-for="artikel in artikelTerbaru" :key="artikel.id" class="flex items-center gap-3 py-2">
                         <span class="min-w-0 flex-1 truncate">{{ artikel.judul }}</span>
                         <span class="shrink-0 text-muted-foreground">{{ artikel.media?.nama ?? 'Belum ditautkan' }}</span>
-                        <Badge v-if="artikel.status_dedup === 'salinan'" variant="secondary" class="shrink-0">Salinan</Badge>
                         <span class="w-28 shrink-0 text-right text-muted-foreground">{{ sejak(artikel.diambil_at) }}</span>
                     </li>
                 </ul>

@@ -2,31 +2,22 @@
 
 namespace App\Services\Crawler;
 
+use App\Models\AntreanGemini;
 use App\Models\Artikel;
-use App\Services\Dedup\PencariDuplikat;
-use App\Services\Dedup\PenghitungSimhash;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Langkah setelah isi artikel tersedia: simpan, hitung sidik jari, lalu
- * deduplikasi. Artikel yang lolos berhenti di sini menunggu diklasifikasi.
+ * Langkah setelah isi artikel tersedia: simpan isinya, lalu antre untuk dinilai.
  *
  * Dipakai dua jalur, pengambilan halaman satu per satu (AmbilIsiArtikel) dan
- * penarikan arsip massal (crawl:backfill). Keduanya wajib memproses artikel
- * dengan cara yang persis sama: kalau deduplikasinya berbeda sedikit saja, satu
- * peristiwa terhitung dua kali dan seluruh angka dashboard ikut salah tanpa ada
- * yang menyadarinya.
+ * penarikan arsip massal (crawl:backfill), supaya keduanya menghasilkan baris
+ * yang bentuknya sama.
  */
 class PenyelesaiArtikel
 {
-    public function __construct(
-        private PenghitungSimhash $simhash,
-        private PencariDuplikat $dedup,
-    ) {}
-
     /**
-     * @return bool true kalau artikel diteruskan ke analisis, false kalau
-     *              berhenti di sini, salinan, atau isinya kosong
+     * @return bool true kalau artikel masuk antrean analisis, false kalau
+     *              berhenti di sini karena isinya kosong
      */
     public function selesaikan(Artikel $artikel, HasilEkstraksi $hasil): bool
     {
@@ -46,16 +37,9 @@ class PenyelesaiArtikel
             'pesan_gagal' => null,
         ]);
 
-        $adaIsi = $hasil->isi !== null && $hasil->isi !== '';
-
-        if ($adaIsi) {
-            $artikel->hash_isi = $this->dedup->hashIsi($hasil->isi);
-            $artikel->simhash = $this->simhash->hitung($artikel->judul.' '.$hasil->isi);
-        }
-
         $artikel->save();
 
-        if (! $adaIsi) {
+        if ($hasil->isi === null || $hasil->isi === '') {
             // Ekstraksi kosong bukan kegagalan fatal: judul dan URL sudah cukup
             // untuk pencocokan pemuatan kontrak. Ditandai supaya bisa diaudit.
             Log::warning('Ekstraksi isi kosong', ['artikel_id' => $artikel->id, 'url' => $artikel->url]);
@@ -64,20 +48,26 @@ class PenyelesaiArtikel
             return false;
         }
 
-        $induk = $this->dedup->cariInduk($artikel);
-
-        if ($induk !== null) {
-            $this->dedup->tandaiSalinan($artikel, $induk);
-
-            return false;
-        }
-
-        // Dedup lewat tanpa temuan, jadi artikel ini asli dan siap dinilai.
+        // Artikel berstatus `isi_diambil`, yang di layar berjudul "Belum
+        // diklasifikasi", dan langsung mengantre penilaian relevansi.
         //
-        // Rantai job berhenti di sini dengan sengaja. Klasifikasi Gemini
-        // dijalankan lewat tombol di halaman Antrean Klasifikasi, satu artikel
-        // satu klik, sampai alurnya terbukti cukup stabil untuk dilepas ke
-        // latar belakang. Artikel menunggu dengan status `isi_diambil`.
+        // Dicatat di sini, bukan ditunggu penyisiran `gemini:antre --isi` yang
+        // berjalan sejam sekali. Penyisiran itu tetap ada sebagai jaring
+        // pengaman untuk artikel lama, tetapi mengandalkannya berarti artikel
+        // yang selesai diekstrak pada detik ke-61 menganggur hampir satu jam
+        // penuh sebelum ada yang menyentuhnya.
+        //
+        // `insertOrIgnore`, bukan `insert`. Artikel yang diekstrak ulang sudah
+        // punya barisnya sendiri, dan kunci unik pada `artikel_id` akan menolak
+        // seluruh perintah kalau ditabrak.
+        AntreanGemini::insertOrIgnore([
+            'artikel_id' => $artikel->id,
+            'prioritas' => 1,
+            'status' => 'menunggu',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         return true;
     }
 }

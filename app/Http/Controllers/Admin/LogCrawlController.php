@@ -53,13 +53,14 @@ class LogCrawlController extends Controller
      * berbohong begitu irama di routes/console.php diubah dan orang lupa
      * mengubah salinannya.
      *
-     * routes/console.php hanya dimuat setelah ConsoleKernel diresolusi, dan
-     * pada permintaan HTTP itu tidak pernah terjadi dengan sendirinya. Maka
-     * kernelnya diresolusi manual di sini, jika tidak daftar event-nya kosong.
+     * routes/console.php dimuat di dalam Kernel::bootstrap(), bukan saat
+     * kernelnya diresolusi. Meresolusi saja menghasilkan daftar event kosong,
+     * dan layar menampilkan "tidak terjadwal" padahal jadwalnya ada. Maka
+     * bootstrap() dipanggil eksplisit di sini.
      */
     private function crawlBerikutnya(): ?string
     {
-        app(ConsoleKernel::class);
+        app(ConsoleKernel::class)->bootstrap();
 
         $event = collect(app(Schedule::class)->events())
             ->first(fn ($event) => str_contains((string) $event->command, 'crawl:feeds'));

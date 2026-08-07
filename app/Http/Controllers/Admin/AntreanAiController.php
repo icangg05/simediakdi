@@ -6,17 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\AntreanGemini;
 use App\Models\KunciGemini;
 use App\Services\Ai\RotasiKunciGemini;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Artisan;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
  * Antrean AI, `/admin/antrean-ai`.
  *
- * Halaman pemantauan, bukan halaman kendali. Yang mengerjakan antrean adalah
- * penjadwal dan worker, dan satu-satunya tombol di sini menyuruh penjadwal
- * menyisir lebih cepat daripada jadwal sejamnya.
+ * Halaman pemantauan murni, tanpa satu pun tombol. Yang mengerjakan antrean
+ * adalah penjadwal dan worker, dan artikel yang selesai diekstrak sudah
+ * mengantre sendiri lewat PenyelesaiArtikel, jadi tidak ada lagi yang perlu
+ * disuruh dari layar ini.
  *
  * Seluruh angkanya dihitung ulang tiap kali halaman ditarik, dan halamannya
  * menarik dirinya sendiri tiap beberapa detik. Tidak ada nilai yang disimpan
@@ -27,14 +26,96 @@ class AntreanAiController extends Controller
 {
     public function index(RotasiKunciGemini $rotasi): Response
     {
+        $ringkasan = $this->ringkasan();
+
         return Inertia::render('admin/AntreanAi', [
-            'ringkasan' => $this->ringkasan(),
+            'ringkasan' => $ringkasan,
+            'aktivitas' => $this->aktivitas($ringkasan, $rotasi),
             'prioritas' => $this->prioritas(),
             'laju' => $this->laju(),
             'kuota' => $this->kuota($rotasi),
             'terbaru' => $this->terbaru(),
             'diperbarui' => now()->toIso8601String(),
         ]);
+    }
+
+    /**
+     * Keadaan mesinnya, bukan keadaan halamannya.
+     *
+     * Menggantikan dua tombol yang dulu berdiri di sini. Yang satu hanya
+     * menjeda tarikan halaman dan tidak pernah menyentuh antrean, yang satu
+     * lagi menunjuk ke method yang tidak pernah ada dan selalu menjawab 500.
+     * Keduanya menjawab pertanyaan yang salah. Yang benar-benar dicari admin
+     * saat membuka halaman ini cuma satu: mesinnya masih hidup atau tidak.
+     *
+     * @param  array<string, int>  $ringkasan
+     * @return array<string, mixed>
+     */
+    private function aktivitas(array $ringkasan, RotasiKunciGemini $rotasi): array
+    {
+        // `whereNotNull` wajib. Postgres menaruh NULL paling depan pada urutan
+        // menurun, jadi tanpa saringan ini yang terambil justru pekerjaan yang
+        // belum pernah selesai, dan penunjuknya akan berbunyi macet selamanya.
+        //
+        // value() lewat model, bukan max(), supaya cast datetime ikut jalan.
+        $terakhir = AntreanGemini::query()
+            ->whereNotNull('selesai_at')
+            ->latest('selesai_at')
+            ->value('selesai_at');
+
+        $sisa = $ringkasan['menunggu'] + $ringkasan['berjalan'];
+
+        // Kuota habis berarti tidak ada satu pun kunci yang boleh dipanggil
+        // sekarang. Bukan tebakan dari `dijadwalkan_at` pekerjaan yang sedang
+        // tidur, yang dulu dipakai di sini dan salah dengan dua cara sekaligus.
+        //
+        // Ia berbunyi habis untuk pekerjaan yang sekadar menunggu gilirannya
+        // dalam irama normal, dan ia terus berbunyi habis lama setelah admin
+        // menambahkan kunci baru yang jatahnya masih utuh, karena pekerjaan
+        // yang telanjur tidur tidak mengubah `dijadwalkan_at`-nya sendiri.
+        // Layar menyatakan kuota habis sementara tombol Klasifikasi di halaman
+        // sebelah bekerja normal dengan kunci yang sama.
+        $pulih = $rotasi->kuotaPulihAt();
+
+        // Pekerjaan yang paling dekat gilirannya, kalau ia memang sudah dilepas
+        // dan sedang tidur di Redis. Dipakai untuk membedakan antrean yang mati
+        // dari antrean yang sedang menunggu giliran, bukan untuk menyimpulkan
+        // soal kuota.
+        $lanjut = AntreanGemini::query()
+            ->whereIn('status', ['menunggu', 'berjalan'])
+            ->whereNotNull('dijadwalkan_at')
+            ->orderBy('dijadwalkan_at')
+            ->value('dijadwalkan_at');
+
+        // Dua kali jeda antar artikel, bukan satu kali. Satu kali terlalu
+        // ketat: artikel yang butuh dua panggilan Gemini wajar melewatinya
+        // sedikit, dan penunjuk yang berkedip merah tiap beberapa menit akan
+        // diabaikan orang persis pada saat ia benar-benar merah.
+        $ambang = AntreanGemini::jedaDetik() * 2;
+        $diam = $terakhir?->diffInSeconds(now(), absolute: true);
+
+        return [
+            'keadaan' => match (true) {
+                // Tertangkap tepat saat Gemini sedang menjawab. Jendelanya
+                // sempit, beberapa detik dari tiap satu menit, jadi keadaan ini
+                // jarang terlihat walaupun antreannya sehat. Karena itu ia
+                // bukan satu-satunya tanda hidup, hanya yang paling tegas.
+                $ringkasan['berjalan'] > 0 => 'bekerja',
+                $sisa === 0 => 'kosong',
+                $diam !== null && $diam <= $ambang => 'menunggu',
+                // Diperiksa sebelum macet, bukan sesudah. Antrean yang tidur
+                // menunggu kuota memang tidak menyelesaikan apa pun berjam-jam,
+                // dan itu bukan kerusakan.
+                $pulih !== null => 'tertunda',
+                // Kuotanya masih ada dan pekerjaannya sudah dilepas, hanya
+                // belum tiba gilirannya. Menyebutnya macet mengirim admin
+                // memeriksa worker yang sebenarnya sehat.
+                $lanjut?->isFuture() => 'menunggu',
+                default => 'macet',
+            },
+            'terakhir_selesai_at' => $terakhir?->toIso8601String(),
+            'dilanjutkan_at' => $pulih?->toIso8601String(),
+        ];
     }
 
     /** @return array<string, int> */
@@ -129,7 +210,10 @@ class AntreanAiController extends Controller
         $perHari = min($perHariKuota, $perHariJeda);
 
         return [
-            'sisa_hari_ini' => $rotasi->sisaHarian(),
+            // Pemakaian, bukan sisa. Sisa menuntut batas yang benar, dan batas
+            // yang benar hanya diketahui untuk kunci yang pernah kehabisan
+            // kuota sampai Google menyebut angkanya.
+            'terkirim_hari_ini' => $rotasi->terkirimHarian(),
             'kapasitas_harian' => $kapasitas,
             'tersisa' => $tersisa,
             'jeda_detik' => (int) AntreanGemini::jedaDetik(),

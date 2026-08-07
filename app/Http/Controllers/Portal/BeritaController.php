@@ -23,18 +23,11 @@ class BeritaController extends Controller
     {
         $artikel = KueriTabel::untuk(Artikel::query()->with('media:id,nama'), $request)
             ->cari(['judul'])
-            ->saring(['status_dedup' => 'status_dedup'])
             ->urut(['judul', 'diambil_at', 'dipublikasikan_at'], 'diambil_at', 'desc')
             ->halaman();
 
         return Inertia::render('portal/Berita', [
             'artikel' => $artikel->through(fn (Artikel $a) => (new ArtikelPortalResource($a))->resolve()),
-            'opsi' => [
-                'status_dedup' => [
-                    ['nilai' => 'asli', 'label' => 'Asli'],
-                    ['nilai' => 'salinan', 'label' => 'Salinan'],
-                ],
-            ],
         ]);
     }
 }

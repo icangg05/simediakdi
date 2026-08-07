@@ -145,7 +145,7 @@ class PenghitungKataKunci
     }
 
     /**
-     * Artikel asli pada periode, beserta label sentimen efektifnya.
+     * Artikel pada periode, beserta label sentimen efektifnya.
      *
      * @return list<array{teks: string, label: ?string}>
      */
@@ -160,7 +160,6 @@ class PenghitungKataKunci
                 $j->on('s.artikel_id', '=', 'a.id')->where('s.relevan', '=', true);
             })
             ->addSelect('s.label_efektif as label')
-            ->where('a.status_dedup', 'asli')
             ->whereNotNull('a.isi')
             ->whereBetween('a.diambil_at', [$mulai, $akhir])
             ->addSelect(DB::raw("a.judul || ' ' || a.isi AS teks"))

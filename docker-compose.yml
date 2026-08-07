@@ -39,6 +39,28 @@ services:
     # baru pulih tengah malam waktu Pasifik.
     command: php artisan queue:work --queue=default,crawl,gemini --tries=1 --timeout=1800
 
+  # Worker khusus pelatihan model relevansi.
+  #
+  # Terpisah dari worker utama, dan bukan demi kerapian. Satu pelatihan IndoBERT
+  # di CPU berjalan belasan sampai puluhan menit, dan selama itu worker yang
+  # mengerjakannya tidak menyentuh antrean lain sama sekali. Kalau pekerjaan ini
+  # ikut antrean `default`, seluruh crawler dan penilaian Gemini berhenti
+  # sepanjang pelatihan tanpa satu pun galat yang menunjukkan sebabnya.
+  #
+  # Timeout-nya enam jam, jauh di atas worker utama. Job menunggui layanan
+  # Python lewat polling, jadi seluruh durasi pelatihan terhitung sebagai satu
+  # pekerjaan yang berjalan.
+  worker-pelatihan:
+    build: ./docker/php
+    working_dir: /app
+    user: "1000:1000"
+    environment:
+      HOME: /tmp
+    volumes:
+      - .:/app
+    depends_on: [db, redis, relevansi]
+    command: php artisan queue:work --queue=pelatihan --tries=1 --timeout=21600
+
   # Penjadwal. Tanpa proses ini seluruh isi routes/console.php tidak pernah
   # berjalan, termasuk pengisi antrean Gemini yang membuat klasifikasi otomatis
   # jalan sendiri. Sebelumnya memang tidak ada, jadi jadwal crawl, alert, dan
@@ -89,5 +111,34 @@ services:
     ports:
       - "127.0.0.1:8002:8002"
 
+  # Pelatihan dan inferensi model relevansi IndoBERT.
+  #
+  # Repositori ikut di-mount ke /app supaya artefak model tersimpan di
+  # storage/app/private/model-relevansi, tempat yang sama yang dibaca dan
+  # dihapus Laravel lewat Storage. Tanpa itu, penghapusan model dari layar
+  # harus lewat panggilan HTTP tersendiri hanya untuk membuang direktori.
+  #
+  # `modeldata` menyimpan unduhan bobot base model dari Hugging Face. Tanpa
+  # volume ini, indobert-base-p1 sebesar 500 MB diunduh ulang setiap kali
+  # container dibuat ulang.
+  relevansi:
+    build:
+      context: ./relevansi
+      dockerfile: ../docker/relevansi/Dockerfile
+    user: "1000:1000"
+    environment:
+      HOME: /tmp
+      ARTEFAK_DIR: /app/storage/app/private/model-relevansi
+      # Dibatasi supaya pelatihan tidak memakan seluruh inti mesin dan membuat
+      # Postgres serta worker antrean tersendat selama belasan menit.
+      RELEVANSI_THREAD: "4"
+    volumes:
+      - .:/app
+      - ./relevansi:/relevansi
+      - modeldata:/model
+    ports:
+      - "127.0.0.1:8001:8001"
+
 volumes:
   dbdata:
+  modeldata:

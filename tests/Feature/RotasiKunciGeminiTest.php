@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\KunciGemini;
+use App\Models\User;
 use App\Services\Ai\RotasiKunciGemini;
 use Carbon\CarbonInterface;
 use GuzzleHttp\Psr7\Response as PsrResponse;
@@ -401,6 +402,67 @@ class RotasiKunciGeminiTest extends TestCase
         // Jatah per menit tidak ikut terpakai, karena permintaannya memang
         // tidak pernah dikirim.
         $this->assertSame(1, app(RotasiKunciGemini::class)->pemakaianMenit()[$kunci->id] ?? 0);
+    }
+
+    /**
+     * Hitungan harian bertahan meski cache dibersihkan.
+     *
+     * Angkanya dulu hidup di Redis, dan `cache:clear` saat deploy atau Redis
+     * yang dijatuhkan mengembalikannya ke nol. Sejak detik itu layar melaporkan
+     * kuota utuh untuk kunci yang tinggal beberapa permintaan lagi, dan penjaga
+     * kuota membaca angka yang sama lalu melepas permintaan yang sudah pasti
+     * dijawab 429.
+     */
+    public function test_hitungan_harian_selamat_dari_cache_yang_dibersihkan(): void
+    {
+        $kunci = $this->kunci('Kunci A');
+
+        $this->rotasi->jalankan(fn () => 'selesai');
+        $this->rotasi->jalankan(fn () => 'selesai');
+
+        Cache::flush();
+
+        $this->assertSame(2, app(RotasiKunciGemini::class)->terpakaiHarian($kunci->fresh()));
+    }
+
+    /** Hitungan kemarin tidak boleh ikut terbaca sebagai hitungan hari ini. */
+    public function test_hitungan_hari_kemarin_tidak_ikut_terbawa(): void
+    {
+        $kunci = $this->kunci('Kunci A');
+
+        // Baris sisa kemarin, persis seperti yang ditinggalkan crawl semalam.
+        $kunci->forceFill([
+            'rpd_terpakai' => 400,
+            'rpd_hari' => Carbon::yesterday('America/Los_Angeles')->toDateString(),
+        ])->save();
+
+        $this->assertSame(0, $this->rotasi->terpakaiHarian($kunci));
+
+        $this->rotasi->jalankan(fn () => 'selesai');
+
+        // Ditimpa, bukan ditambahkan ke 400.
+        $this->assertSame(1, $this->rotasi->terpakaiHarian($kunci->fresh()));
+    }
+
+    /**
+     * Halaman Pengaturan terbuka untuk kunci yang batas hariannya sudah
+     * disebutkan Google.
+     *
+     * `rpd_google_at` sempat tidak terdaftar di casts model, jadi Eloquent
+     * memulangkan string mentah dan halamannya mati dengan
+     * "Call to a member function toIso8601String() on string". Tidak ketahuan
+     * karena kolomnya null sampai kunci pertama kehabisan kuota harian, dan
+     * `?->` melewati string kosong itu tanpa keluhan.
+     */
+    public function test_halaman_pengaturan_terbuka_setelah_google_menyebut_batas_hariannya(): void
+    {
+        $kunci = $this->kunci('Kunci A');
+        $kunci->forceFill(['rpd_google' => 250, 'rpd_google_at' => now()])->save();
+
+        $this->actingAs(User::factory()->create())
+            ->get('/admin/pengaturan')
+            ->assertOk()
+            ->assertInertia(fn ($p) => $p->where('kunci.0.rpd_google', 250));
     }
 
     private function kunci(string $label, ?CarbonInterface $limitSampai = null): KunciGemini
