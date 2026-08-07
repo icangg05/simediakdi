@@ -50,7 +50,15 @@ class ModelRelevansiController extends Controller
             // ditanyakan tiap tiga detik. Yang dicari halaman ini bukan
             // pemantauan layanan, melainkan penjelasan di muka kalau tombol
             // Mulai Pelatihan tidak akan bekerja.
-            'layanan' => $layanan->kesehatan(),
+            //
+            // Dibungkus closure, dan itu bukan gaya penulisan. Inertia menyaring
+            // prop mana yang dikirim sebelum memanggil closure-nya, jadi
+            // pembungkus ini yang membuat pemeriksaan kesehatan benar-benar
+            // dilewati saat polling. Sebagai nilai biasa ia tetap dijalankan
+            // tiap tarikan meski hasilnya dibuang, dan pada layanan yang mati
+            // itu berarti menunggu batas waktu lima detik, dua puluh kali
+            // semenit, selama pelatihan berjalan.
+            'layanan' => fn () => $layanan->kesehatan(),
             'diperbarui' => now()->toIso8601String(),
         ]);
     }
@@ -225,6 +233,14 @@ class ModelRelevansiController extends Controller
         if ($pelatihan->artefak_path !== null) {
             Storage::disk('local')->deleteDirectory($pelatihan->artefak_path);
         }
+
+        // Direktori kerja ikut dibuang, meski pelatihannya gagal dan tidak
+        // pernah punya artefak. Isinya checkpoint tiap epoch, dan pada
+        // checkpoint besar ia jauh lebih gemuk daripada modelnya sendiri:
+        // satu pelatihan yang mati di tengah meninggalkan 3,8 GB. Layanan
+        // menyapunya saat menyala, tetapi menunggu restart berikutnya untuk
+        // mendapatkan kembali ruang sebesar itu bukan pilihan yang wajar.
+        Storage::disk('local')->deleteDirectory("model-relevansi/.kerja-{$pelatihan->id}");
 
         $nama = $pelatihan->nama;
         $pelatihan->delete();

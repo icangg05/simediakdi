@@ -59,10 +59,32 @@ const perangkat = computed(() => props.layanan?.perangkat ?? 'belum diketahui');
  */
 const ilmiah = (nilai: number) => (Number.isFinite(nilai) ? Number(nilai).toExponential() : '-');
 
+/**
+ * Jumlah langkah gradien yang akan dijalankan.
+ *
+ * Ditampilkan di modal konfirmasi karena inilah satuan yang menentukan lama
+ * pelatihan, dan satu-satunya yang bisa dihitung sebelum pelatihan mulai.
+ * Lamanya dalam detik sengaja tidak ditebak di sini: durasi per langkah
+ * bergantung base model, panjang potongan, dan beban mesin, dan angka yang
+ * meleset dua kali lipat lebih buruk daripada tidak ada angka. Estimasi
+ * sungguhannya muncul di daftar begitu langkah pertama lewat.
+ */
+const langkah = computed(() => {
+    const train = terpilih.value?.total_train ?? 0;
+    const batch = Math.max(1, Number(form.batch_size) || 1);
+
+    return Math.ceil(train / batch) * Math.max(1, Number(form.epoch) || 1);
+});
+
+const akanDilatih = ref(false);
+
+const siapDikirim = computed(() => !form.processing && form.nama.trim() !== '' && form.snapshot_dataset_relevansi_id !== '');
+
 function mulai() {
     form.post('/admin/model-relevansi/pelatihan', {
         preserveScroll: true,
         onSuccess: () => form.reset('nama'),
+        onFinish: () => (akanDilatih.value = false),
     });
 }
 
@@ -181,7 +203,7 @@ const BARIS_LAPORAN = [
                     </div>
 
                     <div v-if="terpilih" class="rounded-lg border bg-muted/40 p-3">
-                        <p class="font-medium">{{ terpilih.nama }}</p>
+                        <p class="break-words font-medium">{{ terpilih.nama }}</p>
                         <div class="mt-2 grid gap-2 text-xs sm:grid-cols-4">
                             <p>
                                 Total <span class="angka font-medium">{{ formatAngka(terpilih.total) }}</span>
@@ -209,14 +231,21 @@ const BARIS_LAPORAN = [
                     <div class="grid gap-3 sm:grid-cols-3">
                         <div class="space-y-1 sm:col-span-3">
                             <Label for="base-model">Base model</Label>
+                            <!-- Nama dan keterangan dipisah dua baris, bukan
+                                 disambung satu kalimat. Disambung, isinya sekitar
+                                 seratus tiga puluh karakter tanpa titik putus,
+                                 dan panel dropdown melebar mengikuti item
+                                 terpanjangnya sampai melampaui layar. -->
                             <Select id="base-model" v-model="form.base_model">
                                 <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
+                                <SelectContent class="max-w-[min(32rem,calc(100vw-2rem))]">
                                     <SelectItem v-for="(ket, kunci) in opsi.base_model" :key="kunci" :value="kunci">
-                                        {{ kunci }}: {{ ket }}
+                                        <span class="block break-all font-medium">{{ kunci }}</span>
+                                        <span class="block text-xs text-muted-foreground">{{ ket }}</span>
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
+                            <p class="break-words text-xs text-muted-foreground">{{ opsi.base_model[form.base_model] }}</p>
                             <InputError :message="form.errors.base_model" />
                         </div>
 
@@ -292,7 +321,12 @@ const BARIS_LAPORAN = [
                         </template>
                     </p>
 
-                    <Button :disabled="form.processing || !form.nama.trim() || !form.snapshot_dataset_relevansi_id" @click="mulai">
+                    <!-- Lewat konfirmasi, bukan langsung kirim. Ini tombol yang
+                         menyalakan pekerjaan puluhan menit, memakai seluruh
+                         jatah CPU yang disediakan untuk layanan model, dan
+                         mengunci antreannya sampai selesai. Salah ketik angka
+                         epoch baru ketahuan lima belas menit kemudian. -->
+                    <Button :disabled="!siapDikirim" @click="akanDilatih = true">
                         <Loader2 v-if="form.processing" class="h-4 w-4 animate-spin" aria-hidden="true" />
                         Mulai Pelatihan
                     </Button>
@@ -318,23 +352,31 @@ const BARIS_LAPORAN = [
                     class="space-y-3 rounded-lg border p-3"
                     :class="p.aktif ? 'border-emerald-400 dark:border-emerald-700' : ''"
                 >
-                    <div class="flex flex-wrap items-start justify-between gap-2">
-                        <div>
-                            <p class="font-medium">
-                                {{ p.nama }}
-                                <Badge v-if="p.aktif" class="ml-1 bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
+                    <!-- `min-w-0` pada anak flex, dan itu bukan hiasan. Anak flex
+                         menolak menyusut di bawah lebar min-content isinya, dan
+                         nama checkpoint seperti apriandito/indobert-relevancy-classifier
+                         memaksakan lebar yang melampaui layar ponsel. Akibatnya
+                         seluruh halaman ikut bisa digeser ke samping, bukan hanya
+                         kartu ini. -->
+                    <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+                        <div class="min-w-0 flex-1 basis-64">
+                            <p class="flex flex-wrap items-center gap-x-2 gap-y-1 font-medium">
+                                <span class="break-words">{{ p.nama }}</span>
+                                <Badge v-if="p.aktif" class="bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
                                     Model aktif
                                 </Badge>
                             </p>
-                            <p class="text-xs text-muted-foreground">
-                                {{ p.base_model }} pada snapshot {{ p.snapshot?.nama ?? 'yang sudah dihapus' }}. Dimulai {{ waktu(p.mulai_at) }} oleh
-                                {{ p.pembuat ?? 'pengguna yang sudah dihapus' }}.
+                            <p class="break-words text-xs text-muted-foreground">
+                                {{ p.base_model }} pada snapshot {{ p.snapshot?.nama ?? 'yang sudah dihapus' }}
+                            </p>
+                            <p class="break-words text-xs text-muted-foreground">
+                                Dimulai {{ waktu(p.mulai_at) }} oleh {{ p.pembuat ?? 'pengguna yang sudah dihapus' }}
                             </p>
                         </div>
 
-                        <div class="flex items-center gap-2">
+                        <div class="flex shrink-0 items-center gap-2">
                             <Badge :class="WARNA_STATUS[p.status]">{{ LABEL_STATUS[p.status] }}</Badge>
-                            <span class="text-xs text-muted-foreground">{{ formatDurasi(p.durasi_detik) }}</span>
+                            <span class="whitespace-nowrap text-xs text-muted-foreground">{{ formatDurasi(p.durasi_detik) }}</span>
                         </div>
                     </div>
 
@@ -342,11 +384,17 @@ const BARIS_LAPORAN = [
                          pelatihan yang sudah selesai tidak memberi keterangan
                          apa pun dan hanya menambah baris untuk dibaca. -->
                     <div v-if="belumSelesai(p)" class="space-y-1">
-                        <div class="flex items-center justify-between text-xs">
-                            <span>{{ p.tahap ?? 'Menunggu' }}</span>
-                            <span class="angka whitespace-nowrap">
+                        <!-- Tanpa `whitespace-nowrap` pada pembungkusnya. Kalimat
+                             "menghitung sisa waktu lagi" ditambah tahap "Epoch 1
+                             dari 3, langkah 12 dari 40" tidak muat berdampingan
+                             di layar ponsel, dan memaksanya satu baris membuat
+                             halaman bisa digeser ke samping. Hanya angka
+                             persennya yang benar-benar tidak boleh terpotong. -->
+                        <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-xs">
+                            <span class="min-w-0 break-words">{{ p.tahap ?? 'Menunggu' }}</span>
+                            <span class="angka shrink-0">
                                 <span v-if="p.status === 'berjalan'" class="text-muted-foreground">{{ sisa(p) }} lagi &middot;</span>
-                                {{ p.progres }}%
+                                <span class="whitespace-nowrap">{{ p.progres }}%</span>
                             </span>
                         </div>
                         <div class="h-2 overflow-hidden rounded-full bg-muted">
@@ -357,13 +405,14 @@ const BARIS_LAPORAN = [
                             />
                         </div>
                         <p v-if="p.batal_diminta" class="text-xs text-amber-600 dark:text-amber-400">
-                            Pelatihan dihentikan. Daftar ini menyusul dalam beberapa detik.
+                            Pelatihan dihentikan, daftar ini menyusul dalam beberapa detik. Kalau baris ini tetap berjalan, tekan Hentikan paksa untuk
+                            menutupnya.
                         </p>
                     </div>
 
                     <p
                         v-if="p.galat"
-                        class="rounded-md border border-red-300 bg-red-50 p-2 text-xs text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"
+                        class="break-words rounded-md border border-red-300 bg-red-50 p-2 text-xs text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"
                     >
                         {{ p.galat }}
                     </p>
@@ -398,15 +447,17 @@ const BARIS_LAPORAN = [
                             <Star class="h-3.5 w-3.5" aria-hidden="true" />
                             Jadikan model aktif
                         </Button>
-                        <Button
-                            v-if="belumSelesai(p) && !p.batal_diminta"
-                            variant="outline"
-                            size="sm"
-                            class="h-7 text-xs"
-                            @click="akanDibatalkan = p"
-                        >
+                        <!-- Tetap muncul meski pembatalan sudah pernah diminta.
+                             Sebelumnya tombol ini menghilang begitu `batal_diminta`
+                             menyala, dan itu masuk akal selama pembatalan selalu
+                             tuntas dalam hitungan detik. Ia berhenti masuk akal
+                             pada baris yang tertinggal berstatus berjalan setelah
+                             layanan di-restart: penandanya menyala, tidak ada yang
+                             menutup barisnya, dan satu-satunya jalan keluar lenyap
+                             bersama tombolnya. -->
+                        <Button v-if="belumSelesai(p)" variant="outline" size="sm" class="h-7 text-xs" @click="akanDibatalkan = p">
                             <Ban class="h-3.5 w-3.5" aria-hidden="true" />
-                            Batalkan
+                            {{ p.batal_diminta ? 'Hentikan paksa' : 'Batalkan' }}
                         </Button>
                         <Button v-if="!belumSelesai(p) && !p.aktif" variant="ghost" size="sm" class="h-7 text-xs" @click="akanDihapus = p">
                             <Trash2 class="h-3.5 w-3.5" aria-hidden="true" />
@@ -417,12 +468,89 @@ const BARIS_LAPORAN = [
             </CardContent>
         </Card>
 
+        <!-- Konfirmasi sebelum pelatihan -->
+        <Dialog :open="akanDilatih" @update:open="(nilai) => (akanDilatih = nilai)">
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Mulai pelatihan {{ form.nama }}?</DialogTitle>
+                    <DialogDescription>
+                        Periksa sekali lagi. Pelatihan berjalan puluhan menit dan mengunci antrean model sampai selesai, jadi angka yang keliru di
+                        sini baru terlihat lama setelah tombolnya ditekan.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div class="space-y-3 text-sm">
+                    <div class="rounded-md border p-3">
+                        <p class="text-xs text-muted-foreground">Dataset</p>
+                        <p class="break-words font-medium">{{ terpilih?.nama ?? '-' }}</p>
+                        <p class="angka mt-1 text-xs text-muted-foreground">
+                            {{ formatAngka(terpilih?.total_train ?? 0) }} training, {{ formatAngka(terpilih?.total_validation ?? 0) }} validation,
+                            {{ formatAngka(terpilih?.total_test ?? 0) }} testing.
+                        </p>
+                    </div>
+
+                    <div class="rounded-md border p-3">
+                        <p class="text-xs text-muted-foreground">Base model</p>
+                        <p class="break-all font-medium">{{ form.base_model }}</p>
+                    </div>
+
+                    <dl class="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
+                        <div class="min-w-0 rounded-md border p-2">
+                            <dt class="text-muted-foreground">Epoch</dt>
+                            <dd class="angka font-medium">{{ form.epoch }}</dd>
+                        </div>
+                        <div class="min-w-0 rounded-md border p-2">
+                            <dt class="text-muted-foreground">Batch size</dt>
+                            <dd class="angka font-medium">{{ form.batch_size }}</dd>
+                        </div>
+                        <div class="min-w-0 rounded-md border p-2">
+                            <dt class="text-muted-foreground">Learning rate</dt>
+                            <dd class="angka break-all font-medium">{{ ilmiah(form.learning_rate) }}</dd>
+                        </div>
+                        <div class="min-w-0 rounded-md border p-2">
+                            <dt class="text-muted-foreground">Max seq length</dt>
+                            <dd class="angka font-medium">{{ form.max_seq_length }}</dd>
+                        </div>
+                        <div class="min-w-0 rounded-md border p-2">
+                            <dt class="text-muted-foreground">Seed</dt>
+                            <dd class="angka font-medium">{{ form.seed ?? 'acak' }}</dd>
+                        </div>
+                        <div class="min-w-0 rounded-md border p-2">
+                            <dt class="text-muted-foreground">Early stopping</dt>
+                            <dd class="angka font-medium">{{ form.early_stopping ?? 'mati' }}</dd>
+                        </div>
+                    </dl>
+
+                    <p class="angka text-xs text-muted-foreground">
+                        {{ formatAngka(langkah) }} langkah gradien di {{ perangkat }}. Perkiraan sisa waktu muncul di daftar begitu langkah pertama
+                        lewat.
+                    </p>
+
+                    <div
+                        v-if="layanan?.sedang_melatih"
+                        class="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+                    >
+                        <TriangleAlert class="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                        <p>Layanan sedang melatih model lain. Pelatihan ini akan menunggu gilirannya di antrean.</p>
+                    </div>
+                </div>
+
+                <DialogFooter>
+                    <Button variant="outline" :disabled="form.processing" @click="akanDilatih = false">Periksa lagi</Button>
+                    <Button :disabled="form.processing" @click="mulai">
+                        <Loader2 v-if="form.processing" class="h-4 w-4 animate-spin" aria-hidden="true" />
+                        Mulai Pelatihan
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
         <!-- Detail pelatihan -->
         <Dialog :open="detail !== null" @update:open="(nilai) => !nilai && (detail = null)">
             <DialogScrollContent class="max-w-3xl">
                 <DialogHeader>
-                    <DialogTitle>{{ detailSegar?.nama }}</DialogTitle>
-                    <DialogDescription>
+                    <DialogTitle class="break-words">{{ detailSegar?.nama }}</DialogTitle>
+                    <DialogDescription class="break-words">
                         {{ detailSegar ? LABEL_STATUS[detailSegar.status] : '' }}. Snapshot {{ detailSegar?.snapshot?.nama ?? 'sudah dihapus' }}.
                         Perangkat {{ detailSegar?.perangkat ?? 'belum tercatat' }}.
                     </DialogDescription>
@@ -431,10 +559,14 @@ const BARIS_LAPORAN = [
                 <div v-if="detailSegar" class="space-y-4 text-sm">
                     <section class="space-y-1">
                         <h3 class="font-medium">Konfigurasi</h3>
+                        <!-- `min-w-0` dan `break-all` pada tiap sel. Nilai
+                             `base_model` di sini adalah nama checkpoint utuh, dan
+                             tanpa keduanya sel gridnya melebar melampaui dialog
+                             lalu dialognya melebar melampaui layar. -->
                         <dl class="grid grid-cols-2 gap-1 text-xs sm:grid-cols-3">
-                            <div v-for="(nilai, kunci) in detailSegar.konfigurasi" :key="kunci" class="rounded-md border p-2">
+                            <div v-for="(nilai, kunci) in detailSegar.konfigurasi" :key="kunci" class="min-w-0 rounded-md border p-2">
                                 <dt class="text-muted-foreground">{{ kunci }}</dt>
-                                <dd class="angka font-medium">{{ nilai ?? 'mati' }}</dd>
+                                <dd class="angka break-all font-medium">{{ nilai ?? 'mati' }}</dd>
                             </div>
                         </dl>
                     </section>
@@ -534,7 +666,7 @@ const BARIS_LAPORAN = [
 
                     <section class="space-y-1 text-xs text-muted-foreground">
                         <h3 class="font-medium text-foreground">Berkas dan waktu</h3>
-                        <p>Berkas model: {{ detailSegar.artefak_path ?? 'belum tersimpan' }}</p>
+                        <p class="break-all">Berkas model: {{ detailSegar.artefak_path ?? 'belum tersimpan' }}</p>
                         <p>Mulai: {{ waktu(detailSegar.mulai_at) }}</p>
                         <p>Selesai: {{ waktu(detailSegar.selesai_at) }}</p>
                         <p>Durasi: {{ formatDurasi(detailSegar.durasi_detik) }}</p>
@@ -550,15 +682,25 @@ const BARIS_LAPORAN = [
         <Dialog :open="akanDibatalkan !== null" @update:open="(nilai) => !nilai && (akanDibatalkan = null)">
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Batalkan pelatihan {{ akanDibatalkan?.nama }}?</DialogTitle>
+                    <DialogTitle>
+                        {{ akanDibatalkan?.batal_diminta ? 'Hentikan paksa' : 'Batalkan' }} pelatihan {{ akanDibatalkan?.nama }}?
+                    </DialogTitle>
                     <DialogDescription>
-                        Pelatihan dihentikan seketika, di tahap mana pun ia berada, dan tidak ada model yang tersimpan. Konfigurasinya tetap tercatat
-                        sehingga bisa dijalankan ulang dengan nama lain.
+                        <template v-if="akanDibatalkan?.batal_diminta">
+                            Pembatalan sudah pernah diminta untuk pelatihan ini. Kalau layanan model ternyata sudah tidak mengerjakannya, misalnya
+                            karena container-nya sempat di-restart, barisnya akan langsung ditutup sekarang juga.
+                        </template>
+                        <template v-else>
+                            Pelatihan dihentikan seketika, di tahap mana pun ia berada, dan tidak ada model yang tersimpan. Konfigurasinya tetap
+                            tercatat sehingga bisa dijalankan ulang dengan nama lain.
+                        </template>
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
-                    <Button variant="outline" @click="akanDibatalkan = null">Lanjutkan pelatihan</Button>
-                    <Button variant="destructive" @click="batalkan">Batalkan pelatihan</Button>
+                    <Button variant="outline" @click="akanDibatalkan = null">Tutup</Button>
+                    <Button variant="destructive" @click="batalkan">
+                        {{ akanDibatalkan?.batal_diminta ? 'Hentikan paksa' : 'Batalkan pelatihan' }}
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

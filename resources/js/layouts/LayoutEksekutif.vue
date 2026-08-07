@@ -1,18 +1,16 @@
 <script setup lang="ts">
-import AppLayout from '@/layouts/AppLayout.vue';
-import type { BreadcrumbItemType } from '@/types';
-
-withDefaults(defineProps<{ breadcrumbs?: BreadcrumbItemType[]; judul?: string }>(), {
-    breadcrumbs: () => [],
-});
+import AppHeaderLayout from '@/layouts/app/AppHeaderLayout.vue';
 </script>
 
 <template>
-    <!-- Lapang: dilihat tiga menit dan harus paham tanpa membaca label kecil. -->
-    <AppLayout :breadcrumbs="breadcrumbs">
-        <div class="space-y-5 p-6 text-sm">
-            <h1 v-if="judul" class="text-2xl font-semibold">{{ judul }}</h1>
+    <!--
+        Navigasi mendatar, bukan sidebar. Halaman ini dilihat tiga menit dan
+        harus paham tanpa membaca label kecil, jadi lebar layar diberikan
+        seluruhnya ke isi. Admin dan portal media tetap memakai sidebar.
+    -->
+    <AppHeaderLayout>
+        <div class="space-y-5 px-4 py-6 text-sm md:px-6">
             <slot />
         </div>
-    </AppLayout>
+    </AppHeaderLayout>
 </template>

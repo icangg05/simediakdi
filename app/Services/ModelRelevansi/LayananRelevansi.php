@@ -36,9 +36,7 @@ class LayananRelevansi
      * yang tidak menyebut bahwa yang keliru hanya satu huruf.
      */
     public const BASE_MODEL = [
-        'indobenchmark/indobert-base-p1' => 'IndoBERT base, 12 layer. Setelan bawaan, seimbang antara mutu dan waktu.',
-        'indobenchmark/indobert-lite-base-p1' => 'IndoBERT lite, jauh lebih ringan. Pilih ini kalau pelatihan di CPU terasa terlalu lama.',
-        'apriandito/indobert-relevancy-classifier' => 'Sudah punya kepala relevansi, jadi ini melanjutkan pelatihan. Modelnya besar dan paling lambat di CPU.',
+        'apriandito/indobert-relevancy-classifier' => 'IndoBERT yang sudah punya kepala relevansi, jadi pelatihan di sini melanjutkannya, bukan memulai dari nol.',
     ];
 
     /**
@@ -60,8 +58,13 @@ class LayananRelevansi
         'batch_size' => ['min' => 1, 'maks' => 32, 'bawaan' => 8],
         'learning_rate' => ['min' => 0.000001, 'maks' => 0.0005, 'bawaan' => 0.00002],
         // BERT tidak bisa melampaui 512 token, batasnya ada di embedding posisi.
-        'max_seq_length' => ['min' => 64, 'maks' => 512, 'bawaan' => 256],
-        'early_stopping' => ['min' => 1, 'maks' => 5, 'bawaan' => 1],
+        // Bawaan 384 karena berita daerah kerap menaruh keterangan lokasi di
+        // paruh kedua badan berita, dan potongan 256 token memenggalnya.
+        'max_seq_length' => ['min' => 64, 'maks' => 512, 'bawaan' => 384],
+        // Bawaan 2, bukan 1. Validation loss satu epoch lazim naik sedikit lalu
+        // turun lagi, dan berhenti pada kenaikan pertama membuang epoch yang
+        // sebenarnya masih memperbaiki model.
+        'early_stopping' => ['min' => 1, 'maks' => 5, 'bawaan' => 2],
     ];
 
     /**

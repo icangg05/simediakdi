@@ -18,7 +18,11 @@ class ArsipBeritaController extends Controller
     {
         $periode = Periode::dariRequest($request, $ringkasan);
 
+        // Arsip yang dibuka pimpinan hanya berisi berita yang relevan dan sudah
+        // berlabel, populasi yang sama dengan angka di halaman ringkasan.
+        // Kalau tidak, jumlah baris di sini tidak akan pernah cocok dengan KPI.
         $kueri = Artikel::query()
+            ->relevanBerlabel()
             ->with(['media:id,nama', 'analisisSentimen' => fn ($q) => $q
                 ->where('relevan', true),
             ])

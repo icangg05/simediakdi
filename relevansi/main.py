@@ -555,6 +555,31 @@ def _epoch_terbaik(riwayat: list[dict[str, Any]]) -> int:
     return max(riwayat, key=lambda b: b["val_f1"])["epoch"]
 
 
+@app.on_event("startup")
+def sapu_sisa_kerja() -> None:
+    """Membuang direktori kerja yang tertinggal dari proses yang mati mendadak.
+
+    Trainer menyimpan checkpoint tiap epoch ke direktori kerja, dan untuk
+    checkpoint besar satu direktori bisa mencapai beberapa gigabita. Blok
+    `finally` di `_jalankan` membuangnya saat pelatihan selesai dengan cara apa
+    pun, tetapi ia tidak berjalan kalau prosesnya diakhiri dari luar: container
+    di-restart, kernel membunuhnya karena kehabisan memori, atau mesinnya mati
+    lampu. Yang tertinggal tidak pernah dibaca siapa pun lagi dan tidak pernah
+    dibersihkan siapa pun juga.
+
+    Saat proses ini baru menyala, tidak ada satu pun pelatihan yang berjalan.
+    Jadi setiap `.kerja-*` yang ditemukan di sini sudah pasti sampah, dan tidak
+    perlu ada pemeriksaan lain untuk memastikannya.
+    """
+    if not AKAR_ARTEFAK.is_dir():
+        return
+
+    for sisa in AKAR_ARTEFAK.glob(".kerja-*"):
+        if sisa.is_dir():
+            log.warning("membuang direktori kerja yang tertinggal: %s", sisa)
+            shutil.rmtree(sisa, ignore_errors=True)
+
+
 @app.get("/health")
 def kesehatan() -> dict[str, Any]:
     with _kunci:

@@ -77,12 +77,109 @@ class HalamanEksekutifTest extends TestCase
         $this->actingAs($this->walikota)
             ->get('/eksekutif')
             ->assertInertia(fn ($page) => $page
+                ->where('kpi.berlabel', 3)
                 ->where('kpi.artikel', 3)
+                // Bilangan bulat, karena JSON meluruhkan 100.0 menjadi 100.
+                ->where('kpi.cakupan_persen', 100)
                 ->where('kpi.negatif', 1)
                 ->where('kpi.positif', 2)
                 // 1 dari 3 berlabel, dibulatkan satu desimal.
                 ->where('kpi.negatif_persen', 33.3)
                 ->where('kpi.media_aktif', 1));
+    }
+
+    /**
+     * Angka utama panel adalah berita relevan yang sudah berlabel.
+     *
+     * Artikel yang belum diklasifikasi ikut menaikkan `artikel` karena memang
+     * terpantau, tapi tidak boleh ikut menaikkan `berlabel`. Selisih keduanya
+     * yang dilaporkan sebagai cakupan analisis.
+     */
+    public function test_artikel_tanpa_label_tidak_terhitung_sebagai_berlabel(): void
+    {
+        $this->artikelTambahan('Belum diklasifikasi', relevan: true, label: null);
+        app(RingkasanHarian::class)->hitung(Waktu::tanggalWita(now()));
+
+        $this->actingAs($this->walikota)
+            ->get('/eksekutif')
+            ->assertInertia(fn ($page) => $page
+                ->where('kpi.berlabel', 3)
+                ->where('kpi.artikel', 4)
+                ->where('kpi.cakupan_persen', 75));
+    }
+
+    /**
+     * Panel pimpinan tidak boleh memuat artikel yang sudah dinyatakan tidak
+     * relevan, baik di ringkasan maupun di arsip.
+     */
+    public function test_artikel_tidak_relevan_tidak_muncul_di_daftar_berita(): void
+    {
+        $this->artikelTambahan('Berita tidak relevan', relevan: false, label: null);
+
+        $this->actingAs($this->walikota);
+
+        $this->get('/eksekutif')->assertInertia(fn ($page) => $page
+            ->count('beritaTerbaru', 3));
+
+        $this->get('/eksekutif/berita')->assertInertia(fn ($page) => $page
+            ->count('artikel.data', 3));
+    }
+
+    /**
+     * Artikel relevan yang belum berlabel juga tidak masuk daftar. Baris tanpa
+     * label di panel eksekutif hanya menimbulkan pertanyaan yang tidak bisa
+     * dijawab halaman ini.
+     */
+    public function test_artikel_relevan_tanpa_label_tidak_muncul_di_arsip(): void
+    {
+        $this->artikelTambahan('Relevan tapi belum berlabel', relevan: true, label: null);
+
+        $this->actingAs($this->walikota)
+            ->get('/eksekutif/berita')
+            ->assertInertia(fn ($page) => $page->count('artikel.data', 3));
+    }
+
+    /**
+     * Rentang tiga bulan yang digambar per hari menghasilkan sembilan puluh
+     * titik yang tidak terbaca, jadi satuannya mengikuti panjang rentang.
+     */
+    public function test_satuan_deret_mengikuti_panjang_rentang(): void
+    {
+        $this->actingAs($this->walikota);
+
+        $harapan = [
+            ['2026-08-01', '2026-08-07', 'harian'],
+            ['2026-08-01', '2026-08-31', 'harian'],
+            ['2026-06-01', '2026-08-01', 'mingguan'],
+            ['2026-01-01', '2026-08-01', 'bulanan'],
+        ];
+
+        foreach ($harapan as [$dari, $sampai, $satuan]) {
+            $this->get("/eksekutif?dari={$dari}&sampai={$sampai}")
+                ->assertInertia(fn ($page) => $page->where('deret.satuan', $satuan));
+        }
+    }
+
+    /** Artikel tambahan pada hari ini, di media yang sama dengan setUp. */
+    private function artikelTambahan(string $judul, bool $relevan, ?LabelSentimen $label): Artikel
+    {
+        $artikel = Artikel::withoutGlobalScopes()->create([
+            'media_id' => Media::first()->id,
+            'judul' => $judul,
+            'url' => 'https://kp.test/'.md5($judul),
+            'url_kanonik' => 'https://kp.test/'.md5($judul),
+            'isi' => 'Isi berita.',
+            'diambil_at' => Waktu::awalHariIni()->addHours(9),
+            'status_proses' => 'selesai',
+        ]);
+
+        AnalisisSentimen::create([
+            'artikel_id' => $artikel->id,
+            'relevan' => $relevan,
+            'label_model' => $label,
+        ]);
+
+        return $artikel;
     }
 
     public function test_rentang_tanggal_dibaca_dari_query_dan_dibawa_ke_tampilan(): void

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Scopes\MilikMedia;
 use Illuminate\Database\Eloquent\Attributes\ScopedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -41,5 +42,23 @@ class Artikel extends Model
     public function analisisSentimen(): HasMany
     {
         return $this->hasMany(AnalisisSentimen::class);
+    }
+
+    /**
+     * Artikel yang lolos relevansi dan sudah punya label sentimen.
+     *
+     * Ini populasi yang boleh muncul di panel eksekutif. Artikel hasil crawl
+     * yang belum diklasifikasi atau sudah dinyatakan tidak relevan tidak
+     * dilihat pimpinan, dan setiap angka di panel itu dihitung dari populasi
+     * yang sama supaya daftar dan totalnya tidak saling membantah.
+     *
+     * `label_efektif` adalah kolom generated `COALESCE(label_manual,
+     * label_model)`, jadi koreksi admin ikut terbaca tanpa syarat tambahan.
+     */
+    public function scopeRelevanBerlabel(Builder $kueri): Builder
+    {
+        return $kueri->whereHas('analisisSentimen', fn (Builder $q) => $q
+            ->where('relevan', true)
+            ->whereNotNull('label_efektif'));
     }
 }

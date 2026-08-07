@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import BaseChart from '@/components/chart/BaseChart.vue';
 import { useTemaChart } from '@/composables/useTemaChart';
+import type { SatuanDeret } from '@/types';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { computed } from 'vue';
@@ -13,11 +14,32 @@ interface Baris {
     jumlah_perlu_review: number;
 }
 
-const props = defineProps<{ data: Baris[]; tinggi?: number; memuat?: boolean }>();
+const props = withDefaults(
+    defineProps<{ data: Baris[]; satuan?: SatuanDeret; tinggi?: number; memuat?: boolean }>(),
+    { satuan: 'harian' },
+);
 
 const { warnaSentimen, dasar, sumbuNilai, sumbuKategori } = useTemaChart();
 
-const tanggal = computed(() => props.data.map((b) => format(new Date(b.tanggal), 'd MMM', { locale: id })));
+/**
+ * Label sumbu mengikuti satuan yang dipilih server dari panjang rentang.
+ *
+ * Rentang tiga bulan yang diberi label harian menghasilkan sembilan puluh
+ * tanggal yang saling tindih dan tidak terbaca satu pun.
+ */
+const polaLabel: Record<SatuanDeret, string> = {
+    harian: 'd MMM',
+    mingguan: 'd MMM',
+    bulanan: 'MMM yyyy',
+};
+
+const judulKolom = computed(
+    () => ({ harian: 'Tanggal', mingguan: 'Pekan mulai', bulanan: 'Bulan' })[props.satuan],
+);
+
+const tanggal = computed(() =>
+    props.data.map((b) => format(new Date(b.tanggal), polaLabel[props.satuan], { locale: id })),
+);
 
 /**
  * Urutan tetap dari bawah: positif, netral, negatif. Urutan yang berubah antar
@@ -53,7 +75,7 @@ const opsi = computed(() => ({
 
 const barisTabel = computed(() =>
     props.data.map((b) => [
-        format(new Date(b.tanggal), 'd MMM yyyy', { locale: id }),
+        format(new Date(b.tanggal), props.satuan === 'bulanan' ? 'MMMM yyyy' : 'd MMM yyyy', { locale: id }),
         b.jumlah_positif,
         b.jumlah_netral,
         b.jumlah_negatif,
@@ -68,7 +90,7 @@ const barisTabel = computed(() =>
         :opsi="opsi"
         :tinggi="tinggi"
         :memuat="memuat"
-        :kolom-tabel="['Tanggal', 'Positif', 'Netral', 'Negatif', 'Perlu review']"
+        :kolom-tabel="[judulKolom, 'Positif', 'Netral', 'Negatif', 'Perlu review']"
         :baris-tabel="barisTabel"
     />
 </template>

@@ -145,21 +145,27 @@ class PenghitungKataKunci
     }
 
     /**
-     * Artikel pada periode, beserta label sentimen efektifnya.
+     * Artikel relevan yang sudah berlabel pada periode itu, beserta labelnya.
      *
-     * @return list<array{teks: string, label: ?string}>
+     * @return list<array{teks: string, label: string}>
      */
     private function artikel(CarbonImmutable $mulai, CarbonImmutable $akhir): array
     {
         return DB::table('artikel as a')
-            // LEFT JOIN, bukan JOIN. Artikel yang belum diklasifikasi tetap
-            // ikut menyumbang istilah ke daftar isu hangat, hanya tanpa
-            // sentimen dominan. Membuangnya berarti isu yang baru muncul tidak
-            // pernah terlihat sampai seseorang menekan tombol Klasifikasi.
-            ->leftJoin('analisis_sentimen as s', function ($j) {
+            // JOIN, bukan LEFT JOIN. Isu hangat dilaporkan ke pimpinan bersama
+            // KPI di halaman yang sama, jadi keduanya harus dihitung dari
+            // populasi yang sama. Isu yang berasal dari artikel tidak relevan
+            // membuat jumlah beritanya melebihi total berita berlabel, dan
+            // angka yang saling membantah di satu layar merusak kepercayaan
+            // pada seluruh halaman.
+            //
+            // Konsekuensinya diterima: isu yang baru muncul belum terlihat
+            // sampai artikelnya selesai diklasifikasi.
+            ->join('analisis_sentimen as s', function ($j) {
                 $j->on('s.artikel_id', '=', 'a.id')->where('s.relevan', '=', true);
             })
             ->addSelect('s.label_efektif as label')
+            ->whereNotNull('s.label_efektif')
             ->whereNotNull('a.isi')
             ->whereBetween('a.diambil_at', [$mulai, $akhir])
             ->addSelect(DB::raw("a.judul || ' ' || a.isi AS teks"))

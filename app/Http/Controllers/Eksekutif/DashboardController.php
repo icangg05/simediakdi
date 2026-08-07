@@ -25,8 +25,9 @@ class DashboardController extends Controller
         return Inertia::render('eksekutif/Dashboard', [
             ...$periode->untukInertia(),
             'kpi' => $ringkasan->kpi($periode->dari, $periode->sampai),
-            'deret' => $ringkasan->deretHarian($periode->dari, $periode->sampai),
+            'deret' => $ringkasan->deret($periode->dari, $periode->sampai),
             'isuTeratas' => $this->isuTeratas($periode),
+            'peringkatMedia' => $ringkasan->peringkatMedia($periode->dari, $periode->sampai, 5),
             'beritaTerbaru' => $this->beritaTerbaru($periode),
             'peringatan' => $this->peringatan(),
             // Footer transparansi. Baris ini yang membuat pengguna berpikir
@@ -36,8 +37,11 @@ class DashboardController extends Controller
     }
 
     /**
-     * Tiga isu teratas menurut skor lonjakan. Bukan word cloud di halaman ini,
-     * word cloud disimpan untuk halaman isu.
+     * Isu yang paling banyak dibicarakan pada rentang ini.
+     *
+     * Delapan, bukan tiga. Isu hangat adalah bagian yang paling menjelaskan
+     * kondisi pemerintah kota, dan tiga baris tidak cukup untuk melihat pola.
+     * Bukan word cloud, word cloud disimpan untuk halaman isu.
      *
      * @return list<array<string, mixed>>
      */
@@ -48,7 +52,7 @@ class DashboardController extends Controller
             ->whereBetween('periode_mulai', [$periode->dari->toDateString(), $periode->sampai->toDateString()])
             ->groupBy('istilah')
             ->orderByRaw('sum(jumlah_artikel) DESC')
-            ->limit(3)
+            ->limit(8)
             ->get([
                 'istilah',
                 DB::raw('sum(jumlah_artikel)::int AS jumlah_artikel'),
@@ -59,16 +63,25 @@ class DashboardController extends Controller
             ->all();
     }
 
-    /** @return list<array<string, mixed>> */
+    /**
+     * Berita terbaru yang relevan dan sudah berlabel.
+     *
+     * Sebelumnya daftar ini mengambil artikel apa pun dan hanya memuat labelnya
+     * dengan syarat relevan, sehingga artikel yang sudah dinyatakan tidak
+     * relevan tetap muncul di panel pimpinan tanpa label sama sekali.
+     *
+     * @return list<array<string, mixed>>
+     */
     private function beritaTerbaru(Periode $periode): array
     {
         return Artikel::query()
+            ->relevanBerlabel()
             ->with(['media:id,nama', 'analisisSentimen' => fn ($q) => $q
                 ->where('relevan', true),
             ])
             ->whereBetween('diambil_at', [$periode->mulaiUtc(), $periode->akhirUtc()])
             ->orderByDesc('diambil_at')
-            ->limit(5)
+            ->limit(6)
             ->get(['id', 'media_id', 'judul', 'url', 'diambil_at'])
             ->map(fn (Artikel $a) => [
                 'id' => $a->id,

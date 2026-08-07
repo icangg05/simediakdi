@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Enums\LabelSentimen;
+use App\Models\AnalisisSentimen;
 use App\Models\Artikel;
 use App\Models\Media;
 use App\Services\Agregasi\PenghitungKataKunci;
@@ -23,14 +25,26 @@ class KataKunciPerhitunganUlangTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function artikel(string $isi, ?string $diambil = null): void
-    {
+    /**
+     * Artikel yang relevan dan sudah berlabel, keadaan bawaan di sini.
+     *
+     * Hanya artikel semacam ini yang menyumbang istilah, jadi setiap artikel
+     * uji harus punya baris analisisnya. Tanpa itu penghitung tidak melihat
+     * apa pun dan seluruh test di berkas ini lewat begitu saja pada tabel
+     * kosong.
+     */
+    private function artikel(
+        string $isi,
+        ?string $diambil = null,
+        bool $relevan = true,
+        ?LabelSentimen $label = LabelSentimen::Netral,
+    ): void {
         $media = Media::firstOrCreate(
             ['slug' => 'kp'],
             ['nama' => 'Kendari Pos', 'domain' => 'kp.test'],
         );
 
-        Artikel::withoutGlobalScopes()->create([
+        $artikel = Artikel::withoutGlobalScopes()->create([
             'media_id' => $media->id,
             'judul' => 'Berita drainase',
             'url' => 'https://kp.test/'.uniqid(),
@@ -39,6 +53,46 @@ class KataKunciPerhitunganUlangTest extends TestCase
             'diambil_at' => $diambil ?? now(),
             'status_proses' => 'selesai',
         ]);
+
+        AnalisisSentimen::create([
+            'artikel_id' => $artikel->id,
+            'relevan' => $relevan,
+            'label_model' => $label,
+        ]);
+    }
+
+    /**
+     * Isu hangat dilaporkan ke pimpinan bersama KPI di halaman yang sama, jadi
+     * keduanya dihitung dari populasi yang sama. Istilah yang hanya muncul di
+     * artikel tidak relevan membuat jumlah beritanya melebihi total berita
+     * berlabel, dan angka yang saling membantah merusak seluruh halaman.
+     */
+    public function test_artikel_tidak_relevan_tidak_menyumbang_istilah(): void
+    {
+        for ($i = 0; $i < 5; $i++) {
+            $this->artikel('Lowongan pekerjaan tersedia di Jakarta.', relevan: false, label: null);
+        }
+
+        for ($i = 0; $i < 3; $i++) {
+            $this->artikel('Pembangunan drainase berjalan lancar di Kadia.');
+        }
+
+        app(PenghitungKataKunci::class)->hitung(Waktu::tanggalWita(now()));
+
+        $this->assertDatabaseMissing('kata_kunci_periode', ['istilah' => 'lowongan']);
+        $this->assertDatabaseHas('kata_kunci_periode', ['istilah' => 'drainase']);
+    }
+
+    /** Relevan tapi belum diklasifikasi juga belum boleh muncul sebagai isu. */
+    public function test_artikel_relevan_tanpa_label_tidak_menyumbang_istilah(): void
+    {
+        for ($i = 0; $i < 5; $i++) {
+            $this->artikel('Perbaikan trotoar menunggu anggaran.', relevan: true, label: null);
+        }
+
+        app(PenghitungKataKunci::class)->hitung(Waktu::tanggalWita(now()));
+
+        $this->assertDatabaseMissing('kata_kunci_periode', ['istilah' => 'trotoar']);
     }
 
     public function test_skor_lonjakan_dihitung_dari_periode_sebelumnya(): void

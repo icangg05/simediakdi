@@ -9,9 +9,8 @@ import { useFormatAngka } from '@/composables/useFormatAngka';
 import { useGerbangSentimen } from '@/composables/useGerbangSentimen';
 import { usePeriodeEksekutif } from '@/composables/usePeriodeEksekutif';
 import LayoutEksekutif from '@/layouts/LayoutEksekutif.vue';
+import type { DeretTren } from '@/types';
 import { Head } from '@inertiajs/vue3';
-import { format } from 'date-fns';
-import { id } from 'date-fns/locale';
 
 interface Berita {
     id: number;
@@ -30,7 +29,7 @@ const props = defineProps<{
         perlu_review: number;
         negatif_persen: number;
     };
-    deret: Array<Record<string, number | string>>;
+    deret: DeretTren;
     beritaNegatif: Berita[];
     perluReview: Berita[];
 }>();
@@ -61,7 +60,7 @@ const { pindah } = usePeriodeEksekutif(props.periode, '/eksekutif/sentimen');
         <div class="grid gap-4 lg:grid-cols-3">
             <Card class="lg:col-span-2">
                 <CardContent class="p-4">
-                    <ChartTrenSentimen :data="deret as never" :tinggi="280" />
+                    <ChartTrenSentimen :data="deret.baris as never" :satuan="deret.satuan" :tinggi="280" />
                 </CardContent>
             </Card>
             <Card>

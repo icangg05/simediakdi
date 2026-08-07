@@ -38,9 +38,23 @@ type IdTab = (typeof TAB)[number]['id'];
 const awal = window.location.hash.replace('#', '') as IdTab;
 const tab = ref<IdTab>(TAB.some((t) => t.id === awal) ? awal : 'snapshot');
 
+/**
+ * Hash ditukar tanpa menyentuh isi history state.
+ *
+ * Argumen pertama wajib `history.state`, bukan `null`. Inertia menyimpan
+ * seluruh objek halaman di sana, dan menimpanya dengan null membuang objek itu.
+ * Akibatnya bukan sekadar tab yang lupa diri: Inertia menaruh tiap tulisan ke
+ * history di satu antrean serial, dan `saveDocumentScrollPosition` membaca
+ * `window.history.state.page` tanpa tanda tanya. Pada state yang null ia
+ * melempar TypeError, antreannya berhenti selamanya, dan callback yang
+ * seharusnya memicu penggantian komponen tidak pernah dipanggil lagi. Sejak
+ * gulir pertama sesudah tab ditukar, seluruh kunjungan Inertia di halaman ini
+ * menerima data baru dari server lalu membuangnya, jadi snapshot yang barusan
+ * dibuat maupun dihapus tidak pernah muncul sampai halaman dimuat ulang.
+ */
 function buka(id: IdTab) {
     tab.value = id;
-    history.replaceState(null, '', `#${id}`);
+    history.replaceState(history.state, '', `#${id}`);
 }
 
 const berjalan = computed(() => props.pelatihan.filter((p) => p.status === 'menunggu' || p.status === 'berjalan').length);
@@ -52,17 +66,34 @@ const modelAktif = computed(() => props.pelatihan.find((p) => p.aktif) ?? null);
  *
  * Halaman ini juga dibuka untuk sekadar membaca hasil lama, dan menariknya tiap
  * tiga detik selamanya berarti dua puluh permintaan semenit yang seluruhnya
- * mengembalikan angka yang sama. `only` menjaga tarikan tetap tipis: menu,
- * data pengguna, dan opsi tidak berubah dan tidak perlu ikut dikirim.
+ * mengembalikan angka yang sama. `only` menjaga tarikan tetap tipis: menu, data
+ * pengguna, opsi, dan keadaan layanan tidak berubah dan tidak perlu ikut
+ * dikirim.
+ *
+ * `keepAlive` wajib menyala di halaman ini. Tanpanya Inertia menurunkan laju
+ * tarikan menjadi sepersepuluh begitu tab browser tidak lagi di depan, jadi
+ * tiga detik menjadi tiga puluh detik. Itu setelan yang benar untuk halaman
+ * pemantauan yang ditatap terus, dan salah untuk pekerjaan yang berjalan dua
+ * puluh menit: tidak ada yang menunggui pelatihan sambil menatap layar, dan
+ * kembali ke tab ini setelah menyeduh kopi seharusnya tidak memperlihatkan
+ * angka setengah menit yang lalu.
  */
-const poll = usePoll(3000, { only: ['snapshot', 'pelatihan', 'riwayatUji', 'kandidat', 'diperbarui'] }, { autoStart: berjalan.value > 0 });
+const poll = usePoll(3000, { only: ['snapshot', 'pelatihan', 'riwayatUji', 'kandidat', 'diperbarui'] }, { autoStart: false, keepAlive: true });
 
-// Begitu pelatihan terakhir selesai, tarikannya berhenti sendiri. Begitu ada
-// pelatihan baru yang dikirim, ia menyala lagi tanpa memuat ulang halaman.
-watch(berjalan, (sekarang, sebelumnya) => {
-    if (sekarang > 0 && sebelumnya === 0) poll.start();
-    else if (sekarang === 0 && sebelumnya > 0) poll.stop();
-});
+/**
+ * Satu tempat yang memutuskan tarikan menyala atau mati.
+ *
+ * `immediate` menggantikan `autoStart`. Sebelumnya keadaan awal ditentukan
+ * opsi `autoStart` dan perubahannya ditentukan watch ini, dua jalur yang harus
+ * sepakat dan tidak selalu sepakat: pelatihan yang dikirim dari halaman ini
+ * membuat Inertia menyusun ulang komponennya, dan tarikan yang menyala lewat
+ * watch ikut mati bersama komponen lama sementara komponen baru membaca
+ * `autoStart` dari keadaan yang sudah berubah.
+ *
+ * `start()` aman dipanggil berulang, ia menghentikan interval lamanya lebih
+ * dulu.
+ */
+watch(berjalan, (jumlah) => (jumlah > 0 ? poll.start() : poll.stop()), { immediate: true });
 </script>
 
 <template>

@@ -74,6 +74,21 @@ export interface SharedData {
 
 export type PeranPengguna = 'superadmin' | 'walikota' | 'media';
 
+/** Label sentimen efektif. Cerminan App\Enums\LabelSentimen. */
+export type LabelSentimen = 'negatif' | 'netral' | 'positif';
+
+/**
+ * Satuan pengelompokan grafik tren, ditentukan server dari panjang rentang.
+ * Cerminan RingkasanEksekutif::satuan().
+ */
+export type SatuanDeret = 'harian' | 'mingguan' | 'bulanan';
+
+/** Deret grafik tren beserta satuannya. */
+export interface DeretTren {
+    satuan: SatuanDeret;
+    baris: Array<Record<string, number | string>>;
+}
+
 export interface User {
     id: number;
     name: string;

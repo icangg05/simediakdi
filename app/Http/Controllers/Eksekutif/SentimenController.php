@@ -20,7 +20,7 @@ class SentimenController extends Controller
         return Inertia::render('eksekutif/Sentimen', [
             ...$periode->untukInertia(),
             'kpi' => $ringkasan->kpi($periode->dari, $periode->sampai),
-            'deret' => $ringkasan->deretHarian($periode->dari, $periode->sampai),
+            'deret' => $ringkasan->deret($periode->dari, $periode->sampai),
             'beritaNegatif' => $this->beritaBerlabel($periode, 'negatif'),
             'perluReview' => $this->perluReview($periode),
         ]);

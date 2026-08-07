@@ -17,22 +17,62 @@ use Illuminate\Support\Facades\DB;
 class RingkasanEksekutif
 {
     /**
-     * Deret harian untuk grafik tren.
+     * Satuan waktu grafik menurut panjang rentang yang dipilih.
      *
-     * @return list<array<string, mixed>>
+     * Rentang tiga bulan yang digambar per hari menghasilkan sembilan puluh
+     * titik yang tidak terbaca. Satuannya ditentukan di sini, bukan dikirim
+     * pengguna, jadi tidak ada parameter baru yang perlu divalidasi dan tidak
+     * ada kombinasi ganjil seperti rentang tujuh hari yang diminta per bulan.
+     *
+     * @var array<string, string> satuan => argumen date_trunc Postgres
      */
-    public function deretHarian(CarbonImmutable $dari, CarbonImmutable $sampai): array
+    private const SATUAN = ['harian' => 'day', 'mingguan' => 'week', 'bulanan' => 'month'];
+
+    public function satuan(CarbonImmutable $dari, CarbonImmutable $sampai): string
     {
-        return DB::table('ringkasan_harian')
+        $hari = $dari->diffInDays($sampai) + 1;
+
+        return match (true) {
+            $hari <= 31 => 'harian',
+            $hari <= 92 => 'mingguan',
+            default => 'bulanan',
+        };
+    }
+
+    /**
+     * Deret untuk grafik tren, dikelompokkan menurut panjang rentangnya.
+     *
+     * @return array{satuan: string, baris: list<array<string, mixed>>}
+     */
+    public function deret(CarbonImmutable $dari, CarbonImmutable $sampai): array
+    {
+        $satuan = $this->satuan($dari, $sampai);
+
+        // Aman diinterpolasi: nilainya selalu salah satu dari konstanta di
+        // atas, tidak pernah berasal dari request. date_trunc tidak menerima
+        // satuannya sebagai parameter terikat.
+        $trunc = self::SATUAN[$satuan];
+
+        $baris = DB::table('ringkasan_harian')
             ->whereNull('media_id')
             ->whereBetween('tanggal', [$dari->toDateString(), $sampai->toDateString()])
-            ->orderBy('tanggal')
+            ->groupByRaw("date_trunc('{$trunc}', tanggal)")
+            ->orderByRaw("date_trunc('{$trunc}', tanggal)")
             ->get([
-                'tanggal', 'jumlah_artikel',
-                'jumlah_negatif', 'jumlah_netral', 'jumlah_positif', 'jumlah_perlu_review',
+                // Dipotong ke ::date supaya yang sampai ke peramban tetap
+                // "2026-08-07", bukan timestamp berzona yang bisa mundur
+                // sehari saat diurai new Date() di sisi klien.
+                DB::raw("date_trunc('{$trunc}', tanggal)::date AS tanggal"),
+                DB::raw('sum(jumlah_artikel)::int AS jumlah_artikel'),
+                DB::raw('sum(jumlah_negatif)::int AS jumlah_negatif'),
+                DB::raw('sum(jumlah_netral)::int AS jumlah_netral'),
+                DB::raw('sum(jumlah_positif)::int AS jumlah_positif'),
+                DB::raw('sum(jumlah_perlu_review)::int AS jumlah_perlu_review'),
             ])
             ->map(fn ($b) => (array) $b)
             ->all();
+
+        return ['satuan' => $satuan, 'baris' => $baris];
     }
 
     /**
@@ -50,11 +90,19 @@ class RingkasanEksekutif
         $sekarang = $this->total($dari, $sampai);
         $sebelumnya = $this->total($dari->subDays($panjang), $dari->subDay());
 
-        $totalBerlabel = $sekarang['negatif'] + $sekarang['netral'] + $sekarang['positif'];
+        $totalBerlabel = $sekarang['berlabel'];
 
         return [
+            // Angka utama panel eksekutif: artikel yang lolos relevansi dan
+            // sudah punya label. Bukan `artikel`, yang menghitung seluruh hasil
+            // crawl termasuk yang tidak relevan dan yang belum diklasifikasi.
+            'berlabel' => $totalBerlabel,
+            'berlabel_selisih' => $totalBerlabel - $sebelumnya['berlabel'],
+            // Penyebutnya tetap dikirim, dan dipakai menampilkan cakupan
+            // analisis. Menyembunyikan berapa banyak yang belum diklasifikasi
+            // membuat panel terlihat lebih lengkap daripada keadaannya.
             'artikel' => $sekarang['artikel'],
-            'artikel_selisih' => $sekarang['artikel'] - $sebelumnya['artikel'],
+            'cakupan_persen' => $sekarang['artikel'] === 0 ? 0.0 : round($totalBerlabel / $sekarang['artikel'] * 100, 1),
             'negatif' => $sekarang['negatif'],
             'negatif_selisih' => $sekarang['negatif'] - $sebelumnya['negatif'],
             // Proporsi dihitung terhadap artikel yang punya label, bukan seluruh
@@ -84,7 +132,15 @@ class RingkasanEksekutif
             ')
             ->first();
 
-        return array_map('intval', (array) $baris);
+        $total = array_map('intval', (array) $baris);
+
+        // Ketiga label ini hanya terisi untuk artikel yang relevan (lihat JOIN
+        // di RingkasanHarian), dan satu artikel hanya punya satu baris analisis
+        // karena uq_analisis_artikel. Jumlahnya sama persis dengan banyaknya
+        // artikel relevan yang sudah berlabel, jadi tidak perlu kolom baru.
+        $total['berlabel'] = $total['negatif'] + $total['netral'] + $total['positif'];
+
+        return $total;
     }
 
     /** Media yang memuat minimal satu artikel pada periode itu. */

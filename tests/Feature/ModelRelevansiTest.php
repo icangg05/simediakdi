@@ -15,6 +15,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Inertia;
 use Tests\TestCase;
 
 /**
@@ -132,6 +133,47 @@ class ModelRelevansiTest extends TestCase
         $this->actingAs($walikota)
             ->get('/admin/model-relevansi')
             ->assertForbidden();
+    }
+
+    public function test_tarikan_polling_tidak_memeriksa_kesehatan_layanan(): void
+    {
+        // Halaman menarik dirinya sendiri tiap tiga detik selama pelatihan
+        // berjalan. Kalau prop `layanan` ikut dievaluasi tiap tarikan, setiap
+        // tarikan menembak layanan model, dan pada layanan yang mati ia
+        // menunggu batas waktu lima detik, dua puluh kali semenit.
+        //
+        // Penjaganya cuma satu tanda kurung: prop itu ditulis sebagai closure,
+        // dan Inertia memanggil closure hanya untuk prop yang benar-benar
+        // dikirim. Menghapusnya tidak menimbulkan galat apa pun, hanya halaman
+        // yang perlahan tersendat, jadi perilakunya dikunci di sini.
+        $this->actingAs($this->admin)
+            ->get('/admin/model-relevansi')
+            ->assertOk()
+            ->assertInertia(fn ($halaman) => $halaman->where('layanan.perangkat', 'CPU, 4 thread'));
+
+        Http::assertSent(fn ($permintaan) => str_ends_with($permintaan->url(), '/health'));
+
+        // Versi aset diambil setelah permintaan pertama, bukan ditebak.
+        // Middleware Inertia yang menetapkannya, dan versi yang tidak cocok
+        // membuat Inertia menjawab 409 lalu menyuruh browser memuat ulang
+        // penuh, sehingga tarikan parsialnya tidak pernah benar-benar diuji.
+        $versi = (string) Inertia::getVersion();
+
+        Http::fake();
+
+        $this->actingAs($this->admin)
+            ->withHeaders([
+                'X-Inertia' => 'true',
+                'X-Inertia-Version' => $versi,
+                'X-Inertia-Partial-Component' => 'admin/model-relevansi/Index',
+                'X-Inertia-Partial-Data' => 'snapshot,pelatihan,riwayatUji,kandidat,diperbarui',
+            ])
+            ->get('/admin/model-relevansi')
+            ->assertOk()
+            ->assertJsonMissingPath('props.layanan')
+            ->assertJsonStructure(['props' => ['pelatihan', 'snapshot', 'kandidat']]);
+
+        Http::assertNothingSent();
     }
 
     public function test_artikel_perlu_review_tidak_masuk_kandidat(): void
@@ -270,7 +312,7 @@ class ModelRelevansiTest extends TestCase
             ->post('/admin/model-relevansi/pelatihan', [
                 'nama' => 'model-uji',
                 'snapshot_dataset_relevansi_id' => $snapshot->id,
-                'base_model' => 'indobenchmark/indobert-base-p1',
+                'base_model' => 'apriandito/indobert-relevancy-classifier',
                 'epoch' => 3,
                 'batch_size' => 8,
                 'learning_rate' => 0.00002,
@@ -311,7 +353,7 @@ class ModelRelevansiTest extends TestCase
                 && count($isi['train']) === $snapshot->total_train
                 && count($isi['validation']) === $snapshot->total_validation
                 && count($isi['test']) === $snapshot->total_test
-                && $isi['konfigurasi']['base_model'] === 'indobenchmark/indobert-base-p1'
+                && $isi['konfigurasi']['base_model'] === 'apriandito/indobert-relevancy-classifier'
                 // Judul ikut di depan isi. Maximum sequence length memotong dari
                 // belakang, jadi judul yang tertinggal di luar potongan berarti
                 // kalimat paling padat sinyal tidak pernah terbaca model.
@@ -437,7 +479,15 @@ class ModelRelevansiTest extends TestCase
         // barisnya berkata berjalan, tetapi layanan sudah tidak mengenalnya dan
         // job penunggunya ikut mati. Tanpa penutupan di controller, halaman
         // menarik dirinya sendiri selamanya demi pelatihan yang tidak ada.
-        $pelatihan->update(['status' => 'berjalan', 'tahap' => 'Melatih', 'progres' => 40]);
+        // `batal_diminta` sudah menyala karena tombolnya pernah ditekan sekali.
+        // Penekanan kedua harus tetap diterima: inilah satu-satunya jalan
+        // keluar bagi baris yang tidak akan pernah ditutup siapa pun.
+        $pelatihan->update([
+            'status' => 'berjalan',
+            'tahap' => 'Melatih',
+            'progres' => 40,
+            'batal_diminta' => true,
+        ]);
 
         $this->batalDijawab = false;
 
@@ -508,9 +558,9 @@ class ModelRelevansiTest extends TestCase
         return PelatihanModelRelevansi::create([
             'nama' => $nama,
             'snapshot_dataset_relevansi_id' => $snapshot->id,
-            'base_model' => 'indobenchmark/indobert-base-p1',
+            'base_model' => 'apriandito/indobert-relevancy-classifier',
             'konfigurasi' => [
-                'base_model' => 'indobenchmark/indobert-base-p1',
+                'base_model' => 'apriandito/indobert-relevancy-classifier',
                 'epoch' => 5,
                 'batch_size' => 8,
                 'learning_rate' => 0.00002,
