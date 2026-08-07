@@ -60,7 +60,7 @@ class LayananRelevansi
         // BERT tidak bisa melampaui 512 token, batasnya ada di embedding posisi.
         // Bawaan 384 karena berita daerah kerap menaruh keterangan lokasi di
         // paruh kedua badan berita, dan potongan 256 token memenggalnya.
-        'max_seq_length' => ['min' => 64, 'maks' => 512, 'bawaan' => 384],
+        'max_seq_length' => ['min' => 64, 'maks' => 512, 'bawaan' => 256],
         // Bawaan 2, bukan 1. Validation loss satu epoch lazim naik sedikit lalu
         // turun lagi, dan berhenti pada kenaikan pertama membuang epoch yang
         // sebenarnya masih memperbaiki model.
