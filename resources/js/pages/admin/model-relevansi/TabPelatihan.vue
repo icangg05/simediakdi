@@ -241,7 +241,7 @@ const BARIS_LAPORAN = [
                                 <SelectContent class="max-w-[min(32rem,calc(100vw-2rem))]">
                                     <SelectItem v-for="(ket, kunci) in opsi.base_model" :key="kunci" :value="kunci">
                                         <span class="block break-all font-medium">{{ kunci }}</span>
-                                        <span class="block text-xs text-muted-foreground">{{ ket }}</span>
+                                        <!-- <span class="block text-xs text-muted-foreground">{{ ket }}</span> -->
                                     </SelectItem>
                                 </SelectContent>
                             </Select>

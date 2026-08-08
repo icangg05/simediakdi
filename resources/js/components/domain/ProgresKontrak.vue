@@ -44,9 +44,7 @@ const warna = computed(() => {
         <p class="text-xs text-muted-foreground">
             <template v-if="sisaHari > 0">sisa {{ formatAngka(sisaHari) }} hari</template>
             <template v-else>periode berakhir</template>
-            <template v-if="menunggu > 0">
-                · {{ formatAngka(menunggu) }} menunggu verifikasi
-            </template>
+            <template v-if="menunggu > 0"> · {{ formatAngka(menunggu) }} menunggu verifikasi </template>
             <span v-if="tertinggal" class="ml-1 font-medium text-sentimen-negatif">tertinggal dari laju</span>
         </p>
     </div>

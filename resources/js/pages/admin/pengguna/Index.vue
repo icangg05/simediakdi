@@ -53,8 +53,7 @@ const aksiBaris: AksiBaris<Baris>[] = [
     },
 ];
 
-const sejak = (n: string | null) =>
-    n ? formatDistanceToNow(new Date(n), { addSuffix: true, locale: id }) : 'Belum pernah';
+const sejak = (n: string | null) => (n ? formatDistanceToNow(new Date(n), { addSuffix: true, locale: id }) : 'Belum pernah');
 </script>
 
 <template>
@@ -62,8 +61,7 @@ const sejak = (n: string | null) =>
 
     <LayoutAdmin judul="Pengguna" :breadcrumbs="[{ title: 'Pengguna', href: '/admin/pengguna' }]">
         <p class="text-xs text-muted-foreground">
-            Registrasi mandiri tidak dibuka, halaman ini satu-satunya jalan akun dibuat. Setiap perubahan
-            tercatat di audit log.
+            Registrasi mandiri tidak dibuka, halaman ini satu-satunya jalan akun dibuat. Setiap perubahan tercatat di audit log.
         </p>
 
         <DataTable

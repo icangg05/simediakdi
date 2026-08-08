@@ -41,15 +41,22 @@ class LatihModelRelevansi implements ShouldQueue
     public int $tries = 1;
 
     /**
-     * Enam jam.
+     * Dua belas jam.
      *
      * Job menunggui layanan sepanjang pelatihan, jadi seluruh durasinya
      * terhitung sebagai satu pekerjaan yang berjalan. Batas ini harus lebih
      * kecil daripada `--timeout` worker `pelatihan` di docker-compose, kalau
      * tidak worker membunuh prosesnya lebih dulu dan barisnya tertinggal
      * berstatus berjalan selamanya.
+     *
+     * Sebelumnya enam jam, dan angka itu terlampaui oleh pelatihan nyata:
+     * checkpoint 24 layer pada potongan 384 token memakan dua setengah jam per
+     * epoch di CPU empat thread, jadi tiga epoch tidak pernah sampai garis
+     * akhir. Base model di sini memang cuma satu dan memang besar, jadi
+     * pelatihan berjam-jam adalah keadaan normal, bukan gejala. Batas waktunya
+     * yang harus mengikuti, bukan sebaliknya.
      */
-    public int $timeout = 21600;
+    public int $timeout = 43200;
 
     public function __construct(public int $pelatihanId)
     {
@@ -258,9 +265,18 @@ class LatihModelRelevansi implements ShouldQueue
      *
      * Tanpa ini, barisnya berhenti berstatus `berjalan` selamanya dan halaman
      * pemantauan menampilkan pelatihan yang sebenarnya sudah tidak ada.
+     *
+     * Layanan model ikut diberi tahu. Yang mati di sini hanya penunggunya, dan
+     * proses pelatihan di container Python tidak tahu apa-apa tentang batas
+     * waktu antrean: ia terus memakan seluruh jatah thread-nya berjam-jam
+     * untuk hasil yang tidak akan pernah dibaca siapa pun, sekaligus menahan
+     * kunci satu-pelatihan-pada-satu-waktu sehingga percobaan berikutnya
+     * ditolak dengan galat yang menyebut pelatihan lain masih berjalan.
      */
     public function failed(?Throwable $e): void
     {
+        app(LayananRelevansi::class)->batal($this->pelatihanId);
+
         PelatihanModelRelevansi::where('id', $this->pelatihanId)
             ->whereIn('status', ['menunggu', 'berjalan'])
             ->update([

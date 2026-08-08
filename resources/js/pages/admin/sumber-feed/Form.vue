@@ -97,9 +97,7 @@ function simpan() {
                                 </SelectItem>
                             </SelectContent>
                         </Select>
-                        <p class="text-xs text-muted-foreground">
-                            Kosongkan untuk sumber yang menangkap banyak media sekaligus.
-                        </p>
+                        <p class="text-xs text-muted-foreground">Kosongkan untuk sumber yang menangkap banyak media sekaligus.</p>
                         <InputError :message="form.errors.media_id" />
                     </div>
 
@@ -139,8 +137,8 @@ function simpan() {
                         <Label for="kata_kunci">Kata kunci saringan</Label>
                         <Input id="kata_kunci" v-model="form.kata_kunci" placeholder="Kendari" />
                         <p class="text-xs text-muted-foreground">
-                            Opsional. Kalau diisi, hanya item yang judul atau ringkasannya memuat kata ini yang
-                            disimpan. Dipakai untuk feed media nasional yang isinya kebanyakan di luar Kendari.
+                            Opsional. Kalau diisi, hanya item yang judul atau ringkasannya memuat kata ini yang disimpan. Dipakai untuk feed media
+                            nasional yang isinya kebanyakan di luar Kendari.
                         </p>
                         <InputError :message="form.errors.kata_kunci" />
                     </div>

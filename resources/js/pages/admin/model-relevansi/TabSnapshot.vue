@@ -370,8 +370,27 @@ const WARNA_STATUS: Record<string, string> = {
                                     {{ waktu(s.dibuat_at) }}
                                     <p v-if="s.pembuat">{{ s.pembuat }}</p>
                                 </TableCell>
+                                <!--
+                                    Tombol dimatikan, bukan dibiarkan hidup lalu ditolak server. Server
+                                    tetap menolaknya, dan itu yang menjaga aturannya. Yang berubah di sini
+                                    hanya urutan pemberitahuan: sebelumnya penolakan baru terbaca sesudah
+                                    dialog konfirmasi ditutup dan halaman termuat ulang, seolah tindakannya
+                                    sempat jalan. Alasannya tidak perlu tooltip, jumlah pelatihan sudah
+                                    tertulis di kolom status pada baris yang sama.
+                                -->
                                 <TableCell class="text-right">
-                                    <Button variant="ghost" size="sm" class="h-7" :aria-label="`Hapus snapshot ${s.nama}`" @click="akanDihapus = s">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        class="h-7"
+                                        :disabled="s.pelatihan_count > 0"
+                                        :aria-label="
+                                            s.pelatihan_count > 0
+                                                ? `Snapshot ${s.nama} tidak bisa dihapus, masih dipakai ${s.pelatihan_count} pelatihan`
+                                                : `Hapus snapshot ${s.nama}`
+                                        "
+                                        @click="akanDihapus = s"
+                                    >
                                         <Trash2 class="h-4 w-4" aria-hidden="true" />
                                     </Button>
                                 </TableCell>
@@ -387,14 +406,8 @@ const WARNA_STATUS: Record<string, string> = {
                 <DialogHeader>
                     <DialogTitle>Hapus snapshot {{ akanDihapus?.nama }}?</DialogTitle>
                     <DialogDescription>
-                        <template v-if="akanDihapus && akanDihapus.pelatihan_count > 0">
-                            Snapshot ini masih dipakai {{ akanDihapus.pelatihan_count }} pelatihan, jadi penghapusannya akan ditolak. Hapus
-                            pelatihannya lebih dulu bila memang tidak dipakai lagi.
-                        </template>
-                        <template v-else>
-                            Seluruh isi snapshot ikut terhapus dan tidak bisa dikembalikan. Membuat ulang dengan seed
-                            {{ akanDihapus?.random_seed }} akan menghasilkan susunan yang sama selama kandidatnya belum berubah.
-                        </template>
+                        Seluruh isi snapshot ikut terhapus dan tidak bisa dikembalikan. Membuat ulang dengan seed
+                        {{ akanDihapus?.random_seed }} akan menghasilkan susunan yang sama selama kandidatnya belum berubah.
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>

@@ -73,7 +73,14 @@ const opsi = computed(() => ({
     ],
 }));
 
-const barisTabel = computed(() => props.riwayat.map((b) => [`Epoch ${b.epoch}`, b.train_loss, b.val_loss, b.val_accuracy, b.val_f1]));
+// Kolom terakhir adalah porsi data validasi yang ditebak relevan. Nilai 0 atau
+// 1 berarti model menjawab satu kelas untuk seluruh data, dan itu pelatihan
+// yang gagal meski kolom accuracy-nya berbunyi 0,5 seperti model yang cuma
+// setengah benar. Pelatihan lama disimpan tanpa angka ini, jadi barisnya diberi
+// tanda hubung, bukan nol yang terbaca sebagai gejala.
+const barisTabel = computed(() =>
+    props.riwayat.map((b) => [`Epoch ${b.epoch}`, b.train_loss, b.val_loss, b.val_accuracy, b.val_f1, b.val_pred_relevan ?? '-']),
+);
 </script>
 
 <template>
@@ -81,7 +88,7 @@ const barisTabel = computed(() => props.riwayat.map((b) => [`Epoch ${b.epoch}`, 
         judul="Loss dan metrik per epoch"
         :opsi="opsi"
         :tinggi="tinggi ?? 200"
-        :kolom-tabel="['Epoch', 'Training loss', 'Validation loss', 'Accuracy validasi', 'F1 validasi']"
+        :kolom-tabel="['Epoch', 'Training loss', 'Validation loss', 'Accuracy validasi', 'F1 validasi', 'Porsi tebakan relevan']"
         :baris-tabel="barisTabel"
         keterangan-kosong="Angka per epoch muncul begitu epoch pertama selesai."
     />

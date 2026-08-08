@@ -23,6 +23,7 @@ interface Nilai {
 
 interface PengaturanAi {
     model: string;
+    penyedia_relevansi: 'gemini' | 'indobert';
     versi_prompt_relevansi: string;
     prompt_relevansi: string;
     versi_prompt_sentimen: string;
@@ -50,6 +51,7 @@ const props = defineProps<{
     kelompok: { judul: string; catatan: string | null; nilai: Nilai[] }[];
     layanan: { nama: string; sehat: boolean; url: string }[];
     evaluasi: { f1_macro: number; jumlah_sampel: number; dievaluasi_at: string } | null;
+    modelRelevansiAktif: string | null;
 }>();
 
 const page = usePage<SharedData>();
@@ -62,6 +64,34 @@ const formKunci = useForm({ label: '', kunci: '' });
 function simpanAi() {
     formAi.put('/admin/pengaturan/ai', { preserveScroll: true });
 }
+
+/**
+ * Dua penilai relevansi, dan hanya itu yang boleh tersimpan.
+ *
+ * Sentimen tidak ikut dipilih di sini karena memang tidak ada pilihannya.
+ * IndoBERT hanya dilatih menilai relevan atau tidak, jadi nada berita selalu
+ * dikerjakan Gemini betapapun opsi ini disetel.
+ */
+const penyediaRelevansi = [
+    {
+        nilai: 'gemini' as const,
+        label: 'Gemini',
+        keterangan: 'Menilai lewat prompt di bawah, menyertakan kutipan sebagai bukti, dan memakai kuota harian.',
+    },
+    {
+        nilai: 'indobert' as const,
+        label: 'IndoBERT',
+        keterangan: 'Menilai di server sendiri tanpa kuota. Artikel yang ditolaknya tidak pernah dikirim ke Gemini.',
+    },
+];
+
+/**
+ * IndoBERT tidak bisa dipilih selama belum ada model yang diaktifkan.
+ *
+ * Cermin dari penolakan di PengaturanAiController, bukan penegakannya.
+ * Permintaannya tetap bisa dikirim langsung, dan server yang menolaknya.
+ */
+const bisaIndoBert = computed(() => props.modelRelevansiAktif !== null);
 
 function tambahKunci() {
     formKunci.post('/admin/pengaturan/kunci', {
@@ -115,11 +145,15 @@ function ujiKunci(k: Kunci) {
     sedangUji.value = k.id;
     jedaUji.value[k.id] = JEDA_UJI;
 
-    router.post(`/admin/pengaturan/kunci/${k.id}/uji`, {}, {
-        preserveScroll: true,
-        showProgress: false,
-        onFinish: () => (sedangUji.value = null),
-    });
+    router.post(
+        `/admin/pengaturan/kunci/${k.id}/uji`,
+        {},
+        {
+            preserveScroll: true,
+            showProgress: false,
+            onFinish: () => (sedangUji.value = null),
+        },
+    );
 }
 
 const bisaDiuji = (k: Kunci) => sedangUji.value === null && !jedaUji.value[k.id];
@@ -147,7 +181,6 @@ function bisaDimatikan(k: Kunci): boolean {
 function bisaDihapus(k: Kunci): boolean {
     return props.kunci.length > 1 && (!k.aktif || jumlahAktif.value > 1);
 }
-
 
 /**
  * Hasil uji menggantikan kotak galat terakhir untuk kunci yang sama.
@@ -339,9 +372,7 @@ function status(k: Kunci): string {
                                 <span v-if="k.galat_at" class="font-normal opacity-70">· {{ waktu(k.galat_at) }}</span>
                             </p>
                             <p class="mt-1 break-words text-rose-700 dark:text-rose-300">{{ k.galat_terakhir }}</p>
-                            <p class="mt-1 text-muted-foreground">
-                                Peringatan ini hilang sendiri begitu kunci berhasil dipakai lagi.
-                            </p>
+                            <p class="mt-1 text-muted-foreground">Peringatan ini hilang sendiri begitu kunci berhasil dipakai lagi.</p>
                         </div>
 
                         <!-- Hasil uji ditempel di bawah kuncinya sendiri, bukan di
@@ -357,7 +388,10 @@ function status(k: Kunci): string {
                                     : 'border-rose-500/40 bg-rose-50 dark:bg-rose-950/40'
                             "
                         >
-                            <p class="font-medium" :class="uji.berhasil ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'">
+                            <p
+                                class="font-medium"
+                                :class="uji.berhasil ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'"
+                            >
                                 <!-- Jawaban yang kembali tetapi tidak memuat label
                                      kunci bukan kegagalan kunci. Paketnya sampai,
                                      yang meleset instruksinya, dan menyebutnya
@@ -398,16 +432,64 @@ function status(k: Kunci): string {
 
         <Card>
             <CardHeader class="pb-2">
-                <CardTitle class="text-sm font-medium">Klasifikasi Gemini</CardTitle>
+                <CardTitle class="text-sm font-medium">Klasifikasi</CardTitle>
                 <p class="text-xs text-muted-foreground">
-                    Menyimpan pengaturan di sini tidak mengubah artikel yang sudah dinilai. Setiap hasil menyimpan nama model dan versi promptnya
-                    sendiri, jadi hasil lama dan hasil baru tetap bisa dibedakan.
+                    Menyimpan pengaturan di sini tidak mengubah artikel yang sudah dinilai. Setiap hasil menyimpan nama penilai dan versinya sendiri,
+                    jadi hasil lama dan hasil baru tetap bisa dibedakan di halaman Berita.
                 </p>
             </CardHeader>
             <CardContent>
                 <form class="space-y-4" @submit.prevent="simpanAi">
                     <div class="grid gap-1.5">
-                        <Label for="model">Model</Label>
+                        <Label>Penilai relevansi</Label>
+                        <div class="grid gap-2 sm:grid-cols-2">
+                            <button
+                                v-for="p in penyediaRelevansi"
+                                :key="p.nilai"
+                                type="button"
+                                :disabled="p.nilai === 'indobert' && !bisaIndoBert"
+                                class="rounded-lg border p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                                :class="
+                                    formAi.penyedia_relevansi === p.nilai
+                                        ? 'border-foreground bg-muted'
+                                        : 'text-muted-foreground hover:border-foreground/40'
+                                "
+                                :aria-pressed="formAi.penyedia_relevansi === p.nilai"
+                                @click="formAi.penyedia_relevansi = p.nilai"
+                            >
+                                <span class="block text-sm font-medium text-foreground">{{ p.label }}</span>
+                                <span class="mt-1 block text-xs">{{ p.keterangan }}</span>
+                            </button>
+                        </div>
+
+                        <!-- Nama modelnya disebut, bukan sekadar "aktif".
+                             Halaman Model Relevansi bisa berisi belasan
+                             pelatihan dengan metrik yang berbeda jauh, dan yang
+                             perlu diketahui sebelum menyerahkan keputusan buang
+                             atau simpan adalah yang mana di antara mereka. -->
+                        <p v-if="props.modelRelevansiAktif" class="text-xs text-muted-foreground">
+                            Model yang akan bekerja: <span class="font-medium text-foreground">{{ props.modelRelevansiAktif }}</span
+                            >. Ganti lewat halaman Model Relevansi. Sentimen tetap dinilai Gemini.
+                        </p>
+                        <p v-else class="text-xs text-muted-foreground">
+                            IndoBERT belum bisa dipilih. Latih lalu aktifkan satu model di halaman Model Relevansi terlebih dahulu.
+                        </p>
+
+                        <!-- Antrean tidak perlu dihentikan saat opsi ini
+                             diganti. Job hanya membawa id barisnya, dan
+                             penyedianya dibaca ulang saat job benar-benar
+                             dieksekusi. Ditulis di layar karena inilah
+                             pertanyaan pertama yang muncul sebelum menekan
+                             tombol simpan. -->
+                        <p class="text-xs text-muted-foreground">
+                            Pergantian berlaku untuk artikel yang belum dinilai, termasuk yang sedang mengantre. Artikel yang sudah dinilai tidak
+                            berubah dan tetap bertanda penilai lamanya.
+                        </p>
+                        <InputError :message="formAi.errors.penyedia_relevansi" />
+                    </div>
+
+                    <div class="grid gap-1.5">
+                        <Label for="model">Model Gemini</Label>
                         <Input id="model" v-model="formAi.model" placeholder="gemini-3.5-flash-lite" />
                         <InputError :message="formAi.errors.model" />
                     </div>

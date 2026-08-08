@@ -6,7 +6,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import LayoutAdmin from '@/layouts/LayoutAdmin.vue';
-import type { OpsiFilter } from '@/types/tabel';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 
 interface Aturan {
@@ -70,19 +69,15 @@ function simpan() {
                         <Label for="nama">Nama aturan</Label>
                         <Input id="nama" v-model="form.nama" required autofocus placeholder="Lonjakan berita negatif Pemkot" />
                         <p class="text-xs text-muted-foreground">
-                            Nama ini yang muncul sebagai judul pesan di grup Telegram. Tulis supaya terbaca jelas di
-                            layar ponsel tanpa membuka aplikasi.
+                            Nama ini yang muncul sebagai judul pesan di grup Telegram. Tulis supaya terbaca jelas di layar ponsel tanpa membuka
+                            aplikasi.
                         </p>
                         <InputError :message="form.errors.nama" />
                     </div>
 
                     <div class="grid gap-1.5">
                         <Label for="jenis">Jenis</Label>
-                        <select
-                            id="jenis"
-                            v-model="form.jenis"
-                            class="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                        >
+                        <select id="jenis" v-model="form.jenis" class="h-9 rounded-md border border-input bg-background px-3 text-sm">
                             <option value="lonjakan_negatif">Lonjakan berita negatif</option>
                             <option value="kata_kunci_muncul">Kata kunci muncul di judul</option>
                             <option value="sumber_mati">Sumber feed berhenti menghasilkan berita</option>
@@ -92,22 +87,19 @@ function simpan() {
                     </div>
 
                     <template v-if="form.jenis === 'lonjakan_negatif'">
-
                         <div class="grid gap-3 sm:grid-cols-2">
                             <div class="grid gap-1.5">
                                 <Label for="minimal">Minimal artikel</Label>
                                 <Input id="minimal" v-model.number="form.kondisi.minimal_artikel" type="number" min="1" />
                                 <p class="text-xs text-muted-foreground">
-                                    Penahan utamanya. Tanpa ini, kenaikan 1 ke 3 artikel terbaca sebagai lonjakan 300%
-                                    dan alert menyala hampir tiap hari.
+                                    Penahan utamanya. Tanpa ini, kenaikan 1 ke 3 artikel terbaca sebagai lonjakan 300% dan alert menyala hampir tiap
+                                    hari.
                                 </p>
                             </div>
                             <div class="grid gap-1.5">
                                 <Label for="kelipatan">Kelipatan dari rata-rata</Label>
                                 <Input id="kelipatan" v-model.number="form.kondisi.kelipatan_dari_rata_rata" type="number" step="0.1" min="1" />
-                                <p class="text-xs text-muted-foreground">
-                                    Dibandingkan rata-rata empat jendela sebelumnya, bukan satu.
-                                </p>
+                                <p class="text-xs text-muted-foreground">Dibandingkan rata-rata empat jendela sebelumnya, bukan satu.</p>
                             </div>
                         </div>
 
@@ -116,8 +108,7 @@ function simpan() {
                             <span>
                                 Abaikan artikel yang model sendiri ragukan
                                 <span class="block text-xs text-muted-foreground">
-                                    Label yang ditandai perlu review biasanya bukan bahan yang pantas membangunkan orang
-                                    di luar jam kerja.
+                                    Label yang ditandai perlu review biasanya bukan bahan yang pantas membangunkan orang di luar jam kerja.
                                 </span>
                             </span>
                         </label>
@@ -138,9 +129,7 @@ function simpan() {
                     <div v-else-if="form.jenis === 'sumber_mati'" class="grid gap-1.5">
                         <Label for="jam">Diam berapa jam sebelum dianggap mati</Label>
                         <Input id="jam" v-model.number="form.kondisi.jam" type="number" min="1" max="720" />
-                        <p class="text-xs text-muted-foreground">
-                            Media daerah wajar diam semalaman, jadi ambangnya bukan hitungan menit.
-                        </p>
+                        <p class="text-xs text-muted-foreground">Media daerah wajar diam semalaman, jadi ambangnya bukan hitungan menit.</p>
                     </div>
 
                     <div class="grid gap-3 sm:grid-cols-2">
@@ -153,8 +142,8 @@ function simpan() {
                             <Label for="jeda">Jeda minimal antar kirim (jam)</Label>
                             <Input id="jeda" v-model.number="form.jeda_minimal_jam" type="number" min="1" max="168" required />
                             <p class="text-xs text-muted-foreground">
-                                Pembatas pengiriman berulang. Aturan yang mengirim tiap 15 menit membuat orang mematikan
-                                notifikasi grupnya, dan setelah itu tidak ada alert yang sampai.
+                                Pembatas pengiriman berulang. Aturan yang mengirim tiap 15 menit membuat orang mematikan notifikasi grupnya, dan
+                                setelah itu tidak ada alert yang sampai.
                             </p>
                             <InputError :message="form.errors.jeda_minimal_jam" />
                         </div>

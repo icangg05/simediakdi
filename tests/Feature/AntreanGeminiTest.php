@@ -8,6 +8,7 @@ use App\Models\AntreanGemini;
 use App\Models\Artikel;
 use App\Models\KunciGemini;
 use App\Models\Media;
+use App\Models\PengaturanAi;
 use App\Models\User;
 use App\Services\Ai\KlasifikasiArtikel;
 use App\Services\Ai\RotasiKunciGemini;
@@ -248,6 +249,92 @@ class AntreanGeminiTest extends TestCase
 
         $this->assertSame(60, (int) $jadwal[0]->diffInSeconds($jadwal[1]));
         $this->assertSame(60, (int) $jadwal[1]->diffInSeconds($jadwal[2]));
+    }
+
+    /**
+     * Baris menunggu yang jobnya sudah lenyap dibebaskan, bukan didiamkan.
+     *
+     * Kebuntuan ini benar-benar terjadi dan mendiamkan antrean produksi sehari
+     * penuh. Dua puluh baris tertinggal berstatus menunggu dengan
+     * `dijadwalkan_at` terisi setelah jobnya hilang dari tabel `jobs`. Ketiganya
+     * berkonspirasi: jatah gantung habis dipakai baris itu, `siapDiambil()`
+     * mengecualikannya karena mengira ia masih hidup, dan penyapu lama hanya
+     * menyentuh yang berjalan. Tiga ribu artikel siap kerja tidak pernah
+     * dilepas, tanpa satu pun pesan galat.
+     */
+    public function test_pekerjaan_menunggu_tanpa_job_dibebaskan(): void
+    {
+        Queue::fake();
+
+        $artikel = $this->artikel('Belum pernah dinilai');
+
+        $this->artisan('gemini:antre', ['--isi' => true, '--batas' => 0]);
+
+        // Meniru pelepasan kemarin yang jobnya sudah tidak ada lagi.
+        AntreanGemini::query()->update([
+            'status' => 'menunggu',
+            'dijadwalkan_at' => now()->subHours(23),
+        ]);
+
+        $this->artisan('gemini:antre', ['--batas' => 5]);
+
+        Queue::assertPushed(KlasifikasiGemini::class, 1);
+        $this->assertSame('menunggu', AntreanGemini::where('artikel_id', $artikel->id)->value('status'));
+
+        // Jatah percobaan tidak boleh ikut terpakai. Barisnya tidak pernah
+        // gagal, ia cuma kehilangan jobnya.
+        $this->assertSame(0, (int) AntreanGemini::where('artikel_id', $artikel->id)->value('percobaan'));
+    }
+
+    /**
+     * Pekerjaan yang baru saja menunda dirinya tidak ikut terbebaskan.
+     *
+     * Batas atas penundaan job lima menit, jadi baris yang dijadwalkan beberapa
+     * menit lagi memang masih hidup. Membebaskannya berarti satu artikel dinilai
+     * dua kali dan membayar dua kali.
+     */
+    public function test_penundaan_yang_masih_hidup_tidak_dibebaskan(): void
+    {
+        Queue::fake();
+
+        $this->artikel('Belum pernah dinilai');
+
+        $this->artisan('gemini:antre', ['--isi' => true, '--batas' => 0]);
+
+        AntreanGemini::query()->update([
+            'status' => 'menunggu',
+            'dijadwalkan_at' => now()->addMinutes(3),
+        ]);
+
+        $this->artisan('gemini:antre', ['--batas' => 5]);
+
+        Queue::assertNothingPushed();
+    }
+
+    /**
+     * Dengan IndoBERT, jaraknya lima detik selama jatah hariannya mencukupi.
+     *
+     * Kapasitas per menit tidak lagi menjadi lantainya. Penyaringnya berjalan di
+     * server sendiri, dan artikel yang ditolaknya selesai tanpa satu pun
+     * permintaan ke Google. Yang menggantikannya lantai jatah harian, dan di
+     * sini ia sengaja dibuat berlimpah supaya yang teruji memang angka pilihan
+     * admin. Lantai hariannya sendiri diuji di PenyediaRelevansiTest.
+     */
+    public function test_jeda_indobert_jauh_lebih_rapat_daripada_gemini(): void
+    {
+        KunciGemini::create(['label' => 'Kunci A', 'kunci' => 'kunci-a', 'aktif' => true]);
+
+        config([
+            'ai.antrean.jeda_detik' => 60,
+            'ai.antrean.jeda_detik_indobert' => 5,
+            'ai.batas_kunci.rpd' => 1000000,
+        ]);
+
+        $this->assertSame(60.0, AntreanGemini::jedaDetik());
+
+        PengaturanAi::aktif()->update(['penyedia_relevansi' => 'indobert']);
+
+        $this->assertSame(5.0, AntreanGemini::jedaDetik());
     }
 
     /**

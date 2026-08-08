@@ -31,23 +31,13 @@ const props = defineProps<{
     <Head title="Portal media" />
 
     <LayoutPortal judul="Portal media">
-        <p class="text-sm text-muted-foreground">
-            Berita Anda yang tertangkap sistem, realisasi kontrak, dan pelaporan pemuatan.
-        </p>
+        <p class="text-sm text-muted-foreground">Berita Anda yang tertangkap sistem, realisasi kontrak, dan pelaporan pemuatan.</p>
 
         <div class="grid grid-cols-2 gap-3">
             <KartuKpi label="Berita terpantau (30 hari)" :nilai="props.kpi.artikel_30_hari" />
             <KartuKpi label="Pemuatan terverifikasi" :nilai="props.kpi.pemuatan_tercatat" />
-            <KartuKpi
-                label="Menunggu verifikasi"
-                :nilai="props.kpi.menunggu_verifikasi"
-                keterangan="Sedang diperiksa admin Diskominfo"
-            />
-            <KartuKpi
-                label="Laporan ditolak"
-                :nilai="props.kpi.ditolak"
-                keterangan="Alasannya ada di halaman kontrak"
-            />
+            <KartuKpi label="Menunggu verifikasi" :nilai="props.kpi.menunggu_verifikasi" keterangan="Sedang diperiksa admin Diskominfo" />
+            <KartuKpi label="Laporan ditolak" :nilai="props.kpi.ditolak" keterangan="Alasannya ada di halaman kontrak" />
         </div>
 
         <div class="flex flex-wrap gap-2">

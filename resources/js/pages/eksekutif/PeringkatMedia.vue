@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import ChartPeringkatMedia from '@/components/chart/ChartPeringkatMedia.vue';
 import PemilihRentangTanggal from '@/components/domain/PemilihRentangTanggal.vue';
+import KeadaanKosong from '@/components/KeadaanKosong.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import KeadaanKosong from '@/components/KeadaanKosong.vue';
 import { useFormatAngka } from '@/composables/useFormatAngka';
 import { usePeriodeEksekutif } from '@/composables/usePeriodeEksekutif';
 import LayoutEksekutif from '@/layouts/LayoutEksekutif.vue';
@@ -46,11 +46,7 @@ const warnaTier: Record<string, string> = {
         <header class="flex flex-wrap items-center justify-between gap-3">
             <h1 class="text-2xl font-semibold">Peringkat media</h1>
             <div class="flex flex-wrap items-center gap-2">
-                <PemilihRentangTanggal
-                    :dari="periode.dari"
-                    :sampai="periode.sampai"
-                    @ubah="(dari, sampai) => pindah({ dari, sampai })"
-                />
+                <PemilihRentangTanggal :dari="periode.dari" :sampai="periode.sampai" @ubah="(dari, sampai) => pindah({ dari, sampai })" />
             </div>
         </header>
 
@@ -92,12 +88,7 @@ const warnaTier: Record<string, string> = {
                                 <TableCell class="angka text-right">{{ formatAngka(m.jumlah_netral) }}</TableCell>
                                 <TableCell class="angka text-right">{{ formatAngka(m.jumlah_positif) }}</TableCell>
                                 <TableCell class="angka text-right">
-                                    {{
-                                        formatProporsi(
-                                            m.jumlah_negatif,
-                                            m.jumlah_negatif + m.jumlah_netral + m.jumlah_positif,
-                                        )
-                                    }}
+                                    {{ formatProporsi(m.jumlah_negatif, m.jumlah_negatif + m.jumlah_netral + m.jumlah_positif) }}
                                 </TableCell>
                             </TableRow>
                         </TableBody>

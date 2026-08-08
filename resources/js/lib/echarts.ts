@@ -7,24 +7,8 @@
  * impor utuh demi cepat.
  */
 import { BarChart, LineChart, PieChart } from 'echarts/charts';
-import {
-    DataZoomComponent,
-    GridComponent,
-    LegendComponent,
-    TitleComponent,
-    TooltipComponent,
-} from 'echarts/components';
+import { DataZoomComponent, GridComponent, LegendComponent, TitleComponent, TooltipComponent } from 'echarts/components';
 import { use } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
 
-use([
-    CanvasRenderer,
-    LineChart,
-    BarChart,
-    PieChart,
-    GridComponent,
-    TooltipComponent,
-    LegendComponent,
-    TitleComponent,
-    DataZoomComponent,
-]);
+use([CanvasRenderer, LineChart, BarChart, PieChart, GridComponent, TooltipComponent, LegendComponent, TitleComponent, DataZoomComponent]);

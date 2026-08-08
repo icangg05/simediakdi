@@ -49,9 +49,7 @@ const opsi = computed(() => ({
     })),
 }));
 
-const barisTabel = computed(() =>
-    props.data.map((b) => [b.nama, b.jumlah_artikel, b.jumlah_positif, b.jumlah_netral, b.jumlah_negatif]),
-);
+const barisTabel = computed(() => props.data.map((b) => [b.nama, b.jumlah_artikel, b.jumlah_positif, b.jumlah_netral, b.jumlah_negatif]));
 </script>
 
 <template>

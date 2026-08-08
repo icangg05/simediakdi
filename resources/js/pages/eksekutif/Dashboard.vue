@@ -85,9 +85,7 @@ const rentangTerbaca = computed(
         `${format(new Date(props.periode.sampai), 'd MMMM yyyy', { locale: id })}`,
 );
 
-const namaSatuan = computed(
-    () => ({ harian: 'per hari', mingguan: 'per pekan', bulanan: 'per bulan' })[props.deret.satuan],
-);
+const namaSatuan = computed(() => ({ harian: 'per hari', mingguan: 'per pekan', bulanan: 'per bulan' })[props.deret.satuan]);
 
 /**
  * Bar isu digambar relatif terhadap isu teratas, bukan terhadap total berita.
@@ -107,12 +105,7 @@ const puncakMedia = computed(() => Math.max(1, ...props.peringkatMedia.map((m) =
                 <p class="text-sm text-muted-foreground">{{ rentangTerbaca }}</p>
             </div>
 
-            <PemilihRentangTanggal
-                :dari="periode.dari"
-                :sampai="periode.sampai"
-                inline
-                @ubah="(dari, sampai) => pindah({ dari, sampai })"
-            />
+            <PemilihRentangTanggal :dari="periode.dari" :sampai="periode.sampai" inline @ubah="(dari, sampai) => pindah({ dari, sampai })" />
         </header>
 
         <SentimenBelumTersedia v-if="!sentimenTersedia" :alasan="alasanSentimen" />
@@ -142,9 +135,7 @@ const puncakMedia = computed(() => Math.max(1, ...props.peringkatMedia.map((m) =
                     <CardContent class="p-4">
                         <p class="text-[13px] font-medium text-muted-foreground">Sentimen negatif</p>
                         <p class="angka mt-1 text-4xl font-semibold">{{ formatAngka(kpi.negatif) }}</p>
-                        <p class="mt-1 text-xs text-muted-foreground">
-                            {{ formatPersen(kpi.negatif_persen) }} dari berita berlabel
-                        </p>
+                        <p class="mt-1 text-xs text-muted-foreground">{{ formatPersen(kpi.negatif_persen) }} dari berita berlabel</p>
                         <p v-if="kpi.negatif_selisih !== 0" class="text-xs text-muted-foreground">
                             {{ kpi.negatif_selisih > 0 ? 'naik' : 'turun' }}
                             {{ formatAngka(Math.abs(kpi.negatif_selisih)) }} dari periode sebelumnya
@@ -165,9 +156,7 @@ const puncakMedia = computed(() => Math.max(1, ...props.peringkatMedia.map((m) =
                             {{ formatAngka(peringatan.jumlah) }} peringatan belum dibaca dalam 24 jam terakhir
                         </p>
                         <p class="truncate text-xs text-muted-foreground">{{ peringatan.terbaru }}</p>
-                        <Link :href="`/eksekutif/sentimen?${kueri()}`" class="text-xs underline">
-                            Lihat analisis sentimen
-                        </Link>
+                        <Link :href="`/eksekutif/sentimen?${kueri()}`" class="text-xs underline"> Lihat analisis sentimen </Link>
                     </div>
                 </CardContent>
             </Card>
@@ -236,8 +225,7 @@ const puncakMedia = computed(() => Math.max(1, ...props.peringkatMedia.map((m) =
                             </li>
                         </ul>
                         <p v-else class="py-4 text-sm text-muted-foreground">
-                            Belum ada isu terhitung pada rentang ini. Isu dihitung dari berita yang sudah
-                            selesai diklasifikasi.
+                            Belum ada isu terhitung pada rentang ini. Isu dihitung dari berita yang sudah selesai diklasifikasi.
                         </p>
                     </CardContent>
                 </Card>
@@ -263,10 +251,7 @@ const puncakMedia = computed(() => Math.max(1, ...props.peringkatMedia.map((m) =
                                     media yang banyak memuat dan netral.
                                 -->
                                 <div class="mt-1 flex h-1.5 overflow-hidden rounded-full bg-muted">
-                                    <div
-                                        class="h-full bg-sentimen-negatif"
-                                        :style="{ width: `${(m.jumlah_negatif / puncakMedia) * 100}%` }"
-                                    ></div>
+                                    <div class="h-full bg-sentimen-negatif" :style="{ width: `${(m.jumlah_negatif / puncakMedia) * 100}%` }"></div>
                                     <div
                                         class="h-full bg-foreground/25"
                                         :style="{
@@ -276,9 +261,7 @@ const puncakMedia = computed(() => Math.max(1, ...props.peringkatMedia.map((m) =
                                 </div>
                             </li>
                         </ul>
-                        <p v-else class="py-4 text-sm text-muted-foreground">
-                            Belum ada media yang memuat pada rentang ini.
-                        </p>
+                        <p v-else class="py-4 text-sm text-muted-foreground">Belum ada media yang memuat pada rentang ini.</p>
                     </CardContent>
                 </Card>
             </div>
@@ -304,17 +287,14 @@ const puncakMedia = computed(() => Math.max(1, ...props.peringkatMedia.map((m) =
                             tampilkan-sentimen
                         />
                     </div>
-                    <p v-else class="py-4 text-sm text-muted-foreground">
-                        Belum ada berita relevan yang berlabel pada rentang ini.
-                    </p>
+                    <p v-else class="py-4 text-sm text-muted-foreground">Belum ada berita relevan yang berlabel pada rentang ini.</p>
                 </CardContent>
             </Card>
 
             <p class="pt-2 text-center text-xs text-muted-foreground">
-                Seluruh angka di halaman ini dihitung dari berita yang dinyatakan relevan dan sudah
-                punya label sentimen. Label dihasilkan Gemini dan dapat dikoreksi admin. Akurasinya
-                belum diukur terhadap kumpulan uji berlabel manusia, jadi angka di halaman ini masih
-                perlu dibaca dengan hati-hati.
+                Seluruh angka di halaman ini dihitung dari berita yang dinyatakan relevan dan sudah punya label sentimen. Label dihasilkan Gemini dan
+                dapat dikoreksi admin. Akurasinya belum diukur terhadap kumpulan uji berlabel manusia, jadi angka di halaman ini masih perlu dibaca
+                dengan hati-hati.
             </p>
         </template>
     </LayoutEksekutif>

@@ -1,6 +1,6 @@
+import type { ArahUrut } from '@/types/tabel';
 import { router, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import type { ArahUrut } from '@/types/tabel';
 
 /**
  * Seluruh filter, sort, dan paginasi dikerjakan server.
@@ -88,9 +88,7 @@ export function useFilterTabel(urlBasis: string) {
         router.get(urlBasis, {}, { preserveScroll: true, replace: true });
     }
 
-    const adaFilterAktif = computed(() =>
-        Object.keys(kueri.value).some((k) => k !== 'halaman' && kueri.value[k] !== ''),
-    );
+    const adaFilterAktif = computed(() => Object.keys(kueri.value).some((k) => k !== 'halaman' && kueri.value[k] !== ''));
 
     return { kueri, urut, arah, cari, urutkan, cariDengan, saring, nilaiFilter, keHalaman, bersihkan, adaFilterAktif };
 }

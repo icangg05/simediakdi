@@ -14,16 +14,13 @@ const { formatAngka } = useFormatAngka();
     <div class="flex flex-wrap items-center justify-between gap-2 px-1 py-2">
         <p class="text-sm text-muted-foreground">
             <template v-if="meta.total > 0">
-                Menampilkan {{ formatAngka(meta.from) }}-{{ formatAngka(meta.to) }}
-                dari {{ formatAngka(meta.total) }} baris
+                Menampilkan {{ formatAngka(meta.from) }}-{{ formatAngka(meta.to) }} dari {{ formatAngka(meta.total) }} baris
             </template>
             <template v-else>Tidak ada baris</template>
         </p>
 
         <div class="flex items-center gap-2">
-            <span class="text-sm text-muted-foreground">
-                Halaman {{ formatAngka(meta.current_page) }} dari {{ formatAngka(meta.last_page) }}
-            </span>
+            <span class="text-sm text-muted-foreground"> Halaman {{ formatAngka(meta.current_page) }} dari {{ formatAngka(meta.last_page) }} </span>
 
             <Button
                 variant="outline"

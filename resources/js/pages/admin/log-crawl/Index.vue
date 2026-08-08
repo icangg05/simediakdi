@@ -63,10 +63,7 @@ function crawlSekarang() {
                 berhentiMenarik();
                 sedangCrawl.value = true;
 
-                penarik = setInterval(
-                    () => router.reload({ only: ['log', 'crawlTerakhir', 'crawlBerikutnya'], showProgress: false }),
-                    5000,
-                );
+                penarik = setInterval(() => router.reload({ only: ['log', 'crawlTerakhir', 'crawlBerikutnya'], showProgress: false }), 5000);
 
                 // Tiga menit, sedikit di atas durasi satu crawl penuh. Halaman
                 // pemantauan yang menarik dirinya sendiri selamanya adalah
@@ -117,9 +114,8 @@ const varianStatus: Record<BarisLog['status'], string> = {
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="max-w-2xl space-y-2">
                 <p class="text-xs text-muted-foreground">
-                    Crawl otomatis berjalan tiap 3 jam untuk {{ jumlahSumberAktif }} sumber aktif. Log disimpan 90 hari,
-                    lalu dihapus otomatis. Kolom "sudah ada" berisi item feed yang URL-nya sudah tercatat di database,
-                    ditambah item yang dibuang saringan kata kunci.
+                    Crawl otomatis berjalan tiap 3 jam untuk {{ jumlahSumberAktif }} sumber aktif. Log disimpan 90 hari, lalu dihapus otomatis. Kolom
+                    "sudah ada" berisi item feed yang URL-nya sudah tercatat di database, ditambah item yang dibuang saringan kata kunci.
                 </p>
 
                 <p class="flex flex-wrap gap-x-4 gap-y-1 text-xs">
@@ -157,7 +153,11 @@ const varianStatus: Record<BarisLog['status'], string> = {
             <template #sel-sumber_feed="{ baris }">
                 <div class="min-w-0">
                     <p class="truncate font-medium">{{ baris.sumber_feed?.nama ?? 'Sumber terhapus' }}</p>
-                    <p v-if="baris.pesan" class="truncate text-xs" :class="baris.status === 'gagal' ? 'text-sentimen-negatif' : 'text-muted-foreground'">
+                    <p
+                        v-if="baris.pesan"
+                        class="truncate text-xs"
+                        :class="baris.status === 'gagal' ? 'text-sentimen-negatif' : 'text-muted-foreground'"
+                    >
                         {{ baris.pesan }}
                     </p>
                 </div>

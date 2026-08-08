@@ -116,6 +116,36 @@ return [
          * membuat antrean menembak Gemini lebih cepat daripada yang diizinkan.
          */
         'jeda_detik' => (int) env('GEMINI_ANTREAN_JEDA', 60),
+
+        /*
+         * Jarak antar artikel saat relevansi dikerjakan IndoBERT.
+         *
+         * Jauh lebih rapat karena penyaringnya tidak lagi memakai kuota siapa
+         * pun. Inferensi berjalan di server sendiri, dan artikel yang ditolak
+         * selesai tanpa satu pun permintaan ke Google.
+         *
+         * Ini murni soal beban CPU layanan inferensi, bukan soal kuota. Kuota
+         * Gemini dijaga `jeda_gemini_indobert` di bawah, yang hanya berlaku
+         * untuk artikel yang benar-benar lolos saringan.
+         */
+        'jeda_detik_indobert' => (int) env('RELEVANSI_ANTREAN_JEDA', 5),
+
+        /*
+         * Jarak antar artikel yang memakai Gemini, saat IndoBERT menyaring.
+         *
+         * Dihitung antar artikel yang lolos, bukan antar artikel yang dilepas.
+         * Berita yang ditolak IndoBERT mengalir bebas di jarak lima detik di
+         * atas, karena ia tidak memakan kuota siapa pun. Inilah yang membuat
+         * tumpukan berita tidak relevan bisa disapu cepat tanpa jatah harian
+         * ikut terbakar.
+         *
+         * Nol berarti serahkan seluruhnya pada lantai jatah harian yang dihitung
+         * `RotasiKunciGemini::jarakArtikel()`. Pada enam kunci, lantai itu
+         * sekitar 29 detik per artikel yang lolos, dan itu yang membuat 3.000
+         * permintaan sehari bertahan dua puluh empat jam penuh. Isi angka di
+         * sini hanya kalau Gemini perlu ditahan lebih longgar lagi.
+         */
+        'jeda_gemini_indobert' => (int) env('RELEVANSI_ANTREAN_JEDA_GEMINI', 0),
     ],
 
     /*

@@ -101,11 +101,17 @@ class AntreGemini extends Command
 
         return $kueri->whereHas('analisisSentimen', function (Builder $analisis) use ($relevan) {
             $analisis->where('relevan', $relevan)
-                // Provider selain gemini berarti keputusannya datang dari
-                // pipeline IndoBERT lama yang sudah dihapus. Kolomnya kosong
-                // pada baris paling tua karena pipeline itu memang tidak pernah
-                // mengisinya.
-                ->where(fn (Builder $q) => $q->whereNull('provider')->orWhere('provider', '<>', 'gemini'));
+                // Provider kosong berarti keputusannya warisan pipeline lama
+                // yang tidak pernah mencap barisnya.
+                //
+                // Dulu syarat ini berbunyi "kosong atau bukan gemini", dan itu
+                // benar selama gemini satu-satunya penyedia yang mencap. Sejak
+                // IndoBERT ikut mengisi kolom ini, bunyi itu berubah menjadi
+                // lingkaran yang tidak pernah berhenti: IndoBERT menilai, kolom
+                // terisi indobert, penyisiran jam berikutnya melihatnya bukan
+                // gemini lalu mengantrekannya lagi, selamanya. Diuji di
+                // PenyediaRelevansiTest supaya tidak kembali secara diam-diam.
+                ->whereNull('provider');
 
             // Prioritas 2 khusus yang labelnya sudah ada. Relevan tanpa label
             // berarti sentimennya belum pernah tuntas, dan itu keadaan yang
@@ -180,7 +186,7 @@ class AntreGemini extends Command
      * kontainernya dijatuhkan di tengah pekerjaan. Barisnya tertinggal
      * berstatus berjalan selamanya, ikut terhitung sebagai pekerjaan
      * menggantung, dan pada akhirnya seluruh antrean berhenti bergerak karena
-     * kuotanya habis dipakai pekerjaan hantu.
+     * jatah gantungnya habis dipakai pekerjaan hantu.
      *
      * Ambangnya jauh di atas timeout job yang 300 detik, jadi pekerjaan yang
      * benar-benar masih berjalan tidak akan pernah tersapu.
@@ -196,5 +202,44 @@ class AntreGemini extends Command
                 'galat' => 'Pekerjaan berhenti di tengah jalan, kemungkinan worker dimatikan.',
                 'selesai_at' => now(),
             ]);
+
+        $this->bebaskanHantu();
+    }
+
+    /**
+     * Melepas kunci mati: baris menunggu yang jobnya sudah tidak ada.
+     *
+     * Ini kebuntuan yang benar-benar terjadi, dan mendiamkan antrean sejak
+     * 2026-08-07 sampai 2026-08-08. Dua puluh baris berstatus menunggu dengan
+     * `dijadwalkan_at` terisi tertinggal setelah jobnya lenyap dari tabel
+     * `jobs`, entah karena `retryUntil` terlampaui atau kontainer worker
+     * dijatuhkan saat pekerjaannya masih tertunda. Ketiganya berkonspirasi:
+     * `lepas()` menghitungnya sebagai pekerjaan menggantung sehingga jatahnya
+     * habis dan ruangnya nol, `siapDiambil()` mengecualikannya karena mengira
+     * ia masih hidup, dan penyapu di atas hanya menyentuh yang berjalan.
+     * Hasilnya 3.353 artikel siap kerja yang tidak akan pernah dilepas, tanpa
+     * satu pun pesan galat yang menjelaskan sebabnya.
+     *
+     * Yang dikembalikan hanya `dijadwalkan_at`, bukan statusnya. Barisnya
+     * memang tidak pernah gagal, ia cuma kehilangan jobnya, jadi jatah
+     * percobaannya tidak boleh ikut terpakai.
+     *
+     * Ambangnya tiga puluh menit, sementara job paling lama menunda dirinya
+     * lima menit. Enam kali lipat jarak itu yang menahan baris yang benar-benar
+     * masih tertunda ikut terbebaskan lalu dinilai dua kali. Kalaupun kebetulan
+     * itu terjadi, akibatnya satu artikel dinilai ulang, jauh lebih ringan
+     * daripada seluruh antrean berhenti selamanya.
+     */
+    private function bebaskanHantu(): void
+    {
+        $jumlah = AntreanGemini::query()
+            ->where('status', 'menunggu')
+            ->whereNotNull('dijadwalkan_at')
+            ->where('dijadwalkan_at', '<', now()->subMinutes(30))
+            ->update(['dijadwalkan_at' => null]);
+
+        if ($jumlah > 0) {
+            $this->warn("Pekerjaan tanpa job dibebaskan: {$jumlah}");
+        }
     }
 }

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import BadgeSentimen from '@/components/domain/BadgeSentimen.vue';
 import PemilihRentangTanggal from '@/components/domain/PemilihRentangTanggal.vue';
+import KeadaanKosong from '@/components/KeadaanKosong.vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import KeadaanKosong from '@/components/KeadaanKosong.vue';
 import { useFormatAngka } from '@/composables/useFormatAngka';
 import { useGerbangSentimen } from '@/composables/useGerbangSentimen';
 import { usePeriodeEksekutif } from '@/composables/usePeriodeEksekutif';
@@ -33,9 +33,7 @@ const { pindah, kueri } = usePeriodeEksekutif(props.periode, '/eksekutif/isu');
  * terbaca di sana dan hanya menghabiskan bandwidth (dokumen 04 C.5). Di sini
  * daftar dipakai untuk semua ukuran; word cloud menunggu echarts-wordcloud.
  */
-const naikTajam = computed(() =>
-    [...props.istilah].filter((i) => (i.skor_lonjakan ?? 0) >= 2).slice(0, 10),
-);
+const naikTajam = computed(() => [...props.istilah].filter((i) => (i.skor_lonjakan ?? 0) >= 2).slice(0, 10));
 </script>
 
 <template>
@@ -45,11 +43,7 @@ const naikTajam = computed(() =>
         <header class="flex flex-wrap items-center justify-between gap-3">
             <h1 class="text-2xl font-semibold">Isu hangat</h1>
             <div class="flex flex-wrap items-center gap-2">
-                <PemilihRentangTanggal
-                    :dari="periode.dari"
-                    :sampai="periode.sampai"
-                    @ubah="(dari, sampai) => pindah({ dari, sampai })"
-                />
+                <PemilihRentangTanggal :dari="periode.dari" :sampai="periode.sampai" @ubah="(dari, sampai) => pindah({ dari, sampai })" />
             </div>
         </header>
 
@@ -57,8 +51,8 @@ const naikTajam = computed(() =>
             <CardContent class="p-4">
                 <h2 class="mb-2 text-sm font-medium">Naik tajam</h2>
                 <p class="mb-3 text-xs text-muted-foreground">
-                    Dibandingkan rata-rata empat periode sebelumnya. Lonjakan tanpa nada dominan tidak
-                    bermakna. Kolom sentimen yang menjelaskan apakah kenaikan itu perlu ditindaklanjuti.
+                    Dibandingkan rata-rata empat periode sebelumnya. Lonjakan tanpa nada dominan tidak bermakna. Kolom sentimen yang menjelaskan
+                    apakah kenaikan itu perlu ditindaklanjuti.
                 </p>
                 <ul class="divide-y">
                     <li v-for="i in naikTajam" :key="i.istilah" class="flex items-center gap-3 py-2">
@@ -69,9 +63,7 @@ const naikTajam = computed(() =>
                             {{ i.istilah }}
                         </Link>
                         <span class="angka shrink-0 text-sm font-semibold">{{ i.skor_lonjakan }}×</span>
-                        <span class="angka shrink-0 text-xs text-muted-foreground">
-                            {{ formatAngka(i.jumlah_artikel) }} berita
-                        </span>
+                        <span class="angka shrink-0 text-xs text-muted-foreground"> {{ formatAngka(i.jumlah_artikel) }} berita </span>
                         <BadgeSentimen v-if="sentimenTersedia" :label="i.sentimen_dominan" class="shrink-0" />
                     </li>
                 </ul>
@@ -96,10 +88,7 @@ const naikTajam = computed(() =>
                         <TableBody>
                             <TableRow v-for="i in istilah" :key="i.istilah">
                                 <TableCell>
-                                    <Link
-                                        :href="`/eksekutif/berita?${kueri({ istilah: i.istilah })}`"
-                                        class="font-medium capitalize hover:underline"
-                                    >
+                                    <Link :href="`/eksekutif/berita?${kueri({ istilah: i.istilah })}`" class="font-medium capitalize hover:underline">
                                         {{ i.istilah }}
                                     </Link>
                                 </TableCell>

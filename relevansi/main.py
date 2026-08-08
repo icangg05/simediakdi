@@ -303,6 +303,13 @@ def _hitung_metrik(eval_pred):
         "f1": hasil["metrik"]["f1"],
         "precision": hasil["metrik"]["precision"],
         "recall": hasil["metrik"]["recall"],
+        # Porsi data validasi yang ditebak relevan. Angka ini ada semata-mata
+        # untuk membedakan dua keadaan yang di kolom accuracy terlihat sama:
+        # model yang benar-benar salah setengahnya, dan model yang menjawab
+        # kelas yang sama untuk seluruh data. Yang kedua selalu berbunyi 0 atau
+        # 1 di sini, dan tanpa kolom ini ia baru ketahuan berjam-jam kemudian
+        # lewat confusion matrix di akhir pelatihan.
+        "pred_relevan": round(float(prediksi.mean()), 4),
     }
 
 
@@ -387,6 +394,7 @@ class _Pemantau(TrainerCallback):
             "val_loss": round(float(metrics.get("eval_loss", 0.0)), 6),
             "val_accuracy": round(float(metrics.get("eval_accuracy", 0.0)), 4),
             "val_f1": round(float(metrics.get("eval_f1", 0.0)), 4),
+            "val_pred_relevan": round(float(metrics.get("eval_pred_relevan", 0.0)), 4),
         })
 
         # Ditulis ulang utuh, bukan di-append di tempat. Proxy daftar milik
@@ -438,6 +446,17 @@ def _jalankan(permintaan: PermintaanLatih, keadaan) -> None:
             per_device_train_batch_size=cfg.batch_size,
             per_device_eval_batch_size=max(cfg.batch_size, 8),
             learning_rate=cfg.learning_rate,
+            # Pemanasan sepuluh persen langkah pertama, bukan langsung pada
+            # learning rate penuh. Tanpa pemanasan, langkah-langkah awal
+            # mengguncang bobot pralatih selagi kepala klasifikasi masih acak,
+            # dan checkpoint yang dalam seperti BERT-large kerap tidak pulih
+            # dari guncangan itu. Kegagalannya diam: loss berhenti di 0,693,
+            # akurasi di 50 persen, dan model menjawab kelas yang sama untuk
+            # apa pun sampai epoch terakhir.
+            warmup_ratio=0.1,
+            # Peluruhan bobot standar untuk fine-tuning BERT. Trainer sendiri
+            # sudah mengecualikan bias dan LayerNorm dari peluruhan ini.
+            weight_decay=0.01,
             seed=cfg.seed,
             data_seed=cfg.seed,
             eval_strategy="epoch",

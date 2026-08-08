@@ -34,11 +34,6 @@ defineProps<{
             </p>
         </div>
 
-        <BadgeSentimen
-            v-if="tampilkanSentimen"
-            :label="label ?? null"
-            :perlu-review="perluReview"
-            class="mt-0.5 shrink-0"
-        />
+        <BadgeSentimen v-if="tampilkanSentimen" :label="label ?? null" :perlu-review="perluReview" class="mt-0.5 shrink-0" />
     </article>
 </template>

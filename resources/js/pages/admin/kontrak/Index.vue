@@ -98,18 +98,14 @@ const varianStatus: Record<string, string> = {
                     <Link :href="`/admin/kontrak/${baris.id}`" class="font-medium hover:underline">
                         {{ baris.judul }}
                     </Link>
-                    <p class="text-xs text-muted-foreground">
-                        {{ baris.nomor ?? 'Tanpa nomor' }} · {{ baris.jenis }}
-                    </p>
+                    <p class="text-xs text-muted-foreground">{{ baris.nomor ?? 'Tanpa nomor' }} · {{ baris.jenis }}</p>
                 </div>
             </template>
 
             <template #sel-media="{ baris }">{{ baris.media?.nama ?? '-' }}</template>
 
             <template #sel-tanggal_akhir="{ baris }">
-                <span class="text-xs text-muted-foreground">
-                    {{ tanggal(baris.tanggal_mulai) }} - {{ tanggal(baris.tanggal_akhir) }}
-                </span>
+                <span class="text-xs text-muted-foreground"> {{ tanggal(baris.tanggal_mulai) }} - {{ tanggal(baris.tanggal_akhir) }} </span>
             </template>
 
             <template #sel-progres="{ baris }">

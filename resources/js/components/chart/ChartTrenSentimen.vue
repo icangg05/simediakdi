@@ -14,10 +14,7 @@ interface Baris {
     jumlah_perlu_review: number;
 }
 
-const props = withDefaults(
-    defineProps<{ data: Baris[]; satuan?: SatuanDeret; tinggi?: number; memuat?: boolean }>(),
-    { satuan: 'harian' },
-);
+const props = withDefaults(defineProps<{ data: Baris[]; satuan?: SatuanDeret; tinggi?: number; memuat?: boolean }>(), { satuan: 'harian' });
 
 const { warnaSentimen, dasar, sumbuNilai, sumbuKategori } = useTemaChart();
 
@@ -33,13 +30,9 @@ const polaLabel: Record<SatuanDeret, string> = {
     bulanan: 'MMM yyyy',
 };
 
-const judulKolom = computed(
-    () => ({ harian: 'Tanggal', mingguan: 'Pekan mulai', bulanan: 'Bulan' })[props.satuan],
-);
+const judulKolom = computed(() => ({ harian: 'Tanggal', mingguan: 'Pekan mulai', bulanan: 'Bulan' })[props.satuan]);
 
-const tanggal = computed(() =>
-    props.data.map((b) => format(new Date(b.tanggal), polaLabel[props.satuan], { locale: id })),
-);
+const tanggal = computed(() => props.data.map((b) => format(new Date(b.tanggal), polaLabel[props.satuan], { locale: id })));
 
 /**
  * Urutan tetap dari bawah: positif, netral, negatif. Urutan yang berubah antar

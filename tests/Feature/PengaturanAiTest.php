@@ -120,6 +120,10 @@ class PengaturanAiTest extends TestCase
         $this->actingAs($this->admin)
             ->put('/admin/pengaturan/ai', [
                 'model' => 'gemini-uji',
+                // Form ini menulis seluruh baris pengaturan, jadi penyedia
+                // relevansi ikut dikirim walaupun yang sedang diuji promptnya.
+                // Mengirimkan sebagiannya saja akan mengosongkan sisanya.
+                'penyedia_relevansi' => 'gemini',
                 'versi_prompt_relevansi' => 'relevance-v3',
                 'prompt_relevansi' => $prompt,
                 'versi_prompt_sentimen' => PengaturanAi::aktif()->versi_prompt_sentimen,

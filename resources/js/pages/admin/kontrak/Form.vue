@@ -110,9 +110,7 @@ function simpan() {
                                 <SelectItem value="batal">Batal</SelectItem>
                             </SelectContent>
                         </Select>
-                        <p class="text-xs text-muted-foreground">
-                            Pencocokan pemuatan otomatis hanya berjalan untuk kontrak berstatus aktif.
-                        </p>
+                        <p class="text-xs text-muted-foreground">Pencocokan pemuatan otomatis hanya berjalan untuk kontrak berstatus aktif.</p>
                     </div>
 
                     <div class="grid gap-1.5">

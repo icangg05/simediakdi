@@ -20,11 +20,9 @@ export function useFormatAngka() {
         /** Persentase selalu satu angka desimal. */
         formatPersen: (n: number | null | undefined) => (n == null ? '-' : `${desimalSatu.format(n)}%`),
 
-        formatRupiah: (n: number | string | null | undefined) =>
-            n == null ? '-' : rupiah.format(typeof n === 'string' ? Number(n) : n),
+        formatRupiah: (n: number | string | null | undefined) => (n == null ? '-' : rupiah.format(typeof n === 'string' ? Number(n) : n)),
 
         /** Bagian dari total, aman saat total nol. */
-        formatProporsi: (bagian: number, total: number) =>
-            total === 0 ? '0,0%' : `${desimalSatu.format((bagian / total) * 100)}%`,
+        formatProporsi: (bagian: number, total: number) => (total === 0 ? '0,0%' : `${desimalSatu.format((bagian / total) * 100)}%`),
     };
 }

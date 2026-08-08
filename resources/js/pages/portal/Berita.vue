@@ -34,8 +34,7 @@ const waktu = (n: string) => format(new Date(n), 'd MMM yyyy, HH:mm', { locale: 
 
     <LayoutPortal judul="Berita saya" :breadcrumbs="[{ title: 'Berita saya', href: '/portal/berita' }]">
         <p class="text-sm text-muted-foreground">
-            Berita media Anda yang tertangkap sistem. Satu URL hanya masuk sekali, jadi daftar ini tidak
-            memuat baris kembar.
+            Berita media Anda yang tertangkap sistem. Satu URL hanya masuk sekali, jadi daftar ini tidak memuat baris kembar.
         </p>
 
         <DataTable
@@ -48,12 +47,7 @@ const waktu = (n: string) => format(new Date(n), 'd MMM yyyy, HH:mm', { locale: 
             keterangan-kosong="Sistem membaca RSS media Anda tiap 15 menit. Kalau berita baru tidak muncul juga dalam sehari, kabari Diskominfo agar sumber feed-nya diperiksa."
         >
             <template #sel-judul="{ baris }">
-                <a
-                    :href="baris.url"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="inline-flex items-start gap-1 font-medium hover:underline"
-                >
+                <a :href="baris.url" target="_blank" rel="noopener noreferrer" class="inline-flex items-start gap-1 font-medium hover:underline">
                     <span class="line-clamp-2">{{ baris.judul }}</span>
                     <ExternalLink class="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
                 </a>

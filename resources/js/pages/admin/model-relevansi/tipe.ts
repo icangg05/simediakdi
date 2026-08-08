@@ -58,6 +58,9 @@ export interface Epoch {
     val_loss: number;
     val_accuracy: number;
     val_f1: number;
+    // Opsional karena pelatihan yang sudah tersimpan sebelum kolom ini ada
+    // tidak punya angkanya.
+    val_pred_relevan?: number;
 }
 
 export interface Metrik {

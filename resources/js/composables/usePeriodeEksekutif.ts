@@ -6,16 +6,9 @@ import { router } from '@inertiajs/vue3';
  * Kalau tidak dibawa, pengguna yang sudah memilih 90 hari lalu membuka halaman
  * isu akan kembali ke bawaan tujuh hari tanpa penjelasan.
  */
-export function usePeriodeEksekutif(
-    periode: { dari: string; sampai: string },
-    urlBasis: string,
-) {
+export function usePeriodeEksekutif(periode: { dari: string; sampai: string }, urlBasis: string) {
     function pindah(parameter: Record<string, string | number | null>) {
-        router.get(
-            urlBasis,
-            { ...periode, ...parameter },
-            { preserveState: true, preserveScroll: true, replace: true },
-        );
+        router.get(urlBasis, { ...periode, ...parameter }, { preserveState: true, preserveScroll: true, replace: true });
     }
 
     /** Query string untuk tautan ke halaman eksekutif lain. */

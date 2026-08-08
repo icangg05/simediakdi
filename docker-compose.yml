@@ -47,19 +47,31 @@ services:
   # ikut antrean `default`, seluruh crawler dan penilaian Gemini berhenti
   # sepanjang pelatihan tanpa satu pun galat yang menunjukkan sebabnya.
   #
-  # Timeout-nya enam jam, jauh di atas worker utama. Job menunggui layanan
-  # Python lewat polling, jadi seluruh durasi pelatihan terhitung sebagai satu
-  # pekerjaan yang berjalan.
+  # Timeout-nya dua belas jam lewat sedikit, jauh di atas worker utama. Job
+  # menunggui layanan Python lewat polling, jadi seluruh durasi pelatihan
+  # terhitung sebagai satu pekerjaan yang berjalan.
+  #
+  # Angkanya sengaja lebih besar daripada `$timeout` di LatihModelRelevansi.
+  # Kalau keduanya sama persis, keduanya berbunyi pada detik yang sama dan yang
+  # tercatat adalah pembunuhan oleh worker, bukan penanganan job sendiri.
   worker-pelatihan:
     build: ./docker/php
     working_dir: /app
+    # Satu-satunya layanan di berkas ini yang memang bunuh diri. Worker antrean
+    # Laravel keluar dengan kode 1 begitu satu job melewati batas waktunya,
+    # karena proses yang sudah dipaksa berhenti di tengah jalan tidak dianggap
+    # aman untuk melanjutkan job berikutnya. Tanpa baris ini, antrean pelatihan
+    # ikut mati bersamanya dan pelatihan berikutnya menggantung di status
+    # menunggu tanpa satu pun galat, sampai ada yang sadar container-nya sudah
+    # tidak ada.
+    restart: unless-stopped
     user: "1000:1000"
     environment:
       HOME: /tmp
     volumes:
       - .:/app
     depends_on: [db, redis, relevansi]
-    command: php artisan queue:work --queue=pelatihan --tries=1 --timeout=21600
+    command: php artisan queue:work --queue=pelatihan --tries=1 --timeout=43800
 
   # Penjadwal. Tanpa proses ini seluruh isi routes/console.php tidak pernah
   # berjalan, termasuk pengisi antrean Gemini yang membuat klasifikasi otomatis
@@ -131,7 +143,13 @@ services:
       ARTEFAK_DIR: /app/storage/app/private/model-relevansi
       # Dibatasi supaya pelatihan tidak memakan seluruh inti mesin dan membuat
       # Postgres serta worker antrean tersendat selama belasan menit.
-      RELEVANSI_THREAD: "4"
+      #
+      # Delapan, bukan empat. Diukur pada checkpoint 24 layer di potongan 256
+      # token dengan batch 8: empat thread memberi 32 detik per langkah dan
+      # sepuluh thread memberi 21,8 detik. Sisa empat inti cukup untuk seluruh
+      # container lain. Menaikkannya lagi tidak banyak menolong, pelatihan CPU
+      # tersendat di lebar jalur memori, bukan di jumlah inti.
+      RELEVANSI_THREAD: "8"
     volumes:
       - .:/app
       - ./relevansi:/relevansi

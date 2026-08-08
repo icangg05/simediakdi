@@ -3,12 +3,7 @@ import DataTablePagination from '@/components/data-table/DataTablePagination.vue
 import DataTableToolbar from '@/components/data-table/DataTableToolbar.vue';
 import KeadaanKosong from '@/components/KeadaanKosong.vue';
 import { Button } from '@/components/ui/button';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useFilterTabel } from '@/composables/useFilterTabel';
 import type { AksiBaris, FilterDefinisi, KolomDefinisi, PaginasiMeta } from '@/types/tabel';
@@ -28,8 +23,7 @@ const props = defineProps<{
     keteranganKosong?: string;
 }>();
 
-const { urut, arah, cari, urutkan, cariDengan, saring, nilaiFilter, keHalaman, bersihkan, adaFilterAktif } =
-    useFilterTabel(props.urlBasis);
+const { urut, arah, cari, urutkan, cariDengan, saring, nilaiFilter, keHalaman, bersihkan, adaFilterAktif } = useFilterTabel(props.urlBasis);
 
 function ikonUrut(kunci: string) {
     if (urut.value !== kunci) return ArrowUpDown;
@@ -38,9 +32,7 @@ function ikonUrut(kunci: string) {
 
 function labelUrut(kolom: KolomDefinisi): string {
     if (urut.value !== kolom.kunci) return `Urutkan menurut ${kolom.judul}`;
-    return arah.value === 'asc'
-        ? `${kolom.judul}, urutan naik. Klik untuk membalik`
-        : `${kolom.judul}, urutan turun. Klik untuk membalik`;
+    return arah.value === 'asc' ? `${kolom.judul}, urutan naik. Klik untuk membalik` : `${kolom.judul}, urutan turun. Klik untuk membalik`;
 }
 </script>
 
@@ -67,9 +59,7 @@ function labelUrut(kolom: KolomDefinisi): string {
                             v-for="kol in kolom"
                             :key="kol.kunci"
                             :class="[kol.lebar, kol.kelas]"
-                            :aria-sort="
-                                urut === kol.kunci ? (arah === 'asc' ? 'ascending' : 'descending') : undefined
-                            "
+                            :aria-sort="urut === kol.kunci ? (arah === 'asc' ? 'ascending' : 'descending') : undefined"
                         >
                             <button
                                 v-if="kol.bisaDiurutkan"

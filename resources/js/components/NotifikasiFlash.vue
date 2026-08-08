@@ -15,7 +15,7 @@
 import { Toaster } from '@/components/ui/sonner';
 import type { SharedData } from '@/types';
 import { router, usePage } from '@inertiajs/vue3';
-import { h, watch } from 'vue';
+import { h, onMounted, watch } from 'vue';
 import { toast } from 'vue-sonner';
 
 const page = usePage<SharedData>();
@@ -113,41 +113,51 @@ function keterangan(flash: SharedData['flash']) {
     };
 }
 
+function tampilkan(flash: SharedData['flash']) {
+    // Tautan opsional dari controller, dirender sebagai tombol di dalam
+    // toast. Dipakai aksi yang memindahkan barisnya keluar dari layar:
+    // tanpa tombol ini admin tahu apa yang terjadi tetapi tidak punya cara
+    // membuka datanya lagi selain mencarinya kembali.
+    const tautan = flash?.tautan;
+    const aksi = tautan ? { action: { label: tautan.label, onClick: () => router.visit(tautan.url) } } : {};
+
+    if (flash?.sukses) {
+        toast.success(flash.sukses, {
+            duration: DURASI,
+            classes: { toast: BORDER_NADA[flash.nada ?? ''] ?? BORDER.hijau },
+            description: keterangan(flash),
+            ...aksi,
+        });
+    }
+
+    if (flash?.galat) {
+        toast.error(flash.galat, {
+            duration: DURASI_GALAT,
+            classes: { toast: BORDER.merah },
+            ...aksi,
+        });
+    }
+}
+
 // `nonce` ikut diamati, bukan hiasan: dua pesan yang isinya sama persis
 // menghasilkan nilai watch yang identik, dan toast kedua tidak pernah muncul.
 watch(
     () => [page.props.flash?.nonce, page.props.flash?.sukses, page.props.flash?.galat],
-    ([, sukses, galat]) => {
-        const flash = page.props.flash;
-
-        // Tautan opsional dari controller, dirender sebagai tombol di dalam
-        // toast. Dipakai aksi yang memindahkan barisnya keluar dari layar:
-        // tanpa tombol ini admin tahu apa yang terjadi tetapi tidak punya cara
-        // membuka datanya lagi selain mencarinya kembali.
-        const tautan = flash?.tautan;
-        const aksi = tautan
-            ? { action: { label: tautan.label, onClick: () => router.visit(tautan.url) } }
-            : {};
-
-        if (sukses) {
-            toast.success(sukses, {
-                duration: DURASI,
-                classes: { toast: BORDER_NADA[flash?.nada ?? ''] ?? BORDER.hijau },
-                description: keterangan(flash),
-                ...aksi,
-            });
-        }
-
-        if (galat) {
-            toast.error(galat, {
-                duration: DURASI_GALAT,
-                classes: { toast: BORDER.merah },
-                ...aksi,
-            });
-        }
-    },
-    { immediate: true },
+    () => tampilkan(page.props.flash),
 );
+
+/**
+ * Flash bawaan muat penuh dibaca setelah dipasang, bukan lewat `immediate`.
+ *
+ * `Toaster` baru mendaftarkan dirinya ke antrean vue-sonner saat komponen anak
+ * ini disiapkan, yaitu setelah setup induknya selesai. Watch dengan `immediate`
+ * berjalan lebih dulu, jadi toast-nya diterbitkan ke daftar pelanggan yang masih
+ * kosong lalu hilang tanpa jejak. Itu bukan kasus langka: setiap kali versi aset
+ * berubah, kunjungan Inertia berikutnya dijawab 409 dan berubah menjadi muat
+ * penuh, sehingga toast hasil klasifikasi yang barusan berjalan tidak pernah
+ * tampil. `onMounted` induk berjalan setelah anaknya, jadi pelanggannya sudah ada.
+ */
+onMounted(() => tampilkan(page.props.flash));
 </script>
 
 <template>

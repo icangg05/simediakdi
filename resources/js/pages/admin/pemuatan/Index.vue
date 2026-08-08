@@ -76,11 +76,9 @@ function tolak(baris: Baris) {
 
     <LayoutAdmin judul="Verifikasi pemuatan" :breadcrumbs="[{ title: 'Verifikasi pemuatan', href: '/admin/pemuatan' }]">
         <p class="text-sm text-muted-foreground">
-            Hanya laporan dari media yang masuk antrean ini. Pemuatan yang ditemukan crawler sudah terverifikasi sejak
-            dibuat, karena tidak ada klaim pihak berkepentingan yang perlu diperiksa.
-            <span v-if="props.jumlahMenunggu" class="font-medium text-foreground">
-                {{ props.jumlahMenunggu }} laporan menunggu.
-            </span>
+            Hanya laporan dari media yang masuk antrean ini. Pemuatan yang ditemukan crawler sudah terverifikasi sejak dibuat, karena tidak ada klaim
+            pihak berkepentingan yang perlu diperiksa.
+            <span v-if="props.jumlahMenunggu" class="font-medium text-foreground"> {{ props.jumlahMenunggu }} laporan menunggu. </span>
         </p>
 
         <DataTable
@@ -95,12 +93,7 @@ function tolak(baris: Baris) {
         >
             <template #sel-judul="{ baris }">
                 <div class="min-w-0 space-y-0.5">
-                    <a
-                        :href="baris.url"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="inline-flex items-start gap-1 font-medium hover:underline"
-                    >
+                    <a :href="baris.url" target="_blank" rel="noopener noreferrer" class="inline-flex items-start gap-1 font-medium hover:underline">
                         <span class="line-clamp-2">{{ baris.judul ?? baris.url }}</span>
                         <ExternalLink class="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
                     </a>
@@ -111,9 +104,7 @@ function tolak(baris: Baris) {
                     <p v-if="baris.cuplikan_arsip" class="line-clamp-2 text-xs text-muted-foreground">
                         {{ baris.cuplikan_arsip }}
                     </p>
-                    <p v-if="baris.alasan_penolakan" class="text-xs text-destructive">
-                        Ditolak: {{ baris.alasan_penolakan }}
-                    </p>
+                    <p v-if="baris.alasan_penolakan" class="text-xs text-destructive">Ditolak: {{ baris.alasan_penolakan }}</p>
                 </div>
             </template>
 
@@ -134,9 +125,7 @@ function tolak(baris: Baris) {
                     <span v-else class="text-xs text-muted-foreground">-</span>
                     <!-- Ekstraksi gagal tidak menghalangi verifikasi (F-51),
                          jadi statusnya ditampilkan sebagai keterangan saja. -->
-                    <Badge v-if="baris.status_ekstraksi === 'gagal'" variant="secondary" class="text-[10px]">
-                        arsip gagal
-                    </Badge>
+                    <Badge v-if="baris.status_ekstraksi === 'gagal'" variant="secondary" class="text-[10px]"> arsip gagal </Badge>
                 </div>
             </template>
 

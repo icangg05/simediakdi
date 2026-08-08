@@ -82,9 +82,7 @@ const submit = () => {
                 </Button>
             </div>
 
-            <div class="text-center text-sm text-muted-foreground">
-                Belum punya akun? Hubungi admin Diskominfo Kota Kendari.
-            </div>
+            <div class="text-center text-sm text-muted-foreground">Belum punya akun? Hubungi admin Diskominfo Kota Kendari.</div>
         </form>
     </AuthBase>
 </template>

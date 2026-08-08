@@ -66,7 +66,5 @@ export const navPerPeran: Record<PeranPengguna, NavItem[]> = {
 export function hrefAktif(items: NavItem[], url: string): string | undefined {
     const jalur = url.split('?')[0];
 
-    return items
-        .filter((item) => jalur === item.href || jalur.startsWith(`${item.href}/`))
-        .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+    return items.filter((item) => jalur === item.href || jalur.startsWith(`${item.href}/`)).sort((a, b) => b.href.length - a.href.length)[0]?.href;
 }

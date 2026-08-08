@@ -36,9 +36,7 @@ const opsi = computed(() => ({
     ],
 }));
 
-const barisTabel = computed(() =>
-    props.data.map((b) => [format(new Date(b.tanggal), 'd MMM yyyy', { locale: id }), b.jumlah_artikel]),
-);
+const barisTabel = computed(() => props.data.map((b) => [format(new Date(b.tanggal), 'd MMM yyyy', { locale: id }), b.jumlah_artikel]));
 </script>
 
 <template>

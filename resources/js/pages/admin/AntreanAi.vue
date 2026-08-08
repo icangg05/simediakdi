@@ -23,7 +23,6 @@ interface Baris {
     sentimen: 'positif' | 'netral' | 'negatif' | null;
 }
 
-
 type Keadaan = 'bekerja' | 'menunggu' | 'tertunda' | 'kosong' | 'macet';
 
 const props = defineProps<{
@@ -62,16 +61,10 @@ const { formatAngka } = useFormatAngka();
  * diam-diam karena seseorang menekan jeda kemarin adalah persis jenis
  * kebohongan yang ingin dihindari halaman ini.
  */
-usePoll(
-    5000,
-    { only: ['ringkasan', 'aktivitas', 'prioritas', 'laju', 'kuota', 'terbaru', 'diperbarui'] },
-    { autoStart: true },
-);
+usePoll(5000, { only: ['ringkasan', 'aktivitas', 'prioritas', 'laju', 'kuota', 'terbaru', 'diperbarui'] }, { autoStart: true });
 
 const persen = computed(() =>
-    props.ringkasan.total === 0
-        ? 0
-        : Math.round(((props.ringkasan.selesai + props.ringkasan.menyerah) / props.ringkasan.total) * 100),
+    props.ringkasan.total === 0 ? 0 : Math.round(((props.ringkasan.selesai + props.ringkasan.menyerah) / props.ringkasan.total) * 100),
 );
 
 const jam = (nilai: string | null) => (nilai ? format(new Date(nilai), 'HH:mm:ss', { locale: id }) : '-');
@@ -187,12 +180,7 @@ const kapital = (teks: string) => teks.charAt(0).toUpperCase() + teks.slice(1);
                 sendiri tidak terbaca pembaca layar, jadi labelnya yang harus
                 membawa seluruh maknanya.
             -->
-            <div
-                class="flex items-center gap-2.5 rounded-md border px-3 py-1.5"
-                :class="indikator.bingkai"
-                role="status"
-                aria-live="polite"
-            >
+            <div class="flex items-center gap-2.5 rounded-md border px-3 py-1.5" :class="indikator.bingkai" role="status" aria-live="polite">
                 <TriangleAlert v-if="aktivitas.keadaan === 'macet'" class="size-4 shrink-0" aria-hidden="true" />
                 <span v-else class="relative flex size-2.5 shrink-0" aria-hidden="true">
                     <span
@@ -305,8 +293,8 @@ const kapital = (teks: string) => teks.charAt(0).toUpperCase() + teks.slice(1);
                     </p>
                     <p class="text-muted-foreground">
                         Jarak antar artikel
-                        <span class="angka font-medium text-foreground">{{ formatAngka(kuota.jeda_detik) }}</span> detik,
-                        kira-kira <span class="angka">{{ formatAngka(kuota.per_hari) }}</span> artikel sehari
+                        <span class="angka font-medium text-foreground">{{ formatAngka(kuota.jeda_detik) }}</span> detik, kira-kira
+                        <span class="angka">{{ formatAngka(kuota.per_hari) }}</span> artikel sehari
                     </p>
                     <!-- Perkiraan dihitung dari kapasitas dan jeda, bukan dari
                          laju sejam terakhir. Laju sejam terakhir jatuh ke nol
@@ -332,8 +320,8 @@ const kapital = (teks: string) => teks.charAt(0).toUpperCase() + teks.slice(1);
                 </div>
 
                 <p v-if="terbaru.length === 0" class="p-4 pt-0 text-sm text-muted-foreground">
-                    Belum ada pekerjaan yang bergerak. Artikel masuk antrean sendiri begitu isinya selesai
-                    diekstrak, jadi daftar ini terisi setelah crawl berikutnya berjalan.
+                    Belum ada pekerjaan yang bergerak. Artikel masuk antrean sendiri begitu isinya selesai diekstrak, jadi daftar ini terisi setelah
+                    crawl berikutnya berjalan.
                 </p>
 
                 <div v-else class="divide-y border-t">
@@ -366,15 +354,11 @@ const kapital = (teks: string) => teks.charAt(0).toUpperCase() + teks.slice(1);
                                 <span class="text-xs text-muted-foreground">prioritas {{ b.prioritas }}</span>
                             </div>
 
-                            <p v-if="b.galat" class="text-xs text-rose-600 dark:text-rose-400">
-                                Percobaan ke-{{ b.percobaan }}: {{ b.galat }}
-                            </p>
+                            <p v-if="b.galat" class="text-xs text-rose-600 dark:text-rose-400">Percobaan ke-{{ b.percobaan }}: {{ b.galat }}</p>
                         </div>
-
                     </div>
                 </div>
             </CardContent>
         </Card>
-
     </LayoutAdmin>
 </template>

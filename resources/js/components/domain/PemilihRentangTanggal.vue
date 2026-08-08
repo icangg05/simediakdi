@@ -2,14 +2,7 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Sheet,
-    SheetContent,
-    SheetDescription,
-    SheetHeader,
-    SheetTitle,
-    SheetTrigger,
-} from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { CalendarDays } from 'lucide-vue-next';
@@ -70,9 +63,7 @@ function terapkan() {
 const pintasanAktif = computed(() => {
     const hariIni = tanggalIso(new Date());
 
-    return props.sampai === hariIni
-        ? pintasan.find((p) => tanggalMundur(p.hari) === props.dari)?.label
-        : undefined;
+    return props.sampai === hariIni ? pintasan.find((p) => tanggalMundur(p.hari) === props.dari)?.label : undefined;
 });
 
 const ringkas = computed(() => {

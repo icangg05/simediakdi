@@ -62,11 +62,7 @@ const waktu = (n: string) => format(new Date(n), 'd MMM yyyy, HH:mm', { locale: 
         <header class="flex flex-wrap items-center justify-between gap-3">
             <h1 class="text-2xl font-semibold">Arsip berita</h1>
             <div class="flex flex-wrap items-center gap-2">
-                <PemilihRentangTanggal
-                    :dari="periode.dari"
-                    :sampai="periode.sampai"
-                    @ubah="(dari, sampai) => pindah({ dari, sampai })"
-                />
+                <PemilihRentangTanggal :dari="periode.dari" :sampai="periode.sampai" @ubah="(dari, sampai) => pindah({ dari, sampai })" />
             </div>
         </header>
 
@@ -89,12 +85,7 @@ const waktu = (n: string) => format(new Date(n), 'd MMM yyyy, HH:mm', { locale: 
             keterangan-kosong="Perlebar rentang tanggal, atau longgarkan filternya."
         >
             <template #sel-judul="{ baris }">
-                <a
-                    :href="baris.url"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="inline-flex items-start gap-1 font-medium hover:underline"
-                >
+                <a :href="baris.url" target="_blank" rel="noopener noreferrer" class="inline-flex items-start gap-1 font-medium hover:underline">
                     <span class="line-clamp-2">{{ baris.judul }}</span>
                     <ExternalLink class="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
                 </a>

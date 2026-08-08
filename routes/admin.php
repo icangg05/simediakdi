@@ -40,34 +40,27 @@ Route::prefix('admin')->name('admin.')->middleware('peran:superadmin,walikota')-
         ->name('artikel.buang-semua');
 
     Route::get('artikel/{artikel}', [ArtikelController::class, 'show'])->name('artikel.show');
-    // Satu penilaian tiap 15 detik, bukan 30 semenit. `0.25` menit adalah
-    // 15 detik, dan middleware throttle mengalikannya dengan 60 apa adanya.
-    //
-    // Angkanya bukan soal beban server. Satu klik adalah satu sampai dua
-    // permintaan Gemini yang dihitung penuh oleh Google, dan kuotanya kuota
-    // yang sama dengan yang dipakai antrean otomatis. Tanpa jeda, admin yang
-    // menyapu daftar dengan klik beruntun menghabiskan jatah harian dalam
-    // beberapa menit, dan antrean latar belakang berhenti sampai tengah malam
-    // waktu Pasifik tanpa ada yang tahu sebabnya.
-    // Parameter ketiga adalah awalan ember throttle, dan tanpanya seluruh rute
-    // di aplikasi ini berbagi satu penghitung. Kunci bawaan ThrottleRequests
-    // hanya id pengguna, bukan id pengguna ditambah rutenya, jadi menekan
-    // Sisir artikel di halaman Antrean AI akan ikut memakan jatah tombol
-    // Klasifikasi. Ketiga rute di bawah sengaja memakai awalan yang sama:
-    // ketiganya memanggil Gemini, jadi jedanya memang satu untuk bertiga.
+    /*
+     * Ketiga rute di bawah dulu memakai `throttle:1,0.25,gemini-manual`, dan
+     * penjaga itu sekarang pindah ke dalam controller. Bukan karena middleware
+     * kurang rapi, melainkan karena ia berjalan terlalu awal.
+     *
+     * Jedanya ada untuk menjaga kuota Gemini, jadi yang seharusnya
+     * menghabiskannya cuma penilaian yang benar-benar memanggil Gemini.
+     * Middleware memutuskan sebelum satu baris pun dinilai, sehingga ia tidak
+     * bisa membedakan hal itu. Sejak relevansi bisa dikerjakan IndoBERT,
+     * bedanya menjadi besar: artikel yang ditolak IndoBERT tidak menyentuh
+     * Google sama sekali, dan admin yang menyapu daftar artikel tidak relevan
+     * tetap menunggu lima belas detik untuk kuota yang tidak pernah terpakai.
+     *
+     * Controller memutuskan setelah hasilnya ada, jadi ia tahu penyedianya.
+     * Lihat ArtikelController::catatPemakaianGemini().
+     */
     Route::post('artikel/{artikel}/klasifikasi', [ArtikelController::class, 'klasifikasi'])
-        ->middleware('throttle:1,0.25,gemini-manual')
         ->name('artikel.klasifikasi');
-    // Menandai relevan meneruskan artikelnya ke penilaian sentimen, jadi ia
-    // ikut memakai kuota dan ikut dibatasi. Menandai tidak relevan tidak
-    // memanggil Gemini sama sekali, tetapi keduanya lewat rute yang sama.
     Route::post('artikel/{artikel}/relevansi', [ArtikelController::class, 'relevansi'])
-        ->middleware('throttle:1,0.25,gemini-manual')
         ->name('artikel.relevansi');
-    // Mencabut koreksi manusia lalu menilai ulang. Ikut dibatasi karena ia
-    // memanggil Gemini, sama seperti tombol Klasifikasi.
     Route::post('artikel/{artikel}/reset', [ArtikelController::class, 'reset'])
-        ->middleware('throttle:1,0.25,gemini-manual')
         ->name('artikel.reset');
     Route::put('analisis/{analisis}', [KoreksiLabelController::class, 'update'])->name('analisis.update');
 

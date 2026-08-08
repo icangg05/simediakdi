@@ -122,9 +122,9 @@ onUnmounted(() => clearInterval(pewaktu));
                         <span class="text-muted-foreground"> artikel mentah menunggu diekstraksi</span>
                     </p>
                     <p class="angka text-sm text-muted-foreground">
-                        {{ formatAngka(ekstraksi.diekstrak_hari_ini) }} dari
-                        {{ formatAngka(ekstraksi.masuk_hari_ini) }} selesai hari ini
-                        ({{ formatPersen(ekstraksi.persen) }})
+                        {{ formatAngka(ekstraksi.diekstrak_hari_ini) }} dari {{ formatAngka(ekstraksi.masuk_hari_ini) }} selesai hari ini ({{
+                            formatPersen(ekstraksi.persen)
+                        }})
                     </p>
                 </div>
 
@@ -152,21 +152,16 @@ onUnmounted(() => clearInterval(pewaktu));
                         <dt class="text-muted-foreground">Belum diklasifikasi</dt>
                         <dd class="angka text-base font-semibold">
                             {{ formatAngka(ekstraksi.belum_klasifikasi) }}
-                            <span class="text-xs font-normal text-muted-foreground">
-                                ({{ formatAngka(ekstraksi.antre_ai) }} antre AI)
-                            </span>
+                            <span class="text-xs font-normal text-muted-foreground"> ({{ formatAngka(ekstraksi.antre_ai) }} antre AI) </span>
                         </dd>
                     </div>
                 </dl>
 
                 <p class="text-xs text-muted-foreground">
-                    Angka menyegarkan sendiri tiap lima detik selama masih ada artikel mentah. Perkiraan
-                    dihitung dari laju sepuluh menit terakhir, jadi ia bergerak mengikuti kecepatan
-                    server media yang sedang ditarik. Artikel yang selesai diekstraksi langsung mengantre
+                    Angka menyegarkan sendiri tiap lima detik selama masih ada artikel mentah. Perkiraan dihitung dari laju sepuluh menit terakhir,
+                    jadi ia bergerak mengikuti kecepatan server media yang sedang ditarik. Artikel yang selesai diekstraksi langsung mengantre
                     penilaian relevansi.
-                    <span v-if="ekstraksi.gagal > 0" class="text-sentimen-negatif">
-                        {{ formatAngka(ekstraksi.gagal) }} artikel gagal diproses.
-                    </span>
+                    <span v-if="ekstraksi.gagal > 0" class="text-sentimen-negatif"> {{ formatAngka(ekstraksi.gagal) }} artikel gagal diproses. </span>
                 </p>
             </CardContent>
         </Card>
@@ -186,14 +181,8 @@ onUnmounted(() => clearInterval(pewaktu));
                 <CardContent class="space-y-2">
                     <template v-if="proporsiSumber.total > 0">
                         <div class="flex h-2 overflow-hidden rounded-full bg-muted">
-                            <div
-                                class="bg-sentimen-positif"
-                                :style="{ width: lebar(proporsiSumber.otomatis, proporsiSumber.total) }"
-                            />
-                            <div
-                                class="bg-sentimen-review"
-                                :style="{ width: lebar(proporsiSumber.laporan_media, proporsiSumber.total) }"
-                            />
+                            <div class="bg-sentimen-positif" :style="{ width: lebar(proporsiSumber.otomatis, proporsiSumber.total) }" />
+                            <div class="bg-sentimen-review" :style="{ width: lebar(proporsiSumber.laporan_media, proporsiSumber.total) }" />
                         </div>
                         <dl class="space-y-1 text-xs">
                             <div class="flex justify-between">
@@ -217,8 +206,8 @@ onUnmounted(() => clearInterval(pewaktu));
                             class="flex gap-1.5 rounded-md bg-sentimen-review-lembut p-2 text-xs text-sentimen-review"
                         >
                             <TriangleAlert class="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                            Lebih dari 40% catatan berasal dari laporan mandiri media. Angka sentimen berisiko bias
-                            karena media jarang melaporkan berita kritis. Periksa cakupan sumber feed.
+                            Lebih dari 40% catatan berasal dari laporan mandiri media. Angka sentimen berisiko bias karena media jarang melaporkan
+                            berita kritis. Periksa cakupan sumber feed.
                         </p>
                     </template>
                     <p v-else class="text-xs text-muted-foreground">
@@ -236,9 +225,7 @@ onUnmounted(() => clearInterval(pewaktu));
                                 <p class="truncate font-medium">{{ sumber.nama }}</p>
                                 <p class="truncate text-muted-foreground">{{ sumber.pesan_error_terakhir }}</p>
                             </div>
-                            <Badge :variant="sumber.aktif ? 'outline' : 'destructive'" class="shrink-0">
-                                {{ sumber.gagal_berturut }}× gagal
-                            </Badge>
+                            <Badge :variant="sumber.aktif ? 'outline' : 'destructive'" class="shrink-0"> {{ sumber.gagal_berturut }}× gagal </Badge>
                         </li>
                     </ul>
                     <p v-else class="text-xs text-muted-foreground">Semua sumber feed berjalan tanpa kegagalan.</p>
@@ -259,9 +246,7 @@ onUnmounted(() => clearInterval(pewaktu));
                         <span class="w-28 shrink-0 text-right text-muted-foreground">{{ sejak(artikel.diambil_at) }}</span>
                     </li>
                 </ul>
-                <p v-else class="text-xs text-muted-foreground">
-                    Belum ada berita masuk. Daftarkan sumber feed, lalu jalankan crawler.
-                </p>
+                <p v-else class="text-xs text-muted-foreground">Belum ada berita masuk. Daftarkan sumber feed, lalu jalankan crawler.</p>
             </CardContent>
         </Card>
     </LayoutAdmin>

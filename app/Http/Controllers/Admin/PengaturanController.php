@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\KunciGemini;
+use App\Models\PelatihanModelRelevansi;
 use App\Models\PengaturanAi;
 use App\Services\Ai\RotasiKunciGemini;
 use App\Services\Arsip\PenangkapLayar;
@@ -40,11 +41,22 @@ class PengaturanController extends Controller
         return Inertia::render('admin/Pengaturan', [
             'pengaturanAi' => PengaturanAi::aktif()->only([
                 'model',
+                'penyedia_relevansi',
                 'versi_prompt_relevansi',
                 'prompt_relevansi',
                 'versi_prompt_sentimen',
                 'prompt_sentimen',
             ]),
+
+            // Nama model IndoBERT yang sedang aktif, atau null kalau belum ada.
+            //
+            // Dipakai dua kali di layar: menyebut model mana yang akan bekerja,
+            // dan meredupkan pilihan IndoBERT selama belum ada satu pun. Yang
+            // kedua hanya cermin dari penolakan di PengaturanAiController,
+            // bukan penegakannya. Permintaannya tetap bisa dikirim langsung.
+            'modelRelevansiAktif' => PelatihanModelRelevansi::query()
+                ->where('aktif', true)
+                ->value('nama'),
             // Kolom `kunci` sengaja tidak ikut. Kunci yang pernah muncul di
             // layar admin harus dianggap bocor, dan tidak ada satu pun layar
             // yang perlu membacanya kembali.

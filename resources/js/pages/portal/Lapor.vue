@@ -139,11 +139,7 @@ const tanggal = (n: string | null) => (n ? format(new Date(n), 'd MMM yyyy', { l
                 <CardContent class="space-y-3">
                     <div v-if="props.kontrak.length > 1" class="space-y-1.5">
                         <Label for="kontrak">Kontrak tujuan</Label>
-                        <select
-                            id="kontrak"
-                            v-model="kontrakTerpilih"
-                            class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                        >
+                        <select id="kontrak" v-model="kontrakTerpilih" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
                             <option v-for="k in props.kontrak" :key="k.id" :value="k.id">
                                 {{ k.judul }} ({{ tanggal(k.tanggal_mulai) }} - {{ tanggal(k.tanggal_akhir) }})
                             </option>
@@ -163,8 +159,7 @@ const tanggal = (n: string | null) => (n ? format(new Date(n), 'd MMM yyyy', { l
                             {{ formPeriksa.errors.tautan }}
                         </p>
                         <p class="text-xs text-muted-foreground">
-                            Judul dan tanggal dibaca sistem dari halamannya. Anda tidak perlu mengetik apa pun kecuali
-                            halamannya gagal dibaca.
+                            Judul dan tanggal dibaca sistem dari halamannya. Anda tidak perlu mengetik apa pun kecuali halamannya gagal dibaca.
                         </p>
                     </div>
 
@@ -180,23 +175,18 @@ const tanggal = (n: string | null) => (n ? format(new Date(n), 'd MMM yyyy', { l
                     <CardTitle class="text-sm font-medium">Hasil pemeriksaan</CardTitle>
                 </CardHeader>
                 <CardContent class="space-y-3">
-                    <div
-                        v-for="b in hasil"
-                        :key="b.url_kanonik"
-                        class="space-y-2 rounded-md border p-3"
-                        :class="gaya[b.status].kelas"
-                    >
+                    <div v-for="b in hasil" :key="b.url_kanonik" class="space-y-2 rounded-md border p-3" :class="gaya[b.status].kelas">
                         <div class="flex items-start justify-between gap-3">
                             <p class="min-w-0 break-all text-xs text-muted-foreground">{{ b.url }}</p>
                             <Badge :variant="gaya[b.status].badge" class="shrink-0">{{ gaya[b.status].label }}</Badge>
                         </div>
 
-                        <p v-if="b.pesan" class="flex items-start gap-1.5 text-xs" :class="b.status === 'domain_salah' ? 'text-destructive' : 'text-muted-foreground'">
-                            <component
-                                :is="b.status === 'domain_salah' ? AlertTriangle : Info"
-                                class="mt-0.5 h-3 w-3 shrink-0"
-                                aria-hidden="true"
-                            />
+                        <p
+                            v-if="b.pesan"
+                            class="flex items-start gap-1.5 text-xs"
+                            :class="b.status === 'domain_salah' ? 'text-destructive' : 'text-muted-foreground'"
+                        >
+                            <component :is="b.status === 'domain_salah' ? AlertTriangle : Info" class="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
                             {{ b.pesan }}
                         </p>
 
@@ -231,12 +221,7 @@ const tanggal = (n: string | null) => (n ? format(new Date(n), 'd MMM yyyy', { l
                     </div>
 
                     <div class="space-y-2 border-t pt-3">
-                        <button
-                            v-if="!catatanTerbuka"
-                            type="button"
-                            class="text-xs text-muted-foreground underline"
-                            @click="catatanTerbuka = true"
-                        >
+                        <button v-if="!catatanTerbuka" type="button" class="text-xs text-muted-foreground underline" @click="catatanTerbuka = true">
                             Tambah catatan
                         </button>
                         <div v-else class="space-y-1">
@@ -249,9 +234,7 @@ const tanggal = (n: string | null) => (n ? format(new Date(n), 'd MMM yyyy', { l
                         <Button :disabled="formKirim.processing || !bisaDikirim.length" @click="kirim">
                             {{ formKirim.processing ? 'Mengirim...' : `Kirim semua (${bisaDikirim.length})` }}
                         </Button>
-                        <p class="text-xs text-muted-foreground">
-                            Tautan yang sudah tercatat atau ditolak tidak ikut terkirim.
-                        </p>
+                        <p class="text-xs text-muted-foreground">Tautan yang sudah tercatat atau ditolak tidak ikut terkirim.</p>
                     </div>
                 </CardContent>
             </Card>

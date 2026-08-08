@@ -148,10 +148,7 @@ const labelSumber: Record<string, string> = {
                                     {{ labelSumber[p.sumber_catatan] ?? p.sumber_catatan }}
                                 </td>
                                 <td class="whitespace-nowrap px-4 py-2">
-                                    <Badge
-                                        :variant="p.status_verifikasi === 'terverifikasi' ? 'outline' : 'secondary'"
-                                        class="capitalize"
-                                    >
+                                    <Badge :variant="p.status_verifikasi === 'terverifikasi' ? 'outline' : 'secondary'" class="capitalize">
                                         {{ p.status_verifikasi }}
                                     </Badge>
                                 </td>

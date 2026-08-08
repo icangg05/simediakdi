@@ -6,10 +6,11 @@ namespace App\Services\Ai;
 
 use App\Models\AnalisisSentimen;
 use App\Models\Artikel;
+use App\Models\PengaturanAi;
 use App\Services\Ai\DTO\HasilKlasifikasi;
 
 /**
- * Satu-satunya tempat hasil Gemini diterjemahkan menjadi baris database.
+ * Satu-satunya tempat hasil klasifikasi diterjemahkan menjadi baris database.
  *
  * Dipisah dari controller karena tiga jalur memanggilnya: tombol Klasifikasi di
  * halaman antrean, tombol yang sama di halaman arsip artikel, dan koreksi
@@ -17,6 +18,12 @@ use App\Services\Ai\DTO\HasilKlasifikasi;
  * pemetaan kolom ke tiga tempat adalah cara paling umum ketiganya perlahan
  * berbeda, dan bedanya baru terlihat sebagai angka dashboard yang tidak bisa
  * dijelaskan.
+ *
+ * Relevansi bisa dikerjakan Gemini atau IndoBERT, dipilih dari halaman
+ * Pengaturan. Percabangannya hanya satu baris di jalankan(), dan sengaja tidak
+ * lebih: kedua penyedia mengembalikan HasilKlasifikasi yang sama, jadi seluruh
+ * pemetaan kolom di bawahnya tetap satu jalur. Sentimen selalu Gemini, karena
+ * IndoBERT memang tidak dilatih untuk itu.
  *
  * Dijalankan sinkron, bukan lewat antrean. Selama prompt masih disetel, hasil
  * yang muncul seketika di layar jauh lebih cepat dinilai benar atau salah
@@ -26,14 +33,40 @@ use App\Services\Ai\DTO\HasilKlasifikasi;
  */
 class KlasifikasiArtikel
 {
-    public function __construct(private GeminiClassificationService $ai) {}
+    public function __construct(
+        private GeminiClassificationService $ai,
+        private RelevansiIndoBert $indobert,
+    ) {}
 
     /**
      * Relevansi lalu sentimen untuk satu artikel.
      *
+     * Rakitan dari dua bagian di bawahnya, bukan salinan ketiga logikanya.
+     * Tombol Klasifikasi memakai ini karena admin menunggu satu hasil utuh di
+     * layar. Antrean latar belakang memanggil kedua bagian terpisah, supaya ia
+     * bisa berhenti di antara keduanya saat jeda Gemini belum habis.
+     *
      * @return list<HasilKlasifikasi>
      */
     public function jalankan(Artikel $artikel): array
+    {
+        return array_merge(
+            $this->jalankanRelevansi($artikel),
+            $this->jalankanSentimen($artikel),
+        );
+    }
+
+    /**
+     * Relevansi saja, berhenti sebelum sentimen.
+     *
+     * Dipisah supaya antrean punya tempat berhenti di tengah. Artikel yang
+     * ditolak IndoBERT selesai di sini tanpa menyentuh Gemini sama sekali, dan
+     * itu yang membuat tumpukan berita tidak relevan bisa disapu cepat alih-alih
+     * ikut mengantre di belakang jeda yang hanya ada untuk menjaga kuota.
+     *
+     * @return list<HasilKlasifikasi>
+     */
+    public function jalankanRelevansi(Artikel $artikel): array
     {
         $baris = $this->baris($artikel);
 
@@ -44,17 +77,20 @@ class KlasifikasiArtikel
         if ($baris?->relevan_manual !== null) {
             if (! $baris->relevan) {
                 $artikel->update(['status_proses' => 'tidak_relevan']);
-
-                return [];
             }
 
-            $hasil = [$this->sentimen($artikel, $baris)];
-            $artikel->update(['status_proses' => 'selesai']);
-
-            return $hasil;
+            return [];
         }
 
-        $relevansi = $this->ai->relevansi($artikel);
+        // Penyedia dibaca sekarang, bukan saat job dibuat. Itu yang membuat
+        // pergantian opsi di halaman Pengaturan langsung berlaku untuk seluruh
+        // pekerjaan yang masih mengantre, tanpa antreannya perlu dikosongkan.
+        // Job hanya membawa id barisnya, dan PengaturanAi sengaja dibaca tanpa
+        // cache.
+        $relevansi = PengaturanAi::aktif()->penyedia_relevansi === 'indobert'
+            ? $this->indobert->relevansi($artikel)
+            : $this->ai->relevansi($artikel);
+
         $relevan = $relevansi->label === 'relevan';
 
         // Baris analisis dibuat untuk artikel relevan maupun tidak. Yang tidak
@@ -80,23 +116,55 @@ class KlasifikasiArtikel
             $kolom += AnalisisSentimen::SENTIMEN_KOSONG;
         }
 
-        $baris = AnalisisSentimen::updateOrCreate(['artikel_id' => $artikel->id], $kolom);
+        AnalisisSentimen::updateOrCreate(['artikel_id' => $artikel->id], $kolom);
 
-        $hasil = [$relevansi];
-
-        if ($relevan) {
-            $hasil[] = $this->sentimen($artikel, $baris);
-        }
-
+        // `dianalisis`, bukan `selesai`, untuk yang relevan. Sentimennya belum
+        // dinilai, dan antrean boleh berhenti di sini selama berjam-jam kalau
+        // jatah Gemini sedang habis. Status yang sudah berbunyi selesai membuat
+        // artikel setengah jadi terhitung sebagai pekerjaan yang beres.
+        // `dianalisis` sudah masuk kelompok tahap Selesai di layar dan sudah
+        // dikenali penyisir antrean sebagai relevan yang labelnya belum ada.
         $artikel->update([
             'status_proses' => match (true) {
-                $relevan => 'selesai',
+                $relevan => 'dianalisis',
                 $relevansi->label === 'perlu_review' => 'perlu_review',
                 default => 'tidak_relevan',
             },
         ]);
 
-        return $hasil;
+        return [$relevansi];
+    }
+
+    /**
+     * Apakah artikel ini masih menunggu penilaian sentimen.
+     *
+     * Dibaca antrean untuk memutuskan apakah jeda Gemini perlu ditunggu.
+     * Sentimen selalu Gemini, jadi jawaban ya di sini berarti pekerjaan
+     * berikutnya memang akan memakan kuota.
+     */
+    public function perluSentimen(Artikel $artikel): bool
+    {
+        return (bool) $this->baris($artikel)?->relevan;
+    }
+
+    /**
+     * Apakah salah satu hasil datang dari Gemini.
+     *
+     * Dibaca dari hasilnya, bukan dari pengaturan yang sedang aktif. Satu
+     * artikel bisa menghasilkan dua keputusan dari dua penilai berbeda, dan
+     * yang menentukan pemakaian kuota hanya yang benar-benar terpanggil.
+     *
+     * @param  list<HasilKlasifikasi>  $hasil
+     */
+    public static function pakaiGemini(array $hasil): bool
+    {
+        foreach ($hasil as $satu) {
+            if ($satu->penyedia === 'gemini') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -136,7 +204,13 @@ class KlasifikasiArtikel
             // dijalankan ulang dan kali ini ragu.
             'perlu_review' => $baris->label_manual === null && $hasil->perluReview,
             'model_versi' => $hasil->model,
-            'provider' => $hasil->penyedia,
+            // `provider` sengaja tidak ditulis ulang di sini. Satu baris punya
+            // dua keputusan tetapi hanya satu kolom penyedia, dan yang perlu
+            // dijawabnya adalah siapa yang memutuskan relevansi. Sentimen
+            // selalu Gemini, jadi menuliskannya di sini tidak menambah satu pun
+            // keterangan baru, sementara menghapus tanda IndoBERT persis pada
+            // artikel yang lolos saringan, yaitu artikel yang paling perlu
+            // ditelusuri saat menilai apakah modelnya layak dipercaya.
             'reason_code' => $hasil->alasanKode,
             'reason_summary' => $hasil->alasanRingkas,
             'evidence' => $hasil->bukti,

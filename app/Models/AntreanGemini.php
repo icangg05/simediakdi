@@ -110,10 +110,24 @@ class AntreanGemini extends Model
      * Dipakai bersama oleh pelepas pekerjaan dan halaman pemantauan. Dua salinan
      * rumus ini pernah berarti perkiraan waktu selesai di layar menjanjikan
      * kecepatan yang tidak pernah benar-benar dijalankan.
+     *
+     * Dengan IndoBERT, jarak ini tidak lagi menjaga kuota sama sekali. Ia hanya
+     * menjaga CPU layanan inferensi, karena berita yang ditolak tidak memanggil
+     * Gemini. Kuotanya dijaga di tempat lain, yaitu jeda antar artikel yang
+     * benar-benar lolos, dan itu ada di RotasiKunciGemini::jedaArtikel().
+     *
+     * Pemisahan itu yang membuat tumpukan berita tidak relevan bisa disapu
+     * cepat. Jarak tunggal yang mengasumsikan setiap artikel memanggil Gemini
+     * menghukum seluruh antrean demi separuh isinya.
      */
     public static function jedaDetik(): float
     {
+        if (PengaturanAi::aktif()->penyedia_relevansi === 'indobert') {
+            return (float) config('ai.antrean.jeda_detik_indobert');
+        }
+
         $kunci = max(1, KunciGemini::where('aktif', true)->count());
+
         $perMenit = $kunci * (int) config('ai.batas_kunci.rpm');
 
         $lantaiKapasitas = 60 / max(1, $perMenit / self::PERMINTAAN_PER_ARTIKEL);

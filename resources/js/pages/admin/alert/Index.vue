@@ -59,17 +59,14 @@ const hapus = (a: Aturan) => {
     <LayoutAdmin judul="Alert" :breadcrumbs="[{ title: 'Alert', href: '/admin/alert' }]">
         <!-- Telegram belum terkonfigurasi adalah kegagalan diam: aturan
              terpicu benar dan tidak seorang pun menerima apa pun. -->
-        <div
-            v-if="!props.telegramSiap"
-            class="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-sm"
-        >
+        <div v-if="!props.telegramSiap" class="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
             <AlertTriangle class="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
             <div>
                 <p class="font-medium">Telegram belum terkonfigurasi.</p>
                 <p class="text-muted-foreground">
-                    Aturan di bawah akan tetap dinilai dan tercatat di riwayat, tapi pesannya tidak sampai ke mana pun.
-                    Isi <code class="text-xs">TELEGRAM_BOT_TOKEN</code> dan <code class="text-xs">TELEGRAM_CHAT_ID</code>
-                    di <code class="text-xs">.env</code>, lalu uji lewat tombol di bawah.
+                    Aturan di bawah akan tetap dinilai dan tercatat di riwayat, tapi pesannya tidak sampai ke mana pun. Isi
+                    <code class="text-xs">TELEGRAM_BOT_TOKEN</code> dan <code class="text-xs">TELEGRAM_CHAT_ID</code> di
+                    <code class="text-xs">.env</code>, lalu uji lewat tombol di bawah.
                 </p>
             </div>
         </div>

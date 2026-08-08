@@ -5,13 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import LayoutAdmin from '@/layouts/LayoutAdmin.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 
@@ -94,8 +88,8 @@ function simpan() {
                         <Label for="domain">Domain</Label>
                         <Input id="domain" v-model="form.domain" placeholder="kendaripos.fajar.co.id" />
                         <p class="text-xs text-muted-foreground">
-                            Dipakai mencocokkan artikel ke media. Tulis subdomain lengkap kalau medianya menumpang
-                            domain induk, supaya artikel dari media lain di domain yang sama tidak ikut tercocokkan.
+                            Dipakai mencocokkan artikel ke media. Tulis subdomain lengkap kalau medianya menumpang domain induk, supaya artikel dari
+                            media lain di domain yang sama tidak ikut tercocokkan.
                         </p>
                         <InputError :message="form.errors.domain" />
                     </div>

@@ -36,7 +36,7 @@ class LayananRelevansi
      * yang tidak menyebut bahwa yang keliru hanya satu huruf.
      */
     public const BASE_MODEL = [
-        'apriandito/indobert-relevancy-classifier' => 'IndoBERT yang sudah punya kepala relevansi, jadi pelatihan di sini melanjutkannya, bukan memulai dari nol.',
+        'apriandito/indobert-relevancy-classifier' => 'Turunan indobert-large-p2, 24 layer, 1,3 GB, sudah punya kepala relevansi. Ukurannya membuat satu epoch di CPU memakan puluhan menit sampai lebih dari satu jam.',
     ];
 
     /**
@@ -56,10 +56,30 @@ class LayananRelevansi
         // Batas atas 32 karena pelatihan berjalan di CPU dengan memori yang
         // dibagi bersama Postgres dan worker antrean.
         'batch_size' => ['min' => 1, 'maks' => 32, 'bawaan' => 8],
-        'learning_rate' => ['min' => 0.000001, 'maks' => 0.0005, 'bawaan' => 0.00002],
+        // Bawaan 1e-5, bukan 2e-5.
+        //
+        // 2e-5 adalah angka yang lazim disebut untuk BERT ukuran base. Base
+        // model di sini 24 layer, dan checkpoint sedalam itu terkenal rapuh
+        // pada langkah-langkah awal fine-tuning: sekali bobot pralatihnya
+        // terguncang, model jatuh ke jawaban yang sama untuk seluruh data dan
+        // tidak pernah keluar lagi dari sana. Kegagalannya tidak melempar
+        // galat, ia hanya berhenti di loss 0,693 dan akurasi 50 persen sampai
+        // epoch terakhir.
+        'learning_rate' => ['min' => 0.000001, 'maks' => 0.0005, 'bawaan' => 0.00001],
         // BERT tidak bisa melampaui 512 token, batasnya ada di embedding posisi.
-        // Bawaan 384 karena berita daerah kerap menaruh keterangan lokasi di
-        // paruh kedua badan berita, dan potongan 256 token memenggalnya.
+        //
+        // Bawaan 256, bukan 384, dan alasannya memori, bukan sekadar waktu.
+        // Diukur pada mesin ini: potongan 256 token dengan batch 8 memuncak di
+        // 14,2 GB. Potongan 384 melewati sisa memori yang ada dan kernel
+        // membunuh proses pelatihannya di tengah jalan, yang di layar terbaca
+        // sebagai pelatihan yang berhenti tanpa sebab.
+        //
+        // Naikkan hanya bersamaan dengan menurunkan batch size.
+        //
+        // ponytail: batas ini ditegakkan lewat angka bawaan, bukan lewat
+        // pemeriksaan. Kalau ada yang benar-benar butuh 384 token pada batch
+        // penuh, pasang `gradient_checkpointing=True` di TrainingArguments,
+        // memori aktivasi turun jauh dengan ongkos sekitar sepertiga waktu.
         'max_seq_length' => ['min' => 64, 'maks' => 512, 'bawaan' => 256],
         // Bawaan 2, bukan 1. Validation loss satu epoch lazim naik sedikit lalu
         // turun lagi, dan berhenti pada kenaikan pertama membuang epoch yang

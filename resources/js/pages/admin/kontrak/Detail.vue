@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import ProgresKontrak from '@/components/domain/ProgresKontrak.vue';
+import KeadaanKosong from '@/components/KeadaanKosong.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import KeadaanKosong from '@/components/KeadaanKosong.vue';
 import { useFormatAngka } from '@/composables/useFormatAngka';
 import LayoutAdmin from '@/layouts/LayoutAdmin.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
@@ -67,8 +67,8 @@ const labelSumber: Record<string, string> = {
             <div>
                 <h1 class="text-xl font-semibold">{{ kontrak.judul }}</h1>
                 <p class="text-sm text-muted-foreground">
-                    {{ kontrak.media?.nama }} · {{ kontrak.nomor ?? 'tanpa nomor' }} ·
-                    {{ tanggal(kontrak.tanggal_mulai) }} - {{ tanggal(kontrak.tanggal_akhir) }}
+                    {{ kontrak.media?.nama }} · {{ kontrak.nomor ?? 'tanpa nomor' }} · {{ tanggal(kontrak.tanggal_mulai) }} -
+                    {{ tanggal(kontrak.tanggal_akhir) }}
                 </p>
             </div>
             <div class="flex gap-2">
@@ -96,9 +96,8 @@ const labelSumber: Record<string, string> = {
                         :tertinggal="progres.tertinggal"
                     />
                     <p class="mt-3 text-xs text-muted-foreground">
-                        Pemuatan yang ditemukan sistem langsung terverifikasi, tidak ada klaim pihak
-                        berkepentingan yang perlu diperiksa. Yang butuh verifikasi manusia hanya laporan
-                        dari media.
+                        Pemuatan yang ditemukan sistem langsung terverifikasi, tidak ada klaim pihak berkepentingan yang perlu diperiksa. Yang butuh
+                        verifikasi manusia hanya laporan dari media.
                     </p>
                 </CardContent>
             </Card>
@@ -140,12 +139,7 @@ const labelSumber: Record<string, string> = {
                         <TableBody>
                             <TableRow v-for="p in pemuatan" :key="p.id">
                                 <TableCell>
-                                    <a
-                                        :href="p.url"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        class="inline-flex items-start gap-1 hover:underline"
-                                    >
+                                    <a :href="p.url" target="_blank" rel="noopener noreferrer" class="inline-flex items-start gap-1 hover:underline">
                                         <span class="line-clamp-1">{{ p.judul ?? p.url }}</span>
                                         <ExternalLink class="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
                                     </a>
@@ -153,10 +147,7 @@ const labelSumber: Record<string, string> = {
                                 <TableCell class="text-muted-foreground">{{ tanggal(p.tanggal_muat) }}</TableCell>
                                 <TableCell class="text-xs">{{ labelSumber[p.sumber_catatan] ?? p.sumber_catatan }}</TableCell>
                                 <TableCell>
-                                    <Badge
-                                        :variant="p.status_verifikasi === 'terverifikasi' ? 'outline' : 'secondary'"
-                                        class="capitalize"
-                                    >
+                                    <Badge :variant="p.status_verifikasi === 'terverifikasi' ? 'outline' : 'secondary'" class="capitalize">
                                         {{ p.status_verifikasi }}
                                     </Badge>
                                 </TableCell>

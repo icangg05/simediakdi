@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\KunciGemini;
+use App\Models\PelatihanModelRelevansi;
 use App\Models\PengaturanAi;
 use App\Services\Ai\RotasiKunciGemini;
 use Illuminate\Http\RedirectResponse;
@@ -26,6 +27,7 @@ class PengaturanAiController extends Controller
     {
         $data = $request->validate([
             'model' => ['required', 'string', 'max:100'],
+            'penyedia_relevansi' => ['required', 'in:gemini,indobert'],
             'versi_prompt_relevansi' => ['required', 'string', 'max:30'],
             'prompt_relevansi' => ['required', 'string', 'min:50'],
             'versi_prompt_sentimen' => ['required', 'string', 'max:30'],
@@ -34,6 +36,17 @@ class PengaturanAiController extends Controller
             'prompt_relevansi.min' => 'Prompt relevansi terlalu pendek untuk bisa dipakai menilai.',
             'prompt_sentimen.min' => 'Prompt sentimen terlalu pendek untuk bisa dipakai menilai.',
         ]);
+
+        // Ditolak di sini, bukan dibiarkan lalu ditangani saat klasifikasi
+        // berjalan. Pengaturan yang tersimpan terbaca sebagai pengaturan yang
+        // berlaku, dan admin yang memilih IndoBERT tanpa model aktif tidak akan
+        // pernah tahu kenapa antreannya berhenti sampai ia membuka halaman
+        // Antrean AI dan membaca pesan galat per baris.
+        if ($data['penyedia_relevansi'] === 'indobert'
+            && ! PelatihanModelRelevansi::query()->where('aktif', true)->exists()) {
+            return back()->with('galat', 'Belum ada model relevansi yang diaktifkan. '
+                .'Latih lalu aktifkan satu model di halaman Model Relevansi sebelum memilih IndoBERT.');
+        }
 
         $pengaturan = PengaturanAi::query()->first();
 

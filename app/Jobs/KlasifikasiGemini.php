@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Models\AntreanGemini;
+use App\Models\PengaturanAi;
 use App\Services\Ai\KlasifikasiArtikel;
 use App\Services\Ai\RotasiKunciGemini;
 use DateTimeInterface;
@@ -14,7 +15,12 @@ use Laravel\Ai\Exceptions\RateLimitedException;
 use Throwable;
 
 /**
- * Menilai satu artikel dengan Gemini di latar belakang.
+ * Menilai satu artikel di latar belakang.
+ *
+ * Namanya menyebut Gemini karena antrean ini memang ada untuk menjaga kuota
+ * Gemini, dan sentimen selalu dikerjakan Gemini. Relevansinya bisa dikerjakan
+ * IndoBERT, dan yang memilih adalah pengaturan yang dibaca KlasifikasiArtikel,
+ * bukan job ini.
  *
  * Isinya sengaja tipis. Seluruh logika penilaian tetap di KlasifikasiArtikel,
  * kelas yang sama dengan yang dipakai tombol Klasifikasi di layar. Menyalinnya
@@ -84,10 +90,17 @@ class KlasifikasiGemini implements ShouldQueue
             return;
         }
 
-        // Kuota habis. Ditunda, bukan dijalankan lalu ditolak: permintaan yang
-        // dijawab 429 tetap dihitung Google sebagai permintaan, jadi mencoba
-        // terus justru memperpanjang masa tunggunya sendiri.
-        if (($tunggu = $rotasi->tungguDetik()) > 0) {
+        $indobert = PengaturanAi::aktif()->penyedia_relevansi === 'indobert';
+
+        // Gemini menilai relevansi juga, jadi pekerjaannya memakan kuota sejak
+        // baris pertama dan gerbangnya dipasang di sini. Dengan IndoBERT
+        // gerbangnya turun ke bawah, tepat sebelum sentimen, karena sampai titik
+        // itu belum ada satu pun permintaan yang dikirim ke Google.
+        //
+        // Ditunda, bukan dijalankan lalu ditolak: permintaan yang dijawab 429
+        // tetap dihitung Google sebagai permintaan, jadi mencoba terus justru
+        // memperpanjang masa tunggunya sendiri.
+        if (! $indobert && ($tunggu = $this->tungguGemini($rotasi)) > 0) {
             $this->tunda($baris, $tunggu);
 
             return;
@@ -117,7 +130,33 @@ class KlasifikasiGemini implements ShouldQueue
         $baris->update(['status' => 'berjalan', 'dimulai_at' => now(), 'galat' => null]);
 
         try {
-            $klasifikasi->jalankan($artikel);
+            // Relevansi lebih dulu, terpisah dari sentimen. Inilah yang membuat
+            // berita tidak relevan tidak ikut mengantre di belakang jeda yang
+            // hanya ada untuk menjaga kuota Gemini: dengan IndoBERT ia selesai
+            // di baris berikutnya tanpa satu pun permintaan ke Google.
+            $hasil = $klasifikasi->jalankanRelevansi($artikel);
+
+            if ($klasifikasi->perluSentimen($artikel)) {
+                // Baru di sini kuotanya benar-benar akan terpakai. Job yang
+                // menunda diri di titik ini tidak kehilangan apa pun: keputusan
+                // relevansinya sudah tersimpan, dan pengulangannya hanya
+                // memanggil IndoBERT sekali lagi yang berjalan di server sendiri
+                // dalam seperlima detik.
+                if ($indobert && ($tunggu = $this->tungguGemini($rotasi)) > 0) {
+                    $this->tunda($baris, $tunggu);
+
+                    return;
+                }
+
+                $hasil = array_merge($hasil, $klasifikasi->jalankanSentimen($artikel));
+            }
+
+            // Penanda jeda dipasang dari hasilnya, bukan dari pengaturannya.
+            // Artikel yang seluruhnya diputuskan IndoBERT tidak boleh menggeser
+            // giliran artikel berikutnya yang mungkin memang butuh Gemini.
+            if (KlasifikasiArtikel::pakaiGemini($hasil)) {
+                $rotasi->tandaiArtikel();
+            }
         } catch (RateLimitedException $galat) {
             // Kuota, bukan kerusakan. Pemeriksaan di awal job hanya melihat
             // keadaan sebelum pekerjaan dimulai, sedangkan batas bisa terlampaui
@@ -154,6 +193,18 @@ class KlasifikasiGemini implements ShouldQueue
     }
 
     /**
+     * Dua sebab menunggu Gemini, digabung jadi satu angka.
+     *
+     * Yang pertama kuota habis, yang kedua giliran belum tiba. Keduanya berarti
+     * hal yang sama bagi job ini, yaitu tidur sebentar lalu memeriksa lagi, dan
+     * memisahkannya cuma menghasilkan dua cabang yang isinya sama persis.
+     */
+    private function tungguGemini(RotasiKunciGemini $rotasi): int
+    {
+        return max($rotasi->tungguDetik(), $rotasi->jedaArtikel());
+    }
+
+    /**
      * Menidurkan pekerjaan ini sebentar, lalu memeriksa keadaan lagi.
      *
      * Waktu tidurnya dan `dijadwalkan_at` dihitung dari satu angka yang sama.
@@ -167,7 +218,7 @@ class KlasifikasiGemini implements ShouldQueue
         $baris->update([
             'status' => 'menunggu',
             'dijadwalkan_at' => now()->addSeconds($tunggu),
-            'galat' => 'Menunggu kuota Gemini terbuka kembali.',
+            'galat' => 'Menunggu giliran Gemini berikutnya.',
         ]);
 
         $this->release($tunggu);

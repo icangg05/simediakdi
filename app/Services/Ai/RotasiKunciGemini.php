@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Services\Ai;
 
 use App\Ai\Agents\PemeriksaKunci;
+use App\Models\AntreanGemini;
 use App\Models\KunciGemini;
+use App\Models\PengaturanAi;
 use App\Support\Waktu;
 use Carbon\CarbonInterface;
 use Closure;
@@ -73,6 +75,15 @@ class RotasiKunciGemini
      * menilai berita.
      */
     public const JEDA_UJI_DETIK = 15;
+
+    /**
+     * Kapan artikel terakhir memakai Gemini, sebagai timestamp.
+     *
+     * Satu kunci untuk seluruh sistem, bukan satu per kunci API. Yang dijaga
+     * jarak antar artikel, dan artikel yang sama tidak menjadi dua hanya karena
+     * rotasi memilih kunci yang berbeda.
+     */
+    private const CACHE_ARTIKEL = 'gemini:artikel-terakhir';
 
     /**
      * @template T
@@ -364,6 +375,67 @@ class RotasiKunciGemini
         // soal kuota melainkan soal pengaturan yang belum diisi, jadi menunggu
         // sebentar lalu memeriksa lagi lebih berguna daripada menyerah.
         return KunciGemini::query()->tersedia()->exists() ? 0 : 900;
+    }
+
+    /**
+     * Berapa detik lagi sebelum artikel berikutnya boleh memakai Gemini.
+     *
+     * Jeda dihitung antar artikel yang benar-benar memanggil Gemini, bukan antar
+     * artikel yang dilepas antrean. Bedanya besar sejak IndoBERT ikut menyaring:
+     * berita yang ditolaknya tidak memakan kuota sama sekali, jadi menahannya
+     * hanya menumpuk antrean tanpa menjaga apa pun.
+     *
+     * Penandanya di cache, bukan di database. Ia hanya perlu bertahan selama
+     * satu jeda, dan Redis yang dijatuhkan paling buruk membuat satu artikel
+     * lewat lebih cepat sekali. Jatah hariannya sendiri tetap dijaga
+     * `terpakaiHarian()` yang memang tersimpan di barisnya.
+     */
+    public function jedaArtikel(): int
+    {
+        $terakhir = (int) Cache::get(self::CACHE_ARTIKEL, 0);
+
+        if ($terakhir === 0) {
+            return 0;
+        }
+
+        return max(0, (int) ceil($terakhir + $this->jarakArtikel() - now()->timestamp));
+    }
+
+    /** Menandai bahwa satu artikel barusan memakai Gemini. */
+    public function tandaiArtikel(): void
+    {
+        Cache::put(self::CACHE_ARTIKEL, now()->timestamp, 3600);
+    }
+
+    /**
+     * Jarak antar artikel yang memakai Gemini, dalam detik.
+     *
+     * Dua angka dibandingkan, yang paling longgar yang menang, sama seperti
+     * seluruh jeda lain di sistem ini. Yang pertama pilihan admin. Yang kedua
+     * jarak yang membuat jatah harian bertahan dua puluh empat jam penuh, dan
+     * itu yang menahan kuota habis sebelum sore lalu antrean mematung sampai
+     * tengah malam waktu Pasifik.
+     *
+     * Dengan IndoBERT, satu artikel yang lolos hanya memakan satu permintaan
+     * untuk sentimen. Dengan Gemini, ia memakan sekitar 1,8 karena relevansinya
+     * ikut dipanggil.
+     */
+    private function jarakArtikel(): float
+    {
+        $indobert = PengaturanAi::aktif()->penyedia_relevansi === 'indobert';
+
+        $permintaan = $indobert ? 1.0 : AntreanGemini::PERMINTAAN_PER_ARTIKEL;
+
+        $kapasitas = KunciGemini::query()->where('aktif', true)->get()
+            ->sum(fn (KunciGemini $kunci) => $this->batasHarian($kunci));
+
+        $lantaiHarian = 86400 / max(1, $kapasitas / $permintaan);
+
+        $pilihan = (int) config($indobert
+            ? 'ai.antrean.jeda_gemini_indobert'
+            : 'ai.antrean.jeda_detik');
+
+        return max((float) $pilihan, $lantaiHarian);
     }
 
     /**

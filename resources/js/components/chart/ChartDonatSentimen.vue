@@ -53,9 +53,7 @@ const opsi = computed(() => ({
     ],
 }));
 
-const barisTabel = computed(() =>
-    potongan.value.map((p) => [p.name, p.value, formatProporsi(p.value, total.value)]),
-);
+const barisTabel = computed(() => potongan.value.map((p) => [p.name, p.value, formatProporsi(p.value, total.value)]));
 </script>
 
 <template>

@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import KeadaanKosong from '@/components/KeadaanKosong.vue';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import KeadaanKosong from '@/components/KeadaanKosong.vue';
 import { useFormatAngka } from '@/composables/useFormatAngka';
-import VChart from 'vue-echarts';
 import { computed, ref } from 'vue';
+import VChart from 'vue-echarts';
 
 /**
  * Pembungkus tunggal seluruh grafik.
@@ -61,9 +61,7 @@ function unduhPng() {
                 >
                     {{ modeTabel ? 'Lihat sebagai grafik' : 'Lihat sebagai tabel' }}
                 </Button>
-                <Button v-if="!modeTabel" variant="ghost" size="sm" class="h-7 text-xs" @click="unduhPng">
-                    Unduh PNG
-                </Button>
+                <Button v-if="!modeTabel" variant="ghost" size="sm" class="h-7 text-xs" @click="unduhPng"> Unduh PNG </Button>
             </div>
         </figcaption>
 
@@ -86,11 +84,7 @@ function unduhPng() {
                 </TableHeader>
                 <TableBody>
                     <TableRow v-for="(baris, i) in barisTabel" :key="i">
-                        <TableCell
-                            v-for="(sel, j) in baris"
-                            :key="j"
-                            :class="j > 0 ? 'angka text-right' : 'font-medium'"
-                        >
+                        <TableCell v-for="(sel, j) in baris" :key="j" :class="j > 0 ? 'angka text-right' : 'font-medium'">
                             {{ typeof sel === 'number' ? formatAngka(sel) : sel }}
                         </TableCell>
                     </TableRow>
@@ -98,13 +92,6 @@ function unduhPng() {
             </Table>
         </div>
 
-        <VChart
-            v-else
-            ref="grafik"
-            :option="opsi"
-            :style="{ height: `${tinggi ?? 240}px` }"
-            autoresize
-            class="w-full"
-        />
+        <VChart v-else ref="grafik" :option="opsi" :style="{ height: `${tinggi ?? 240}px` }" autoresize class="w-full" />
     </figure>
 </template>

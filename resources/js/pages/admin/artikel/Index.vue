@@ -49,6 +49,7 @@ const props = defineProps<{
     daftarRelevansi: { nilai: string; label: string; jumlah: number }[];
     sentimen: LabelSentimen | null;
     media: string | null;
+    penyedia: string | null;
     koreksi: boolean;
     pantauan: string;
     opsiMedia: OpsiFilter[];
@@ -117,6 +118,44 @@ const mediaTerpilih = computed({
 });
 
 /**
+ * Penilai yang mengerjakan barisnya, bukan penilai yang sedang disetel.
+ *
+ * Mengganti opsi di halaman Pengaturan tidak menilai ulang apa pun, jadi arsip
+ * berisi campuran keduanya. Saringan ini yang membuat campuran itu bisa
+ * dipisahkan, misalnya untuk membandingkan berapa banyak keputusan IndoBERT
+ * yang akhirnya dikoreksi admin dibandingkan keputusan Gemini.
+ */
+const penyediaTerpilih = computed({
+    get: () => props.penyedia ?? SEMUA,
+    set: (nilai: string) => pindah({ penyedia: nilai === SEMUA ? null : nilai }),
+});
+
+/**
+ * Tidak ditawarkan di Belum diklasifikasi.
+ *
+ * Artikel yang belum dinilai tidak punya penilai, jadi menyaringnya di sana
+ * selalu mengosongkan tabel. Sama seperti saringan relevansi.
+ */
+const penyediaBisaDisaring = computed(() => props.tahap !== 'belum');
+
+/**
+ * Pindah tahap, membuang saringan yang tidak berlaku di tujuannya.
+ *
+ * Relevansi dan sentimen selalu dibuang karena keduanya hanya ada di tahap
+ * Selesai. Penyedia hanya dibuang saat menuju Belum diklasifikasi: di Selesai
+ * dan Menunggu review ia tetap berguna, dan membuangnya di sana berarti admin
+ * yang membandingkan kedua penilai harus menyetel ulang setiap berpindah tab.
+ */
+function pindahTahap(nilai: string) {
+    pindah({
+        tahap: nilai,
+        relevansi: null,
+        sentimen: null,
+        ...(nilai === 'belum' ? { penyedia: null } : {}),
+    });
+}
+
+/**
  * Relevansi hanya bisa disaring pada tahap Selesai.
  *
  * Di Belum diklasifikasi belum ada baris analisis sama sekali. Di Menunggu
@@ -171,11 +210,19 @@ const sedangJalan = ref<number | null>(null);
 /**
  * Jeda antar penilaian manual, dihitung mundur di layar.
  *
- * Satu klik adalah satu sampai dua permintaan Gemini yang dihitung penuh oleh
- * Google, dan kuotanya kuota yang sama dengan yang dipakai antrean otomatis.
- * Tanpa jeda, admin yang menyapu daftar dengan klik beruntun bisa menghabiskan
- * jatah harian dalam beberapa menit, dan antrean latar belakang berhenti
- * sampai tengah malam waktu Pasifik tanpa ada yang tahu sebabnya.
+ * Satu klik yang sampai ke Gemini adalah satu sampai dua permintaan yang
+ * dihitung penuh oleh Google, dan kuotanya kuota yang sama dengan yang dipakai
+ * antrean otomatis. Tanpa jeda, admin yang menyapu daftar dengan klik beruntun
+ * bisa menghabiskan jatah harian dalam beberapa menit, dan antrean latar
+ * belakang berhenti sampai tengah malam waktu Pasifik tanpa ada yang tahu
+ * sebabnya.
+ *
+ * Hanya klik yang benar-benar memanggil Gemini yang dihukum. Server mengirim
+ * `jedaGemini` sesudah tahu penyedianya, dan layar tidak bisa menebaknya
+ * sendiri: dengan IndoBERT, artikel yang ditolak selesai tanpa satu pun
+ * permintaan ke Google, begitu juga artikel yang ditandai tidak relevan oleh
+ * admin. Menahan lima belas detik untuk kuota yang tidak pernah terpakai
+ * membuat penyisiran daftar tidak relevan terasa rusak tanpa sebab.
  *
  * Penegakan yang sebenarnya ada di server. Tombol yang diredupkan bukan aturan,
  * permintaannya tetap bisa dikirim langsung.
@@ -196,7 +243,10 @@ const opsiAksi = {
     showProgress: false,
     onFinish: () => {
         sedangJalan.value = null;
-        jeda.value = JEDA_DETIK;
+
+        // `onFinish` jalan setelah propsnya diperbarui, jadi nilai yang dibaca
+        // di sini sudah milik permintaan yang barusan selesai.
+        jeda.value = (page.props.flash as { jedaGemini?: boolean } | undefined)?.jedaGemini ? JEDA_DETIK : 0;
     },
 };
 
@@ -218,18 +268,14 @@ watch(
 
 const idHalamanIni = computed(() => props.artikel.data.map((b) => b.id));
 
-const semuaTercentang = computed(
-    () => idHalamanIni.value.length > 0 && terpilih.value.length === idHalamanIni.value.length,
-);
+const semuaTercentang = computed(() => idHalamanIni.value.length > 0 && terpilih.value.length === idHalamanIni.value.length);
 
 function alihkanSemua() {
     terpilih.value = semuaTercentang.value ? [] : [...idHalamanIni.value];
 }
 
 function alihkanSatu(id: number) {
-    terpilih.value = terpilih.value.includes(id)
-        ? terpilih.value.filter((satu) => satu !== id)
-        : [...terpilih.value, id];
+    terpilih.value = terpilih.value.includes(id) ? terpilih.value.filter((satu) => satu !== id) : [...terpilih.value, id];
 }
 
 const opsiBuang = {
@@ -459,7 +505,7 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                         class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
                         :class="tahap === t.nilai ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
                         :aria-pressed="tahap === t.nilai"
-                        @click="pindah({ tahap: t.nilai, relevansi: null, sentimen: null })"
+                        @click="pindahTahap(t.nilai)"
                     >
                         {{ t.label }}
                         <span class="angka ml-1 text-xs opacity-70">{{ formatAngka(t.jumlah) }}</span>
@@ -486,6 +532,17 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                             <SelectItem v-for="m in opsiMedia" :key="m.nilai" :value="m.nilai">
                                 {{ m.label }}
                             </SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    <Select v-if="penyediaBisaDisaring" v-model="penyediaTerpilih">
+                        <SelectTrigger class="h-8 w-40" aria-label="Saring menurut penilai">
+                            <SelectValue placeholder="Semua penilai" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem :value="SEMUA">Semua penilai</SelectItem>
+                            <SelectItem value="gemini">Gemini</SelectItem>
+                            <SelectItem value="indobert">IndoBERT</SelectItem>
                         </SelectContent>
                     </Select>
 
@@ -524,25 +581,12 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                             {{ semuaTercentang ? 'Bersihkan pilihan' : 'Pilih halaman ini' }}
                         </button>
 
-                        <Button
-                            v-if="terpilih.length > 0"
-                            size="sm"
-                            variant="outline"
-                            class="h-8"
-                            :disabled="sedangBuang"
-                            @click="buangTerpilih"
-                        >
+                        <Button v-if="terpilih.length > 0" size="sm" variant="outline" class="h-8" :disabled="sedangBuang" @click="buangTerpilih">
                             <Trash2 class="size-3.5" />
                             Buang {{ terpilih.length }} terpilih
                         </Button>
 
-                        <Button
-                            size="sm"
-                            variant="destructive"
-                            class="h-8"
-                            :disabled="sedangBuang || pembuangan.jumlah === 0"
-                            @click="buangSemua"
-                        >
+                        <Button size="sm" variant="destructive" class="h-8" :disabled="sedangBuang || pembuangan.jumlah === 0" @click="buangSemua">
                             <Loader2 v-if="sedangBuang" class="size-3.5 animate-spin" />
                             <Trash2 v-else class="size-3.5" />
                             Buang semua ({{ formatAngka(pembuangan.jumlah) }})
@@ -555,11 +599,7 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                          Nama yang salah membuat prop-nya diabaikan dan kotaknya
                          jalan sendiri: tampak tercentang, tetapi `terpilih`
                          tidak pernah terisi dan tombol buang tidak muncul. -->
-                    <Checkbox
-                        :checked="terpilih.includes(baris.id)"
-                        :aria-label="`Pilih ${baris.judul}`"
-                        @update:checked="alihkanSatu(baris.id)"
-                    />
+                    <Checkbox :checked="terpilih.includes(baris.id)" :aria-label="`Pilih ${baris.judul}`" @update:checked="alihkanSatu(baris.id)" />
                 </template>
 
                 <!-- Nomor urut meneruskan hitungan halaman, bukan mulai dari 1
@@ -589,7 +629,7 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                      menyalin tanggal masuk ke sana membuat jeda yang justru
                      ingin dibaca menjadi selalu nol. -->
                 <template #sel-tanggal="{ baris }">
-                    <span class="text-sm whitespace-nowrap text-muted-foreground">
+                    <span class="whitespace-nowrap text-sm text-muted-foreground">
                         {{ baris.dipublikasikan_at ? waktu(baris.dipublikasikan_at) : '-' }}
                         <span class="opacity-40">/</span>
                         {{ waktu(baris.diambil_at) }}
@@ -624,6 +664,15 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                                  Tanpa ini admin tidak bisa membedakan baris yang sudah
                                  diperiksa dari baris yang kebetulan sependapat. -->
                             <Badge v-if="baris.analisis.relevan_manual !== null || baris.analisis.label_manual" variant="outline"> Dikoreksi </Badge>
+
+                            <!-- Penanda penilai relevansi, hanya untuk IndoBERT.
+                                 Gemini tidak diberi badge karena ia yang
+                                 mengerjakan hampir seluruh arsip, dan penanda
+                                 yang muncul di setiap baris berhenti menjadi
+                                 penanda. Yang perlu terlihat sekali lihat adalah
+                                 baris yang keputusannya datang dari model baru
+                                 dan karena itu perlu diperiksa lebih dulu. -->
+                            <Badge v-if="baris.analisis.provider === 'indobert'" variant="outline"> IndoBERT </Badge>
                         </div>
 
                         <p v-if="baris.analisis.reason_summary" class="text-xs text-muted-foreground">

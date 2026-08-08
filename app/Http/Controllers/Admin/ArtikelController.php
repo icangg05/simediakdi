@@ -6,12 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\AnalisisSentimen;
 use App\Models\Artikel;
 use App\Models\Media;
+use App\Services\Ai\DTO\HasilKlasifikasi;
 use App\Services\Ai\KlasifikasiArtikel;
 use App\Services\PembuangArtikel;
 use App\Support\Waktu;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -78,6 +80,7 @@ class ArtikelController extends Controller
             'daftarRelevansi' => $this->daftarRelevansi($request, $tahap),
             'sentimen' => $this->sentimenTerpilih($request, $relevansi),
             'media' => $request->string('media')->toString() ?: null,
+            'penyedia' => $this->penyediaTerpilih($request),
             'koreksi' => $request->boolean('koreksi'),
             'pantauan' => config('pantauan.nama'),
             // Domain, bukan nama redaksi. Yang tertera di kolom Media pada
@@ -219,8 +222,12 @@ class ArtikelController extends Controller
      * admin yang melihatnya butuh kalimat yang bisa ditindaklanjuti, bukan
      * stack trace.
      */
-    public function klasifikasi(Artikel $artikel, KlasifikasiArtikel $klasifikasi): RedirectResponse
+    public function klasifikasi(Request $request, Artikel $artikel, KlasifikasiArtikel $klasifikasi): RedirectResponse
     {
+        if ($tertahan = $this->tertahan($request)) {
+            return $tertahan;
+        }
+
         if ($artikel->isi === null || trim($artikel->isi) === '') {
             return back()->with('galat', 'Artikel ini belum punya isi, jadi tidak ada yang bisa dinilai.');
         }
@@ -230,19 +237,87 @@ class ArtikelController extends Controller
         } catch (Throwable $galat) {
             report($galat);
 
-            return back()->with('galat', 'Gemini gagal dipanggil: '.$galat->getMessage());
+            return back()->with('galat', 'Penilaian gagal dijalankan: '.$galat->getMessage());
         }
 
         // Daftar hasil kosong berarti artikelnya sudah punya keputusan manusia
-        // dan Gemini sengaja dilewati. Itu tidak terbaca dari hasilnya sendiri,
-        // dan tanpa catatan ini toast-nya terlihat sama persis dengan
+        // dan penilaian sengaja dilewati. Itu tidak terbaca dari hasilnya
+        // sendiri, dan tanpa catatan ini toast-nya terlihat sama persis dengan
         // klasifikasi yang benar-benar berjalan.
         return back()
             ->with($this->pesan(
                 $artikel,
-                $hasil === [] ? 'Sudah ada keputusan manusia, Gemini tidak dipanggil' : null,
+                $hasil === [] ? 'Sudah ada keputusan manusia, penilaian tidak dijalankan' : null,
             ))
+            ->with('jedaGemini', $this->catatPemakaianGemini($request, $hasil))
             ->with('tautan', $this->tautan($artikel));
+    }
+
+    /**
+     * Jeda antar penilaian manual, dalam detik.
+     *
+     * Angkanya bukan soal beban server. Satu klik yang sampai ke Gemini adalah
+     * satu sampai dua permintaan yang dihitung penuh oleh Google, dan kuotanya
+     * kuota yang sama dengan yang dipakai antrean otomatis. Tanpa jeda, admin
+     * yang menyapu daftar dengan klik beruntun menghabiskan jatah harian dalam
+     * beberapa menit, dan antrean latar belakang berhenti sampai tengah malam
+     * waktu Pasifik tanpa ada yang tahu sebabnya.
+     */
+    private const JEDA_MANUAL = 15;
+
+    /**
+     * Satu ember untuk ketiga tombol, dikunci ke penggunanya.
+     *
+     * Ketiganya menghabiskan kuota yang sama, jadi jedanya memang satu untuk
+     * bertiga. Nama embernya disebut lengkap di sini karena kunci bawaan
+     * RateLimiter hanya id pengguna, dan tanpa awalan ini menekan Sisir artikel
+     * di halaman Antrean AI akan ikut memakan jatah tombol Klasifikasi.
+     */
+    private function emberJeda(Request $request): string
+    {
+        return 'gemini-manual:'.$request->user()->id;
+    }
+
+    /** Penolakan bila jedanya belum habis, atau null bila boleh jalan. */
+    private function tertahan(Request $request): ?RedirectResponse
+    {
+        $ember = $this->emberJeda($request);
+
+        if (! RateLimiter::tooManyAttempts($ember, 1)) {
+            return null;
+        }
+
+        return back()->with('galat', 'Tunggu '.RateLimiter::availableIn($ember)
+            .' detik lagi. Penilaian sebelumnya memakai kuota Gemini.');
+    }
+
+    /**
+     * Menghabiskan jeda hanya bila Gemini benar-benar terpanggil.
+     *
+     * Inti perubahannya ada di sini. Dulu jedanya dipasang middleware sebelum
+     * apa pun dinilai, jadi setiap klik dihukum sama rata. Sejak relevansi bisa
+     * dikerjakan IndoBERT, sebagian besar klik tidak menyentuh Google sama
+     * sekali: artikel yang ditolak IndoBERT selesai tanpa satu pun permintaan,
+     * begitu juga artikel yang ditandai tidak relevan oleh admin. Menahan admin
+     * lima belas detik untuk kuota yang tidak pernah terpakai membuat
+     * penyisiran daftar artikel tidak relevan terasa rusak tanpa sebab.
+     *
+     * Penyedia dibaca dari hasilnya, bukan dari pengaturan yang sedang aktif.
+     * Sentimen selalu Gemini betapapun relevansinya disetel, dan satu artikel
+     * bisa menghasilkan dua keputusan dari dua penilai berbeda.
+     *
+     * @param  list<HasilKlasifikasi>  $hasil
+     * @return bool apakah jedanya berlaku, dibaca layar untuk hitung mundurnya
+     */
+    private function catatPemakaianGemini(Request $request, array $hasil): bool
+    {
+        $pakai = collect($hasil)->contains(fn (HasilKlasifikasi $satu) => $satu->penyedia === 'gemini');
+
+        if ($pakai) {
+            RateLimiter::hit($this->emberJeda($request), self::JEDA_MANUAL);
+        }
+
+        return $pakai;
     }
 
     /**
@@ -258,6 +333,10 @@ class ArtikelController extends Controller
         Artikel $artikel,
         KlasifikasiArtikel $klasifikasi,
     ): RedirectResponse {
+        if ($tertahan = $this->tertahan($request)) {
+            return $tertahan;
+        }
+
         $relevan = $request->validate(['relevan' => ['required', 'boolean']])['relevan'];
 
         // Penjaga yang sama dengan tombol Klasifikasi, dan sempat tidak ada di
@@ -305,15 +384,19 @@ class ArtikelController extends Controller
         if (! $relevan) {
             $artikel->update(['status_proses' => 'tidak_relevan']);
 
+            // Tanpa jeda, dan itu inti perbaikannya. Menandai tidak relevan
+            // tidak memanggil Gemini sama sekali, jadi menahan admin lima belas
+            // detik hanya memperlambat penyisiran tanpa menjaga kuota apa pun.
             return back()
                 ->with($this->pesan($artikel, 'Ditandai oleh admin'))
+                ->with('jedaGemini', false)
                 ->with('tautan', $this->tautan($artikel));
         }
 
         // Sentimen dijalankan setelahnya, sekali. Panggilan Gemini memakan
         // detikan, jadi tidak ditaruh di dalam transaksi apa pun.
         try {
-            $klasifikasi->jalankanSentimen($artikel);
+            $hasil = $klasifikasi->jalankanSentimen($artikel);
         } catch (Throwable $galat) {
             report($galat);
 
@@ -323,6 +406,7 @@ class ArtikelController extends Controller
 
         return back()
             ->with($this->pesan($artikel, 'Ditandai oleh admin'))
+            ->with('jedaGemini', $this->catatPemakaianGemini($request, $hasil))
             ->with('tautan', $this->tautan($artikel));
     }
 
@@ -338,8 +422,12 @@ class ArtikelController extends Controller
      * lama sudah tidak tersimpan di mana pun. Tanpa penilaian ulang artikelnya
      * akan berhenti pada nilai manusia yang justru baru saja dicabut.
      */
-    public function reset(Artikel $artikel, KlasifikasiArtikel $klasifikasi): RedirectResponse
+    public function reset(Request $request, Artikel $artikel, KlasifikasiArtikel $klasifikasi): RedirectResponse
     {
+        if ($tertahan = $this->tertahan($request)) {
+            return $tertahan;
+        }
+
         $baris = AnalisisSentimen::where('artikel_id', $artikel->id)->first();
 
         if ($baris === null || ($baris->relevan_manual === null && $baris->label_manual === null)) {
@@ -361,7 +449,7 @@ class ArtikelController extends Controller
         ]);
 
         try {
-            $klasifikasi->jalankan($artikel);
+            $hasil = $klasifikasi->jalankan($artikel);
         } catch (Throwable $galat) {
             report($galat);
 
@@ -376,6 +464,7 @@ class ArtikelController extends Controller
 
         return back()
             ->with($this->pesan($artikel, 'Koreksi dicabut dan dinilai ulang'))
+            ->with('jedaGemini', $this->catatPemakaianGemini($request, $hasil))
             ->with('tautan', $this->tautan($artikel));
     }
 
@@ -540,6 +629,8 @@ class ArtikelController extends Controller
      */
     private function saringanUmum(Builder $kueri, Request $request): Builder
     {
+        $penyedia = $this->penyediaTerpilih($request);
+
         $kueri
             ->when($request->filled('media'), fn (Builder $q) => $q->where(
                 'media_id', $request->integer('media'),
@@ -556,11 +647,40 @@ class ArtikelController extends Controller
                 'analisisSentimen', fn ($a) => $a
                     ->whereNotNull('relevan_manual')
                     ->orWhereNotNull('label_manual'),
+            ))
+            // Penyedia ikut ke sini, bukan hanya ke tabelnya, karena ia memang
+            // tidak dimiliki satu kelompok tombol mana pun. Menyaring IndoBERT
+            // lalu melihat tombol Relevan menyebut angka seluruh penyedia
+            // adalah angka yang berbohong.
+            //
+            // Akibatnya tombol Belum diklasifikasi berbunyi nol selama penyedia
+            // dipilih, dan itu memang benar: artikel yang belum dinilai tidak
+            // punya penilai. Layar membuang parameternya saat berpindah ke
+            // tahap itu, sama seperti yang sudah dilakukannya pada relevansi
+            // dan sentimen.
+            ->when($penyedia !== null, fn (Builder $q) => $q->whereHas(
+                'analisisSentimen', fn ($a) => $a->where('provider', $penyedia),
             ));
 
         $this->saringTanggal($kueri, $request);
 
         return $kueri;
+    }
+
+    /**
+     * Penyedia yang berlaku, atau null bila tidak disaring.
+     *
+     * Tanpa nilai bawaan. Keduanya setara, dan memilih salah satunya sebagai
+     * bawaan akan menyembunyikan sebagian besar arsip tanpa admin pernah
+     * memintanya. Yang dibaca kolom `analisis_sentimen.provider`, yaitu penilai
+     * yang benar-benar mengerjakan baris itu, bukan penilai yang sedang disetel
+     * di halaman Pengaturan sekarang.
+     */
+    private function penyediaTerpilih(Request $request): ?string
+    {
+        $penyedia = $request->string('penyedia')->toString();
+
+        return \in_array($penyedia, ['gemini', 'indobert'], true) ? $penyedia : null;
     }
 
     /** @return list<array{nilai: string, label: string, jumlah: int}> */

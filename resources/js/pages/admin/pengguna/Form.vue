@@ -78,13 +78,7 @@ function simpan() {
 
                     <div class="grid gap-1.5">
                         <Label for="password">Kata sandi</Label>
-                        <Input
-                            id="password"
-                            v-model="form.password"
-                            type="password"
-                            :required="!pengguna"
-                            autocomplete="new-password"
-                        />
+                        <Input id="password" v-model="form.password" type="password" :required="!pengguna" autocomplete="new-password" />
                         <p class="text-xs text-muted-foreground">
                             {{ pengguna ? 'Kosongkan kalau tidak ingin mengubahnya.' : 'Minimal 8 karakter.' }}
                         </p>
@@ -114,9 +108,7 @@ function simpan() {
                                 </SelectItem>
                             </SelectContent>
                         </Select>
-                        <p class="text-xs text-muted-foreground">
-                            Pengguna hanya akan melihat data media ini. Wajib diisi untuk peran media.
-                        </p>
+                        <p class="text-xs text-muted-foreground">Pengguna hanya akan melihat data media ini. Wajib diisi untuk peran media.</p>
                         <InputError :message="form.errors.media_id" />
                     </div>
 

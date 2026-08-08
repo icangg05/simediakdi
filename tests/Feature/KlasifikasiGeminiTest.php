@@ -429,25 +429,33 @@ class KlasifikasiGeminiTest extends TestCase
      * Klasifikasi manual dibatasi satu per 15 detik, ditegakkan di server.
      *
      * Tombol yang diredupkan bukan aturan, permintaannya tetap bisa dikirim
-     * langsung. Satu klik adalah satu sampai dua permintaan Gemini yang
-     * dihitung penuh oleh Google, dan kuotanya kuota yang sama dengan yang
-     * dipakai antrean otomatis. Tanpa jeda, admin yang menyapu daftar dengan
-     * klik beruntun menghabiskan jatah harian dalam beberapa menit.
+     * langsung. Satu klik yang sampai ke Gemini adalah satu sampai dua
+     * permintaan yang dihitung penuh oleh Google, dan kuotanya kuota yang sama
+     * dengan yang dipakai antrean otomatis. Tanpa jeda, admin yang menyapu
+     * daftar dengan klik beruntun menghabiskan jatah harian dalam beberapa
+     * menit.
+     *
+     * Penolakannya kini berupa pesan, bukan status 429. Penjaganya pindah dari
+     * middleware ke controller supaya ia bisa membedakan penilaian yang
+     * benar-benar memanggil Gemini dari yang selesai di IndoBERT, dan
+     * imbalannya penolakan itu sekarang muncul sebagai toast yang menyebut sisa
+     * detiknya alih-alih layar galat mentah di tengah permintaan Inertia.
      */
     public function test_klasifikasi_manual_menolak_klik_kedua_dalam_15_detik(): void
     {
-        RelevanceClassifier::fake([$this->jawaban('relevan')]);
-        SentimentClassifier::fake([$this->jawaban('positif')]);
+        RelevanceClassifier::fake([$this->jawaban('relevan'), $this->jawaban('relevan')]);
+        SentimentClassifier::fake([$this->jawaban('positif'), $this->jawaban('positif')]);
 
         $pengguna = User::factory()->create(['peran' => 'superadmin']);
 
         $this->actingAs($pengguna)
             ->post("/admin/artikel/{$this->artikel->id}/klasifikasi")
-            ->assertRedirect();
+            ->assertRedirect()
+            ->assertSessionHas('jedaGemini', true);
 
         $this->actingAs($pengguna)
             ->post("/admin/artikel/{$this->artikel->id}/klasifikasi")
-            ->assertStatus(429);
+            ->assertSessionHas('galat');
     }
 
     /**
