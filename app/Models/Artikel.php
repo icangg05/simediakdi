@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Scopes\MilikMedia;
+use App\Services\Executive\ExecutiveCache;
 use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -19,6 +20,12 @@ class Artikel extends Model
     protected $table = 'artikel';
 
     protected $guarded = ['id'];
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => app(ExecutiveCache::class)->bump());
+        static::deleted(fn () => app(ExecutiveCache::class)->bump());
+    }
 
     protected function casts(): array
     {

@@ -19,6 +19,7 @@ services:
   # tanpa satu pun galat yang menunjukkannya.
   worker:
     build: ./docker/php
+    restart: unless-stopped
     working_dir: /app
     user: "1000:1000"
     environment:

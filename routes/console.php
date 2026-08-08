@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\Executive\GenerateExecutiveTopics;
 use Illuminate\Support\Facades\Schedule;
 
 // Jadwal lengkap ada di dokumen 02 bagian 7. Yang belum terdaftar di sini
@@ -64,3 +65,12 @@ Schedule::command('gemini:antre --isi')
 Schedule::command('gemini:antre')
     ->everyMinute()
     ->withoutOverlapping();
+
+// Interpretasi eksekutif berjalan di belakang layar. Fingerprint di service
+// mencegah panggilan Gemini bila populasi artikelnya belum berubah.
+foreach (['today', '7d', '30d', '90d'] as $index => $period) {
+    $minute = $index * 5;
+    Schedule::job(new GenerateExecutiveTopics($period))
+        ->cron("{$minute},".($minute + 30).' * * * *')
+        ->withoutOverlapping();
+}

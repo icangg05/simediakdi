@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Artikel;
 use App\Models\RiwayatAlert;
 use App\Services\Agregasi\RingkasanEksekutif;
+use App\Services\Executive\ExecutiveDashboardService;
 use App\Support\Periode;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,11 +19,15 @@ use Inertia\Response;
  */
 class DashboardController extends Controller
 {
-    public function __invoke(Request $request, RingkasanEksekutif $ringkasan): Response
-    {
+    public function __invoke(
+        Request $request,
+        RingkasanEksekutif $ringkasan,
+        ExecutiveDashboardService $dashboard,
+    ): Response {
         $periode = Periode::dariRequest($request, $ringkasan);
 
         return Inertia::render('eksekutif/Dashboard', [
+            'dashboard' => $dashboard->build($request->query('period')),
             ...$periode->untukInertia(),
             'kpi' => $ringkasan->kpi($periode->dari, $periode->sampai),
             'deret' => $ringkasan->deret($periode->dari, $periode->sampai),

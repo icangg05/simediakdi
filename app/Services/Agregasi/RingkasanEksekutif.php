@@ -146,12 +146,15 @@ class RingkasanEksekutif
     /** Media yang memuat minimal satu artikel pada periode itu. */
     private function mediaAktif(CarbonImmutable $dari, CarbonImmutable $sampai): int
     {
-        return DB::table('ringkasan_harian')
-            ->whereNotNull('media_id')
-            ->whereBetween('tanggal', [$dari->toDateString(), $sampai->toDateString()])
-            ->where('jumlah_artikel', '>', 0)
-            ->distinct()
-            ->count('media_id');
+        return DB::query()->fromSub(
+            DB::table('ringkasan_harian')
+                ->select('media_id')
+                ->whereNotNull('media_id')
+                ->whereBetween('tanggal', [$dari->toDateString(), $sampai->toDateString()])
+                ->groupBy('media_id')
+                ->havingRaw('sum(jumlah_negatif + jumlah_netral + jumlah_positif) > 0'),
+            'media_relevan',
+        )->count();
     }
 
     /**
@@ -166,12 +169,12 @@ class RingkasanEksekutif
             ->whereNotNull('r.media_id')
             ->whereBetween('r.tanggal', [$dari->toDateString(), $sampai->toDateString()])
             ->groupBy('m.id', 'm.nama', 'm.tier')
-            ->havingRaw('sum(r.jumlah_artikel) > 0')
-            ->orderByRaw('sum(r.jumlah_artikel) DESC')
+            ->havingRaw('sum(r.jumlah_negatif + r.jumlah_netral + r.jumlah_positif) > 0')
+            ->orderByRaw('sum(r.jumlah_negatif + r.jumlah_netral + r.jumlah_positif) DESC')
             ->limit($batas)
             ->get([
                 'm.id', 'm.nama', 'm.tier',
-                DB::raw('sum(r.jumlah_artikel)::int AS jumlah_artikel'),
+                DB::raw('sum(r.jumlah_negatif + r.jumlah_netral + r.jumlah_positif)::int AS jumlah_artikel'),
                 DB::raw('sum(r.jumlah_negatif)::int AS jumlah_negatif'),
                 DB::raw('sum(r.jumlah_netral)::int AS jumlah_netral'),
                 DB::raw('sum(r.jumlah_positif)::int AS jumlah_positif'),

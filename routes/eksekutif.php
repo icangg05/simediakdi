@@ -5,6 +5,7 @@ use App\Http\Controllers\Eksekutif\DashboardController;
 use App\Http\Controllers\Eksekutif\IsuController;
 use App\Http\Controllers\Eksekutif\PeringkatMediaController;
 use App\Http\Controllers\Eksekutif\SentimenController;
+use App\Http\Controllers\Eksekutif\TopikController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('eksekutif')->name('eksekutif.')->middleware('peran:walikota,superadmin')->group(function () {
@@ -13,4 +14,5 @@ Route::prefix('eksekutif')->name('eksekutif.')->middleware('peran:walikota,super
     Route::get('isu', IsuController::class)->name('isu');
     Route::get('media', PeringkatMediaController::class)->name('media');
     Route::get('berita', ArsipBeritaController::class)->name('berita');
+    Route::get('topik/{topik}', TopikController::class)->name('topik');
 });

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\LabelSentimen;
+use App\Services\Executive\ExecutiveCache;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
@@ -16,6 +17,12 @@ class AnalisisSentimen extends Model
 
     /** label_efektif adalah kolom generated; menulisnya ditolak Postgres. */
     protected $guarded = ['id', 'label_efektif'];
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => app(ExecutiveCache::class)->bump());
+        static::deleted(fn () => app(ExecutiveCache::class)->bump());
+    }
 
     /**
      * Sisa penilaian sentimen yang wajib dibuang begitu artikel dinyatakan

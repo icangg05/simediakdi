@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\LabelSentimen;
 use App\Models\AnalisisSentimen;
 use App\Models\Artikel;
+use App\Models\ExecutiveTopic;
 use App\Models\Media;
 use App\Models\User;
 use App\Services\Agregasi\RingkasanHarian;
@@ -231,5 +232,89 @@ class HalamanEksekutifTest extends TestCase
         $this->actingAs($this->walikota)
             ->get('/eksekutif')
             ->assertInertia(fn ($page) => $page->where('peringatan', null));
+    }
+
+    public function test_pilihan_periode_rolling_diterjemahkan_dengan_benar(): void
+    {
+        $this->travelTo(now()->setTimezone(Waktu::ZONA)->setDate(2026, 8, 9)->setTime(1, 0));
+
+        $this->actingAs($this->walikota)
+            ->get('/eksekutif?period=30d')
+            ->assertInertia(fn ($page) => $page
+                ->where('dashboard.period.type', '30d')
+                ->where('dashboard.period.start', '2026-07-11')
+                ->where('dashboard.period.end', '2026-08-09')
+                ->where('dashboard.period.previous_start', '2026-06-11')
+                ->where('dashboard.period.previous_end', '2026-07-10'));
+    }
+
+    public function test_dashboard_baru_mengecualikan_media_yang_hanya_memuat_artikel_tidak_relevan(): void
+    {
+        $media = Media::create(['nama' => 'Media Tidak Relevan', 'slug' => 'mtr', 'domain' => 'mtr.test']);
+        $artikel = Artikel::withoutGlobalScopes()->create([
+            'media_id' => $media->id,
+            'judul' => 'Artikel di luar konteks Pemerintah Kota Kendari',
+            'url' => 'https://mtr.test/tidak-relevan',
+            'url_kanonik' => 'https://mtr.test/tidak-relevan',
+            'isi' => 'Isi berita.',
+            'diambil_at' => Waktu::awalHariIni()->addHours(10),
+            'status_proses' => 'selesai',
+        ]);
+        AnalisisSentimen::create(['artikel_id' => $artikel->id, 'relevan' => false]);
+        app(RingkasanHarian::class)->hitung(Waktu::tanggalWita(now()));
+
+        $this->actingAs($this->walikota)
+            ->get('/eksekutif?period=today')
+            ->assertInertia(fn ($page) => $page
+                ->where('dashboard.metrics.total_articles', 3)
+                ->where('dashboard.metrics.active_sources', 1)
+                ->count('dashboard.top_sources', 1)
+                ->where('dashboard.top_sources.0.nama', 'Kendari Pos'));
+    }
+
+    public function test_perbandingan_sentimen_menggunakan_poin_persentase(): void
+    {
+        $kemarin = $this->artikelTambahan('Berita negatif kemarin', relevan: true, label: LabelSentimen::Negatif);
+        $kemarin->update(['diambil_at' => Waktu::awalHari(Waktu::tanggalWita(now()->subDay()))->addHours(9)]);
+        app(RingkasanHarian::class)->hitung(Waktu::tanggalWita(now()->subDay()));
+
+        $this->actingAs($this->walikota)
+            ->get('/eksekutif?period=today')
+            ->assertInertia(fn ($page) => $page
+                ->where('dashboard.sentiment.positif.percentage', 66.7)
+                ->where('dashboard.comparison.sentiment.positif.percentage_points', 66.7)
+                ->where('dashboard.comparison.sentiment.negatif.percentage_points', -66.7));
+    }
+
+    public function test_topik_dapat_dibuka_ke_artikel_terkait(): void
+    {
+        $ids = Artikel::withoutGlobalScopes()->orderBy('id')->pluck('id')->all();
+        $today = Waktu::tanggalWita(now());
+        $topik = ExecutiveTopic::create([
+            'period_type' => 'today',
+            'start_date' => $today,
+            'end_date' => $today,
+            'title' => 'Pelayanan publik Pemerintah Kota Kendari mendapat sorotan media',
+            'summary' => 'Sejumlah media membahas pelayanan publik pada periode ini.',
+            'article_count' => count($ids),
+            'positive_count' => 2,
+            'neutral_count' => 0,
+            'negative_count' => 1,
+            'source_count' => 1,
+            'dominant_sentiment' => 'positif',
+            'trend' => 'baru',
+            'priority_score' => 2,
+            'priority_level' => 'rendah',
+            'article_ids' => $ids,
+            'fingerprint' => hash('sha256', 'test'),
+            'generated_at' => now(),
+        ]);
+
+        $this->actingAs($this->walikota)
+            ->get("/eksekutif/topik/{$topik->id}")
+            ->assertInertia(fn ($page) => $page
+                ->component('eksekutif/Topik')
+                ->where('topik.id', $topik->id)
+                ->count('artikel', 3));
     }
 }

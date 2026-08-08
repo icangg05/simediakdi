@@ -2,6 +2,7 @@
 
 namespace App\Services\Agregasi;
 
+use App\Services\Executive\ExecutiveCache;
 use App\Support\Waktu;
 use Illuminate\Support\Facades\DB;
 
@@ -17,6 +18,8 @@ use Illuminate\Support\Facades\DB;
  */
 class RingkasanHarian
 {
+    public function __construct(private ExecutiveCache $executiveCache) {}
+
     /** @return int jumlah baris yang ditulis */
     public function hitung(string $tanggalWita): int
     {
@@ -65,7 +68,10 @@ class RingkasanHarian
             dihitung_at = EXCLUDED.dihitung_at
         SQL;
 
-        return DB::affectingStatement($sql, [$tanggalWita, $mulai, $akhir]);
+        $rows = DB::affectingStatement($sql, [$tanggalWita, $mulai, $akhir]);
+        $this->executiveCache->bump();
+
+        return $rows;
     }
 
     /**
