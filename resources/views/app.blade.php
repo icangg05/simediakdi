@@ -6,6 +6,10 @@
 
         <title inertia>{{ config('app.name', 'Laravel') }}</title>
 
+        {{-- Lambang resmi Pemerintah Kota Kendari, berkas yang sama dengan logo di kop halaman. --}}
+        <link rel="icon" type="image/webp" href="/img/Lambang_Kota_Kendari.webp">
+        <link rel="apple-touch-icon" href="/img/Lambang_Kota_Kendari.webp">
+
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />
 

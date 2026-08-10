@@ -97,6 +97,12 @@ class DashboardController extends Controller
                 'diambil_at' => $a->diambil_at,
                 'label' => $a->analisisSentimen->first()?->label_efektif?->value,
                 'perlu_review' => (bool) $a->analisisSentimen->first()?->perlu_review,
+                // Alasan model atas label yang diberikannya. Untuk artikel
+                // relevan kolom ini sudah ditimpa tahap sentimen, jadi isinya
+                // menjelaskan nadanya dan bukan alasan artikelnya dianggap
+                // relevan. Kosong pada baris analisis lama, dan halaman
+                // menyembunyikan barisnya kalau begitu.
+                'ringkasan_ai' => $a->analisisSentimen->first()?->reason_summary,
             ])
             ->all();
     }

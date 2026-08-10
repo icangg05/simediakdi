@@ -46,7 +46,7 @@ class NarasiEksekutif extends Model
             'judul' => $this->judul,
             'ringkasan' => $this->ringkasan,
             'penjelasan_tren' => $this->penjelasan_tren,
-            'poin' => $this->poin ?? [],
+            'poin' => $this->daftarPoin(),
             'perhatian' => $this->perhatian ?? [],
             'nada_ringkas' => $this->nada_ringkas ?? [],
             'topik' => $this->topik ?? [],
@@ -54,5 +54,25 @@ class NarasiEksekutif extends Model
             'sampai' => $this->sampai->toDateString(),
             'dibuat_at' => $this->dibuat_at,
         ];
+    }
+
+    /**
+     * Poin dalam satu bentuk, apa pun isi kolomnya.
+     *
+     * Sebelum poin membawa tautan, kolom ini berisi daftar untaian biasa. Baris
+     * lama tidak dimigrasikan karena narasi dibuat ulang penjadwal tiap jam,
+     * jadi bentuk lama hilang sendiri dalam sehari. Normalisasi dikerjakan di
+     * sini, satu tempat, supaya halaman tidak perlu tahu ada dua bentuk.
+     *
+     * @return list<array{teks: string, artikel_ids: list<int>}>
+     */
+    private function daftarPoin(): array
+    {
+        return array_values(array_map(
+            fn ($p) => is_array($p)
+                ? ['teks' => (string) ($p['teks'] ?? ''), 'artikel_ids' => array_values((array) ($p['artikel_ids'] ?? []))]
+                : ['teks' => (string) $p, 'artikel_ids' => []],
+            (array) ($this->poin ?? []),
+        ));
     }
 }

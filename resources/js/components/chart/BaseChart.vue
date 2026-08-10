@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import KeadaanKosong from '@/components/KeadaanKosong.vue';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useFormatAngka } from '@/composables/useFormatAngka';
+import { ChartLine, Download, Table as TableIcon } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import VChart from 'vue-echarts';
 
@@ -48,20 +48,35 @@ function unduhPng() {
 <template>
     <figure class="space-y-2">
         <figcaption class="flex flex-wrap items-center justify-between gap-2">
-            <h3 class="text-sm font-medium">{{ judul }}</h3>
+            <h3 class="text-sm font-bold text-primary dark:text-aksen-biru">{{ judul }}</h3>
 
-            <div v-if="!kosong" class="flex gap-1">
-                <Button
+            <!--
+                Pil berwarna, bukan tombol hantu abu-abu. Keduanya duduk di
+                sebelah judul grafik dan tombol hantu di sana terbaca seperti
+                keterangan, bukan sesuatu yang bisa diklik. Warnanya diambil
+                dari palet aksen, bukan palet sentimen, karena tombol ini
+                mengatur tampilan dan tidak menyatakan nada pemberitaan apa pun.
+            -->
+            <div v-if="!kosong" class="flex flex-wrap gap-1.5">
+                <button
                     v-if="kolomTabel?.length"
-                    variant="ghost"
-                    size="sm"
-                    class="h-7 text-xs"
+                    type="button"
+                    class="tekan inline-flex items-center gap-1.5 rounded-full bg-aksen-biru/10 px-3 py-1 text-xs font-semibold text-aksen-biru hover:bg-aksen-biru/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-aksen-biru/50"
                     :aria-pressed="modeTabel"
                     @click="modeTabel = !modeTabel"
                 >
+                    <component :is="modeTabel ? ChartLine : TableIcon" class="h-3.5 w-3.5" aria-hidden="true" />
                     {{ modeTabel ? 'Lihat sebagai grafik' : 'Lihat sebagai tabel' }}
-                </Button>
-                <Button v-if="!modeTabel" variant="ghost" size="sm" class="h-7 text-xs" @click="unduhPng"> Unduh PNG </Button>
+                </button>
+                <button
+                    v-if="!modeTabel"
+                    type="button"
+                    class="tekan inline-flex items-center gap-1.5 rounded-full bg-aksen-toska/10 px-3 py-1 text-xs font-semibold text-aksen-toska hover:bg-aksen-toska/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-aksen-toska/50"
+                    @click="unduhPng"
+                >
+                    <Download class="h-3.5 w-3.5" aria-hidden="true" />
+                    Unduh PNG
+                </button>
             </div>
         </figcaption>
 

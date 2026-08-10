@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import AppLogo from '@/components/AppLogo.vue';
-import AppLogoIcon from '@/components/AppLogoIcon.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -51,7 +50,7 @@ const aktif = computed(() => hrefAktif(mainNavItems.value, page.url));
                 <SheetContent side="left" class="w-[300px] p-6">
                     <SheetHeader class="text-left">
                         <SheetTitle class="flex items-center gap-2">
-                            <AppLogoIcon class="size-6 fill-current" />
+                            <img src="/img/Lambang_Kota_Kendari.webp" alt="" class="size-6 object-contain" width="24" height="24" />
                             Menu
                         </SheetTitle>
                     </SheetHeader>

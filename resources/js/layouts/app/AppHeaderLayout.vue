@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppFooter from '@/components/AppFooter.vue';
 import AppHeader from '@/components/AppHeader.vue';
 import AppShell from '@/components/AppShell.vue';
 </script>
@@ -18,5 +19,7 @@ import AppShell from '@/components/AppShell.vue';
         <main class="latar-eksekutif flex w-full flex-1 flex-col">
             <slot />
         </main>
+
+        <AppFooter />
     </AppShell>
 </template>

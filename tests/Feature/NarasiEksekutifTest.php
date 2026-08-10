@@ -214,6 +214,58 @@ class NarasiEksekutifTest extends TestCase
     }
 
     /**
+     * Tautan poin harus membuka artikel yang benar-benar ada di periode itu.
+     *
+     * Id karangan tidak menggagalkan narasi, berbeda dengan id karangan pada
+     * topik, tetapi juga tidak boleh lolos ke layar. Tautan yang membuka arsip
+     * kosong membuat pembaca menyimpulkan beritanya sudah dihapus.
+     */
+    public function test_artikel_id_karangan_pada_poin_disaring(): void
+    {
+        $jawaban = $this->jawaban([[
+            'judul' => 'Pengelolaan parkir mulai mendapat sorotan dalam sejumlah pemberitaan',
+            'ringkasan' => 'Ringkasan.',
+            'artikel_ids' => [$this->id[0]],
+        ]]);
+
+        $jawaban['poin'] = [['teks' => 'Poin dengan id karangan', 'artikel_ids' => [$this->id[1], 999999]]];
+
+        AnalisEksekutif::fake([$jawaban]);
+
+        $baris = app(NarasiEksekutif::class)->perbarui('7d');
+
+        $this->assertSame([$this->id[1]], $baris->poin[0]['artikel_ids']);
+        $this->assertSame('Poin dengan id karangan', $baris->poin[0]['teks']);
+    }
+
+    /**
+     * Narasi lama menyimpan poin sebagai untaian biasa, dan barisnya masih ada
+     * di basis data sampai penjadwal menimpanya. Halaman tidak boleh pecah
+     * selama satu jam itu.
+     */
+    public function test_poin_bentuk_lama_tetap_terbaca(): void
+    {
+        $baris = Baris::create([
+            'periode' => '7d',
+            'dari' => Waktu::tanggalWita(now()),
+            'sampai' => Waktu::tanggalWita(now()),
+            'nada' => 'netral',
+            'judul' => 'Judul',
+            'ringkasan' => 'Ringkasan.',
+            'poin' => ['Poin bentuk lama'],
+            'jumlah_artikel' => 1,
+            'sidik' => 'apa-saja',
+            'model' => 'uji',
+            'dibuat_at' => now(),
+        ]);
+
+        $this->assertSame(
+            [['teks' => 'Poin bentuk lama', 'artikel_ids' => []]],
+            $baris->untukInertia()['poin'],
+        );
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $topik
      * @return array<string, mixed>
      */
@@ -225,7 +277,10 @@ class NarasiEksekutifTest extends TestCase
             'judul' => 'Pemberitaan Pemkot Kendari bernada beragam',
             'ringkasan' => 'Ringkasan kondisi pemberitaan.',
             'penjelasan_tren' => 'Jumlah berita naik pada dua hari terakhir.',
-            'poin' => ['Poin pertama', 'Poin kedua'],
+            'poin' => [
+                ['teks' => 'Poin pertama', 'artikel_ids' => [$this->id[0]]],
+                ['teks' => 'Poin kedua', 'artikel_ids' => [$this->id[1]]],
+            ],
             'perhatian' => [['topik' => 'Pengelolaan parkir', 'alasan' => 'Muncul di dua media.']],
             'nada_ringkas' => [
                 'positif' => 'Kegiatan pelayanan publik.',

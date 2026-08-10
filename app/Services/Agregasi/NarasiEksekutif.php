@@ -160,7 +160,7 @@ class NarasiEksekutif
                 'judul' => $this->potong((string) ($jawaban['judul'] ?? ''), 300),
                 'ringkasan' => (string) ($jawaban['ringkasan'] ?? ''),
                 'penjelasan_tren' => (string) ($jawaban['penjelasan_tren'] ?? ''),
-                'poin' => array_slice(array_map(strval(...), (array) ($jawaban['poin'] ?? [])), 0, 4),
+                'poin' => $this->poin($jawaban['poin'] ?? [], $artikel),
                 'perhatian' => $this->perhatian($jawaban['perhatian'] ?? []),
                 'nada_ringkas' => array_map(strval(...), (array) ($jawaban['nada_ringkas'] ?? [])),
                 'topik' => $topik,
@@ -444,6 +444,55 @@ class NarasiEksekutif
         arsort($urut);
 
         return array_key_first($urut);
+    }
+
+    /**
+     * Poin ringkasan beserta artikel yang mendasarinya.
+     *
+     * Id divalidasi terhadap daftar masukan, sama seperti pada topik, karena
+     * tautan yang mengarah ke artikel yang tidak pernah ada di periode itu
+     * lebih buruk daripada poin tanpa tautan sama sekali.
+     *
+     * Bedanya dengan topik, id yang tidak dikenal di sini disaring dan dicatat,
+     * bukan menggagalkan seluruh narasi. Tautan poin adalah pelengkap, dan satu
+     * id yang salah salin tidak sepadan dengan membuang ringkasan, delapan
+     * topik, dan satu panggilan Gemini yang sudah dibayar.
+     *
+     * @param  Collection<int, object>  $artikel
+     * @return list<array<string, mixed>>
+     */
+    private function poin(mixed $mentah, Collection $artikel): array
+    {
+        $sah = $artikel->pluck('id')->all();
+        $hasil = [];
+
+        foreach (array_slice((array) $mentah, 0, 4) as $p) {
+            // Bentuk lama menyimpan poin sebagai untaian biasa. Baris narasi
+            // yang dibuat sebelum skema ini berubah tetap harus bisa dibaca
+            // ulang tanpa migrasi.
+            $teks = is_array($p) ? (string) ($p['teks'] ?? '') : (string) $p;
+
+            if (trim($teks) === '') {
+                continue;
+            }
+
+            $ids = is_array($p)
+                ? array_values(array_unique(array_map(intval(...), (array) ($p['artikel_ids'] ?? []))))
+                : [];
+
+            $asing = array_diff($ids, $sah);
+
+            if ($asing !== []) {
+                Log::warning('Artikel id pada poin narasi tidak dikenal, disaring.', ['id' => array_values($asing)]);
+            }
+
+            $hasil[] = [
+                'teks' => $teks,
+                'artikel_ids' => array_values(array_intersect($ids, $sah)),
+            ];
+        }
+
+        return $hasil;
     }
 
     /**

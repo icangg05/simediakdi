@@ -46,15 +46,16 @@ const tanggal = computed(() => props.data.map((b) => format(new Date(b.tanggal),
  * Urutan tetap dari bawah: positif, netral, negatif. Urutan yang berubah antar
  * halaman membuat pembaca salah baca.
  *
- * "Perlu review" jadi deret tersendiri, bukan dilebur ke netral. Menyembunyikan
- * ketidakpastian di dalam netral adalah cara termudah membuat dashboard yang
- * menyesatkan.
+ * "Perlu review" tidak digambar. Deret keempat itu tidak menyatakan nada
+ * pemberitaan, hanya keyakinan model, dan menumpuknya di grafik yang sama
+ * membuat tinggi tumpukan berhenti berarti jumlah berita per nada. Angkanya
+ * tetap disebut satu baris di bawah batang komposisi pada halaman eksekutif,
+ * jadi tidak ada yang hilang diam-diam.
  */
 const deret = [
     { kunci: 'jumlah_positif', nama: 'Positif', warna: 'positif' },
     { kunci: 'jumlah_netral', nama: 'Netral', warna: 'netral' },
     { kunci: 'jumlah_negatif', nama: 'Negatif', warna: 'negatif' },
-    { kunci: 'jumlah_perlu_review', nama: 'Perlu review', warna: 'perlu_review' },
 ] as const;
 
 const opsi = computed(() => ({
@@ -101,7 +102,6 @@ const barisTabel = computed(() =>
         b.jumlah_positif,
         b.jumlah_netral,
         b.jumlah_negatif,
-        b.jumlah_perlu_review,
     ]),
 );
 </script>
@@ -112,7 +112,7 @@ const barisTabel = computed(() =>
         :opsi="opsi"
         :tinggi="tinggi"
         :memuat="memuat"
-        :kolom-tabel="[judulKolom, 'Positif', 'Netral', 'Negatif', 'Perlu review']"
+        :kolom-tabel="[judulKolom, 'Positif', 'Netral', 'Negatif']"
         :baris-tabel="barisTabel"
     />
 </template>

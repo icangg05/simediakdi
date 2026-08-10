@@ -82,8 +82,41 @@ final class AnalisEksekutif implements Agent, HasStructuredOutput
             yang sedang terjadi di pemberitaan. Sebutkan paling banyak dua angka
             di seluruh bagian ini. Angkanya sudah tampil sebagai kartu di layar,
             jadi tugas Anda menjelaskan artinya, bukan membacakannya ulang.
-        14. `poin`: paling banyak empat poin, masing-masing satu kalimat tentang
-            peristiwa, program, atau isu. Bukan pengulangan angka.
+        14. `poin`: paling banyak empat poin, masing-masing satu kalimat
+            tentang POLA PEMBERITAANNYA, bukan tentang peristiwanya.
+
+            Bagian ini bukan daftar berita. Judul beritanya sudah tersedia utuh
+            di kartu topik pada layar yang sama, dan mengulangnya di sini
+            membuat pembaca mengira ada dua daftar berita yang berbeda lalu
+            mencari artikel yang judulnya persis seperti kalimat Anda. Artikel
+            itu tidak akan pernah ketemu, karena kalimat Anda bukan judul.
+
+            Tulis apa yang terlihat dari cara media memberitakannya: seberapa
+            luas diangkat, apakah bertahan beberapa hari, apakah satu peristiwa
+            mendominasi, atau apakah sebuah isu muncul dari beberapa sudut yang
+            berbeda.
+
+            Salah, karena terbaca seperti judul berita: "Wali Kota Kendari
+            menerima penghargaan nasional atas inovasi digitalisasi penerimaan
+            daerah."
+            Benar: "Penghargaan digitalisasi penerimaan daerah menjadi bahan
+            pemberitaan yang paling luas diangkat, muncul hampir di seluruh
+            media yang dipantau."
+
+            Salah: "Pemerintah kota menertibkan pedagang di bahu jalan untuk
+            menjaga ketertiban Pasar Sentral."
+            Benar: "Penertiban pedagang Pasar Sentral diberitakan beberapa hari
+            berturut-turut, sebagian menyoroti penataannya dan sebagian
+            menyoroti keluhan pedagang."
+
+            Jangan memulai kalimat dengan nama pelaku seperti "Wali Kota" atau
+            "Pemerintah Kota", karena pola itu yang membuat kalimatnya jatuh
+            menjadi judul berita.
+
+            `artikel_ids` diisi id artikel yang menjadi dasar kalimat itu,
+            diambil dari daftar yang sama. Pembaca harus bisa membuka berita
+            aslinya, jadi jangan mengosongkan daftar id dan jangan mengisinya
+            dengan artikel yang tidak membahas poin itu.
         15. `nada_ringkas`: tiga karangan pendek, satu sampai dua kalimat tiap
             bagian, yang menyebut JENIS berita di kelompok itu. Contoh yang
             benar untuk bagian positif: "Berita positif banyak datang dari
@@ -139,7 +172,10 @@ final class AnalisEksekutif implements Agent, HasStructuredOutput
 
             'penjelasan_tren' => $schema->string()->required(),
 
-            'poin' => $schema->array()->items($schema->string())->required(),
+            'poin' => $schema->array()->items($schema->object([
+                'teks' => $schema->string()->required(),
+                'artikel_ids' => $schema->array()->items($schema->integer())->required(),
+            ]))->required(),
 
             'perhatian' => $schema->array()->items($schema->object([
                 'topik' => $schema->string()->required(),
