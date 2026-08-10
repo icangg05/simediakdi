@@ -41,20 +41,9 @@ Route::prefix('admin')->name('admin.')->middleware('peran:superadmin,walikota')-
 
     Route::get('artikel/{artikel}', [ArtikelController::class, 'show'])->name('artikel.show');
     /*
-     * Ketiga rute di bawah dulu memakai `throttle:1,0.25,gemini-manual`, dan
-     * penjaga itu sekarang pindah ke dalam controller. Bukan karena middleware
-     * kurang rapi, melainkan karena ia berjalan terlalu awal.
-     *
-     * Jedanya ada untuk menjaga kuota Gemini, jadi yang seharusnya
-     * menghabiskannya cuma penilaian yang benar-benar memanggil Gemini.
-     * Middleware memutuskan sebelum satu baris pun dinilai, sehingga ia tidak
-     * bisa membedakan hal itu. Sejak relevansi bisa dikerjakan IndoBERT,
-     * bedanya menjadi besar: artikel yang ditolak IndoBERT tidak menyentuh
-     * Google sama sekali, dan admin yang menyapu daftar artikel tidak relevan
-     * tetap menunggu lima belas detik untuk kuota yang tidak pernah terpakai.
-     *
-     * Controller memutuskan setelah hasilnya ada, jadi ia tahu penyedianya.
-     * Lihat ArtikelController::catatPemakaianGemini().
+     * Ketiga rute tidak memakai throttle waktu per pengguna. Rotasi Gemini
+     * memilih kunci yang sudah menganggur 15 detik untuk setiap aksi manual;
+     * pengguna hanya diminta menunggu bila seluruh kunci masih dalam cooldown.
      */
     Route::post('artikel/{artikel}/klasifikasi', [ArtikelController::class, 'klasifikasi'])
         ->name('artikel.klasifikasi');

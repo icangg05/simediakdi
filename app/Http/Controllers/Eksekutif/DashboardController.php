@@ -5,10 +5,10 @@ namespace App\Http\Controllers\Eksekutif;
 use App\Http\Controllers\Controller;
 use App\Models\Artikel;
 use App\Models\RiwayatAlert;
+use App\Services\Agregasi\NarasiEksekutif;
 use App\Services\Agregasi\RingkasanEksekutif;
 use App\Support\Periode;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -18,7 +18,7 @@ use Inertia\Response;
  */
 class DashboardController extends Controller
 {
-    public function __invoke(Request $request, RingkasanEksekutif $ringkasan): Response
+    public function __invoke(Request $request, RingkasanEksekutif $ringkasan, NarasiEksekutif $narasi): Response
     {
         $periode = Periode::dariRequest($request, $ringkasan);
 
@@ -26,9 +26,14 @@ class DashboardController extends Controller
             ...$periode->untukInertia(),
             'kpi' => $ringkasan->kpi($periode->dari, $periode->sampai),
             'deret' => $ringkasan->deret($periode->dari, $periode->sampai),
-            'isuTeratas' => $this->isuTeratas($periode),
-            'peringkatMedia' => $ringkasan->peringkatMedia($periode->dari, $periode->sampai, 5),
-            'beritaTerbaru' => $this->beritaTerbaru($periode),
+            // Dibaca dari tabel, tidak pernah dibuat di sini. Halaman ini tidak
+            // boleh menunggu Gemini, dan menyegarkannya tidak boleh menambah
+            // satu pun permintaan ke Google.
+            'narasi' => $this->narasi($periode, $narasi),
+            'peringkatMedia' => $ringkasan->peringkatMedia($periode->dari, $periode->sampai, 6),
+            'beritaPerhatian' => $this->berita($periode, 'negatif', 4),
+            'beritaPositif' => $this->berita($periode, 'positif', 4),
+            'beritaTerbaru' => $this->berita($periode, null, 6),
             'peringatan' => $this->peringatan(),
             // Footer transparansi. Baris ini yang membuat pengguna berpikir
             // "sistemnya memang tidak sempurna dan itu diakui" saat menemukan
@@ -37,51 +42,52 @@ class DashboardController extends Controller
     }
 
     /**
-     * Isu yang paling banyak dibicarakan pada rentang ini.
+     * Ringkasan dan topik tulisan Gemini untuk rentang yang sedang dilihat.
      *
-     * Delapan, bukan tiga. Isu hangat adalah bagian yang paling menjelaskan
-     * kondisi pemerintah kota, dan tiga baris tidak cukup untuk melihat pola.
-     * Bukan word cloud, word cloud disimpan untuk halaman isu.
+     * Hanya tersedia untuk empat rentang pintasan. Tanggal yang diketik bebas
+     * mengembalikan null, dan halaman tetap menampilkan seluruh statistiknya.
+     * Membuat narasi untuk setiap kombinasi tanggal berarti satu panggilan
+     * Gemini setiap kali tombol Terapkan ditekan.
      *
-     * @return list<array<string, mixed>>
+     * @return array<string, mixed>|null
      */
-    private function isuTeratas(Periode $periode): array
+    private function narasi(Periode $periode, NarasiEksekutif $narasi): ?array
     {
-        return DB::table('kata_kunci_periode')
-            ->where('granularitas', 'harian')
-            ->whereBetween('periode_mulai', [$periode->dari->toDateString(), $periode->sampai->toDateString()])
-            ->groupBy('istilah')
-            ->orderByRaw('sum(jumlah_artikel) DESC')
-            ->limit(8)
-            ->get([
-                'istilah',
-                DB::raw('sum(jumlah_artikel)::int AS jumlah_artikel'),
-                DB::raw('max(skor_lonjakan) AS skor_lonjakan'),
-                DB::raw('mode() WITHIN GROUP (ORDER BY sentimen_dominan) AS sentimen_dominan'),
-            ])
-            ->map(fn ($b) => (array) $b)
-            ->all();
+        $preset = $narasi->preset($periode->dari, $periode->sampai);
+
+        return $preset === null
+            ? null
+            : $narasi->terbaru($preset)?->untukInertia();
     }
 
     /**
-     * Berita terbaru yang relevan dan sudah berlabel.
+     * Berita relevan dan sudah berlabel, boleh disaring menurut labelnya.
      *
      * Sebelumnya daftar ini mengambil artikel apa pun dan hanya memuat labelnya
      * dengan syarat relevan, sehingga artikel yang sudah dinyatakan tidak
      * relevan tetap muncul di panel pimpinan tanpa label sama sekali.
      *
+     * Satu method untuk tiga daftar di layar. Berita terbaru saja tidak cukup:
+     * pada periode yang didominasi kegiatan seremonial, satu-satunya berita
+     * negatif periode itu bisa terdorong keluar dari enam baris teratas justru
+     * pada hari pimpinan paling perlu melihatnya.
+     *
      * @return list<array<string, mixed>>
      */
-    private function beritaTerbaru(Periode $periode): array
+    private function berita(Periode $periode, ?string $label, int $batas): array
     {
         return Artikel::query()
             ->relevanBerlabel()
+            ->when($label !== null, fn ($q) => $q->whereHas(
+                'analisisSentimen',
+                fn ($s) => $s->where('relevan', true)->where('label_efektif', $label),
+            ))
             ->with(['media:id,nama', 'analisisSentimen' => fn ($q) => $q
                 ->where('relevan', true),
             ])
-            ->whereBetween('diambil_at', [$periode->mulaiUtc(), $periode->akhirUtc()])
+            ->terbitAntara($periode->mulaiUtc(), $periode->akhirUtc())
             ->orderByDesc('diambil_at')
-            ->limit(6)
+            ->limit($batas)
             ->get(['id', 'media_id', 'judul', 'url', 'diambil_at'])
             ->map(fn (Artikel $a) => [
                 'id' => $a->id,

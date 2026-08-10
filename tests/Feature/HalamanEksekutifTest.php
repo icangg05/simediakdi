@@ -57,7 +57,7 @@ class HalamanEksekutifTest extends TestCase
     {
         $this->actingAs($this->walikota);
 
-        foreach (['/eksekutif', '/eksekutif/sentimen', '/eksekutif/isu', '/eksekutif/media', '/eksekutif/berita'] as $url) {
+        foreach (['/eksekutif', '/eksekutif/sentimen', '/eksekutif/media', '/eksekutif/berita'] as $url) {
             $this->get($url)->assertOk("Halaman {$url} tidak mengembalikan 200.");
         }
     }

@@ -57,6 +57,49 @@ class RingkasanHarianTest extends TestCase
         ]);
     }
 
+    /**
+     * Penarikan arsip tidak boleh terbaca sebagai lonjakan pemberitaan.
+     *
+     * Kegagalannya tidak menimbulkan galat apa pun. Yang terjadi hanya grafik
+     * pimpinan yang menampilkan satu menara di hari crawler menyapu arsip, lalu
+     * datar di seluruh hari lainnya, dan angka itu terlihat sama wajarnya
+     * dengan angka yang benar.
+     */
+    public function test_artikel_dihitung_pada_tanggal_terbit_bukan_tanggal_unduh(): void
+    {
+        $kemarin = Waktu::tanggalWita(now()->subDay());
+
+        // Diunduh hari ini, terbit kemarin. Persis bentuk artikel arsip.
+        $artikel = $this->artikel($this->mediaA);
+        $artikel->update(['dipublikasikan_at' => Waktu::awalHari($kemarin)->addHours(9)]);
+
+        $this->nilai($artikel, LabelSentimen::Positif);
+
+        $this->ringkasan->hitung($this->hariIni);
+        $this->ringkasan->hitung($kemarin);
+
+        $hariIni = BarisRingkasan::whereNull('media_id')->where('tanggal', $this->hariIni)->first();
+        $baris = BarisRingkasan::whereNull('media_id')->where('tanggal', $kemarin)->first();
+
+        $this->assertSame(1, $baris->jumlah_artikel, 'Artikel harus masuk ke tanggal terbitnya.');
+        $this->assertSame(1, $baris->jumlah_positif);
+        $this->assertSame(0, $hariIni?->jumlah_artikel ?? 0, 'Tanggal unduh tidak boleh ikut menghitungnya.');
+    }
+
+    public function test_artikel_tanpa_tanggal_terbit_jatuh_ke_tanggal_unduh(): void
+    {
+        // Sebagian feed tidak memuat tanggal terbit. Artikelnya tidak boleh
+        // hilang dari seluruh grafik hanya karena kolom itu kosong.
+        $this->nilai($this->artikel($this->mediaA), LabelSentimen::Netral);
+
+        $this->ringkasan->hitung($this->hariIni);
+
+        $baris = BarisRingkasan::whereNull('media_id')->where('tanggal', $this->hariIni)->first();
+
+        $this->assertSame(1, $baris->jumlah_artikel);
+        $this->assertSame(1, $baris->jumlah_netral);
+    }
+
     public function test_baris_agregat_menghitung_seluruh_artikel(): void
     {
         $this->artikel($this->mediaA);

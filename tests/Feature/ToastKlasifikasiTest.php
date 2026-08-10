@@ -27,7 +27,10 @@ class ToastKlasifikasiTest extends TestCase
     {
         parent::setUp();
 
-        KunciGemini::create(['label' => 'Kunci uji', 'kunci' => 'kunci-uji-yang-cukup-panjang']);
+        // Relevansi dan sentimen adalah dua pemakaian Gemini terpisah. Sediakan
+        // dua kunci agar keduanya dapat berjalan tanpa melanggar jeda per kunci.
+        KunciGemini::create(['label' => 'Kunci uji 1', 'kunci' => 'kunci-uji-pertama-yang-cukup-panjang']);
+        KunciGemini::create(['label' => 'Kunci uji 2', 'kunci' => 'kunci-uji-kedua-yang-cukup-panjang']);
 
         $this->actingAs(User::factory()->create());
     }

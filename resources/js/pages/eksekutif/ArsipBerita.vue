@@ -26,7 +26,7 @@ interface Baris {
 const props = defineProps<{
     periode: { dari: string; sampai: string };
     artikel: { data: Baris[] } & PaginasiMeta;
-    istilah: string | null;
+    disaringTopik: boolean;
     opsi: Record<string, OpsiFilter[]>;
 }>();
 
@@ -66,11 +66,10 @@ const waktu = (n: string) => format(new Date(n), 'd MMM yyyy, HH:mm', { locale: 
             </div>
         </header>
 
-        <p v-if="istilah" class="flex items-center gap-2 text-sm">
-            <span class="text-muted-foreground">Disaring istilah</span>
-            <span class="rounded-md bg-muted px-2 py-0.5 font-medium">{{ istilah }}</span>
-            <Button variant="ghost" size="sm" class="h-6 px-1.5 text-xs" @click="pindah({ istilah: null })">
-                <X class="mr-1 h-3 w-3" /> Hapus
+        <p v-if="disaringTopik" class="flex flex-wrap items-center gap-2 text-sm">
+            <span class="rounded-md bg-muted px-2 py-0.5 font-medium">Hanya berita dari satu topik</span>
+            <Button variant="ghost" size="sm" class="h-6 px-1.5 text-xs" @click="pindah({ artikel: null })">
+                <X class="mr-1 h-3 w-3" /> Tampilkan semua berita
             </Button>
         </p>
 

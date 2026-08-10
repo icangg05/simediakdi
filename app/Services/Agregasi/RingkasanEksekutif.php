@@ -143,15 +143,26 @@ class RingkasanEksekutif
         return $total;
     }
 
-    /** Media yang memuat minimal satu artikel pada periode itu. */
+    /**
+     * Media yang memuat minimal satu berita relevan berlabel pada periode itu.
+     *
+     * Dihitung dari ketiga kolom label, bukan dari `jumlah_artikel`. Kolom itu
+     * memuat seluruh hasil crawl termasuk yang tidak relevan dan yang belum
+     * diklasifikasi, sedangkan angka utama panel ini berita berlabel. Bedanya
+     * terlihat di layar: enam berita hari ini pernah ditemani "16 media aktif",
+     * dan sepuluh di antaranya tidak menyumbang satu pun berita yang dihitung.
+     */
     private function mediaAktif(CarbonImmutable $dari, CarbonImmutable $sampai): int
     {
-        return DB::table('ringkasan_harian')
-            ->whereNotNull('media_id')
-            ->whereBetween('tanggal', [$dari->toDateString(), $sampai->toDateString()])
-            ->where('jumlah_artikel', '>', 0)
-            ->distinct()
-            ->count('media_id');
+        return DB::query()->fromSub(
+            DB::table('ringkasan_harian')
+                ->select('media_id')
+                ->whereNotNull('media_id')
+                ->whereBetween('tanggal', [$dari->toDateString(), $sampai->toDateString()])
+                ->groupBy('media_id')
+                ->havingRaw('sum(jumlah_negatif + jumlah_netral + jumlah_positif) > 0'),
+            'media_berlabel',
+        )->count();
     }
 
     /**
@@ -166,12 +177,17 @@ class RingkasanEksekutif
             ->whereNotNull('r.media_id')
             ->whereBetween('r.tanggal', [$dari->toDateString(), $sampai->toDateString()])
             ->groupBy('m.id', 'm.nama', 'm.tier')
-            ->havingRaw('sum(r.jumlah_artikel) > 0')
-            ->orderByRaw('sum(r.jumlah_artikel) DESC')
+            // Populasi yang sama dengan KPI: berita relevan yang sudah
+            // berlabel. Memakai `jumlah_artikel` membuat bar media digambar
+            // dari seluruh hasil crawl, sedangkan porsi negatif di dalam bar
+            // yang sama hanya dari berita berlabel, sehingga media yang banyak
+            // memuat berita tidak relevan terlihat paling tenang.
+            ->havingRaw('sum(r.jumlah_negatif + r.jumlah_netral + r.jumlah_positif) > 0')
+            ->orderByRaw('sum(r.jumlah_negatif + r.jumlah_netral + r.jumlah_positif) DESC')
             ->limit($batas)
             ->get([
                 'm.id', 'm.nama', 'm.tier',
-                DB::raw('sum(r.jumlah_artikel)::int AS jumlah_artikel'),
+                DB::raw('sum(r.jumlah_negatif + r.jumlah_netral + r.jumlah_positif)::int AS jumlah_artikel'),
                 DB::raw('sum(r.jumlah_negatif)::int AS jumlah_negatif'),
                 DB::raw('sum(r.jumlah_netral)::int AS jumlah_netral'),
                 DB::raw('sum(r.jumlah_positif)::int AS jumlah_positif'),

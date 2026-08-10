@@ -6,7 +6,6 @@ import {
     ClipboardCheck,
     FileSignature,
     FileText,
-    Flame,
     FlaskConical,
     LayoutGrid,
     Newspaper,
@@ -43,7 +42,6 @@ export const navPerPeran: Record<PeranPengguna, NavItem[]> = {
     walikota: [
         { title: 'Ringkasan', href: '/eksekutif', icon: LayoutGrid },
         { title: 'Sentimen', href: '/eksekutif/sentimen', icon: BarChart3 },
-        { title: 'Isu Hangat', href: '/eksekutif/isu', icon: Flame },
         { title: 'Peringkat Media', href: '/eksekutif/media', icon: Newspaper },
         { title: 'Arsip Berita', href: '/eksekutif/berita', icon: FileText },
     ],

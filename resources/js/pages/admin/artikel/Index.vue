@@ -13,10 +13,11 @@ import type { KolomDefinisi, OpsiFilter, PaginasiMeta } from '@/types/tabel';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { ExternalLink, Loader2, RotateCcw, Sparkles, ThumbsDown, ThumbsUp, Trash2, UserPen } from 'lucide-vue-next';
+import { BrainCircuit, ExternalLink, Loader2, RotateCcw, Sparkles, ThumbsDown, ThumbsUp, Trash2, UserPen } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
 type LabelSentimen = 'negatif' | 'netral' | 'positif';
+type JalurKlasifikasi = 'gemini' | 'indobert';
 
 interface Analisis {
     id: number;
@@ -28,7 +29,6 @@ interface Analisis {
     provider: string | null;
     reason_summary: string | null;
     evidence: string[] | null;
-    dianalisis_at: string | null;
 }
 
 interface BarisArtikel {
@@ -74,7 +74,7 @@ const kolom = computed<KolomDefinisi[]>(() => [
     // terbaca sekali lihat.
     { kunci: 'tanggal', judul: 'Terbit / Masuk', lebar: 'w-44' },
     { kunci: 'hasil', judul: 'Hasil AI', lebar: 'w-72' },
-    { kunci: 'aksi', judul: '', lebar: 'w-40' },
+    { kunci: 'aksi', judul: '', lebar: 'w-52' },
 ]);
 
 /**
@@ -196,6 +196,7 @@ const saringanSentimen: { nilai: LabelSentimen; label: string }[] = [
  * Gemini untuk artikel yang hasilnya sebentar lagi datang.
  */
 const sedangJalan = ref<number | null>(null);
+const sedangJalur = ref<JalurKlasifikasi | null>(null);
 
 /**
  * Opsi yang sama untuk ketiga aksi baris: klasifikasi, relevansi, dan reset.
@@ -208,27 +209,16 @@ const sedangJalan = ref<number | null>(null);
  * sedang dimuat ulang seluruhnya, padahal tidak.
  */
 /**
- * Jeda antar penilaian manual, dihitung mundur di layar.
+ * Sisa waktu sampai salah satu kunci Gemini bisa dipakai.
  *
- * Satu klik yang sampai ke Gemini adalah satu sampai dua permintaan yang
- * dihitung penuh oleh Google, dan kuotanya kuota yang sama dengan yang dipakai
- * antrean otomatis. Tanpa jeda, admin yang menyapu daftar dengan klik beruntun
- * bisa menghabiskan jatah harian dalam beberapa menit, dan antrean latar
- * belakang berhenti sampai tengah malam waktu Pasifik tanpa ada yang tahu
- * sebabnya.
- *
- * Hanya klik yang benar-benar memanggil Gemini yang dihukum. Server mengirim
- * `jedaGemini` sesudah tahu penyedianya, dan layar tidak bisa menebaknya
- * sendiri: dengan IndoBERT, artikel yang ditolak selesai tanpa satu pun
- * permintaan ke Google, begitu juga artikel yang ditandai tidak relevan oleh
- * admin. Menahan lima belas detik untuk kuota yang tidak pernah terpakai
- * membuat penyisiran daftar tidak relevan terasa rusak tanpa sebab.
+ * Tidak dimulai setelah setiap klasifikasi. Server mengirim angkanya hanya
+ * ketika seluruh kunci aktif dipakai dalam 15 detik terakhir. Selama masih ada
+ * kunci lain yang siap, panggilan berikutnya langsung berjalan dengan kunci
+ * itu. Pemeriksaan ini juga berlaku pada sentimen jalur IndoBERT + Gemini.
  *
  * Penegakan yang sebenarnya ada di server. Tombol yang diredupkan bukan aturan,
  * permintaannya tetap bisa dikirim langsung.
  */
-const JEDA_DETIK = 15;
-
 const jeda = ref(0);
 
 setInterval(() => {
@@ -243,10 +233,12 @@ const opsiAksi = {
     showProgress: false,
     onFinish: () => {
         sedangJalan.value = null;
+        sedangJalur.value = null;
 
-        // `onFinish` jalan setelah propsnya diperbarui, jadi nilai yang dibaca
-        // di sini sudah milik permintaan yang barusan selesai.
-        jeda.value = (page.props.flash as { jedaGemini?: boolean } | undefined)?.jedaGemini ? JEDA_DETIK : 0;
+        // `onFinish` jalan setelah propsnya diperbarui. Nilainya adalah sisa
+        // aktual kunci yang paling cepat pulih, bukan boolean pemakaian Gemini.
+        const sisa = (page.props.flash as { jedaGemini?: number | false } | undefined)?.jedaGemini;
+        jeda.value = typeof sisa === 'number' ? sisa : 0;
     },
 };
 
@@ -347,26 +339,18 @@ function reset() {
 const adaKoreksi = (baris: BarisArtikel) =>
     baris.analisis !== null && (baris.analisis.relevan_manual !== null || baris.analisis.label_manual !== null);
 
-/** Baris yang sudah pernah dinilai dan tombolnya baru saja ditekan lagi. */
-const konfirmasi = ref<BarisArtikel | null>(null);
-
-function klasifikasi(baris: BarisArtikel) {
-    // Sudah ada hasilnya. Jangan langsung menembak Gemini lagi: admin biasanya
-    // menekan tombol karena mengira belum jalan, bukan karena ingin mengulang.
-    if (baris.analisis !== null) {
-        konfirmasi.value = baris;
-
-        return;
-    }
-
-    jalankan(baris.id);
+function klasifikasi(baris: BarisArtikel, jalur: JalurKlasifikasi) {
+    // Kedua tombol adalah aksi langsung, termasuk ketika artikel sudah pernah
+    // dinilai. Jalur yang dipilih dikirim eksplisit dan hasil lama ditimpa oleh
+    // penilaian baru tanpa dialog konfirmasi tambahan.
+    jalankan(baris.id, jalur);
 }
 
-function jalankan(id: number) {
-    konfirmasi.value = null;
+function jalankan(id: number, jalur: JalurKlasifikasi) {
     sedangJalan.value = id;
+    sedangJalur.value = jalur;
 
-    router.post(`/admin/artikel/${id}/klasifikasi`, {}, opsiAksi);
+    router.post(`/admin/artikel/${id}/klasifikasi`, { jalur }, opsiAksi);
 }
 
 /**
@@ -444,7 +428,7 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
             <div>
                 <h1 class="text-xl font-semibold">Artikel</h1>
                 <p class="text-sm text-muted-foreground">
-                    Berita masuk dinilai Gemini lewat tombol Klasifikasi, satu artikel satu klik. Yang dinilai: {{ pantauan }}.
+                    Pilih Gemini penuh atau kombinasi IndoBERT + Gemini untuk setiap artikel. Yang dinilai: {{ pantauan }}.
                 </p>
             </div>
 
@@ -703,19 +687,35 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                         -->
                         <Button
                             size="sm"
-                            class="bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-70"
+                            class="w-full bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-70"
                             :disabled="terkunci"
-                            @click="klasifikasi(baris)"
+                            title="Relevansi dan sentimen dinilai dengan Gemini"
+                            @click="klasifikasi(baris, 'gemini')"
                         >
-                            <Loader2 v-if="sedangJalan === baris.id" class="size-3.5 animate-spin" />
+                            <Loader2 v-if="sedangJalan === baris.id && sedangJalur === 'gemini'" class="size-3.5 animate-spin" />
                             <Sparkles v-else class="size-3.5" />
                             <!-- Hitungan mundur tampil di seluruh baris, bukan
                                  hanya di baris yang barusan ditekan. Jedanya
                                  memang berlaku untuk seluruh tabel, dan tombol
                                  redup tanpa keterangan terbaca sebagai rusak. -->
-                            <template v-if="sedangJalan === baris.id">Menilai</template>
+                            <template v-if="sedangJalan === baris.id && sedangJalur === 'gemini'">Menilai</template>
                             <template v-else-if="jeda > 0">Tunggu {{ jeda }}s</template>
-                            <template v-else>Klasifikasi</template>
+                            <template v-else>Klasifikasi Gemini</template>
+                        </Button>
+
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            class="w-full border-sky-300 text-sky-700 hover:bg-sky-50 hover:text-sky-800 disabled:opacity-70 dark:border-sky-800 dark:text-sky-300 dark:hover:bg-sky-950"
+                            :disabled="terkunci"
+                            title="Relevansi dinilai IndoBERT, sentimen dinilai Gemini"
+                            @click="klasifikasi(baris, 'indobert')"
+                        >
+                            <Loader2 v-if="sedangJalan === baris.id && sedangJalur === 'indobert'" class="size-3.5 animate-spin" />
+                            <BrainCircuit v-else class="size-3.5" />
+                            <template v-if="sedangJalan === baris.id && sedangJalur === 'indobert'">Menilai</template>
+                            <template v-else-if="jeda > 0">Tunggu {{ jeda }}s</template>
+                            <template v-else>IndoBERT + Gemini</template>
                         </Button>
 
                         <button
@@ -764,46 +764,6 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                 </template>
             </DataTable>
         </div>
-
-        <Dialog :open="konfirmasi !== null" @update:open="(buka) => !buka && (konfirmasi = null)">
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Artikel ini sudah dianalisis AI</DialogTitle>
-                    <DialogDescription>
-                        Gemini sudah menilai artikel ini
-                        <template v-if="konfirmasi?.analisis?.dianalisis_at"> pada {{ waktu(konfirmasi.analisis.dianalisis_at) }} </template>
-                        dan hasilnya sudah tampil di kolom Hasil AI.
-                    </DialogDescription>
-                </DialogHeader>
-
-                <div v-if="konfirmasi?.analisis" class="space-y-2 rounded-md bg-muted/50 p-3 text-sm">
-                    <div class="flex flex-wrap gap-1.5">
-                        <Badge variant="outline" :class="warnaRelevansi(konfirmasi.analisis.relevan)">
-                            {{ konfirmasi.analisis.relevan ? 'Relevan' : 'Tidak relevan' }}
-                        </Badge>
-                        <Badge
-                            v-if="konfirmasi.analisis.relevan && konfirmasi.analisis.label_efektif"
-                            variant="outline"
-                            :class="warnaSentimen[konfirmasi.analisis.label_efektif]"
-                        >
-                            {{ kapital(konfirmasi.analisis.label_efektif) }}
-                        </Badge>
-                    </div>
-                    <p v-if="konfirmasi.analisis.reason_summary" class="text-xs text-muted-foreground">
-                        {{ konfirmasi.analisis.reason_summary }}
-                    </p>
-                </div>
-
-                <p class="text-xs text-muted-foreground">
-                    Menilai ulang mengirim permintaan baru ke Gemini dan memakai kuota. Koreksi manusia yang sudah tercatat tidak akan tertimpa.
-                </p>
-
-                <DialogFooter>
-                    <Button variant="outline" @click="konfirmasi = null">Tutup</Button>
-                    <Button class="bg-violet-600 text-white hover:bg-violet-700" @click="konfirmasi && jalankan(konfirmasi.id)"> Nilai ulang </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
 
         <Dialog :open="konfirmasiRelevansi !== null" @update:open="(buka) => !buka && (konfirmasiRelevansi = null)">
             <DialogContent>

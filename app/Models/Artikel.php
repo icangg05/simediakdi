@@ -45,6 +45,35 @@ class Artikel extends Model
     }
 
     /**
+     * Tanggal yang berarti "kapan berita ini muncul".
+     *
+     * Tanggal terbit dari feed, dan tanggal unduh hanya sebagai cadangan saat
+     * feed tidak memuatnya. Sebelumnya seluruh agregasi memakai `diambil_at`,
+     * dan akibatnya terlihat di grafik pimpinan: penarikan arsip 3 Agustus
+     * memasukkan 1.026 artikel lama ke satu hari, lalu terbaca sebagai lonjakan
+     * pemberitaan yang tidak pernah terjadi.
+     *
+     * Ditaruh di satu tempat karena enam pemanggil memakainya, termasuk dua
+     * kueri SQL mentah. Kalau grafik memakai tanggal terbit sedangkan daftar di
+     * bawahnya memakai tanggal unduh, jumlah barisnya tidak akan pernah cocok
+     * dengan angka di atasnya.
+     *
+     * @param  string|null  $alias  awalan tabel untuk kueri yang memakai JOIN
+     */
+    public static function waktuTerbit(?string $alias = null): string
+    {
+        $awalan = $alias === null ? '' : $alias.'.';
+
+        return "coalesce({$awalan}dipublikasikan_at, {$awalan}diambil_at)";
+    }
+
+    /** Artikel yang muncul pada satu rentang, menurut tanggal terbitnya. */
+    public function scopeTerbitAntara(Builder $kueri, mixed $mulai, mixed $akhir): Builder
+    {
+        return $kueri->whereRaw(self::waktuTerbit().' BETWEEN ? AND ?', [$mulai, $akhir]);
+    }
+
+    /**
      * Artikel yang lolos relevansi dan sudah punya label sentimen.
      *
      * Ini populasi yang boleh muncul di panel eksekutif. Artikel hasil crawl

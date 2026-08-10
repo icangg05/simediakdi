@@ -65,7 +65,7 @@ class SentimenController extends Controller
     {
         return Artikel::query()
             ->with('media:id,nama')
-            ->whereBetween('diambil_at', [$periode->mulaiUtc(), $periode->akhirUtc()])
+            ->terbitAntara($periode->mulaiUtc(), $periode->akhirUtc())
             ->orderByDesc('diambil_at');
     }
 

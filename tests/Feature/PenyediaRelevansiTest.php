@@ -122,6 +122,74 @@ class PenyediaRelevansiTest extends TestCase
         $this->assertSame('positif', $baris->label_model->value);
     }
 
+    /** Tombol Gemini manual tidak ikut berubah saat Pengaturan memilih IndoBERT. */
+    public function test_jalur_manual_gemini_mengabaikan_penyedia_bawaan_indobert(): void
+    {
+        $this->modelAktif();
+        $this->pilihIndoBert();
+
+        RelevanceClassifier::fake([$this->jawabanRelevansi('tidak_relevan')]);
+
+        $this->actingAs($this->admin)
+            ->post("/admin/artikel/{$this->artikel->id}/klasifikasi", ['jalur' => 'gemini'])
+            ->assertRedirect()
+            ->assertSessionHas('jedaGemini', false);
+
+        $this->assertSame('gemini', AnalisisSentimen::firstOrFail()->provider);
+    }
+
+    /** Tombol kombinasi manual tetap memakai IndoBERT saat Pengaturan memilih Gemini. */
+    public function test_jalur_manual_kombinasi_mengabaikan_penyedia_bawaan_gemini(): void
+    {
+        $this->modelAktif();
+        SentimentClassifier::fake([$this->jawabanSentimen('positif')]);
+
+        // RelevanceClassifier tidak dipalsukan. TestCase akan langsung menolak
+        // prompt liar bila override ini gagal dan relevansi jatuh ke Gemini.
+        $this->actingAs($this->admin)
+            ->post("/admin/artikel/{$this->artikel->id}/klasifikasi", ['jalur' => 'indobert'])
+            ->assertRedirect()
+            ->assertSessionHas('jedaGemini', false);
+
+        $baris = AnalisisSentimen::firstOrFail();
+
+        $this->assertSame('indobert', $baris->provider);
+        $this->assertSame('positif', $baris->label_model->value);
+    }
+
+    /** Sentimen kombinasi memutar kunci sebelum meminta pengguna menunggu. */
+    public function test_jalur_kombinasi_memeriksa_cooldown_setiap_kunci_gemini(): void
+    {
+        $this->modelAktif();
+        KunciGemini::create(['label' => 'Kunci uji kedua', 'kunci' => 'kunci-uji-kedua-yang-cukup-panjang']);
+        SentimentClassifier::fake([
+            $this->jawabanSentimen('positif'),
+            $this->jawabanSentimen('netral'),
+        ]);
+
+        $this->actingAs($this->admin)
+            ->post("/admin/artikel/{$this->artikel->id}/klasifikasi", ['jalur' => 'indobert'])
+            ->assertSessionMissing('galat')
+            ->assertSessionHas('jedaGemini', false);
+
+        $this->actingAs($this->admin)
+            ->post("/admin/artikel/{$this->artikel->id}/klasifikasi", ['jalur' => 'indobert'])
+            ->assertSessionMissing('galat')
+            ->assertSessionHas('jedaGemini', false);
+
+        $this->assertSame(2, KunciGemini::whereNotNull('terakhir_dipakai_at')->count());
+
+        $this->actingAs($this->admin)
+            ->post("/admin/artikel/{$this->artikel->id}/klasifikasi", ['jalur' => 'indobert'])
+            ->assertSessionHas('jedaGemini', fn ($sisa) => is_int($sisa) && $sisa > 0 && $sisa <= 15)
+            ->assertSessionHas('galat');
+
+        $baris = AnalisisSentimen::firstOrFail();
+
+        $this->assertSame('indobert', $baris->provider);
+        $this->assertSame('netral', $baris->label_model->value);
+    }
+
     /**
      * Keraguan model bukan keputusan.
      *
@@ -294,23 +362,18 @@ class PenyediaRelevansiTest extends TestCase
             ->assertSessionMissing('galat');
     }
 
-    /**
-     * Penilaian yang memanggil Gemini tetap dijeda.
-     *
-     * Ini sisi lain perbaikannya, dan yang menjaga maksud aslinya tetap hidup.
-     * Melonggarkan jalur IndoBERT tidak boleh sekalian melonggarkan jalur yang
-     * benar-benar membakar kuota.
-     */
-    public function test_penilaian_lewat_gemini_tetap_dijeda(): void
+    /** Satu kunci yang baru dipakai membuat klik Gemini berikutnya menunggu. */
+    public function test_penilaian_gemini_menunggu_jika_semua_kunci_masih_cooldown(): void
     {
         RelevanceClassifier::fake([$this->jawabanRelevansi('tidak_relevan')]);
 
         $this->actingAs($this->admin)
             ->post("/admin/artikel/{$this->artikel->id}/klasifikasi")
-            ->assertSessionHas('jedaGemini', true);
+            ->assertSessionHas('jedaGemini', false);
 
         $this->actingAs($this->admin)
             ->post("/admin/artikel/{$this->artikel->id}/klasifikasi")
+            ->assertSessionHas('jedaGemini', fn ($sisa) => is_int($sisa) && $sisa > 0 && $sisa <= 15)
             ->assertSessionHas('galat');
     }
 

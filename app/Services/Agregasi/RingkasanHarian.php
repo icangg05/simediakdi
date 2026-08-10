@@ -2,6 +2,7 @@
 
 namespace App\Services\Agregasi;
 
+use App\Models\Artikel;
 use App\Support\Waktu;
 use Illuminate\Support\Facades\DB;
 
@@ -31,7 +32,11 @@ class RingkasanHarian
         // artikel yang domainnya belum dikenali. Tanpa GROUPING(), baris
         // "seluruh media" dan baris "media tak dikenal" jatuh ke kunci unik
         // yang sama lalu saling menimpa.
-        $sql = <<<'SQL'
+        // Tanggal terbit, bukan tanggal unduh. Alasannya di
+        // App\Models\Artikel::waktuTerbit().
+        $terbit = Artikel::waktuTerbit('a');
+
+        $sql = <<<SQL
         INSERT INTO ringkasan_harian (
             tanggal, media_id,
             jumlah_artikel,
@@ -50,7 +55,7 @@ class RingkasanHarian
         FROM artikel a
         LEFT JOIN analisis_sentimen s
                ON s.artikel_id = a.id AND s.relevan = true
-        WHERE a.diambil_at >= ? AND a.diambil_at <= ?
+        WHERE {$terbit} >= ? AND {$terbit} <= ?
         GROUP BY GROUPING SETS (
             (),
             (a.media_id)

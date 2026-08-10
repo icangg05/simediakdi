@@ -9,6 +9,7 @@ use App\Ai\Agents\SentimentClassifier;
 use App\Models\Artikel;
 use App\Models\PengaturanAi;
 use App\Services\Ai\DTO\HasilKlasifikasi;
+use Closure;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Enums\Lab;
 
@@ -30,6 +31,12 @@ class GeminiClassificationService
         private EvidenceValidator $bukti,
         private RotasiKunciGemini $rotasi,
     ) {}
+
+    /** @template T @param Closure(): T $panggil @return T */
+    public function dalamKlasifikasiManual(Closure $panggil): mixed
+    {
+        return $this->rotasi->dalamKlasifikasiManual($panggil);
+    }
 
     public function relevansi(Artikel $artikel): HasilKlasifikasi
     {

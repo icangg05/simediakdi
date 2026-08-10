@@ -22,20 +22,32 @@ Schedule::command('hitung:ringkasan-harian --hari=1')
     ->everyTenMinutes()
     ->withoutOverlapping();
 
-// Sekali sehari rentangnya diperlebar untuk menangkap koreksi label yang baru
-// dilakukan admin belakangan.
-Schedule::command('hitung:ringkasan-harian --hari=7')
+// Sekali sehari rentangnya diperlebar, untuk dua hal sekaligus: koreksi label
+// yang baru dilakukan admin belakangan, dan artikel lama yang baru terunduh.
+//
+// Sembilan puluh hari, bukan tujuh. Sejak agregasi memakai tanggal terbit,
+// artikel yang diunduh hari ini bisa jatuh ke tanggal dua bulan lalu, dan
+// jendela seminggu tidak akan pernah menyentuhnya. Sembilan puluh upsert satu
+// baris sekali sehari jauh lebih murah daripada grafik yang diam-diam kurang
+// menghitung. Feed yang membawa artikel lebih tua dari itu perlu
+// `hitung:ringkasan-harian --hari=N` sekali secara manual.
+Schedule::command('hitung:ringkasan-harian --hari=90')
     ->dailyAt('03:10')
     ->withoutOverlapping();
 
-// Isu hangat. Lebih berat daripada ringkasan harian karena menghitung n-gram
-// dari seluruh artikel periode itu, jadi sejam sekali sudah cukup.
-Schedule::command('hitung:kata-kunci --hari=1')
+// Narasi eksekutif. Satu panggilan Gemini per periode, dan sidik bahan di
+// tabelnya membatalkan panggilan itu kalau tidak ada berita baru sejak generasi
+// terakhir, jadi jam-jam malam tidak membakar kuota.
+//
+// Dua irama karena biayanya tidak sama. Rentang hari ini dan tujuh hari yang
+// paling sering dibuka dan paling cepat basi. Rentang 30 dan 90 hari berubah
+// pelan, dan promptnya paling panjang, jadi sekali sehari sudah cukup.
+Schedule::command('narasi:eksekutif --periode=today --periode=7d')
     ->hourly()
     ->withoutOverlapping();
 
-Schedule::command('hitung:kata-kunci --hari=7 --granularitas=mingguan')
-    ->dailyAt('03:40')
+Schedule::command('narasi:eksekutif --periode=30d --periode=90d')
+    ->dailyAt('04:10')
     ->withoutOverlapping();
 
 // Log crawl tumbuh cepat dan nilainya menurun tajam setelah beberapa minggu.

@@ -8,6 +8,7 @@ use App\Models\AnalisisSentimen;
 use App\Models\Artikel;
 use App\Models\PengaturanAi;
 use App\Services\Ai\DTO\HasilKlasifikasi;
+use InvalidArgumentException;
 
 /**
  * Satu-satunya tempat hasil klasifikasi diterjemahkan menjadi baris database.
@@ -19,11 +20,11 @@ use App\Services\Ai\DTO\HasilKlasifikasi;
  * berbeda, dan bedanya baru terlihat sebagai angka dashboard yang tidak bisa
  * dijelaskan.
  *
- * Relevansi bisa dikerjakan Gemini atau IndoBERT, dipilih dari halaman
- * Pengaturan. Percabangannya hanya satu baris di jalankan(), dan sengaja tidak
- * lebih: kedua penyedia mengembalikan HasilKlasifikasi yang sama, jadi seluruh
- * pemetaan kolom di bawahnya tetap satu jalur. Sentimen selalu Gemini, karena
- * IndoBERT memang tidak dilatih untuk itu.
+ * Relevansi bisa dikerjakan Gemini atau IndoBERT. Pekerjaan otomatis mengikuti
+ * halaman Pengaturan, sedangkan tombol di halaman Artikel boleh menentukan
+ * jalurnya secara eksplisit. Kedua penyedia mengembalikan HasilKlasifikasi yang
+ * sama, jadi seluruh pemetaan kolom di bawahnya tetap satu jalur. Sentimen
+ * selalu Gemini, karena IndoBERT memang tidak dilatih untuk itu.
  *
  * Dijalankan sinkron, bukan lewat antrean. Selama prompt masih disetel, hasil
  * yang muncul seketika di layar jauh lebih cepat dinilai benar atau salah
@@ -48,12 +49,41 @@ class KlasifikasiArtikel
      *
      * @return list<HasilKlasifikasi>
      */
-    public function jalankan(Artikel $artikel): array
+    public function jalankan(Artikel $artikel, ?string $penyediaRelevansi = null): array
     {
         return array_merge(
-            $this->jalankanRelevansi($artikel),
+            $this->jalankanRelevansi($artikel, $penyediaRelevansi),
             $this->jalankanSentimen($artikel),
         );
+    }
+
+    /** @return list<HasilKlasifikasi> */
+    public function jalankanManual(Artikel $artikel, ?string $penyediaRelevansi = null): array
+    {
+        $penyedia = $penyediaRelevansi ?? PengaturanAi::aktif()->penyedia_relevansi;
+
+        return $this->ai->dalamKlasifikasiManual(
+            fn (): array => $this->lanjutkanManual($artikel, $penyedia),
+        );
+    }
+
+    /**
+     * Melanjutkan artikel yang relevansinya sudah tersimpan tetapi tertahan
+     * sebelum sentimen karena seluruh kunci sedang cooldown.
+     *
+     * @return list<HasilKlasifikasi>
+     */
+    private function lanjutkanManual(Artikel $artikel, string $penyediaRelevansi): array
+    {
+        $baris = $this->baris($artikel);
+
+        if ($artikel->status_proses === 'dianalisis'
+            && $baris?->relevan
+            && $baris->label_model === null) {
+            return $this->jalankanSentimen($artikel);
+        }
+
+        return $this->jalankan($artikel, $penyediaRelevansi);
     }
 
     /**
@@ -66,7 +96,7 @@ class KlasifikasiArtikel
      *
      * @return list<HasilKlasifikasi>
      */
-    public function jalankanRelevansi(Artikel $artikel): array
+    public function jalankanRelevansi(Artikel $artikel, ?string $penyediaRelevansi = null): array
     {
         $baris = $this->baris($artikel);
 
@@ -82,14 +112,17 @@ class KlasifikasiArtikel
             return [];
         }
 
-        // Penyedia dibaca sekarang, bukan saat job dibuat. Itu yang membuat
-        // pergantian opsi di halaman Pengaturan langsung berlaku untuk seluruh
-        // pekerjaan yang masih mengantre, tanpa antreannya perlu dikosongkan.
-        // Job hanya membawa id barisnya, dan PengaturanAi sengaja dibaca tanpa
-        // cache.
-        $relevansi = PengaturanAi::aktif()->penyedia_relevansi === 'indobert'
-            ? $this->indobert->relevansi($artikel)
-            : $this->ai->relevansi($artikel);
+        // Tanpa override, penyedia dibaca sekarang, bukan saat job dibuat. Itu
+        // membuat pergantian Pengaturan langsung berlaku untuk seluruh antrean
+        // tanpa perlu mengosongkannya. Halaman Artikel mengirim override agar
+        // dua tombol manualnya selalu tersedia, apa pun pengaturan otomatisnya.
+        $penyedia = $penyediaRelevansi ?? PengaturanAi::aktif()->penyedia_relevansi;
+
+        $relevansi = match ($penyedia) {
+            'gemini' => $this->ai->relevansi($artikel),
+            'indobert' => $this->indobert->relevansi($artikel),
+            default => throw new InvalidArgumentException("Penyedia relevansi {$penyedia} tidak dikenali."),
+        };
 
         $relevan = $relevansi->label === 'relevan';
 
@@ -185,6 +218,14 @@ class KlasifikasiArtikel
         $artikel->update(['status_proses' => 'selesai']);
 
         return $hasil;
+    }
+
+    /** @return list<HasilKlasifikasi> */
+    public function jalankanSentimenManual(Artikel $artikel): array
+    {
+        return $this->ai->dalamKlasifikasiManual(
+            fn (): array => $this->jalankanSentimen($artikel),
+        );
     }
 
     private function sentimen(Artikel $artikel, AnalisisSentimen $baris): HasilKlasifikasi

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\KunciGemini;
 use App\Models\User;
+use App\Services\Ai\JedaKunciGemini;
 use App\Services\Ai\RotasiKunciGemini;
 use Carbon\CarbonInterface;
 use GuzzleHttp\Psr7\Response as PsrResponse;
@@ -267,6 +268,66 @@ class RotasiKunciGeminiTest extends TestCase
         $this->rotasi->jalankan($panggil);
 
         $this->assertSame(['kunci-kunci-a', 'kunci-kunci-b'], $dipakai);
+    }
+
+    /** Setiap panggilan Gemini memeriksa cooldown lalu berpindah kunci. */
+    public function test_dua_panggilan_dalam_satu_aksi_memakai_kunci_berbeda(): void
+    {
+        $this->kunci('Kunci A');
+        $this->kunci('Kunci B');
+
+        $dipakai = [];
+
+        $this->rotasi->dalamKlasifikasiManual(function () use (&$dipakai): void {
+            $panggil = function () use (&$dipakai): string {
+                $dipakai[] = config('ai.providers.gemini.key');
+
+                return 'selesai';
+            };
+
+            $this->rotasi->jalankan($panggil);
+            $this->rotasi->jalankan($panggil);
+        });
+
+        $this->assertSame(['kunci-kunci-a', 'kunci-kunci-b'], $dipakai);
+        $this->assertNotNull(KunciGemini::where('label', 'Kunci A')->firstOrFail()->terakhir_dipakai_at);
+        $this->assertNotNull(KunciGemini::where('label', 'Kunci B')->firstOrFail()->terakhir_dipakai_at);
+    }
+
+    /** Klik berikutnya langsung pindah kunci tanpa menunggu jeda global. */
+    public function test_klasifikasi_manual_berpindah_ke_kunci_yang_belum_cooldown(): void
+    {
+        $this->kunci('Kunci A');
+        $this->kunci('Kunci B');
+
+        $dipakai = [];
+        $klasifikasi = function () use (&$dipakai): void {
+            $this->rotasi->dalamKlasifikasiManual(function () use (&$dipakai): void {
+                $this->rotasi->jalankan(function () use (&$dipakai): string {
+                    $dipakai[] = config('ai.providers.gemini.key');
+
+                    return 'selesai';
+                });
+            });
+        };
+
+        $klasifikasi();
+        $klasifikasi();
+
+        $this->assertSame(['kunci-kunci-a', 'kunci-kunci-b'], $dipakai);
+
+        try {
+            $klasifikasi();
+            $this->fail('Klik ketiga seharusnya menunggu karena kedua kunci masih cooldown.');
+        } catch (JedaKunciGemini $jeda) {
+            $this->assertSame(15, $jeda->sisaDetik);
+        }
+
+        Carbon::setTestNow(now()->addSeconds(15));
+
+        $klasifikasi();
+
+        $this->assertSame(['kunci-kunci-a', 'kunci-kunci-b', 'kunci-kunci-a'], $dipakai);
     }
 
     /** Batas harian menahan sampai tengah malam Pasifik, bukan sampai menit berikutnya. */

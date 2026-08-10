@@ -84,7 +84,7 @@ class RelevansiIndoBert
         if ($model === null) {
             throw new RuntimeException(
                 'Tidak ada model relevansi yang aktif. Aktifkan satu model di halaman '
-                .'Model Relevansi, atau kembalikan penilai relevansi ke Gemini.'
+                .'Model Relevansi, atau gunakan jalur Klasifikasi Gemini.'
             );
         }
 

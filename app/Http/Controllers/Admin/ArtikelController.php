@@ -6,14 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\AnalisisSentimen;
 use App\Models\Artikel;
 use App\Models\Media;
-use App\Services\Ai\DTO\HasilKlasifikasi;
+use App\Services\Ai\JedaKunciGemini;
 use App\Services\Ai\KlasifikasiArtikel;
 use App\Services\PembuangArtikel;
 use App\Support\Waktu;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -215,7 +214,7 @@ class ArtikelController extends Controller
     }
 
     /**
-     * Menjalankan Gemini untuk satu artikel, sekarang juga.
+     * Menjalankan jalur klasifikasi yang dipilih untuk satu artikel.
      *
      * Galat penyedia tidak dilempar ke halaman sebagai layar 500. Rate limit
      * dan gangguan koneksi adalah hal yang wajar terjadi di free tier, dan
@@ -224,16 +223,21 @@ class ArtikelController extends Controller
      */
     public function klasifikasi(Request $request, Artikel $artikel, KlasifikasiArtikel $klasifikasi): RedirectResponse
     {
-        if ($tertahan = $this->tertahan($request)) {
-            return $tertahan;
-        }
+        // Aksi manual boleh memilih jalurnya sendiri, terlepas dari penyedia
+        // bawaan di Pengaturan. Nilai null dipertahankan agar pemanggil lama
+        // dan permintaan tanpa parameter tetap mengikuti pengaturan tersebut.
+        $jalur = $request->validate([
+            'jalur' => ['nullable', 'string', 'in:gemini,indobert'],
+        ])['jalur'] ?? null;
 
         if ($artikel->isi === null || trim($artikel->isi) === '') {
             return back()->with('galat', 'Artikel ini belum punya isi, jadi tidak ada yang bisa dinilai.');
         }
 
         try {
-            $hasil = $klasifikasi->jalankan($artikel);
+            $hasil = $klasifikasi->jalankanManual($artikel, $jalur);
+        } catch (JedaKunciGemini $jeda) {
+            return $this->tungguKunci($jeda);
         } catch (Throwable $galat) {
             report($galat);
 
@@ -249,75 +253,24 @@ class ArtikelController extends Controller
                 $artikel,
                 $hasil === [] ? 'Sudah ada keputusan manusia, penilaian tidak dijalankan' : null,
             ))
-            ->with('jedaGemini', $this->catatPemakaianGemini($request, $hasil))
+            ->with('jedaGemini', false)
             ->with('tautan', $this->tautan($artikel));
     }
 
     /**
-     * Jeda antar penilaian manual, dalam detik.
+     * Pesan tunggu hanya ketika seluruh kunci aktif masih dalam cooldown.
      *
-     * Angkanya bukan soal beban server. Satu klik yang sampai ke Gemini adalah
-     * satu sampai dua permintaan yang dihitung penuh oleh Google, dan kuotanya
-     * kuota yang sama dengan yang dipakai antrean otomatis. Tanpa jeda, admin
-     * yang menyapu daftar dengan klik beruntun menghabiskan jatah harian dalam
-     * beberapa menit, dan antrean latar belakang berhenti sampai tengah malam
-     * waktu Pasifik tanpa ada yang tahu sebabnya.
+     * Angkanya datang dari kunci yang paling cepat pulih, bukan selalu lima
+     * belas. Bila kunci tertua dipakai empat detik lalu, pengguna cukup
+     * menunggu sebelas detik dan layar menghitung mundur angka yang sama.
      */
-    private const JEDA_MANUAL = 15;
-
-    /**
-     * Satu ember untuk ketiga tombol, dikunci ke penggunanya.
-     *
-     * Ketiganya menghabiskan kuota yang sama, jadi jedanya memang satu untuk
-     * bertiga. Nama embernya disebut lengkap di sini karena kunci bawaan
-     * RateLimiter hanya id pengguna, dan tanpa awalan ini menekan Sisir artikel
-     * di halaman Antrean AI akan ikut memakan jatah tombol Klasifikasi.
-     */
-    private function emberJeda(Request $request): string
+    private function tungguKunci(JedaKunciGemini $jeda, ?string $awalan = null): RedirectResponse
     {
-        return 'gemini-manual:'.$request->user()->id;
-    }
+        $pesan = $awalan === null ? $jeda->getMessage() : $awalan.' '.$jeda->getMessage();
 
-    /** Penolakan bila jedanya belum habis, atau null bila boleh jalan. */
-    private function tertahan(Request $request): ?RedirectResponse
-    {
-        $ember = $this->emberJeda($request);
-
-        if (! RateLimiter::tooManyAttempts($ember, 1)) {
-            return null;
-        }
-
-        return back()->with('galat', 'Tunggu '.RateLimiter::availableIn($ember)
-            .' detik lagi. Penilaian sebelumnya memakai kuota Gemini.');
-    }
-
-    /**
-     * Menghabiskan jeda hanya bila Gemini benar-benar terpanggil.
-     *
-     * Inti perubahannya ada di sini. Dulu jedanya dipasang middleware sebelum
-     * apa pun dinilai, jadi setiap klik dihukum sama rata. Sejak relevansi bisa
-     * dikerjakan IndoBERT, sebagian besar klik tidak menyentuh Google sama
-     * sekali: artikel yang ditolak IndoBERT selesai tanpa satu pun permintaan,
-     * begitu juga artikel yang ditandai tidak relevan oleh admin. Menahan admin
-     * lima belas detik untuk kuota yang tidak pernah terpakai membuat
-     * penyisiran daftar artikel tidak relevan terasa rusak tanpa sebab.
-     *
-     * Penyedia dibaca dari hasilnya, bukan dari pengaturan yang sedang aktif.
-     * Sentimen selalu Gemini betapapun relevansinya disetel, dan satu artikel
-     * bisa menghasilkan dua keputusan dari dua penilai berbeda.
-     *
-     * @param  list<HasilKlasifikasi>  $hasil
-     * @return bool apakah jedanya berlaku, dibaca layar untuk hitung mundurnya
-     */
-    private function catatPemakaianGemini(Request $request, array $hasil): bool
-    {
-        $pakai = collect($hasil)->contains(fn (HasilKlasifikasi $satu) => $satu->penyedia === 'gemini');
-
-        if ($pakai) {
-            RateLimiter::hit($this->emberJeda($request), self::JEDA_MANUAL);
-        }
-
-        return $pakai;
+        return back()
+            ->with('galat', $pesan)
+            ->with('jedaGemini', $jeda->sisaDetik);
     }
 
     /**
@@ -333,10 +286,6 @@ class ArtikelController extends Controller
         Artikel $artikel,
         KlasifikasiArtikel $klasifikasi,
     ): RedirectResponse {
-        if ($tertahan = $this->tertahan($request)) {
-            return $tertahan;
-        }
-
         $relevan = $request->validate(['relevan' => ['required', 'boolean']])['relevan'];
 
         // Penjaga yang sama dengan tombol Klasifikasi, dan sempat tidak ada di
@@ -396,7 +345,9 @@ class ArtikelController extends Controller
         // Sentimen dijalankan setelahnya, sekali. Panggilan Gemini memakan
         // detikan, jadi tidak ditaruh di dalam transaksi apa pun.
         try {
-            $hasil = $klasifikasi->jalankanSentimen($artikel);
+            $klasifikasi->jalankanSentimenManual($artikel);
+        } catch (JedaKunciGemini $jeda) {
+            return $this->tungguKunci($jeda, 'Artikel sudah ditandai relevan, tetapi sentimennya belum dinilai.');
         } catch (Throwable $galat) {
             report($galat);
 
@@ -406,7 +357,7 @@ class ArtikelController extends Controller
 
         return back()
             ->with($this->pesan($artikel, 'Ditandai oleh admin'))
-            ->with('jedaGemini', $this->catatPemakaianGemini($request, $hasil))
+            ->with('jedaGemini', false)
             ->with('tautan', $this->tautan($artikel));
     }
 
@@ -424,10 +375,6 @@ class ArtikelController extends Controller
      */
     public function reset(Request $request, Artikel $artikel, KlasifikasiArtikel $klasifikasi): RedirectResponse
     {
-        if ($tertahan = $this->tertahan($request)) {
-            return $tertahan;
-        }
-
         $baris = AnalisisSentimen::where('artikel_id', $artikel->id)->first();
 
         if ($baris === null || ($baris->relevan_manual === null && $baris->label_manual === null)) {
@@ -449,7 +396,9 @@ class ArtikelController extends Controller
         ]);
 
         try {
-            $hasil = $klasifikasi->jalankan($artikel);
+            $klasifikasi->jalankanManual($artikel);
+        } catch (JedaKunciGemini $jeda) {
+            return $this->tungguKunci($jeda, 'Koreksi sudah dicabut, tetapi penilaian ulang belum dijalankan.');
         } catch (Throwable $galat) {
             report($galat);
 
@@ -464,7 +413,7 @@ class ArtikelController extends Controller
 
         return back()
             ->with($this->pesan($artikel, 'Koreksi dicabut dan dinilai ulang'))
-            ->with('jedaGemini', $this->catatPemakaianGemini($request, $hasil))
+            ->with('jedaGemini', false)
             ->with('tautan', $this->tautan($artikel));
     }
 

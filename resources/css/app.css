@@ -18,6 +18,24 @@ html {
    di dalam konfigurasi ECharts, useTemaChart() membacanya lewat
    getComputedStyle(). Jangan pernah menulis heksadesimal di file grafik. */
 :root {
+    /* Warna merek Pemerintah Kota Kendari. Navy pekat, dipakai kop halaman,
+       logo, dan tombol utama. Ditulis heksadesimal karena nilainya ditetapkan
+       instansi dan harus persis, bukan hasil konversi ruang warna. */
+    --color-brand: #163f6c;
+    --color-brand-terang: #1f5490;
+    --color-brand-lembut: oklch(0.95 0.025 250);
+
+    /*
+     * Aksen dekoratif untuk tile ikon dan ilustrasi.
+     *
+     * Rona ketiganya sengaja dijauhkan dari palet sentimen (hijau 155, merah
+     * 22, kuning 75). Di halaman ini warna selalu berarti nada pemberitaan,
+     * dan hiasan tidak boleh meminjam arti itu.
+     */
+    --color-aksen-biru: oklch(0.52 0.12 250);
+    --color-aksen-toska: oklch(0.56 0.09 200);
+    --color-aksen-ungu: oklch(0.53 0.12 295);
+
     --color-sentimen-positif: oklch(0.62 0.14 155);
     --color-sentimen-positif-lembut: oklch(0.95 0.04 155);
     --color-sentimen-netral: oklch(0.6 0.02 250);
@@ -33,6 +51,13 @@ html {
 }
 
 .dark {
+    --color-brand-lembut: oklch(0.26 0.04 250);
+
+    /* Aksen dicerahkan di latar gelap, kalau tidak teksnya tenggelam. */
+    --color-aksen-biru: oklch(0.72 0.11 250);
+    --color-aksen-toska: oklch(0.74 0.08 200);
+    --color-aksen-ungu: oklch(0.73 0.11 295);
+
     /* Varian lembut dibalik agar kontras teks tetap terbaca di latar gelap. */
     --color-sentimen-positif-lembut: oklch(0.28 0.05 155);
     --color-sentimen-netral-lembut: oklch(0.28 0.02 250);
@@ -45,6 +70,152 @@ html {
     font-variant-numeric: tabular-nums;
 }
 
+/*
+ * Latar bertinta untuk panel eksekutif.
+ *
+ * Kartu putih di atas latar putih hanya terpisah oleh bayangan tipis, dan pada
+ * proyektor ruang rapat bayangan itu hilang sama sekali sehingga seluruh
+ * halaman meleleh jadi satu bidang. Tinta biru yang sangat samar membuat tiap
+ * kartu punya tepi tanpa perlu garis.
+ *
+ * Hanya panel eksekutif. Halaman admin padat tabel, dan latar bertinta di sana
+ * justru mengurangi kontras baris.
+ */
+.latar-eksekutif {
+    background-color: oklch(0.975 0.008 250);
+}
+
+.dark .latar-eksekutif {
+    background-color: oklch(0.16 0.01 250);
+}
+
+/*
+ * Permukaan yang bisa ditekan: kartu, baris daftar, dan potongan grafik yang
+ * membuka halaman lain.
+ *
+ * Ditulis sekali di sini karena dipakai enam tempat di panel eksekutif. Kurva
+ * percepatannya bukan ease-in-out bawaan, yang terasa seperti animasi yang
+ * berhenti mendadak. Kurva ini melambat di ujung, sehingga sentuhannya terasa
+ * punya bobot.
+ *
+ * Hanya transform dan warna yang berubah, keduanya tidak memicu penataan ulang
+ * tata letak. Menganimasikan ukuran atau posisi membuat panel tersendat di
+ * ponsel kelas menengah, dan itu perangkat yang dipakai membaca halaman ini.
+ */
+.tekan {
+    transition:
+        background-color 200ms cubic-bezier(0.32, 0.72, 0, 1),
+        transform 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.tekan:active {
+    transform: scale(0.99);
+}
+
+/*
+ * Kartu yang terangkat sedikit saat disentuh kursor.
+ *
+ * Dipisahkan dari `.tekan` karena keduanya sering dipakai bersama pada elemen
+ * yang sama: terangkat waktu disorot, tertekan waktu diklik.
+ */
+.angkat {
+    transition:
+        transform 260ms cubic-bezier(0.32, 0.72, 0, 1),
+        box-shadow 260ms cubic-bezier(0.32, 0.72, 0, 1),
+        border-color 260ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.angkat:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px -12px oklch(0.36 0.09 252 / 0.28);
+}
+
+/*
+ * Masuknya isi halaman: naik sedikit sambil memudar masuk.
+ *
+ * Jeda antar blok diatur pemanggil lewat animation-delay, sehingga halaman
+ * tersusun dari atas ke bawah mengikuti urutan baca, bukan muncul serentak.
+ *
+ * `both` dipakai supaya elemen tidak berkedip di posisi akhir sebelum jedanya
+ * habis. Konsekuensinya elemen tidak terlihat sebelum animasi jalan, dan itu
+ * sebabnya blok prefers-reduced-motion di bawah mematikan animasinya sama
+ * sekali, bukan sekadar memperpendek durasinya.
+ */
+@keyframes muncul {
+    from {
+        opacity: 0;
+        transform: translateY(14px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.muncul {
+    animation: muncul 620ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+/* Batang komposisi tumbuh dari kiri, arah baca angkanya. */
+@keyframes tumbuh {
+    from {
+        transform: scaleX(0);
+    }
+
+    to {
+        transform: scaleX(1);
+    }
+}
+
+.tumbuh {
+    transform-origin: left;
+    animation: tumbuh 900ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+/* Denyut pelan untuk penanda peringatan yang belum dibaca. */
+@keyframes denyut {
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.55;
+        transform: scale(0.88);
+    }
+}
+
+.denyut {
+    animation: denyut 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tekan {
+        transition: none;
+    }
+
+    .tekan:active {
+        transform: none;
+    }
+
+    .angkat {
+        transition: none;
+    }
+
+    .angkat:hover {
+        transform: none;
+        box-shadow: none;
+    }
+
+    .muncul,
+    .tumbuh,
+    .denyut {
+        animation: none;
+    }
+}
+
 @layer base {
     :root {
         --background: 0 0% 100%;
@@ -53,7 +224,10 @@ html {
         --card-foreground: 0 0% 3.9%;
         --popover: 0 0% 100%;
         --popover-foreground: 0 0% 3.9%;
-        --primary: 0 0% 9%;
+        /* Navy merek, nilai HSL dari --color-brand (#163F6C). Ditulis sebagai
+           komponen HSL karena seluruh token shadcn dibungkus hsl() di
+           tailwind.config.js. */
+        --primary: 211 66% 25%;
         --primary-foreground: 0 0% 98%;
         --secondary: 0 0% 92.1%;
         --secondary-foreground: 0 0% 9%;

@@ -3,8 +3,8 @@ import { router } from '@inertiajs/vue3';
 /**
  * Rentang tanggal dibawa antar halaman eksekutif.
  *
- * Kalau tidak dibawa, pengguna yang sudah memilih 90 hari lalu membuka halaman
- * isu akan kembali ke bawaan tujuh hari tanpa penjelasan.
+ * Kalau tidak dibawa, pengguna yang sudah memilih 90 hari lalu membuka arsip
+ * berita akan kembali ke bawaan tujuh hari tanpa penjelasan.
  */
 export function usePeriodeEksekutif(periode: { dari: string; sampai: string }, urlBasis: string) {
     function pindah(parameter: Record<string, string | number | null>) {

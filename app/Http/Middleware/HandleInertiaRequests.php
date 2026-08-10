@@ -72,12 +72,9 @@ class HandleInertiaRequests extends Middleware
                 // misalnya koreksi yang barusan dicabut atau Gemini yang
                 // sengaja dilewati karena keputusan manusia sudah ada.
                 'catatan' => fn () => $request->session()->get('catatan'),
-                // Apakah penilaian barusan benar-benar memanggil Gemini.
-                // Halaman artikel memakainya untuk memutuskan apakah hitung
-                // mundur lima belas detik perlu dijalankan. Dikirim server
-                // karena layar tidak bisa mengetahuinya sendiri: penyedianya
-                // baru ketahuan setelah relevansi diputuskan, dan artikel yang
-                // ditolak IndoBERT tidak menyentuh kuota Gemini sama sekali.
+                // Sisa cooldown kunci Gemini yang paling cepat pulih. Biasanya
+                // kosong karena klik berikutnya langsung memakai kunci lain;
+                // angkanya hanya ada ketika seluruh kunci aktif baru dipakai.
                 'jedaGemini' => fn () => $request->session()->get('jedaGemini'),
                 // Hasil uji satu kunci Gemini. Dirender sebagai kotak di bawah
                 // kuncinya sendiri, bukan sebagai toast, karena jawaban model

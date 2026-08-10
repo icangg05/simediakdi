@@ -14,7 +14,15 @@ interface Baris {
     jumlah_perlu_review: number;
 }
 
-const props = withDefaults(defineProps<{ data: Baris[]; satuan?: SatuanDeret; tinggi?: number; memuat?: boolean }>(), { satuan: 'harian' });
+/**
+ * `judul` bisa diganti pemanggil supaya halaman tidak mencetak dua judul untuk
+ * satu grafik. Panel eksekutif menyebutnya "Perubahan dari waktu ke waktu",
+ * karena "tren sentimen" belum tentu berarti apa pun bagi pembacanya.
+ */
+const props = withDefaults(defineProps<{ data: Baris[]; satuan?: SatuanDeret; tinggi?: number; memuat?: boolean; judul?: string }>(), {
+    satuan: 'harian',
+    judul: 'Tren sentimen',
+});
 
 const { warnaSentimen, dasar, sumbuNilai, sumbuKategori } = useTemaChart();
 
@@ -53,15 +61,36 @@ const opsi = computed(() => ({
     ...dasar.value,
     xAxis: { ...sumbuKategori.value, data: tanggal.value },
     yAxis: sumbuNilai.value,
-    series: deret.map((d) => ({
+    series: deret.map((d, urutan) => ({
         name: d.nama,
         type: 'line',
         stack: 'total',
-        smooth: false,
+        /*
+         * Lengkung, bukan patah.
+         *
+         * Deretnya jumlah harian, jadi lengkungan menyiratkan nilai antara dua
+         * tanggal yang sebenarnya tidak ada. Itu bisa diterima di sini karena
+         * yang dibaca pimpinan bentuk pergerakannya, bukan nilai di antara dua
+         * titik, dan angka persisnya selalu tersedia lewat tombol "lihat
+         * sebagai tabel".
+         *
+         * `smoothMonotone` menahan lengkungan supaya tidak melewati nilai
+         * tertinggi atau terendah titiknya. Tanpa itu garisnya bisa menukik ke
+         * bawah nol di antara dua hari bernilai nol.
+         */
+        smooth: 0.4,
+        smoothMonotone: 'x',
         showSymbol: false,
-        areaStyle: { opacity: 0.75 },
-        lineStyle: { width: 1 },
+        // Simbol hanya muncul saat kursor menunjuk, jadi grafiknya tetap bersih.
+        symbolSize: 7,
+        emphasis: { focus: 'series' },
+        areaStyle: { opacity: 0.3 },
+        lineStyle: { width: 2.5 },
         itemStyle: { color: warnaSentimen.value[d.warna] },
+        // Deret digambar berurutan dari bawah, mengikuti urutan legendanya.
+        animationDuration: 900,
+        animationDelay: urutan * 120,
+        animationEasing: 'cubicOut',
         data: props.data.map((b) => b[d.kunci]),
     })),
 }));
@@ -79,7 +108,7 @@ const barisTabel = computed(() =>
 
 <template>
     <BaseChart
-        judul="Tren sentimen"
+        :judul="judul"
         :opsi="opsi"
         :tinggi="tinggi"
         :memuat="memuat"

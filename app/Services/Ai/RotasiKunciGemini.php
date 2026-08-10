@@ -76,6 +76,9 @@ class RotasiKunciGemini
      */
     public const JEDA_UJI_DETIK = 15;
 
+    /** Jeda pemakaian ulang setiap kunci oleh panggilan Gemini manual. */
+    public const JEDA_KUNCI_DETIK = 15;
+
     /**
      * Kapan artikel terakhir memakai Gemini, sebagai timestamp.
      *
@@ -84,6 +87,33 @@ class RotasiKunciGemini
      * rotasi memilih kunci yang berbeda.
      */
     private const CACHE_ARTIKEL = 'gemini:artikel-terakhir';
+
+    /** Kedalaman scope manual; lebih dari nol berarti aksi tombol sedang berjalan. */
+    private int $kedalamanManual = 0;
+
+    /**
+     * Menjalankan satu aksi klasifikasi manual.
+     *
+     * Setiap panggilan Gemini di dalamnya tetap memilih kunci sendiri. Jalur
+     * Gemini penuh karena itu dapat memakai kunci A untuk relevansi dan kunci B
+     * untuk sentimen. Jalur IndoBERT baru memilih kunci saat sentimen benar-benar
+     * diperlukan.
+     *
+     * @template T
+     *
+     * @param  Closure(): T  $panggil
+     * @return T
+     */
+    public function dalamKlasifikasiManual(Closure $panggil): mixed
+    {
+        $this->kedalamanManual++;
+
+        try {
+            return $panggil();
+        } finally {
+            $this->kedalamanManual--;
+        }
+    }
 
     /**
      * @template T
@@ -95,6 +125,10 @@ class RotasiKunciGemini
      */
     public function jalankan(Closure $panggil): mixed
     {
+        if ($this->kedalamanManual > 0) {
+            return $this->jalankanManual($panggil);
+        }
+
         $terakhir = null;
 
         foreach ($this->giliran() as $kunci) {
@@ -142,6 +176,114 @@ class RotasiKunciGemini
         }
 
         throw $terakhir ?? $this->semuaHabis();
+    }
+
+    /**
+     * Memilih kunci yang sudah bebas cooldown untuk satu panggilan Gemini.
+     *
+     * Tidak ada pengecualian untuk panggilan kedua dalam satu klik. Bila kunci
+     * relevansi baru dipakai, sentimen berpindah ke kunci berikutnya. Inilah
+     * pemeriksaan tunggal yang dipakai jalur Gemini penuh maupun kombinasi.
+     *
+     * @template T
+     *
+     * @param  Closure(): T  $panggil
+     * @return T
+     */
+    private function jalankanManual(Closure $panggil): mixed
+    {
+        while (true) {
+            $kunci = $this->pilihKunciManual();
+
+            try {
+                $hasil = $panggil();
+            } catch (RateLimitedException $galat) {
+                $this->tandaiLimit($kunci, $galat);
+                $this->catatGalat($kunci, $this->pesanGalat($galat));
+
+                // Kalau kunci lain masih ada, rotasi melanjutkan percobaan.
+                // Jika semuanya benar-benar limit, pertahankan galat asli dari
+                // Google seperti perilaku jalur otomatis.
+                if (! KunciGemini::query()->tersedia()->exists()) {
+                    throw $galat;
+                }
+
+                continue;
+            } catch (Throwable $galat) {
+                $this->catatGalat($kunci, $this->pesanGalat($galat));
+
+                throw $galat;
+            }
+
+            $this->pulih($kunci);
+
+            return $hasil;
+        }
+    }
+
+    /**
+     * Memilih dan menandai kunci manual secara atomik.
+     *
+     * Gembok baris mencegah dua admin yang menekan tombol bersamaan memperoleh
+     * kunci yang sama. Transaksi dilepas sebelum permintaan jaringan dimulai.
+     */
+    private function pilihKunciManual(): KunciGemini
+    {
+        $batas = now()->subSeconds(self::JEDA_KUNCI_DETIK);
+
+        $terpilih = DB::transaction(function () use ($batas): ?KunciGemini {
+            $kandidat = KunciGemini::query()
+                ->tersedia()
+                ->where(fn ($q) => $q
+                    ->whereNull('terakhir_dipakai_at')
+                    ->orWhere('terakhir_dipakai_at', '<=', $batas))
+                ->orderByRaw('terakhir_dipakai_at ASC NULLS FIRST')
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($kandidat as $kunci) {
+                if (! $this->punyaJatah($kunci)) {
+                    continue;
+                }
+
+                // Menandai waktu di transaksi yang sama dengan pemilihannya.
+                // Permintaan berikutnya akan melihat baris ini sedang cooldown
+                // dan berpindah ke kandidat berikutnya.
+                $this->pakai($kunci);
+
+                return $kunci;
+            }
+
+            return null;
+        });
+
+        if ($terpilih !== null) {
+            return $terpilih;
+        }
+
+        $pertamaPulih = KunciGemini::query()
+            ->tersedia()
+            ->whereNotNull('terakhir_dipakai_at')
+            ->orderBy('terakhir_dipakai_at')
+            ->first();
+
+        if ($pertamaPulih !== null) {
+            throw new JedaKunciGemini($this->sisaJedaManual($pertamaPulih));
+        }
+
+        throw $this->semuaHabis();
+    }
+
+    /** Berapa detik sebelum satu kunci boleh dipakai klik berikutnya. */
+    public function sisaJedaManual(KunciGemini $kunci): int
+    {
+        if ($kunci->terakhir_dipakai_at === null) {
+            return 0;
+        }
+
+        return max(0, $kunci->terakhir_dipakai_at->timestamp
+            + self::JEDA_KUNCI_DETIK - now()->timestamp);
     }
 
     private function catatGalat(KunciGemini $kunci, string $pesan): void

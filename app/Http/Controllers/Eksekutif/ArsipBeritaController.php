@@ -26,18 +26,22 @@ class ArsipBeritaController extends Controller
             ->with(['media:id,nama', 'analisisSentimen' => fn ($q) => $q
                 ->where('relevan', true),
             ])
-            ->whereBetween('diambil_at', [$periode->mulaiUtc(), $periode->akhirUtc()])
+            ->terbitAntara($periode->mulaiUtc(), $periode->akhirUtc())
             ->when($request->query('sentimen'), fn ($q, $label) => $q->whereHas(
                 'analisisSentimen',
                 fn ($s) => $s->where('relevan', true)
                     ->whereIn('label_efektif', explode(',', $label)),
             ))
-            // Filter istilah dari halaman isu: klik satu istilah membuka arsip
-            // yang sudah tersaring.
-            ->when($request->query('istilah'), fn ($q, $istilah) => $q->where(function ($w) use ($istilah) {
-                $w->where('judul', 'ilike', '%'.$istilah.'%')
-                    ->orWhere('isi', 'ilike', '%'.$istilah.'%');
-            }));
+            // Daftar id dari kartu topik di ringkasan eksekutif.
+            //
+            // Id dikirim di alamat, bukan nomor urut topiknya, supaya tautan
+            // yang dibuka setelah narasi diregenerasi tetap menampilkan berita
+            // yang sama dengan yang terbaca di kartu, bukan topik lain yang
+            // kebetulan menempati urutan itu.
+            ->when($request->query('artikel'), fn ($q, $daftar) => $q->whereIn(
+                'id',
+                array_slice(array_filter(array_map(intval(...), explode(',', $daftar))), 0, 200),
+            ));
 
         $artikel = KueriTabel::untuk($kueri, $request)
             ->cari(['judul', 'penulis'])
@@ -56,7 +60,11 @@ class ArsipBeritaController extends Controller
                 'label' => $a->analisisSentimen->first()?->label_efektif?->value,
                 'perlu_review' => (bool) $a->analisisSentimen->first()?->perlu_review,
             ]),
-            'istilah' => $request->query('istilah'),
+            // Penanda bahwa daftar ini sedang dipersempit ke satu topik.
+            // Tanpa penanda, pembaca yang mengetuk kartu topik di ringkasan
+            // mendarat di arsip berisi lima belas baris tanpa satu pun petunjuk
+            // kenapa sisanya hilang.
+            'disaringTopik' => $request->filled('artikel'),
             'opsi' => [
                 'media' => Media::query()->orderBy('nama')->get(['id', 'nama'])
                     ->map(fn (Media $m) => ['nilai' => (string) $m->id, 'label' => $m->nama])->all(),

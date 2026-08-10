@@ -1,6 +1,16 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue';
 
+/**
+ * Lambang aplikasi: tugu di antara dua bidang, di atas riak teluk.
+ *
+ * Menggantikan lambang Laravel bawaan starter kit. Panel ini dibuka pimpinan
+ * daerah dan lambang kerangka kerja di kop halaman resmi Pemerintah Kota adalah
+ * kekeliruan yang terlihat oleh siapa pun yang mengenalinya.
+ *
+ * Bukan lambang resmi Pemerintah Kota Kendari. Kalau berkas lambang resminya
+ * tersedia, berkas itu yang dipakai dan komponen ini dibuang.
+ */
 defineOptions({
     inheritAttrs: false,
 });
@@ -13,12 +23,23 @@ defineProps<Props>();
 </script>
 
 <template>
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 42" :class="className" v-bind="$attrs">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="currentColor" :class="className" v-bind="$attrs">
+        <!-- Tugu. -->
+        <path d="M16 2.5a2.6 2.6 0 0 1 2.6 2.6A2.6 2.6 0 0 1 16 7.7a2.6 2.6 0 0 1-2.6-2.6A2.6 2.6 0 0 1 16 2.5Z" />
+        <path d="M14.6 9.2h2.8l1.1 13.4h-5Z" />
+        <!-- Dua bidang bangunan mengapit tugu. -->
+        <path d="M4 13.6h6.6v9H4Z" opacity=".65" />
+        <path d="M21.4 13.6H28v9h-6.6Z" opacity=".65" />
+        <!-- Dasar. -->
+        <path d="M2.5 24.2h27v2.2h-27Z" />
+        <!-- Riak teluk. -->
         <path
-            fill="currentColor"
-            fill-rule="evenodd"
-            clip-rule="evenodd"
-            d="M17.2 5.633 8.6.855 0 5.633v26.51l16.2 9 16.2-9v-8.442l7.6-4.223V9.856l-8.6-4.777-8.6 4.777V18.3l-5.6 3.111V5.633ZM38 18.301l-5.6 3.11v-6.157l5.6-3.11V18.3Zm-1.06-7.856-5.54 3.078-5.54-3.079 5.54-3.078 5.54 3.079ZM24.8 18.3v-6.157l5.6 3.111v6.158L24.8 18.3Zm-1 1.732 5.54 3.078-13.14 7.302-5.54-3.078 13.14-7.3v-.002Zm-16.2 7.89 7.6 4.222V38.3L2 30.966V7.92l5.6 3.111v16.892ZM8.6 9.3 3.06 6.222 8.6 3.143l5.54 3.08L8.6 9.3Zm21.8 15.51-13.2 7.334V38.3l13.2-7.334v-6.156ZM9.6 11.034l5.6-3.11v14.6l-5.6 3.11v-14.6Z"
+            d="M3.4 28.6c1.6-1.1 3.2-1.1 4.8 0 1.6 1.1 3.2 1.1 4.8 0 1.6-1.1 3.2-1.1 4.8 0 1.6 1.1 3.2 1.1 4.8 0 1.6-1.1 3.2-1.1 4.8 0"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            opacity=".55"
         />
     </svg>
 </template>

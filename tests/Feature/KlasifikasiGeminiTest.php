@@ -38,9 +38,10 @@ class KlasifikasiGeminiTest extends TestCase
     {
         parent::setUp();
 
-        // Klasifikasi menolak jalan tanpa kunci di database, sama seperti di
-        // produksi. Jawaban modelnya tetap palsu, yang nyata hanya barisnya.
+        // Jalur Gemini relevan memakai dua panggilan dan setiap panggilan wajib
+        // memilih kunci yang bebas cooldown, jadi disediakan dua kunci.
         KunciGemini::create(['label' => 'Kunci uji', 'kunci' => 'kunci-uji-yang-cukup-panjang']);
+        KunciGemini::create(['label' => 'Kunci uji kedua', 'kunci' => 'kunci-uji-kedua-yang-cukup-panjang']);
 
         $media = Media::create(['nama' => 'Kendari Pos', 'slug' => 'kp', 'domain' => 'kp.test']);
 
@@ -426,36 +427,66 @@ class KlasifikasiGeminiTest extends TestCase
     }
 
     /**
-     * Klasifikasi manual dibatasi satu per 15 detik, ditegakkan di server.
+     * Klasifikasi manual berputar antarkunci sebelum meminta pengguna menunggu.
      *
-     * Tombol yang diredupkan bukan aturan, permintaannya tetap bisa dikirim
-     * langsung. Satu klik yang sampai ke Gemini adalah satu sampai dua
-     * permintaan yang dihitung penuh oleh Google, dan kuotanya kuota yang sama
-     * dengan yang dipakai antrean otomatis. Tanpa jeda, admin yang menyapu
-     * daftar dengan klik beruntun menghabiskan jatah harian dalam beberapa
-     * menit.
-     *
-     * Penolakannya kini berupa pesan, bukan status 429. Penjaganya pindah dari
-     * middleware ke controller supaya ia bisa membedakan penilaian yang
-     * benar-benar memanggil Gemini dari yang selesai di IndoBERT, dan
-     * imbalannya penolakan itu sekarang muncul sebagai toast yang menyebut sisa
-     * detiknya alih-alih layar galat mentah di tengah permintaan Inertia.
+     * Empat kunci berarti dua artikel relevan bisa selesai berturut-turut:
+     * masing-masing memakai satu kunci untuk relevansi dan satu untuk sentimen.
+     * Klik ketiga ditahan dan server mengirim sisa waktunya sebagai angka.
      */
-    public function test_klasifikasi_manual_menolak_klik_kedua_dalam_15_detik(): void
+    public function test_klasifikasi_manual_memutar_kunci_lalu_menunggu_jika_semuanya_cooldown(): void
     {
         RelevanceClassifier::fake([$this->jawaban('relevan'), $this->jawaban('relevan')]);
         SentimentClassifier::fake([$this->jawaban('positif'), $this->jawaban('positif')]);
+
+        KunciGemini::create(['label' => 'Kunci uji ketiga', 'kunci' => 'kunci-uji-ketiga-yang-cukup-panjang']);
+        KunciGemini::create(['label' => 'Kunci uji keempat', 'kunci' => 'kunci-uji-keempat-yang-cukup-panjang']);
 
         $pengguna = User::factory()->create(['peran' => 'superadmin']);
 
         $this->actingAs($pengguna)
             ->post("/admin/artikel/{$this->artikel->id}/klasifikasi")
             ->assertRedirect()
-            ->assertSessionHas('jedaGemini', true);
+            ->assertSessionHas('jedaGemini', false);
 
         $this->actingAs($pengguna)
             ->post("/admin/artikel/{$this->artikel->id}/klasifikasi")
+            ->assertSessionMissing('galat')
+            ->assertSessionHas('jedaGemini', false);
+
+        $this->assertSame(4, KunciGemini::whereNotNull('terakhir_dipakai_at')->count());
+
+        $this->actingAs($pengguna)
+            ->post("/admin/artikel/{$this->artikel->id}/klasifikasi")
+            ->assertSessionHas('jedaGemini', fn ($sisa) => is_int($sisa) && $sisa > 0 && $sisa <= 15)
             ->assertSessionHas('galat');
+    }
+
+    /** Artikel setengah jadi melanjutkan sentimen tanpa mengulang relevansi. */
+    public function test_klasifikasi_manual_melanjutkan_sentimen_setelah_cooldown(): void
+    {
+        KunciGemini::query()->where('label', 'Kunci uji kedua')->delete();
+
+        RelevanceClassifier::fake([$this->jawaban('relevan')]);
+        SentimentClassifier::fake([$this->jawaban('positif')]);
+
+        $pengguna = User::factory()->create(['peran' => 'superadmin']);
+
+        $this->actingAs($pengguna)
+            ->post("/admin/artikel/{$this->artikel->id}/klasifikasi", ['jalur' => 'gemini'])
+            ->assertSessionHas('jedaGemini', fn ($sisa) => is_int($sisa) && $sisa > 0)
+            ->assertSessionHas('galat');
+
+        $this->assertSame('dianalisis', $this->artikel->fresh()->status_proses);
+        $this->assertNull(BarisAnalisis::firstOrFail()->label_model);
+
+        KunciGemini::query()->update(['terakhir_dipakai_at' => now()->subSeconds(15)]);
+
+        $this->actingAs($pengguna)
+            ->post("/admin/artikel/{$this->artikel->id}/klasifikasi", ['jalur' => 'gemini'])
+            ->assertSessionMissing('galat');
+
+        $this->assertSame('positif', BarisAnalisis::firstOrFail()->label_model->value);
+        $this->assertSame('selesai', $this->artikel->fresh()->status_proses);
     }
 
     /**
