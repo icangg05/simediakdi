@@ -16,6 +16,9 @@ interface BarisMedia {
     partner: boolean;
     aktif: boolean;
     sumber_feed_count: number;
+    sumber_feed_aktif_count: number;
+    /** Null berarti pencarian feed otomatis belum selesai dijalankan. */
+    feed_dicari_at: string | null;
 }
 
 const props = defineProps<{
@@ -28,7 +31,7 @@ const kolom: KolomDefinisi[] = [
     { kunci: 'domain', judul: 'Domain', bisaDiurutkan: true },
     { kunci: 'tier', judul: 'Tier', bisaDiurutkan: true, lebar: 'w-28' },
     { kunci: 'jenis', judul: 'Jenis', bisaDiurutkan: true, lebar: 'w-24' },
-    { kunci: 'sumber_feed_count', judul: 'Sumber', kelas: 'angka text-right', lebar: 'w-20' },
+    { kunci: 'sumber_feed_count', judul: 'Pengambilan', lebar: 'w-44' },
     { kunci: 'aktif', judul: 'Status', lebar: 'w-28' },
 ];
 
@@ -40,7 +43,7 @@ const filter: FilterDefinisi[] = [
 ];
 
 const aksiBaris: AksiBaris<BarisMedia>[] = [
-    { label: 'Ubah', href: (baris) => `/admin/media/${baris.id}/edit` },
+    { label: 'Kelola', href: (baris) => `/admin/media/${baris.id}` },
     {
         // Crawl berjalan di worker, jadi halaman ini tidak perlu menunggu.
         // Hasilnya dilihat di Log crawl, bukan di sini.
@@ -48,10 +51,17 @@ const aksiBaris: AksiBaris<BarisMedia>[] = [
         onKlik: (baris) => router.post(`/admin/media/${baris.id}/crawl`, {}, { preserveScroll: true }),
     },
     {
-        label: 'Nonaktifkan',
+        // Saklar, bukan penghapusan. Dulu tombol berlabel "Nonaktifkan" di sini
+        // memanggil soft delete, sehingga medianya lenyap dari daftar dan tidak
+        // ada cara menghidupkannya lagi dari antarmuka.
+        label: 'Aktifkan atau nonaktifkan',
+        onKlik: (baris) => router.post(`/admin/media/${baris.id}/aktif`, {}, { preserveScroll: true }),
+    },
+    {
+        label: 'Hapus',
         merusak: true,
         onKlik: (baris) => {
-            if (confirm(`Nonaktifkan ${baris.nama}? Artikel yang sudah terkumpul tetap tersimpan.`)) {
+            if (confirm(`Hapus ${baris.nama}? Artikel yang sudah terkumpul tetap tersimpan.`)) {
                 router.delete(`/admin/media/${baris.id}`, { preserveScroll: true });
             }
         },
@@ -63,6 +73,33 @@ const warnaTier: Record<BarisMedia['tier'], string> = {
     regional: 'bg-tier-regional/10 text-tier-regional',
     lokal: 'bg-tier-lokal/10 text-tier-lokal',
 };
+
+/**
+ * Keadaan pengambilan satu media, dalam satu frasa.
+ *
+ * Sejak seluruh media ditarik secara bawaan, pertanyaan yang dibawa admin ke
+ * halaman ini bukan lagi "berapa sumbernya" melainkan "mana yang tidak jalan".
+ * Angka telanjang tidak menjawab itu: nol bisa berarti masih dicari, bisa
+ * berarti sudah dicari dan tidak ketemu, dan keduanya menuntut tindakan
+ * berbeda.
+ */
+function pengambilan(baris: BarisMedia): { teks: string; kelas: string } {
+    if (!baris.aktif) {
+        return { teks: 'Dihentikan', kelas: 'text-muted-foreground' };
+    }
+
+    if (baris.sumber_feed_aktif_count > 0) {
+        return { teks: `${baris.sumber_feed_aktif_count} sumber aktif`, kelas: 'text-sentimen-positif' };
+    }
+
+    if (baris.sumber_feed_count > 0) {
+        return { teks: 'Semua sumber mati', kelas: 'text-sentimen-negatif' };
+    }
+
+    return baris.feed_dicari_at === null
+        ? { teks: 'Mencari RSS', kelas: 'text-aksen-biru' }
+        : { teks: 'RSS tidak ketemu', kelas: 'text-sentimen-review' };
+}
 </script>
 
 <template>
@@ -76,6 +113,7 @@ const warnaTier: Record<BarisMedia['tier'], string> = {
             :filter="filter"
             pencarian
             :aksi-baris="aksiBaris"
+            nomor
             url-basis="/admin/media"
             judul-kosong="Belum ada media"
             keterangan-kosong="Tambahkan media partner lebih dulu, lalu daftarkan sumber feed-nya."
@@ -91,9 +129,13 @@ const warnaTier: Record<BarisMedia['tier'], string> = {
 
             <template #sel-nama="{ baris }">
                 <div class="flex items-center gap-2">
-                    <span class="font-medium">{{ baris.nama }}</span>
+                    <Link :href="`/admin/media/${baris.id}`" class="font-medium hover:underline">{{ baris.nama }}</Link>
                     <Badge v-if="baris.partner" variant="secondary" class="text-xs">Partner</Badge>
                 </div>
+            </template>
+
+            <template #sel-sumber_feed_count="{ baris }">
+                <span class="text-sm" :class="pengambilan(baris).kelas">{{ pengambilan(baris).teks }}</span>
             </template>
 
             <template #sel-domain="{ baris }">

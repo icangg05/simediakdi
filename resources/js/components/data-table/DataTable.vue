@@ -17,6 +17,15 @@ const props = defineProps<{
     filter?: FilterDefinisi[];
     pencarian?: boolean;
     aksiBaris?: AksiBaris<T>[];
+    /**
+     * Kolom nomor urut di paling kiri.
+     *
+     * Nomornya dihitung dari `meta.from`, bukan dari indeks baris, supaya
+     * penomoran berlanjut antar halaman. Baris pertama halaman kedua adalah
+     * 26, bukan 1 lagi. Ini nomor urut tampilan, bukan id, jadi ia ikut
+     * berubah setiap kali urutan atau filternya diganti.
+     */
+    nomor?: boolean;
     /** Dipakai router.get saat sort, filter, atau halaman berubah. */
     urlBasis: string;
     judulKosong?: string;
@@ -55,6 +64,7 @@ function labelUrut(kolom: KolomDefinisi): string {
             <Table>
                 <TableHeader>
                     <TableRow>
+                        <TableHead v-if="nomor" class="w-12 text-right">No</TableHead>
                         <TableHead
                             v-for="kol in kolom"
                             :key="kol.kunci"
@@ -81,7 +91,7 @@ function labelUrut(kolom: KolomDefinisi): string {
 
                 <TableBody>
                     <TableRow v-if="!data.length">
-                        <TableCell :colspan="kolom.length + (aksiBaris?.length ? 1 : 0)" class="p-0">
+                        <TableCell :colspan="kolom.length + (nomor ? 1 : 0) + (aksiBaris?.length ? 1 : 0)" class="p-0">
                             <KeadaanKosong
                                 :judul="judulKosong ?? 'Belum ada data'"
                                 :keterangan="
@@ -94,6 +104,15 @@ function labelUrut(kolom: KolomDefinisi): string {
                     </TableRow>
 
                     <TableRow v-for="(baris, i) in data" :key="baris.id ?? i" class="h-10">
+                        <!--
+                            `meta.from` bernilai null hanya ketika hasilnya
+                            kosong, dan baris ini tidak dirender dalam keadaan
+                            itu. Nilai 1 dipakai sekadar supaya tipenya aman.
+                        -->
+                        <TableCell v-if="nomor" class="angka w-12 text-right text-muted-foreground">
+                            {{ (meta.from ?? 1) + i }}
+                        </TableCell>
+
                         <!--
                             `lebar` ikut dipasang di sel, bukan hanya di header.
                             Tabel auto-layout menawar lebar kolom dari isi

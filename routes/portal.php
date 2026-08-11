@@ -2,14 +2,12 @@
 
 use App\Http\Controllers\Portal\BeritaController;
 use App\Http\Controllers\Portal\DashboardController;
-use App\Http\Controllers\Portal\KontrakController;
 use App\Http\Controllers\Portal\LaporController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('portal')->name('portal.')->middleware('peran:media,superadmin')->group(function () {
     Route::get('/', DashboardController::class)->name('dashboard');
     Route::get('berita', BeritaController::class)->name('berita');
-    Route::get('kontrak', KontrakController::class)->name('kontrak');
 
     Route::get('lapor', [LaporController::class, 'index'])->name('lapor');
     // Setiap pemeriksaan mengunduh halaman media lain. Dibatasi lebih ketat

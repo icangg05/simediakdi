@@ -1,9 +1,20 @@
 <?php
 
 return [
-    'user_agent' => env('CRAWL_USER_AGENT', 'SimediaKendariBot/1.0 (+https://simedia.kendarikota.go.id/bot)'),
+    // Alamat kontak sengaja berhenti di domain, tanpa path `/bot` seperti
+    // sebelumnya. WAF sibernas.id menolak permintaan dengan 403 hanya karena
+    // path itu ada di dalam User-Agent, dan situs itu jadi satu-satunya media
+    // yang tidak bisa ditarik sama sekali. Token produknya tetap
+    // `SimediaKendariBot`, jadi aturan robots.txt di 29 situs lain tidak
+    // berubah artinya.
+    'user_agent' => env('CRAWL_USER_AGENT', 'SimediaKendariBot/1.0 (+https://simedia.kendarikota.go.id)'),
 
     'timeout' => (int) env('CRAWL_TIMEOUT', 20),
+
+    // Render Chromium jauh lebih lambat daripada satu GET. Halaman Nuxt harus
+    // dimuat, dihidrasi, lalu menunggu permintaan XHR terakhir yang membawa
+    // daftar beritanya.
+    'render_timeout' => (int) env('CRAWL_RENDER_TIMEOUT', 60),
 
     // Jeda antar permintaan ke domain yang sama. Bukan formalitas: media lokal
     // sering memakai hosting kecil, dan crawler agresif akan diblokir atau
@@ -13,7 +24,13 @@ return [
     // Satu situs bermasalah tidak boleh menghabiskan memori worker.
     'maks_unduh_byte' => 5 * 1024 * 1024,
 
-    // F-07: sumber dinonaktifkan otomatis setelah gagal berturut-turut.
+    // Ambang "sumber ini perlu diperiksa", bukan lagi saklar mati.
+    //
+    // F-07 dulu menonaktifkan sumber di angka ini. Aturan itu dicabut karena
+    // penyebab kegagalan hampir selalu di luar kendali kita dan sembuh sendiri,
+    // sementara sumber yang mati diam-diam menghentikan berita satu media tanpa
+    // ada yang menyadarinya. Sekarang angkanya hanya dipakai dashboard dan
+    // halaman detail media untuk menandai sumber yang gagal berulang.
     'maks_gagal_berturut' => 5,
 
     'wordpress' => [

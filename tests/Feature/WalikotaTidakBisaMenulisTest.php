@@ -2,15 +2,12 @@
 
 namespace Tests\Feature;
 
-use App\Enums\StatusVerifikasi;
 use App\Models\AnalisisSentimen;
 use App\Models\Artikel;
 use App\Models\AturanAlert;
-use App\Models\Kontrak;
 use App\Models\KunciGemini;
 use App\Models\Media;
 use App\Models\PelatihanModelRelevansi;
-use App\Models\Pemuatan;
 use App\Models\SnapshotDatasetRelevansi;
 use App\Models\SumberFeed;
 use App\Models\User;
@@ -51,18 +48,6 @@ class WalikotaTidakBisaMenulisTest extends TestCase
             'model_versi' => 'uji', 'dianalisis_at' => now(),
         ]);
 
-        $kontrak = Kontrak::withoutGlobalScopes()->create([
-            'media_id' => $this->media->id, 'judul' => 'Kontrak', 'jenis' => 'publikasi', 'status' => 'aktif',
-            'tanggal_mulai' => now()->subDays(5)->toDateString(),
-            'tanggal_akhir' => now()->addDays(30)->toDateString(),
-        ]);
-
-        $pemuatan = Pemuatan::withoutGlobalScopes()->create([
-            'kontrak_id' => $kontrak->id, 'media_id' => $this->media->id, 'url' => 'https://a.test/p',
-            'tanggal_muat' => now()->toDateString(), 'sumber_catatan' => 'laporan_media',
-            'status_verifikasi' => StatusVerifikasi::Menunggu,
-        ]);
-
         $alert = AturanAlert::create([
             'nama' => 'Uji', 'jenis' => 'sumber_mati', 'kondisi' => [], 'jendela_jam' => 6,
             'jeda_minimal_jam' => 6, 'kanal' => 'telegram', 'penerima' => [], 'aktif' => true,
@@ -98,8 +83,6 @@ class WalikotaTidakBisaMenulisTest extends TestCase
             'media' => $this->media->id,
             'sumberFeed' => $feed->id,
             'analisis' => $analisis->id,
-            'kontrak' => $kontrak->id,
-            'pemuatan' => $pemuatan->id,
             'alert' => $alert->id,
             'pengguna' => $this->walikota->id,
             'artikel' => $artikel->id,
@@ -162,9 +145,11 @@ class WalikotaTidakBisaMenulisTest extends TestCase
 
     public function test_superadmin_tetap_bisa_menulis(): void
     {
+        // Media baru mendarat di halaman detailnya, bukan kembali ke daftar.
+        // Di sanalah alamat feed-nya muncul begitu pencarian otomatis selesai.
         $this->actingAs(User::factory()->create())
             ->post('/admin/media', ['nama' => 'Media Baru', 'jenis' => 'online', 'tier' => 'lokal'])
-            ->assertRedirect('/admin/media');
+            ->assertRedirect('/admin/media/'.Media::where('nama', 'Media Baru')->value('id'));
 
         $this->assertTrue(Media::where('nama', 'Media Baru')->exists());
     }

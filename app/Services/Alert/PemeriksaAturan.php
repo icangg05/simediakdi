@@ -5,9 +5,7 @@ namespace App\Services\Alert;
 use App\Enums\LabelSentimen;
 use App\Models\AnalisisSentimen;
 use App\Models\AturanAlert;
-use App\Models\Kontrak;
 use App\Models\SumberFeed;
-use App\Services\Kontrak\PencocokPemuatan;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -22,8 +20,6 @@ use Illuminate\Support\Facades\DB;
  */
 class PemeriksaAturan
 {
-    public function __construct(private PencocokPemuatan $pencocok) {}
-
     /** @return array{ringkasan: string, payload: array<string, mixed>}|null */
     public function nilai(AturanAlert $aturan): ?array
     {
@@ -31,7 +27,6 @@ class PemeriksaAturan
             'lonjakan_negatif' => $this->lonjakanNegatif($aturan),
             'kata_kunci_muncul' => $this->kataKunciMuncul($aturan),
             'sumber_mati' => $this->sumberMati($aturan),
-            'kontrak_tertinggal' => $this->kontrakTertinggal($aturan),
             default => null,
         };
     }
@@ -159,37 +154,6 @@ class PemeriksaAturan
             'ringkasan' => $mati->count()." sumber feed tidak menghasilkan berita dalam {$jam} jam terakhir: "
                 .$mati->take(5)->pluck('nama')->implode(', ').($mati->count() > 5 ? ', dan lainnya' : ''),
             'payload' => ['jam' => $jam, 'sumber' => $mati->all()],
-        ];
-    }
-
-    /** Kontrak aktif yang realisasinya tertinggal dari target pro rata (F-26). */
-    private function kontrakTertinggal(AturanAlert $aturan): ?array
-    {
-        $tertinggal = Kontrak::withoutGlobalScopes()
-            ->where('status', 'aktif')
-            ->with('media:id,nama')
-            ->get()
-            ->map(fn (Kontrak $k) => ['kontrak' => $k, 'progres' => $this->pencocok->progres($k)])
-            ->filter(fn (array $b) => $b['progres']['tertinggal'] ?? false)
-            ->values();
-
-        if ($tertinggal->isEmpty()) {
-            return null;
-        }
-
-        $daftar = $tertinggal
-            ->map(fn (array $b) => sprintf(
-                '%s (%d dari %d)',
-                $b['kontrak']->media?->nama ?? $b['kontrak']->judul,
-                $b['progres']['terverifikasi'] ?? 0,
-                $b['progres']['target'] ?? 0,
-            ))
-            ->take(5)
-            ->implode(', ');
-
-        return [
-            'ringkasan' => $tertinggal->count().' kontrak tertinggal dari target pro rata: '.$daftar.'.',
-            'payload' => ['jumlah' => $tertinggal->count()],
         ];
     }
 }

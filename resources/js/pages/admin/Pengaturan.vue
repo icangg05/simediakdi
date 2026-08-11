@@ -42,6 +42,8 @@ interface Kunci {
     rpd_terpakai: number;
     rpd_google: number | null;
     rpd_google_at: string | null;
+    rpd_manual: number | null;
+    rpd_berlaku: number;
 }
 
 const props = defineProps<{
@@ -102,6 +104,42 @@ function tambahKunci() {
 
 function ubahAktif(k: Kunci) {
     router.put(`/admin/pengaturan/kunci/${k.id}`, { aktif: !k.aktif }, { preserveScroll: true });
+}
+
+/**
+ * Batas harian yang sedang diketik, per kunci.
+ *
+ * Disimpan terpisah dari `props.kunci` supaya ketikan yang belum disimpan tidak
+ * ikut tertimpa saat Inertia memuat ulang halaman setelah aksi lain, misalnya
+ * menguji kunci di baris sebelahnya.
+ */
+const batasKetikan = ref<Record<number, string>>({});
+
+function batasHarian(k: Kunci): string {
+    return batasKetikan.value[k.id] ?? (k.rpd_manual === null ? '' : String(k.rpd_manual));
+}
+
+/**
+ * Kosong berarti kembali ke angka bawaan, bukan berarti nol.
+ *
+ * Nol akan diterima validasi sebagai angka lalu membuat penjaga kuota
+ * menganggap kunci ini tidak punya jatah sama sekali.
+ *
+ * Dikirim sebagai string kosong, bukan null. Controller membedakan "kosongkan
+ * batas" dari "ubah sakelar aktif" lewat ada tidaknya bidang `rpd_manual` di
+ * badan permintaan, dan bidang bernilai null hilang seluruhnya saat badannya
+ * dikodekan sebagai form. String kosong selalu sampai, dan middleware bawaan
+ * Laravel mengubahnya menjadi null sebelum validasi membacanya.
+ */
+function simpanBatas(k: Kunci) {
+    router.put(
+        `/admin/pengaturan/kunci/${k.id}`,
+        { rpd_manual: batasHarian(k).trim() },
+        {
+            preserveScroll: true,
+            onSuccess: () => delete batasKetikan.value[k.id],
+        },
+    );
 }
 
 function hapusKunci(k: Kunci) {
@@ -294,14 +332,24 @@ function status(k: Kunci): string {
                                      yang ditulis setegas angka fakta pernah
                                      berbunyi "497 sisa" untuk kunci yang detik
                                      itu juga ditolak karena kuotanya habis. -->
+                                <!-- Batasnya selalu disebut beserta asalnya.
+                                     Tiga sumber yang mungkin punya derajat yang
+                                     berbeda jauh: angka Google adalah fakta,
+                                     angka admin adalah keterangan yang bisa
+                                     salah ketik, dan angka bawaan adalah
+                                     salinan dokumentasi free tier yang meleset
+                                     untuk kunci berbayar. Menuliskan ketiganya
+                                     dengan kalimat yang sama membuat yang
+                                     terakhir terbaca sepasti yang pertama. -->
                                 <p class="text-xs text-muted-foreground">
                                     <span class="angka text-foreground">{{ formatAngka(k.rpd_terpakai) }}</span>
-                                    permintaan terkirim hari ini
+                                    permintaan terkirim hari ini · batas
+                                    <span class="angka text-foreground">{{ formatAngka(k.rpd_berlaku) }}</span>
                                     <template v-if="k.rpd_google !== null">
-                                        · batas dari Google <span class="angka">{{ formatAngka(k.rpd_google) }}</span>
-                                        <template v-if="k.rpd_google_at">, {{ waktu(k.rpd_google_at) }}</template>
+                                        dari Google<template v-if="k.rpd_google_at">, {{ waktu(k.rpd_google_at) }}</template>
                                     </template>
-                                    <template v-else> · Google belum pernah menyebut batas harian kunci ini </template>
+                                    <template v-else-if="k.rpd_manual !== null"> yang Anda isi sendiri </template>
+                                    <template v-else> bawaan free tier, Google belum pernah menyebut batas kunci ini </template>
                                 </p>
                             </div>
                             <!-- Satu kunci harus selalu tersisa menyala. Tombol yang akan mematikan
@@ -349,6 +397,38 @@ function status(k: Kunci): string {
                                 <Button v-if="bisaDihapus(k)" type="button" variant="destructive" size="sm" @click="hapusKunci(k)">Hapus</Button>
                             </div>
                         </div>
+
+                        <!-- Kotak batas harian.
+                             Hanya ditampilkan selama Google belum menyebut
+                             angkanya sendiri. Begitu 429 harian pernah terjadi,
+                             angka resminya masuk dan mengambil alih, dan kotak
+                             yang tetap terbuka setelah itu hanya menerima
+                             ketikan yang tidak akan pernah dipakai.
+
+                             Ini bukan kenyamanan. Penjaga kuota menahan kunci
+                             sebelum permintaan yang memicu 429 sempat dikirim,
+                             jadi kunci berbayar tidak punya jalan lain untuk
+                             memberitahukan jatahnya, dan tanpa kotak ini ia
+                             terkunci selamanya di 500 dengan satu-satunya
+                             gejala berupa antrean yang berjalan pelan. -->
+                        <form v-if="k.rpd_google === null" class="flex flex-wrap items-center gap-2" @submit.prevent="simpanBatas(k)">
+                            <Label :for="`rpd-${k.id}`" class="text-xs font-normal text-muted-foreground"> Batas harian kunci ini </Label>
+                            <Input
+                                :id="`rpd-${k.id}`"
+                                :model-value="batasHarian(k)"
+                                type="number"
+                                min="1"
+                                max="100000"
+                                inputmode="numeric"
+                                class="h-8 w-28 text-sm"
+                                placeholder="500"
+                                @update:model-value="batasKetikan[k.id] = String($event)"
+                            />
+                            <Button type="submit" variant="outline" size="sm">Simpan</Button>
+                            <span class="text-xs text-muted-foreground">
+                                Isi kalau tier kunci ini bukan free. Kosongkan untuk memakai angka bawaan.
+                            </span>
+                        </form>
 
                         <!-- Galat terakhir yang belum tercabut oleh pemakaian
                              yang berhasil. Menempel pada kuncinya sendiri, bukan

@@ -75,6 +75,12 @@ class EkstraktorArtikel
         $pola = [
             '/<meta[^>]+property=["\']article:published_time["\'][^>]+content=["\']([^"\']+)["\']/i',
             '/<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']article:published_time["\']/i',
+            // JSON-LD schema.org. Ditaruh sebelum itemprop karena nilainya
+            // hampir selalu ISO 8601 lengkap dengan zona waktu, sedangkan meta
+            // buatan CMS sering setengah jadi. Detik memasang
+            // `content="2026-08-07T20-23-15Z"` dengan tanda hubung di posisi
+            // titik dua, dan itu tidak bisa diurai siapa pun.
+            '/"datePublished"\s*:\s*"([^"]+)"/',
             '/<meta[^>]+itemprop=["\']datePublished["\'][^>]+content=["\']([^"\']+)["\']/i',
             '/<time[^>]+datetime=["\']([^"\']+)["\']/i',
         ];

@@ -78,13 +78,53 @@ class PengaturanAiController extends Controller
         return back()->with('sukses', "Kunci {$data['label']} ditambahkan.");
     }
 
+    /**
+     * Dua hal yang boleh diubah dari layar: sakelar aktif dan batas harian.
+     *
+     * Penandaan limit tetap tidak bisa dihapus dari sini. Kuota Gemini pulih
+     * menurut jam Google, bukan menurut tombol, dan kunci yang dipaksa dipakai
+     * lebih awal hanya menghasilkan 429 yang sama sambil membakar satu
+     * permintaan.
+     *
+     * Batas harian boleh diisi karena angkanya tidak selalu bisa ditemukan
+     * sendiri. Google hanya menyebutkannya di badan galat 429 harian, sedangkan
+     * penjaga kuota lokal menahan kunci sebelum galat itu terjadi, jadi kunci
+     * berbayar tidak punya jalan untuk memberi tahu jatahnya yang sebenarnya.
+     * Lihat RotasiKunciGemini::batasHarian().
+     *
+     * Keduanya opsional dan dikerjakan terpisah, karena datang dari dua kendali
+     * yang berbeda di layar. Tombol Nyalakan mengirim `aktif` saja, dan kotak
+     * batas harian mengirim `rpd_manual` saja.
+     */
     public function ubahKunci(Request $request, KunciGemini $kunci): RedirectResponse
     {
-        // Hanya sakelar aktif. Penandaan limit sengaja tidak bisa dihapus dari
-        // layar: kuota Gemini pulih menurut jam Google, bukan menurut tombol,
-        // dan kunci yang dipaksa dipakai lebih awal hanya menghasilkan 429 yang
-        // sama sambil membakar satu permintaan.
-        $aktif = $request->validate(['aktif' => ['required', 'boolean']])['aktif'];
+        // Kehadiran bidang diperiksa lewat `has()`, bukan lewat aturan
+        // `required_without`. Aturan itu menganggap nilai null sebagai tidak
+        // ada, jadi kotak batas yang dikosongkan justru berbalik menuntut
+        // bidang `aktif` yang memang tidak dikirim tombolnya, dan permintaan
+        // pengosongan berakhir sebagai galat validasi yang tidak menjelaskan
+        // apa pun kepada admin.
+        if ($request->has('rpd_manual')) {
+            $rpd = $request->validate([
+                // Batas atas ada supaya salah ketik satu digit tidak
+                // melumpuhkan penjaga kuota diam-diam. Batas harian sejuta
+                // berarti jarak antar artikel jatuh ke nol, dan antrean
+                // menembak Gemini secepat yang sanggup dikirim worker sampai
+                // Google memutusnya.
+                'rpd_manual' => ['nullable', 'integer', 'min:1', 'max:100000'],
+            ], [
+                'rpd_manual.min' => 'Batas harian minimal 1. Kosongkan kalau ingin kembali memakai angka bawaan.',
+                'rpd_manual.max' => 'Batas harian terlihat terlalu besar. Periksa lagi angkanya di Google AI Studio.',
+            ])['rpd_manual'] ?? null;
+
+            $kunci->update(['rpd_manual' => $rpd]);
+
+            return back()->with('sukses', $rpd === null
+                ? "Batas harian kunci {$kunci->label} dikembalikan ke angka bawaan."
+                : "Batas harian kunci {$kunci->label} disetel ke {$rpd} permintaan per hari.");
+        }
+
+        $aktif = (bool) $request->validate(['aktif' => ['required', 'boolean']])['aktif'];
 
         if (! $aktif && $galat = $this->penolakan($kunci, 'dimatikan')) {
             return back()->with('galat', $galat);

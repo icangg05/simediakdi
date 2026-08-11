@@ -7,7 +7,6 @@ use App\Models\AntreanGemini;
 use App\Models\Artikel;
 use App\Models\KunciGemini;
 use App\Models\LogCrawl;
-use App\Models\Pemuatan;
 use App\Models\PengaturanAi;
 use App\Models\SumberFeed;
 use App\Support\Waktu;
@@ -141,7 +140,13 @@ class DashboardController extends Controller
         $crawlTerakhir = LogCrawl::query()->latest('dimulai_at')->first()?->dimulai_at;
         $jamSejakCrawl = $crawlTerakhir ? now()->diffInHours($crawlTerakhir, absolute: true) : null;
 
-        $sumberMati = SumberFeed::query()->where('aktif', false)->where('gagal_berturut', '>=', 5)->count();
+        // Diukur dari hitungan gagal saja, bukan dari kolom `aktif`.
+        //
+        // Dulu syaratnya sumber yang sudah dimatikan otomatis. Penonaktifan itu
+        // sudah dicabut, jadi memakai `aktif` membuat lampu ini hijau selamanya
+        // sekalipun ada sumber yang gagal berpuluh kali berturut-turut. Sumber
+        // yang rusak tetap perlu terlihat, apalagi sekarang ia terus mencoba.
+        $sumberRusak = SumberFeed::query()->where('gagal_berturut', '>=', 5)->count();
 
         return [
             'crawler' => [
@@ -156,10 +161,10 @@ class DashboardController extends Controller
                     : 'Crawler belum pernah berjalan. Periksa scheduler dan worker queue.',
             ],
             'sumber' => [
-                'status' => $sumberMati === 0 ? 'hijau' : ($sumberMati > 3 ? 'merah' : 'kuning'),
-                'keterangan' => $sumberMati === 0
+                'status' => $sumberRusak === 0 ? 'hijau' : ($sumberRusak > 3 ? 'merah' : 'kuning'),
+                'keterangan' => $sumberRusak === 0
                     ? 'Semua sumber feed berjalan normal.'
-                    : "{$sumberMati} sumber dinonaktifkan otomatis. Periksa URL-nya di halaman sumber feed.",
+                    : "{$sumberRusak} sumber gagal 5 kali berturut-turut atau lebih. Periksa URL-nya di halaman media.",
             ],
             'gemini' => $this->kesehatanGemini(),
         ];
@@ -205,27 +210,24 @@ class DashboardController extends Controller
 
     /**
      * F-54. Kalau laporan mandiri melewati 40%, angka sentimen berisiko bias:
-     * media tidak melaporkan berita kritis sebagai realisasi kontrak, jadi
-     * sistem hanya melihat sisi baiknya.
+     * media memilih sendiri berita mana yang dilaporkan, dan berita kritis
+     * jarang termasuk, jadi sistem hanya melihat sisi baiknya.
+     *
+     * Dihitung dari kolom `dilaporkan_oleh` di tabel artikel: terisi berarti
+     * berita itu dikirim media lewat portal, kosong berarti crawler yang
+     * menemukannya. Yang menentukan bias adalah komposisi bahan yang
+     * dianalisis, dan bahan itu ada di tabel artikel.
      */
     private function proporsiSumber(): array
     {
-        $jumlah = Pemuatan::query()
-            ->selectRaw('sumber_catatan, count(*) as jumlah')
-            ->groupBy('sumber_catatan')
-            ->pluck('jumlah', 'sumber_catatan');
-
-        $otomatis = (int) ($jumlah['otomatis'] ?? 0);
-        $laporanMedia = (int) ($jumlah['laporan_media'] ?? 0);
-        $inputAdmin = (int) ($jumlah['input_admin'] ?? 0);
-        $total = $otomatis + $laporanMedia + $inputAdmin;
+        $total = Artikel::query()->count();
+        $laporanMedia = Artikel::query()->whereNotNull('dilaporkan_oleh')->count();
 
         $persenMandiri = $total === 0 ? 0.0 : round($laporanMedia / $total * 100, 1);
 
         return [
-            'otomatis' => $otomatis,
+            'otomatis' => max(0, $total - $laporanMedia),
             'laporan_media' => $laporanMedia,
-            'input_admin' => $inputAdmin,
             'total' => $total,
             'persen_mandiri' => $persenMandiri,
             'melewati_ambang' => $persenMandiri > 40,

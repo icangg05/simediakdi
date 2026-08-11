@@ -80,6 +80,7 @@ class ArtikelController extends Controller
             'sentimen' => $this->sentimenTerpilih($request, $relevansi),
             'media' => $request->string('media')->toString() ?: null,
             'penyedia' => $this->penyediaTerpilih($request),
+            'asal' => $this->asalTerpilih($request),
             'koreksi' => $request->boolean('koreksi'),
             'pantauan' => config('pantauan.nama'),
             // Domain, bukan nama redaksi. Yang tertera di kolom Media pada
@@ -579,8 +580,14 @@ class ArtikelController extends Controller
     private function saringanUmum(Builder $kueri, Request $request): Builder
     {
         $penyedia = $this->penyediaTerpilih($request);
+        $asal = $this->asalTerpilih($request);
 
         $kueri
+            // Ikut ke sini, bukan hanya ke tabelnya, dengan alasan yang sama
+            // seperti penyedia: angka pada tombol tahap harus menjanjikan isi
+            // yang benar-benar muncul saat tombolnya ditekan.
+            ->when($asal === 'portal', fn (Builder $q) => $q->whereNotNull('dilaporkan_oleh'))
+            ->when($asal === 'crawler', fn (Builder $q) => $q->whereNull('dilaporkan_oleh'))
             ->when($request->filled('media'), fn (Builder $q) => $q->where(
                 'media_id', $request->integer('media'),
             ))
@@ -630,6 +637,25 @@ class ArtikelController extends Controller
         $penyedia = $request->string('penyedia')->toString();
 
         return \in_array($penyedia, ['gemini', 'indobert'], true) ? $penyedia : null;
+    }
+
+    /**
+     * Asal artikel: temuan crawler atau kiriman media lewat portal.
+     *
+     * Dibaca dari `dilaporkan_oleh`, kolom yang terisi hanya ketika pengguna
+     * media menambahkannya sendiri. Bukan penilaian atas isinya, melainkan
+     * jalan masuknya, dan itu yang menjawab pertanyaan yang selama ini tidak
+     * bisa dijawab layar ini: seberapa banyak arsip yang datang karena feed
+     * bekerja, dan seberapa banyak yang harus diketik media.
+     *
+     * Tanpa nilai bawaan. Memilih salah satunya sebagai bawaan akan
+     * menyembunyikan sebagian besar arsip tanpa admin pernah memintanya.
+     */
+    private function asalTerpilih(Request $request): ?string
+    {
+        $asal = $request->string('asal')->toString();
+
+        return \in_array($asal, ['crawler', 'portal'], true) ? $asal : null;
     }
 
     /** @return list<array{nilai: string, label: string, jumlah: int}> */
@@ -724,6 +750,10 @@ class ArtikelController extends Controller
             'judul' => $satu->judul,
             'url' => $satu->url,
             'media' => $satu->media?->nama,
+            // Terisi berarti pengguna media yang menambahkannya lewat portal.
+            // Ditampilkan sebagai penanda di kolom Media supaya hasil saringan
+            // asal bisa dibaca tanpa membuka detail satu per satu.
+            'ditambahkan_media' => $satu->dilaporkan_oleh !== null,
             // Bisa null: tidak semua feed mencantumkan tanggal terbit.
             'dipublikasikan_at' => $satu->dipublikasikan_at,
             'diambil_at' => $satu->diambil_at,

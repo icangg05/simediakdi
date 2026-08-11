@@ -40,7 +40,6 @@ const labelJenis: Record<string, string> = {
     lonjakan_negatif: 'Lonjakan negatif',
     kata_kunci_muncul: 'Kata kunci muncul',
     sumber_mati: 'Sumber feed mati',
-    kontrak_tertinggal: 'Kontrak tertinggal',
 };
 
 const sejak = (n: string) => formatDistanceToNow(new Date(n), { addSuffix: true, locale: id });

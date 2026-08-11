@@ -628,14 +628,31 @@ class RotasiKunciGemini
     /**
      * Batas harian yang berlaku untuk satu kunci.
      *
+     * Tiga sumber, dipakai menurut seberapa bisa dipercaya.
+     *
      * Angka dari Google didahulukan karena ia satu-satunya yang benar. Nilai
      * config hanyalah salinan halaman dokumentasi free tier, dan salinan itu
      * meleset untuk kunci yang proyeknya sudah berbayar maupun saat Google
      * mengubah jatahnya.
+     *
+     * Di tengah keduanya ada angka yang diketik admin. Ia ada karena
+     * `rpd_google` punya lubang yang tidak bisa ditutup dari dalam: kolom itu
+     * hanya terisi dari badan galat 429 harian, sedangkan penjaga kuota di
+     * berkas ini menahan kunci sebelum permintaan yang memicu 429 itu sempat
+     * dikirim. Kunci berbayar karena itu terkunci selamanya di angka free tier
+     * tanpa satu pun galat yang menunjukkannya, dan satu-satunya gejalanya
+     * adalah antrean yang berjalan jauh lebih pelan daripada seharusnya.
+     *
+     * Admin kalah dari Google, bukan menang. Angka ketikan yang terlalu besar
+     * akan benar-benar menembus batas, Google menjawab 429 harian beserta
+     * `quotaValue`, dan angka aslinya masuk sendiri lalu mengambil alih. Salah
+     * ketik ke atas jadi terkoreksi sendiri dalam satu hari.
      */
     public function batasHarian(KunciGemini $kunci): int
     {
-        return $kunci->rpd_google ?? (int) config('ai.batas_kunci.rpd');
+        return $kunci->rpd_google
+            ?? $kunci->rpd_manual
+            ?? (int) config('ai.batas_kunci.rpd');
     }
 
     /**

@@ -9,9 +9,9 @@ use Illuminate\Support\Facades\Http;
  * Satu-satunya tempat aplikasi memanggil layanan tangkapan layar.
  *
  * Mengembalikan null, bukan melempar, saat layanan mati atau halaman tidak
- * bisa dirender. Alasannya ada di ArsipkanBuktiPemuatan: bukti teks jauh lebih
- * penting daripada gambar, dan kegagalan gambar tidak boleh membuang bukti
- * teks yang sudah di tangan.
+ * bisa dirender. Tangkapan layar selalu pelengkap, tidak pernah satu-satunya
+ * hasil yang dibutuhkan pemanggilnya, jadi kegagalannya tidak boleh
+ * menggagalkan pekerjaan yang sedang berjalan.
  */
 class PenangkapLayar
 {

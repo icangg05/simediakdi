@@ -11,11 +11,15 @@ class SimpanSumberFeedRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'media_id' => ['nullable', 'exists:media,id'],
+            // `media_id` sengaja tidak divalidasi di sini. Sumber feed selalu
+            // dibuat lewat rute yang sudah menyebut medianya, dan controller
+            // mengambil pemiliknya dari rute itu. Menerimanya dari badan
+            // permintaan berarti membuka pemindahan sumber antar media lewat
+            // satu field tersembunyi.
             'nama' => ['required', 'string', 'max:150'],
             'tipe' => ['required', new Enum(TipeSumber::class)],
             'url' => ['required', 'url', 'max:500'],
-            'selector' => ['nullable', 'array', 'required_if:tipe,scrape'],
+            'selector' => ['nullable', 'array', 'required_if:tipe,scrape,scrape_render'],
             'selector.item' => ['required_with:selector', 'string'],
             'selector.judul' => ['required_with:selector', 'string'],
             'selector.tautan' => ['required_with:selector', 'string'],

@@ -56,7 +56,7 @@ class BuatAkunMedia extends Command
 
             // 16 karakter acak. Kata sandi yang bisa diketik ulang dari ingatan
             // akan dipakai bersama-sama satu kantor redaksi, dan portal ini
-            // memuat data kontrak.
+            // menulis ke arsip berita yang dibaca panel eksekutif.
             $sandi = Str::password(16, symbols: false);
 
             if ($adaAkun !== null) {

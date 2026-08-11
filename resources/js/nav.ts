@@ -1,20 +1,5 @@
 import type { NavItem, PeranPengguna } from '@/types';
-import {
-    BarChart3,
-    BellRing,
-    Bot,
-    ClipboardCheck,
-    FileSignature,
-    FileText,
-    FlaskConical,
-    LayoutGrid,
-    Newspaper,
-    Rss,
-    ScrollText,
-    Send,
-    Settings,
-    Users,
-} from 'lucide-vue-next';
+import { BarChart3, BellRing, Bot, FileText, FlaskConical, LayoutGrid, Newspaper, ScrollText, Send, Settings, Users } from 'lucide-vue-next';
 
 /**
  * Satu aplikasi, tiga grup route. Navigasi mengikuti peran, bukan sebaliknya.
@@ -30,11 +15,10 @@ export const navPerPeran: Record<PeranPengguna, NavItem[]> = {
         { title: 'Artikel', href: '/admin/artikel', icon: FileText },
         { title: 'Antrean AI', href: '/admin/antrean-ai', icon: Bot },
         { title: 'Model Relevansi', href: '/admin/model-relevansi', icon: FlaskConical },
-        { title: 'Kontrak', href: '/admin/kontrak', icon: FileSignature },
-        { title: 'Verifikasi Pemuatan', href: '/admin/pemuatan', icon: ClipboardCheck },
         { title: 'Alert', href: '/admin/alert', icon: BellRing },
+        // Sumber Feed tidak lagi jadi menu sendiri. Pengelolaannya pindah ke
+        // halaman detail tiap media, tempat alamat feed memang punya arti.
         { title: 'Media', href: '/admin/media', icon: Newspaper },
-        { title: 'Sumber Feed', href: '/admin/sumber-feed', icon: Rss },
         { title: 'Pengguna', href: '/admin/pengguna', icon: Users },
         { title: 'Log Crawl', href: '/admin/log-crawl', icon: ScrollText },
         { title: 'Pengaturan', href: '/admin/pengaturan', icon: Settings },
@@ -48,8 +32,7 @@ export const navPerPeran: Record<PeranPengguna, NavItem[]> = {
     media: [
         { title: 'Beranda', href: '/portal', icon: LayoutGrid },
         { title: 'Berita Saya', href: '/portal/berita', icon: FileText },
-        { title: 'Kontrak Saya', href: '/portal/kontrak', icon: FileSignature },
-        { title: 'Lapor Pemuatan', href: '/portal/lapor', icon: Send },
+        { title: 'Tambah Berita', href: '/portal/lapor', icon: Send },
     ],
 };
 

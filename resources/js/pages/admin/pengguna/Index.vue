@@ -71,6 +71,7 @@ const sejak = (n: string | null) => (n ? formatDistanceToNow(new Date(n), { addS
             :filter="filter"
             pencarian
             :aksi-baris="aksiBaris"
+            nomor
             url-basis="/admin/pengguna"
             judul-kosong="Belum ada pengguna"
         >

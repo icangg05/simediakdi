@@ -52,12 +52,13 @@ class HalamanAdminTest extends TestCase
 
         $halaman = [
             '/admin', '/admin/artikel', '/admin/log-crawl', '/admin/media',
-            '/admin/sumber-feed',
-            '/admin/kontrak', '/admin/kontrak/create',
             '/admin/pengguna', '/admin/pengguna/create',
-            '/admin/pemuatan', '/admin/pengaturan',
+            '/admin/pengaturan',
             '/admin/alert', '/admin/alert/create',
-            '/admin/media/create', '/admin/sumber-feed/create',
+            '/admin/media/create',
+            // Pengelolaan sumber feed pindah ke sini. Halaman
+            // /admin/sumber-feed dan formulirnya sudah dihapus.
+            '/admin/media/'.Media::withoutGlobalScopes()->value('id'),
             '/admin/artikel/'.Artikel::withoutGlobalScopes()->value('id'),
         ];
 
@@ -73,7 +74,7 @@ class HalamanAdminTest extends TestCase
         $media = Media::first();
         $pic = User::factory()->media($media)->create();
 
-        foreach (['/portal', '/portal/berita', '/portal/kontrak', '/portal/lapor'] as $url) {
+        foreach (['/portal', '/portal/berita', '/portal/lapor'] as $url) {
             $this->actingAs($pic)->get($url)->assertOk("Halaman {$url} tidak mengembalikan 200.");
         }
     }

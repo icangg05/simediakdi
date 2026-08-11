@@ -2,6 +2,17 @@ import { onMounted, ref } from 'vue';
 
 type Appearance = 'light' | 'dark' | 'system';
 
+/**
+ * Tema bawaan, dipakai selama pengguna belum pernah memilih sendiri.
+ *
+ * Sengaja terang, bukan mengikuti tema perangkat. Panel ini dibuka di komputer
+ * kantor dan diproyeksikan di ruang rapat, dan satu perangkat yang kebetulan
+ * bertema gelap membuat halaman yang sama terlihat berbeda dari yang lain.
+ * Pilihan Sistem tetap tersedia di halaman Appearance, hanya tidak lagi
+ * menjadi bawaan.
+ */
+const TEMA_BAWAAN: Appearance = 'light';
+
 export function updateTheme(value: Appearance) {
     if (value === 'system') {
         const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -15,20 +26,20 @@ const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
 const handleSystemThemeChange = () => {
     const currentAppearance = localStorage.getItem('appearance') as Appearance | null;
-    updateTheme(currentAppearance || 'system');
+    updateTheme(currentAppearance || TEMA_BAWAAN);
 };
 
 export function initializeTheme() {
-    // Initialize theme from saved preference or default to system...
+    // Tema diambil dari pilihan tersimpan, kalau belum ada pakai tema bawaan.
     const savedAppearance = localStorage.getItem('appearance') as Appearance | null;
-    updateTheme(savedAppearance || 'system');
+    updateTheme(savedAppearance || TEMA_BAWAAN);
 
     // Set up system theme change listener...
     mediaQuery.addEventListener('change', handleSystemThemeChange);
 }
 
 export function useAppearance() {
-    const appearance = ref<Appearance>('system');
+    const appearance = ref<Appearance>(TEMA_BAWAAN);
 
     onMounted(() => {
         initializeTheme();

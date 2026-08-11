@@ -6,7 +6,9 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\RequestOptions;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Psr\Http\Message\UriInterface;
 use Spatie\Robots\RobotsTxt;
 
@@ -50,13 +52,7 @@ class PengunduhHalaman
      */
     public function unduh(string $url): string
     {
-        $this->validator->pastikanAman($url);
-
-        if (! $this->diizinkanRobots($url)) {
-            throw new UrlDitolak("robots.txt situs melarang pengambilan {$url}.");
-        }
-
-        $this->tahanSejenak($url);
+        $this->pastikanBoleh($url);
 
         try {
             $tanggapan = $this->klien->send(new Request('GET', $url), [RequestOptions::STREAM => true]);
@@ -74,6 +70,67 @@ class PengunduhHalaman
         }
 
         return $this->bacaTerbatas($tanggapan->getBody(), $url);
+    }
+
+    /**
+     * HTML sesudah JavaScript halaman berjalan, lewat layanan arsip.
+     *
+     * Hanya untuk halaman indeks yang daftarnya dirakit di sisi klien. Sampai
+     * sekarang cuma tempo.co, sebuah aplikasi Nuxt yang mengirim kerangka
+     * kosong lalu mengambil daftar beritanya sendiri sesudah hidrasi.
+     *
+     * Tetap melewati pintu yang sama. Menaruh panggilan ini di kelas lain akan
+     * memindahkan render ke jalur yang tidak memeriksa SSRF, tidak membaca
+     * robots.txt, dan tidak menahan jeda antar permintaan, dan justru Chromium
+     * yang paling berbahaya kalau lolos: ia mengikuti setiap redirect,
+     * menjalankan setiap skrip, dan memuat setiap sumber daya di halaman itu.
+     *
+     * `$tunggu` adalah CSS selector yang menandai daftarnya sudah ada.
+     * Tanpa itu peramban hanya menunggu jaringan sepi, dan jaringan bisa sepi
+     * justru pada jeda sebelum permintaan daftar beritanya berangkat.
+     *
+     * @throws UrlDitolak URL internal, skema salah, atau dilarang robots.txt
+     * @throws GagalMengunduh layanan arsip mati atau halaman gagal dirender
+     */
+    public function unduhTerender(string $url, ?string $tunggu = null): string
+    {
+        $this->pastikanBoleh($url);
+
+        try {
+            $tanggapan = Http::baseUrl((string) config('arsip.base_url'))
+                ->timeout((int) config('crawler.render_timeout'))
+                ->asJson()
+                ->post('/render', array_filter(['url' => $url, 'tunggu' => $tunggu]));
+        } catch (ConnectionException $e) {
+            throw new GagalMengunduh("Layanan render tidak dapat dihubungi untuk {$url}: {$e->getMessage()}", previous: $e);
+        }
+
+        if (! $tanggapan->successful()) {
+            throw new GagalMengunduh("Layanan render menjawab HTTP {$tanggapan->status()} untuk {$url}.", $tanggapan->status());
+        }
+
+        $isi = $tanggapan->body();
+        $batas = (int) config('crawler.maks_unduh_byte');
+
+        // Halaman terender jauh lebih besar daripada HTML mentahnya, dan batas
+        // yang sama tetap berlaku supaya satu situs tidak menghabiskan memori.
+        if (strlen($isi) > $batas) {
+            throw new GagalMengunduh("Hasil render {$url} melebihi batas ".round($batas / 1024 / 1024, 1).' MB.');
+        }
+
+        return $isi;
+    }
+
+    /** Penjagaan yang wajib dilewati setiap pengambilan dari luar. */
+    private function pastikanBoleh(string $url): void
+    {
+        $this->validator->pastikanAman($url);
+
+        if (! $this->diizinkanRobots($url)) {
+            throw new UrlDitolak("robots.txt situs melarang pengambilan {$url}.");
+        }
+
+        $this->tahanSejenak($url);
     }
 
     /** Membaca stream sampai batas, bukan mempercayai header Content-Length. */

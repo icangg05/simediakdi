@@ -33,16 +33,27 @@ html {
      * dan hiasan tidak boleh meminjam arti itu.
      */
     --color-aksen-biru: oklch(0.52 0.12 250);
-    --color-aksen-toska: oklch(0.56 0.09 200);
+    --color-aksen-toska: oklch(0.5 0.1 200);
     --color-aksen-ungu: oklch(0.53 0.12 295);
 
-    --color-sentimen-positif: oklch(0.62 0.14 155);
+    /*
+     * Kepekatan tiap warna nada ditentukan pemakaian tergelapnya, bukan seleranya.
+     *
+     * Warna yang sama dipakai dua arah: sebagai teks di atas varian lembut, dan
+     * sebagai isian tile yang teksnya putih. Kedua kebutuhan itu menarik ke arah
+     * yang sama, makin pekat makin terbaca, jadi satu nilai cukup untuk keduanya.
+     * Nilai sebelumnya (positif 0,62, review 0,70) hanya mencapai rasio 3,2 dan
+     * 2,4 di atas latar lembutnya, jauh di bawah ambang 4,5 WCAG AA. Angka di
+     * bawah ini semuanya melewati 4,5 pada seluruh opasitas latar yang dipakai
+     * halaman eksekutif.
+     */
+    --color-sentimen-positif: oklch(0.51 0.15 155);
     --color-sentimen-positif-lembut: oklch(0.95 0.04 155);
-    --color-sentimen-netral: oklch(0.6 0.02 250);
+    --color-sentimen-netral: oklch(0.53 0.02 250);
     --color-sentimen-netral-lembut: oklch(0.95 0.01 250);
-    --color-sentimen-negatif: oklch(0.58 0.18 22);
+    --color-sentimen-negatif: oklch(0.53 0.19 22);
     --color-sentimen-negatif-lembut: oklch(0.95 0.05 22);
-    --color-sentimen-review: oklch(0.7 0.13 75);
+    --color-sentimen-review: oklch(0.53 0.14 75);
     --color-sentimen-review-lembut: oklch(0.96 0.05 75);
 
     --color-tier-nasional: oklch(0.5 0.14 265);
@@ -63,6 +74,22 @@ html {
     --color-sentimen-netral-lembut: oklch(0.28 0.02 250);
     --color-sentimen-negatif-lembut: oklch(0.28 0.07 22);
     --color-sentimen-review-lembut: oklch(0.3 0.06 75);
+
+    /*
+     * Warna nada ikut dicerahkan, bukan hanya varian lembutnya.
+     *
+     * Membalik latar saja tidak cukup. Sebelumnya latar lembut turun ke 0,28
+     * sementara warna teksnya tetap nilai mode terang, sehingga lencana negatif
+     * hanya mencapai rasio 3,5 di atas latarnya sendiri. Nada gelap dan teks
+     * gelap di satu lencana yang sama.
+     *
+     * Konsekuensinya tile berisian penuh membalik arah: di mode gelap isian
+     * menjadi terang, jadi ikonnya memakai `dark:text-background`, bukan putih.
+     */
+    --color-sentimen-positif: oklch(0.74 0.14 155);
+    --color-sentimen-netral: oklch(0.72 0.02 250);
+    --color-sentimen-negatif: oklch(0.7 0.15 22);
+    --color-sentimen-review: oklch(0.78 0.13 75);
 }
 
 /* Angka tidak boleh bergeser saat nilainya berubah. */
@@ -267,8 +294,19 @@ html {
         --muted-foreground: 0 0% 45.1%;
         --accent: 0 0% 96.1%;
         --accent-foreground: 0 0% 9%;
-        --destructive: 0 84.2% 60.2%;
-        --destructive-foreground: 0 0% 98%;
+        /*
+         * Dipekatkan dari 60,2% ke 45%. Nilai bawaan starter kit adalah merah
+         * terang, dan di mode terang ia gagal kontras di kedua arah sekaligus:
+         * sebagai teks di atas putih hanya 3,8:1, dan sebagai bidang tombol
+         * dengan teks putih di atasnya juga 3,8:1. Keduanya di bawah 4,5:1 yang
+         * diwajibkan, jadi pesan galat dan tombol hapus adalah teks yang paling
+         * sulit dibaca di seluruh aplikasi.
+         *
+         * Pada 45% keduanya menjadi 5,9:1. Mode gelap tidak diubah, di sana
+         * merah terang justru yang terbaca di atas latar nyaris hitam.
+         */
+        --destructive: 0 72% 45%;
+        --destructive-foreground: 0 0% 100%;
         --border: 0 0% 92.8%;
         --input: 0 0% 89.8%;
         --ring: 0 0% 3.9%;
@@ -278,14 +316,34 @@ html {
         --chart-4: 43 74% 66%;
         --chart-5: 27 87% 67%;
         --radius: 0.5rem;
-        --sidebar-background: 0 0% 98%;
-        --sidebar-foreground: 240 5.3% 26.1%;
-        --sidebar-primary: 0 0% 10%;
-        --sidebar-primary-foreground: 0 0% 98%;
-        --sidebar-accent: 0 0% 94%;
-        --sidebar-accent-foreground: 0 0% 30%;
-        --sidebar-border: 0 0% 91%;
-        --sidebar-ring: 217.2 91.2% 59.8%;
+        /*
+         * Sidebar memakai navy merek, bukan abu terang bawaan starter kit.
+         * Berlaku untuk dua panel yang memang bersidebar: admin dan portal
+         * media. Panel eksekutif memakai navigasi mendatar, jadi tidak
+         * tersentuh token ini.
+         *
+         * Nilainya ditulis lagi di sini, bukan `var(--primary)`, karena
+         * `--primary` dibalik menjadi nyaris putih di mode gelap. Sidebar harus
+         * tetap navy di kedua mode, kalau tidak identitas warnanya hilang
+         * begitu pengguna menyalakan mode gelap.
+         *
+         * Varian `inset` membuat pembungkus halaman ikut memakai
+         * `--sidebar-background`, jadi navy ini sekaligus menjadi bingkai di
+         * sekeliling kartu isi yang putih.
+         */
+        --sidebar-background: 211 66% 25%;
+        --sidebar-foreground: 210 40% 92%;
+        /* Menu yang sedang aktif: bidang terang penuh, bukan navy yang sedikit
+           lebih muda. Sorotan dan keadaan aktif harus terbaca berbeda, dan di
+           atas navy hanya pembalikan terang yang cukup jelas. */
+        --sidebar-primary: 210 45% 97%;
+        --sidebar-primary-foreground: 211 66% 22%;
+        --sidebar-accent: 211 50% 33%;
+        --sidebar-accent-foreground: 0 0% 100%;
+        --sidebar-border: 211 40% 38%;
+        /* Cincin fokus dicerahkan. Cincin gelap di atas navy tidak terlihat,
+           dan navigasi keyboard wajib berfungsi di panel admin. */
+        --sidebar-ring: 205 90% 72%;
     }
 
     .dark {
@@ -313,14 +371,16 @@ html {
         --chart-3: 30 80% 55%;
         --chart-4: 280 65% 60%;
         --chart-5: 340 75% 55%;
-        --sidebar-background: 0 0% 7%;
-        --sidebar-foreground: 0 0% 95.9%;
-        --sidebar-primary: 360, 100%, 100%;
+        /* Navy yang sama, dipekatkan. Rona 211 dipertahankan supaya sidebar di
+           mode gelap tetap terbaca sebagai warna merek, bukan abu netral. */
+        --sidebar-background: 212 35% 11%;
+        --sidebar-foreground: 210 30% 90%;
+        --sidebar-primary: 211 55% 42%;
         --sidebar-primary-foreground: 0 0% 100%;
-        --sidebar-accent: 0 0% 15.9%;
-        --sidebar-accent-foreground: 240 4.8% 95.9%;
-        --sidebar-border: 0 0% 15.9%;
-        --sidebar-ring: 217.2 91.2% 59.8%;
+        --sidebar-accent: 212 30% 20%;
+        --sidebar-accent-foreground: 0 0% 98%;
+        --sidebar-border: 212 25% 22%;
+        --sidebar-ring: 205 85% 65%;
     }
 }
 

@@ -110,39 +110,21 @@ function porsi(jumlah: number): number {
  * kali berarti perbaikan pada satu kartu cepat atau lambat lupa diterapkan ke
  * dua lainnya.
  *
- * Urutannya negatif lebih dulu. Itu yang paling menentukan tindakan pimpinan,
- * dan di layar sempit ketiga kartu menumpuk sehingga yang teratas paling
- * mungkin terbaca.
+ * Urutannya positif, netral, negatif, mengikuti urutan yang sama dengan batang
+ * komposisi dan legenda donat di halaman ini. Pembaca yang berpindah dari
+ * grafik ke daftar menemukan nada pada posisi yang sama.
  */
-/**
- * Membelah satu daftar berita menjadi dua kolom, separuh awal di kiri.
- *
- * Pembelahan dilakukan di sini, bukan diserahkan ke kisi CSS, karena garis
- * pemisah antarberita harus digambar per kolom. Kisi dua kolom berisi sepuluh
- * sel akan menarik garisnya melintasi kedua kolom sekaligus.
- *
- * Separuh awal di kiri, bukan berselang-seling, supaya urutan bacanya menurun
- * per kolom seperti kolom koran. Jumlah ganjil membuat kolom kiri satu baris
- * lebih panjang, dan itu memang yang benar untuk daftar terbaru lebih dulu.
- */
-function duaKolom(berita: Berita[]): Berita[][] {
-    const batas = Math.ceil(berita.length / 2);
-
-    return [berita.slice(0, batas), berita.slice(batas)].filter((kolom) => kolom.length > 0);
-}
-
 const daftarNada = computed(() => [
     {
-        kunci: 'negatif' as const,
-        judul: 'Berita bernada negatif',
-        ikon: TriangleAlert,
-        berita: props.beritaNegatif,
-        kartu: 'border-sentimen-negatif/25 bg-sentimen-negatif-lembut/50',
-        tile: 'bg-sentimen-negatif',
-        teks: 'text-sentimen-negatif',
-        garis: 'divide-sentimen-negatif/15',
-        jumlah: props.kpi.negatif,
-        kosong: 'Tidak ada berita bernada negatif pada rentang ini.',
+        kunci: 'positif' as const,
+        judul: 'Berita bernada positif',
+        ikon: ThumbsUp,
+        berita: props.beritaPositif,
+        kartu: 'border-sentimen-positif/25 bg-sentimen-positif-lembut/45',
+        tile: 'bg-sentimen-positif',
+        teks: 'text-sentimen-positif',
+        jumlah: props.kpi.positif,
+        kosong: 'Tidak ada berita bernada positif pada rentang ini.',
     },
     {
         kunci: 'netral' as const,
@@ -152,21 +134,19 @@ const daftarNada = computed(() => [
         kartu: 'border-sentimen-netral/25 bg-sentimen-netral-lembut/45',
         tile: 'bg-sentimen-netral',
         teks: 'text-sentimen-netral',
-        garis: 'divide-sentimen-netral/20',
         jumlah: props.kpi.netral,
         kosong: 'Tidak ada berita bernada netral pada rentang ini.',
     },
     {
-        kunci: 'positif' as const,
-        judul: 'Berita bernada positif',
-        ikon: ThumbsUp,
-        berita: props.beritaPositif,
-        kartu: 'border-sentimen-positif/25 bg-sentimen-positif-lembut/45',
-        tile: 'bg-sentimen-positif',
-        teks: 'text-sentimen-positif',
-        garis: 'divide-sentimen-positif/15',
-        jumlah: props.kpi.positif,
-        kosong: 'Tidak ada berita bernada positif pada rentang ini.',
+        kunci: 'negatif' as const,
+        judul: 'Berita bernada negatif',
+        ikon: TriangleAlert,
+        berita: props.beritaNegatif,
+        kartu: 'border-sentimen-negatif/25 bg-sentimen-negatif-lembut/50',
+        tile: 'bg-sentimen-negatif',
+        teks: 'text-sentimen-negatif',
+        jumlah: props.kpi.negatif,
+        kosong: 'Tidak ada berita bernada negatif pada rentang ini.',
     },
 ]);
 </script>
@@ -175,7 +155,7 @@ const daftarNada = computed(() => [
     <Head title="Analisis sentimen" />
 
     <LayoutEksekutif>
-        <header class="muncul flex flex-wrap items-end justify-between gap-3">
+        <header class="flex flex-wrap items-end justify-between gap-3">
             <div>
                 <h1 class="text-2xl font-semibold text-primary dark:text-aksen-biru">Analisis sentimen</h1>
                 <p class="text-sm text-muted-foreground">Rincian nada pemberitaan tentang Pemerintah Kota, {{ rentangTerbaca }}</p>
@@ -256,25 +236,26 @@ const daftarNada = computed(() => [
             </div>
 
             <!--
-                Tiga baris, satu per nada, masing-masing selebar halaman dan
-                berisi dua kolom berita.
+                Tiga baris, satu per nada, masing-masing selebar halaman.
 
                 Sebelumnya ketiga nada berdampingan sebagai tiga kolom sempit,
                 dan pada lebar itu ringkasan model terpotong di baris kedua
                 sehingga kalimatnya berhenti sebelum menjelaskan apa pun. Satu
-                nada satu baris memberi tiap berita separuh lebar halaman, dan
+                nada satu baris memberi tiap berita selebar halaman, dan
                 ringkasannya utuh.
 
                 Seluruh kartu diberi warna nada isinya, bukan hanya kepalanya,
                 supaya tiga blok yang bertumpuk tidak terbaca sebagai satu
-                daftar panjang. Negatif paling atas karena itu yang paling
-                menentukan tindakan pimpinan.
+                daftar panjang.
             -->
             <template v-for="(d, urutan) in daftarNada" :key="d.kunci">
                 <Card :class="d.kartu" class="muncul overflow-hidden" :style="{ animationDelay: `${180 + urutan * 60}ms` }">
                     <CardHeader class="flex-row items-start justify-between gap-3 py-3.5">
                         <CardTitle :class="d.teks" class="flex items-center gap-2.5 text-base">
-                            <span :class="d.tile" class="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-white shadow-sm">
+                            <span
+                                :class="d.tile"
+                                class="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-white shadow-sm dark:text-background"
+                            >
                                 <component :is="d.ikon" class="h-[18px] w-[18px]" aria-hidden="true" />
                             </span>
                             {{ d.judul }}
@@ -286,7 +267,11 @@ const daftarNada = computed(() => [
                             tampil. Daftarnya dibatasi sepuluh, dan tanpa angka
                             ini pembaca akan mengira sepuluh itulah seluruhnya.
                         -->
-                        <span v-if="d.jumlah > 0" :class="d.tile" class="angka shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold text-white">
+                        <span
+                            v-if="d.jumlah > 0"
+                            :class="d.tile"
+                            class="angka shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold text-white dark:text-background"
+                        >
                             {{ formatAngka(d.jumlah) }}
                             <template v-if="d.kunci === 'negatif'">&middot; {{ formatPersen(kpi.negatif_persen) }}</template>
                         </span>
@@ -294,36 +279,40 @@ const daftarNada = computed(() => [
 
                     <CardContent class="space-y-3">
                         <!--
-                            Dua kolom, masing-masing tumpukan bergaris sendiri,
-                            bukan satu kisi berisi sepuluh sel.
+                            Lini masa, bentuk yang sama dengan kartu berita
+                            terbaru di dashboard. Garis menurun dengan titik
+                            menyatakan urutan waktu sebelum satu keterangan
+                            tanggal pun dibaca, dan pembaca yang datang dari
+                            dashboard menemukan bentuk yang sudah dikenalnya.
 
-                            Garis pemisah antarberita hanya bisa digambar di
-                            dalam satu tumpukan, dan kisi dua kolom akan
-                            menariknya melintasi kedua kolom sekaligus. Dengan
-                            dua tumpukan terpisah, urutan bacanya tetap menurun
-                            per kolom seperti kolom koran, dan di bawah sm
-                            keduanya menumpuk kembali menjadi satu daftar utuh
-                            dengan urutan aslinya.
+                            Titiknya tidak perlu diberi warna per baris seperti
+                            di dashboard. Seluruh isi kartu ini satu nada, dan
+                            warnanya sudah dinyatakan kepala kartu, tepi, serta
+                            latarnya. Lencana sentimen per baris juga dilepas
+                            karena alasan yang sama.
 
-                            Gulir di dalam kartu dilepas. Dua kolom membuat
-                            sepuluh berita hanya setinggi lima baris, dan kotak
-                            bergulir di dalam halaman yang juga bergulir sudah
-                            tidak ada gunanya lagi di sini.
+                            Tingginya dibatasi dan sisanya digulir. Tiga daftar
+                            berisi sepuluh berita yang ditumpuk penuh membuat
+                            halaman ini panjang sekali, sedangkan yang dicari
+                            pembaca biasanya beberapa baris teratas tiap nada.
                         -->
-                        <div v-if="d.berita.length" class="grid gap-x-8 sm:grid-cols-2">
-                            <div v-for="(kolom, nomor) in duaKolom(d.berita)" :key="nomor" :class="d.garis" class="divide-y">
-                                <KartuArtikel
-                                    v-for="b in kolom"
-                                    :key="b.id"
-                                    :judul="b.judul"
-                                    :url="b.url"
-                                    :media="b.media"
-                                    :diambil-at="b.diambil_at"
-                                    :ringkasan-ai="b.ringkasan_ai"
-                                    :label="d.kunci"
-                                    tampilkan-sentimen
-                                />
-                            </div>
+                        <div v-if="d.berita.length" class="max-h-[22rem] overflow-y-auto pr-1">
+                            <ol class="relative">
+                                <span class="absolute bottom-4 left-[5px] top-4 w-px bg-border" aria-hidden="true"></span>
+
+                                <li v-for="b in d.berita" :key="b.id" class="tekan relative rounded-lg py-1 pl-7 pr-2 hover:bg-background/60">
+                                    <span :class="d.tile" class="absolute left-0 top-[18px] h-2.5 w-2.5 rounded-full" aria-hidden="true"></span>
+
+                                    <KartuArtikel
+                                        :judul="b.judul"
+                                        :url="b.url"
+                                        :media="b.media"
+                                        :diambil-at="b.diambil_at"
+                                        :ringkasan-ai="b.ringkasan_ai"
+                                        :label="d.kunci"
+                                    />
+                                </li>
+                            </ol>
                         </div>
 
                         <p v-else class="rounded-xl border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">

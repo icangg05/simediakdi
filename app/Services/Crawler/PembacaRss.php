@@ -28,6 +28,17 @@ class PembacaRss
         // membuangnya jauh lebih baik daripada kehilangan seluruh media.
         $xml = preg_replace('/^[\x{FEFF}\s]+/u', '', $xml) ?? $xml;
 
+        // Ampersand telanjang di dalam judul atau URL. XML tidak mengenal
+        // toleransi di sini: satu `&` yang tidak di-escape membatalkan seluruh
+        // dokumen, dan sepuluh berita hilang gara-gara satu judul seperti
+        // "H&BM City Square Buka Lowongan Kerja". Feed Telisik jatuh persis
+        // karena ini dan sumbernya ikut dimatikan setelah lima kali gagal.
+        //
+        // Yang dikecualikan hanya lima entitas bawaan XML dan rujukan numerik.
+        // Entitas HTML seperti `&nbsp;` memang tidak sah di XML, dan setelah
+        // ini ia lolos sebagai teks biasa alih-alih merobohkan feed-nya.
+        $xml = preg_replace('/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/', '&amp;', $xml) ?? $xml;
+
         $sebelumnya = libxml_use_internal_errors(true);
 
         try {

@@ -92,6 +92,13 @@ class PengaturanController extends Controller
                 'rpd_terpakai' => $rotasi->terpakaiHarian($k),
                 'rpd_google' => $k->rpd_google,
                 'rpd_google_at' => $k->rpd_google_at?->toIso8601String(),
+                'rpd_manual' => $k->rpd_manual,
+                // Batas yang benar-benar dipakai penjaga kuota, dikirim jadi
+                // supaya layar tidak perlu mengulang urutan Google, admin, lalu
+                // config. Urutan yang disalin ke frontend adalah urutan yang
+                // suatu hari berbeda dari aslinya, dan yang terlihat di layar
+                // saat itu bukan angka yang menahan antrean.
+                'rpd_berlaku' => $rotasi->batasHarian($k),
             ]),
 
             /*

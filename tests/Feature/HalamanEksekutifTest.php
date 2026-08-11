@@ -160,6 +160,36 @@ class HalamanEksekutifTest extends TestCase
         }
     }
 
+    /**
+     * Halaman peringkat menyebut seluruh media terdaftar, dashboard tidak.
+     *
+     * Keduanya memanggil `peringkatMedia`, tapi menjawab pertanyaan yang
+     * berbeda. Halaman peringkat harus menyebut media yang diam, karena itu satu
+     * satunya tempat pimpinan bisa melihat siapa yang tidak memberitakan sama
+     * sekali. Kartu di dashboard hanya menampung enam baris, jadi media nol
+     * berita di sana cuma mendorong keluar media yang benar benar menulis.
+     */
+    public function test_halaman_peringkat_menyebut_media_yang_tidak_memberitakan(): void
+    {
+        Media::create(['nama' => 'Media Diam', 'slug' => 'md', 'domain' => 'md.test']);
+        Media::create(['nama' => 'Media Terhapus', 'slug' => 'mt', 'domain' => 'mt.test'])->delete();
+
+        $this->actingAs($this->walikota);
+
+        $this->get('/eksekutif/media')->assertInertia(fn ($page) => $page
+            // Kendari Pos dan Media Diam. Yang sudah dihapus tidak ikut.
+            ->count('peringkat', 2)
+            ->where('peringkat.0.nama', 'Kendari Pos')
+            ->where('peringkat.0.jumlah_artikel', 3)
+            ->where('peringkat.1.nama', 'Media Diam')
+            ->where('peringkat.1.jumlah_artikel', 0)
+            ->where('peringkat.1.jumlah_negatif', 0));
+
+        $this->get('/eksekutif')->assertInertia(fn ($page) => $page
+            ->count('peringkatMedia', 1)
+            ->where('peringkatMedia.0.nama', 'Kendari Pos'));
+    }
+
     /** Artikel tambahan pada hari ini, di media yang sama dengan setUp. */
     private function artikelTambahan(string $judul, bool $relevan, ?LabelSentimen $label): Artikel
     {

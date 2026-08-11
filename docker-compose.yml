@@ -1,15 +1,37 @@
+# Dua aturan berlaku untuk seluruh layanan yang berumur panjang di berkas ini,
+# dan keduanya lahir dari satu kejadian nyata: 805 galat
+# "getaddrinfo for redis failed" di log, yang berarti nama `redis` tidak bisa
+# diselesaikan sama sekali karena container-nya memang sedang tidak ada.
+#
+# 1. `restart: unless-stopped`. Tanpa ini, satu container yang mati tetap mati
+#    sampai ada yang menyadarinya. Di laptop itu merepotkan. Di server itu
+#    berarti crawler, penjadwal, atau antrean berhenti diam-diam berhari-hari,
+#    karena tidak ada satu pun halaman yang menampilkan bahwa prosesnya hilang.
+#
+# 2. `depends_on` dengan `condition`, bukan daftar biasa. Bentuk daftar hanya
+#    menunggu container tetangga dibuat, bukan siap menerima koneksi, jadi
+#    Laravel tetap bisa menembak Redis dan Postgres yang belum mengangkat
+#    soketnya. Itu yang membuat permintaan pertama setelah setiap `up` gagal.
 services:
   app:
     build: ./docker/php
     working_dir: /app
     user: "1000:1000"
+    restart: unless-stopped
     environment:
       HOME: /tmp
     volumes:
       - .:/app
     ports:
       - "8000:8000"
-    depends_on: [db, redis]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # `artisan serve` adalah server pengembangan berproses tunggal. Di server
+    # sungguhan ganti dengan php-fpm atau Octane di belakang Nginx, karena satu
+    # proses berarti satu permintaan lambat menahan seluruh pengunjung lain.
     command: php artisan serve --host=0.0.0.0 --port=8000
 
   # Worker antrean untuk crawler dan arsip bukti pemuatan.
@@ -21,11 +43,16 @@ services:
     build: ./docker/php
     working_dir: /app
     user: "1000:1000"
+    restart: unless-stopped
     environment:
       HOME: /tmp
     volumes:
       - .:/app
-    depends_on: [db, redis]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     # Urutan antrean menentukan prioritas worker. `default` dan `crawl` lebih
     # dulu karena keduanya pendek dan pengambilan isi artikel adalah syarat
     # sebelum artikelnya bisa dinilai sama sekali. `gemini` paling belakang
@@ -47,13 +74,21 @@ services:
   # ikut antrean `default`, seluruh crawler dan penilaian Gemini berhenti
   # sepanjang pelatihan tanpa satu pun galat yang menunjukkan sebabnya.
   #
-  # Timeout-nya dua belas jam lewat sedikit, jauh di atas worker utama. Job
+  # Timeout-nya tujuh hari lewat sedikit, jauh di atas worker utama. Job
   # menunggui layanan Python lewat polling, jadi seluruh durasi pelatihan
   # terhitung sebagai satu pekerjaan yang berjalan.
   #
-  # Angkanya sengaja lebih besar daripada `$timeout` di LatihModelRelevansi.
-  # Kalau keduanya sama persis, keduanya berbunyi pada detik yang sama dan yang
-  # tercatat adalah pembunuhan oleh worker, bukan penanganan job sendiri.
+  # Tujuh hari supaya snapshot 10.000 item muat. Pelatihan 2.000 item selesai
+  # dalam 5 jam 45 menit, dan pelatihan di CPU tumbuh kira-kira sebanding
+  # dengan jumlah data, jadi 10.000 item berarti sekitar 29 jam. Alasan
+  # lengkapnya ada di `$timeout` pada LatihModelRelevansi.
+  #
+  # Angkanya sengaja lebih besar daripada `$timeout` di LatihModelRelevansi,
+  # sepuluh menit di atasnya. Kalau keduanya sama persis, keduanya berbunyi
+  # pada detik yang sama dan yang tercatat adalah pembunuhan oleh worker, bukan
+  # penanganan job sendiri. Bedanya besar di layar: yang pertama meninggalkan
+  # baris berstatus berjalan selamanya, yang kedua menulis "Gagal" beserta
+  # keterangan kehabisan waktu lewat `failed()`.
   worker-pelatihan:
     build: ./docker/php
     working_dir: /app
@@ -70,8 +105,28 @@ services:
       HOME: /tmp
     volumes:
       - .:/app
-    depends_on: [db, redis, relevansi]
-    command: php artisan queue:work --queue=pelatihan --tries=1 --timeout=43800
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      relevansi:
+        condition: service_started
+    # `-d memory_limit=1G`, dan hanya di worker ini.
+    #
+    # Batas waktu bukan satu-satunya yang menghalangi snapshot besar. Job
+    # menyusun seluruh dataset menjadi satu array PHP lalu meng-encode-nya
+    # menjadi satu badan JSON, dan keduanya berada di memori pada saat yang
+    # sama. Snapshot 2.000 item saja sudah memuncak di 70 MB, sedangkan batas
+    # bawaan image PHP adalah 128 MB. Snapshot 10.000 item berarti badan JSON
+    # sekitar 32 MB beserta array sumbernya, dan pelatihan akan mati karena
+    # kehabisan memori sebelum satu byte pun sampai ke layanan Python.
+    #
+    # Dinaikkan di sini, bukan di php.ini, supaya hanya proses ini yang boleh
+    # menyerap satu giga. Batas 128 MB pada proses web dan worker utama adalah
+    # penjaga yang berguna: permintaan yang menyentuhnya hampir selalu sedang
+    # memuat tabel utuh tanpa paginasi, dan itu memang harus gagal.
+    command: php -d memory_limit=1G artisan queue:work --queue=pelatihan --tries=1 --timeout=605400
 
   # Penjadwal. Tanpa proses ini seluruh isi routes/console.php tidak pernah
   # berjalan, termasuk pengisi antrean Gemini yang membuat klasifikasi otomatis
@@ -84,15 +139,21 @@ services:
     build: ./docker/php
     working_dir: /app
     user: "1000:1000"
+    restart: unless-stopped
     environment:
       HOME: /tmp
     volumes:
       - .:/app
-    depends_on: [db, redis]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     command: php artisan schedule:work
 
   db:
     image: pgvector/pgvector:pg16
+    restart: unless-stopped
     environment:
       POSTGRES_DB: simedia
       POSTGRES_USER: simedia
@@ -107,10 +168,29 @@ services:
       interval: 5s
       retries: 10
 
+  # Redis di sini bukan sekadar cache. Ia juga tempat antrean, jadi container
+  # yang mati membawa serta seluruh pekerjaan yang belum sempat dikerjakan.
+  #
+  # `appendonly yes` membuatnya menulis ke disk, dan volumenya membuat tulisan
+  # itu bertahan setelah container dibuat ulang. Tanpa keduanya, satu restart
+  # menghapus antrean klasifikasi tanpa satu pun galat: artikelnya tetap ada di
+  # database dengan status menunggu, dan tidak ada lagi yang akan mengambilnya
+  # sampai `gemini:antre --isi` berikutnya menyisir ulang sejam kemudian.
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
     ports:
       - "6379:6379"
+    # Inilah yang membuat `condition: service_healthy` di atas ada artinya.
+    # Tanpa healthcheck, Compose menganggap Redis siap pada detik container
+    # dibuat, jauh sebelum ia mengangkat soketnya.
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
 
   # Tangkapan layar bukti pemuatan. Satu-satunya layanan Python yang tersisa
   # setelah IndoBERT dibongkar, dan tetap terpisah karena render Chromium berat.
@@ -118,6 +198,7 @@ services:
     build:
       context: ./arsip
       dockerfile: ../docker/arsip/Dockerfile
+    restart: unless-stopped
     volumes:
       - ./arsip:/arsip
     ports:
@@ -137,6 +218,7 @@ services:
     build:
       context: ./relevansi
       dockerfile: ../docker/relevansi/Dockerfile
+    restart: unless-stopped
     user: "1000:1000"
     environment:
       HOME: /tmp
@@ -160,3 +242,4 @@ services:
 volumes:
   dbdata:
   modeldata:
+  redisdata:

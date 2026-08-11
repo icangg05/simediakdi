@@ -5,7 +5,6 @@ use App\Http\Controllers\Admin\ArtikelController;
 use App\Http\Controllers\Admin\AturanAlertController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EksporController;
-use App\Http\Controllers\Admin\KontrakController;
 use App\Http\Controllers\Admin\KoreksiLabelController;
 use App\Http\Controllers\Admin\LogCrawlController;
 use App\Http\Controllers\Admin\MediaController;
@@ -14,7 +13,6 @@ use App\Http\Controllers\Admin\PengaturanAiController;
 use App\Http\Controllers\Admin\PengaturanController;
 use App\Http\Controllers\Admin\PenggunaController;
 use App\Http\Controllers\Admin\SumberFeedController;
-use App\Http\Controllers\Admin\VerifikasiPemuatanController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('admin')->name('admin.')->middleware('peran:superadmin,walikota')->group(function () {
@@ -78,16 +76,7 @@ Route::prefix('admin')->name('admin.')->middleware('peran:superadmin,walikota')-
         ->middleware('throttle:10,1,ekspor')
         ->name('ekspor.artikel');
 
-    Route::post('kontrak/{kontrak}/cocokkan', [KontrakController::class, 'cocokkan'])->name('kontrak.cocokkan');
-    Route::resource('kontrak', KontrakController::class);
     Route::resource('pengguna', PenggunaController::class)->except('show');
-
-    // Antrean verifikasi laporan pemuatan dari portal media.
-    Route::get('pemuatan', [VerifikasiPemuatanController::class, 'index'])->name('pemuatan.index');
-    Route::put('pemuatan/{pemuatan}', [VerifikasiPemuatanController::class, 'update'])->name('pemuatan.update');
-    // Bukti disimpan di luar public/, jadi satu-satunya jalan membacanya
-    // adalah rute yang melewati middleware peran.
-    Route::get('pemuatan/{pemuatan}/bukti', [VerifikasiPemuatanController::class, 'bukti'])->name('pemuatan.bukti');
 
     Route::post('alert/uji-telegram', [AturanAlertController::class, 'ujiTelegram'])->name('alert.uji-telegram');
     Route::post('alert/{alert}/uji', [AturanAlertController::class, 'uji'])->name('alert.uji');
@@ -148,8 +137,36 @@ Route::prefix('admin')->name('admin.')->middleware('peran:superadmin,walikota')-
     Route::post('media/{media}/crawl', [MediaController::class, 'crawl'])
         ->middleware('throttle:10,1,crawl-media')
         ->name('media.crawl');
-    Route::resource('media', MediaController::class)->except('show');
-    Route::resource('sumber-feed', SumberFeedController::class)
-        ->except('show')
-        ->parameters(['sumber-feed' => 'sumberFeed']);
+
+    // Saklar induk pengambilan berita. Bukan penghapusan, dan karena itu bukan
+    // bagian dari resource.
+    Route::post('media/{media}/aktif', [MediaController::class, 'aktif'])->name('media.aktif');
+
+    /*
+     * Sumber feed bersarang di bawah medianya, tanpa index, create, dan edit.
+     *
+     * Ketiganya dulu halaman sendiri dan sekarang jadi bagian halaman detail
+     * media, jadi yang tersisa hanya aksi yang mengubah data. Daftar sumber
+     * feed lintas media sudah tidak ada; yang menggantikannya untuk melacak
+     * sumber bermasalah adalah halaman Log crawl.
+     */
+    /*
+     * `parameters` menyebut `media` secara eksplisit, dan itu wajib.
+     *
+     * Laravel memberi nama parameter resource dari bentuk tunggal nama rutenya,
+     * dan bentuk tunggal "media" menurut aturannya adalah "medium". Rutenya
+     * jadi `{medium}` sementara controller-nya menerima `Media $media`, dua
+     * nama yang tidak bertemu, sehingga implicit binding menyerah dan yang
+     * sampai ke controller adalah string id mentah.
+     *
+     * Ini sudah salah sejak sebelum sumber feed dipindahkan ke sini. Rute edit,
+     * update, dan destroy media memakai `{medium}` dan tidak pernah benar-benar
+     * mengikat modelnya. Tidak ada yang menyadarinya karena tes lama hanya
+     * membuka halaman indeks dan formulir tambah.
+     */
+    Route::resource('media.sumber-feed', SumberFeedController::class)
+        ->only(['store', 'update', 'destroy'])
+        ->parameters(['media' => 'media', 'sumber-feed' => 'sumberFeed']);
+
+    Route::resource('media', MediaController::class)->parameters(['media' => 'media']);
 });

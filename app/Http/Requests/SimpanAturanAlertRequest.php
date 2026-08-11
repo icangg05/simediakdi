@@ -11,7 +11,7 @@ class SimpanAturanAlertRequest extends FormRequest
     {
         return [
             'nama' => ['required', 'string', 'max:150'],
-            'jenis' => ['required', 'in:lonjakan_negatif,kata_kunci_muncul,sumber_mati,kontrak_tertinggal'],
+            'jenis' => ['required', 'in:lonjakan_negatif,kata_kunci_muncul,sumber_mati'],
             'ambang' => ['nullable', 'numeric', 'min:0'],
 
             // Batas bawah 1 jam. Jendela di bawah itu membandingkan angka yang
@@ -19,7 +19,13 @@ class SimpanAturanAlertRequest extends FormRequest
             'jendela_jam' => ['required', 'integer', 'min:1', 'max:168'],
             'jeda_minimal_jam' => ['required', 'integer', 'min:1', 'max:168'],
 
-            'kanal' => ['required', 'in:telegram,email'],
+            // Hanya telegram. `email` dulu ikut diterima di sini, padahal
+            // PeriksaAlert selalu memanggil PengirimTelegram tanpa pernah
+            // melihat kolom ini. Admin yang memilih email akan melihat
+            // aturannya tersimpan rapi, lalu peringatannya diam-diam tetap
+            // masuk grup Telegram, dan kalau grup itu belum disiapkan ia tidak
+            // masuk ke mana pun. Kanal yang tidak ada tidak boleh ditawarkan.
+            'kanal' => ['required', 'in:telegram'],
             'penerima' => ['nullable', 'array'],
             'penerima.*' => ['string', 'max:200'],
             'aktif' => ['boolean'],

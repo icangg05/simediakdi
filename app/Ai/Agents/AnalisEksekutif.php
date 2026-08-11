@@ -55,6 +55,20 @@ final class AnalisEksekutif implements Agent, HasStructuredOutput
         3. Judul topik harus kalimat singkat yang menjelaskan isunya, bukan satu
            atau dua kata kunci. Benar: "Pengelolaan parkir mulai mendapat
            sorotan dan keluhan dalam sejumlah pemberitaan". Salah: "Parkir".
+           Judul topik juga tidak boleh terbaca seperti judul berita. Judul
+           berita menceritakan satu peristiwa, judul topik menyebut isu yang
+           dibahas beberapa berita sekaligus. Jangan memulainya dengan nama
+           pelaku seperti "Wali Kota", "Pemkot", atau "Pemerintah Kota", karena
+           pola itu yang membuat kalimatnya jatuh menjadi judul berita.
+
+           Salah: "Wali Kota Kendari resmikan jembatan baru di Kecamatan
+           Kadia."
+           Benar: "Peresmian jembatan baru menjadi isu pembangunan yang paling
+           banyak diberitakan".
+
+           Salah: "Pemkot Kendari tertibkan pedagang di Pasar Sentral."
+           Benar: "Penertiban pedagang Pasar Sentral diberitakan dari dua
+           sudut, penataan pasar dan keluhan pedagang".
         4. Satu artikel hanya boleh masuk ke satu topik.
         5. Pakai hanya angka id yang ada di daftar. Jangan mengarang id baru,
            jangan mengubah id, jangan menyalin id ke lebih dari satu topik.
@@ -74,8 +88,8 @@ final class AnalisEksekutif implements Agent, HasStructuredOutput
 
         Isi tiap bagian sebagai berikut.
 
-        12. `judul`: satu kalimat pernyataan tentang keadaan, seperti judul
-            berita. Benar: "Pemberitaan Pemkot Kendari pekan ini masih
+        12. `judul`: satu kalimat pernyataan tentang keadaan pemberitaan pada
+            periode ini. Benar: "Pemberitaan Pemkot Kendari pekan ini masih
             didominasi kegiatan pelayanan publik". Salah: "Laporan Pemberitaan
             Kota Kendari", "Ringkasan Periode", atau nama dokumen mana pun.
         13. `ringkasan`: paling banyak dua paragraf pendek yang menjelaskan apa

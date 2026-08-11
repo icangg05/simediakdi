@@ -168,29 +168,59 @@ class RingkasanEksekutif
     /**
      * Peringkat media pada satu periode.
      *
+     * Kuerinya berangkat dari tabel `media`, bukan dari `ringkasan_harian`,
+     * supaya media yang tidak memuat satu berita pun tetap bisa disebut. Rentang
+     * tanggalnya ikut ke dalam klausa ON, bukan WHERE, karena WHERE akan
+     * membuang kembali baris media yang tidak punya pasangan ringkasan dan
+     * mengubah left join menjadi inner join tanpa terlihat.
+     *
+     * @param  int|null  $batas  Null berarti seluruh media, tanpa pemotongan.
+     * @param  bool  $termasukTanpaBerita  Sertakan media yang nol berita pada rentang ini.
      * @return list<array<string, mixed>>
      */
-    public function peringkatMedia(CarbonImmutable $dari, CarbonImmutable $sampai, int $batas = 10): array
-    {
-        return DB::table('ringkasan_harian as r')
-            ->join('media as m', 'm.id', '=', 'r.media_id')
-            ->whereNotNull('r.media_id')
-            ->whereBetween('r.tanggal', [$dari->toDateString(), $sampai->toDateString()])
+    public function peringkatMedia(
+        CarbonImmutable $dari,
+        CarbonImmutable $sampai,
+        ?int $batas = 10,
+        bool $termasukTanpaBerita = false,
+    ): array {
+        $jumlahBerlabel = 'sum(r.jumlah_negatif + r.jumlah_netral + r.jumlah_positif)';
+
+        $kueri = DB::table('media as m')
+            ->leftJoin('ringkasan_harian as r', fn ($sambung) => $sambung
+                ->on('r.media_id', '=', 'm.id')
+                ->whereBetween('r.tanggal', [$dari->toDateString(), $sampai->toDateString()]))
+            // Media yang sudah dihapus tidak pernah ikut. Penghapusannya lunak,
+            // jadi barisnya masih ada di tabel dan `DB::table` tidak mengenal
+            // global scope milik model.
+            ->whereNull('m.deleted_at')
             ->groupBy('m.id', 'm.nama', 'm.tier')
-            // Populasi yang sama dengan KPI: berita relevan yang sudah
-            // berlabel. Memakai `jumlah_artikel` membuat bar media digambar
-            // dari seluruh hasil crawl, sedangkan porsi negatif di dalam bar
-            // yang sama hanya dari berita berlabel, sehingga media yang banyak
-            // memuat berita tidak relevan terlihat paling tenang.
-            ->havingRaw('sum(r.jumlah_negatif + r.jumlah_netral + r.jumlah_positif) > 0')
-            ->orderByRaw('sum(r.jumlah_negatif + r.jumlah_netral + r.jumlah_positif) DESC')
-            ->limit($batas)
+            ->orderByRaw("coalesce({$jumlahBerlabel}, 0) DESC")
+            // Media yang sama sama nol diurutkan menurut nama, bukan menurut
+            // urutan yang dikembalikan Postgres begitu saja. Tanpa ini daftar
+            // ekornya bisa berpindah pindah tiap kali halaman dimuat ulang.
+            ->orderBy('m.nama');
+
+        // Populasi yang sama dengan KPI: berita relevan yang sudah berlabel.
+        // Memakai `jumlah_artikel` membuat bar media digambar dari seluruh hasil
+        // crawl, sedangkan porsi negatif di dalam bar yang sama hanya dari
+        // berita berlabel, sehingga media yang banyak memuat berita tidak
+        // relevan terlihat paling tenang.
+        if (! $termasukTanpaBerita) {
+            $kueri->havingRaw("{$jumlahBerlabel} > 0");
+        }
+
+        if ($batas !== null) {
+            $kueri->limit($batas);
+        }
+
+        return $kueri
             ->get([
                 'm.id', 'm.nama', 'm.tier',
-                DB::raw('sum(r.jumlah_negatif + r.jumlah_netral + r.jumlah_positif)::int AS jumlah_artikel'),
-                DB::raw('sum(r.jumlah_negatif)::int AS jumlah_negatif'),
-                DB::raw('sum(r.jumlah_netral)::int AS jumlah_netral'),
-                DB::raw('sum(r.jumlah_positif)::int AS jumlah_positif'),
+                DB::raw("coalesce({$jumlahBerlabel}, 0)::int AS jumlah_artikel"),
+                DB::raw('coalesce(sum(r.jumlah_negatif), 0)::int AS jumlah_negatif'),
+                DB::raw('coalesce(sum(r.jumlah_netral), 0)::int AS jumlah_netral'),
+                DB::raw('coalesce(sum(r.jumlah_positif), 0)::int AS jumlah_positif'),
             ])
             ->map(fn ($b) => (array) $b)
             ->all();

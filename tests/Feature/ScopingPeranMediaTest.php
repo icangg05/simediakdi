@@ -3,11 +3,9 @@
 namespace Tests\Feature;
 
 use App\Enums\PeranPengguna;
-use App\Enums\StatusVerifikasi;
+use App\Models\AnalisisSentimen;
 use App\Models\Artikel;
-use App\Models\Kontrak;
 use App\Models\Media;
-use App\Models\Pemuatan;
 use App\Models\SumberFeed;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -51,11 +49,17 @@ class ScopingPeranMediaTest extends TestCase
         ]);
     }
 
-    /** Satu artikel, satu kontrak, dan satu pemuatan untuk masing-masing media. */
+    /**
+     * Satu berita terpantau untuk masing-masing media.
+     *
+     * Harus sudah relevan dan berlabel, karena itu populasi yang ditampilkan
+     * portal. Artikel mentah tidak akan muncul di halaman mana pun dan tesnya
+     * akan lulus tanpa pernah menguji scoping.
+     */
     private function siapkanDataDuaMedia(): void
     {
         foreach ([['A', $this->mediaA], ['B', $this->mediaB]] as [$tanda, $media]) {
-            Artikel::withoutGlobalScopes()->create([
+            $artikel = Artikel::withoutGlobalScopes()->create([
                 'media_id' => $media->id,
                 'judul' => "Berita {$tanda}",
                 'url' => "https://{$media->domain}/berita",
@@ -64,24 +68,10 @@ class ScopingPeranMediaTest extends TestCase
                 'status_proses' => 'selesai',
             ]);
 
-            $kontrak = Kontrak::withoutGlobalScopes()->create([
-                'media_id' => $media->id,
-                'judul' => "Kontrak {$tanda}",
-                'jenis' => 'publikasi',
-                'status' => 'aktif',
-                'tanggal_mulai' => now()->subDays(10)->toDateString(),
-                'tanggal_akhir' => now()->addDays(50)->toDateString(),
-                'target_pemuatan' => 10,
-            ]);
-
-            Pemuatan::withoutGlobalScopes()->create([
-                'kontrak_id' => $kontrak->id,
-                'media_id' => $media->id,
-                'url' => "https://{$media->domain}/pemuatan",
-                'judul' => "Pemuatan {$tanda}",
-                'tanggal_muat' => now()->toDateString(),
-                'sumber_catatan' => 'otomatis',
-                'status_verifikasi' => StatusVerifikasi::Terverifikasi,
+            AnalisisSentimen::create([
+                'artikel_id' => $artikel->id, 'relevan' => true,
+                'label_model' => 'netral', 'perlu_review' => false,
+                'model_versi' => 'uji', 'dianalisis_at' => now(),
             ]);
         }
     }
@@ -115,8 +105,8 @@ class ScopingPeranMediaTest extends TestCase
 
     /**
      * Portal media adalah satu-satunya bagian sistem yang dibuka pihak luar.
-     * Kebocoran di sini berarti satu media membaca realisasi kontrak dan
-     * daftar pemberitaan pesaingnya.
+     * Kebocoran di sini berarti satu media membaca daftar pemberitaan
+     * pesaingnya.
      */
     public function test_portal_hanya_menampilkan_data_media_sendiri(): void
     {
@@ -130,46 +120,42 @@ class ScopingPeranMediaTest extends TestCase
                 ->where('artikel.data.0.judul', 'Berita A'));
 
         $this->actingAs($this->penggunaA)
-            ->get('/portal/kontrak')
+            ->get('/portal/lapor')
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->has('kontrak', 1)
-                ->where('kontrak.0.judul', 'Kontrak A')
-                ->has('pemuatan', 1)
-                ->where('pemuatan.0.judul', 'Pemuatan A'));
+                ->has('sudahOtomatis', 1)
+                ->where('sudahOtomatis.0.judul', 'Berita A'));
     }
 
-    public function test_pemuatan_dan_kontrak_media_lain_tidak_terlihat(): void
+    public function test_artikel_media_lain_tidak_terlihat(): void
     {
         $this->siapkanDataDuaMedia();
 
         $this->actingAs($this->penggunaA);
 
-        $this->assertSame(1, Kontrak::count());
-        $this->assertSame(1, Pemuatan::count());
-        $this->assertSame('Kontrak A', Kontrak::first()->judul);
+        $this->assertSame(1, Artikel::count());
+        $this->assertSame('Berita A', Artikel::first()->judul);
     }
 
     /**
-     * Melaporkan pemuatan ke kontrak media lain berarti menyedot realisasi
-     * kontrak orang. Ditolak sebelum menyentuh database.
+     * Menambahkan URL milik media lain berarti menyuntikkan berita ke arsip
+     * atas nama orang. Tanpa antrean persetujuan, pemeriksaan domain inilah
+     * satu-satunya yang menahannya, jadi ia ditegakkan sebelum menyentuh
+     * database.
      */
-    public function test_tidak_bisa_melapor_ke_kontrak_media_lain(): void
+    public function test_tidak_bisa_menambahkan_url_media_lain(): void
     {
         $this->siapkanDataDuaMedia();
 
-        $kontrakB = Kontrak::withoutGlobalScopes()->where('judul', 'Kontrak B')->firstOrFail();
-
         $this->actingAs($this->penggunaA)->post('/portal/lapor', [
-            'kontrak_id' => $kontrakB->id,
             'baris' => [[
-                'url' => 'https://a.test/berita-baru',
-                'judul' => 'Berita baru',
+                'url' => 'https://b.test/berita-baru',
+                'judul' => 'Berita milik B',
                 'tanggal' => now()->toDateString(),
             ]],
-        ])->assertNotFound();
+        ]);
 
-        $this->assertSame(2, Pemuatan::withoutGlobalScopes()->count());
+        $this->assertSame(2, Artikel::withoutGlobalScopes()->count());
     }
 
     public function test_superadmin_melihat_semua_baris(): void

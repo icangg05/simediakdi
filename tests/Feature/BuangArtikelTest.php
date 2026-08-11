@@ -12,7 +12,6 @@ use App\Services\Crawler\PencatatArtikel;
 use App\Services\PembuangArtikel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
-use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
@@ -135,50 +134,6 @@ class BuangArtikelTest extends TestCase
         $this->artikel('https://contoh.test/ragu', relevan: true, status: 'perlu_review');
 
         $this->assertCount(1, PembuangArtikel::kandidat()->get());
-    }
-
-    public function test_artikel_berbukti_pemuatan_ikut_dibuang_dan_buktinya_tetap(): void
-    {
-        $aman = $this->artikel('https://contoh.test/aman');
-        $berbukti = $this->artikel('https://contoh.test/berbukti');
-
-        $kontrak = DB::table('kontrak')->insertGetId([
-            'media_id' => $this->media()->id,
-            'nomor' => 'K-1',
-            'judul' => 'Kontrak contoh',
-            'jenis' => 'advertorial',
-            'tanggal_mulai' => now()->toDateString(),
-            'tanggal_akhir' => now()->addMonth()->toDateString(),
-            'target_pemuatan' => 1,
-            'status' => 'aktif',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        DB::table('pemuatan')->insert([
-            'kontrak_id' => $kontrak,
-            'media_id' => $this->media()->id,
-            'artikel_id' => $berbukti->id,
-            'url' => 'https://contoh.test/berbukti',
-            'judul' => 'Berita contoh',
-            'tanggal_muat' => now()->toDateString(),
-            'sumber_catatan' => 'laporan_media',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        $hasil = app(PembuangArtikel::class)->buang([$aman->id, $berbukti->id], 'uji');
-
-        // Laporan pemuatan tidak lagi menahan penghapusan. Foreign key-nya
-        // SET NULL dan barisnya menyimpan url, judul, serta arsipnya sendiri,
-        // jadi bukti klaim media tetap utuh setelah artikelnya hilang.
-        $this->assertSame(2, $hasil['dibuang']);
-        $this->assertSame(0, $hasil['dilindungi']);
-        $this->assertDatabaseMissing('artikel', ['id' => $berbukti->id]);
-        $this->assertDatabaseHas('pemuatan', [
-            'url' => 'https://contoh.test/berbukti',
-            'artikel_id' => null,
-        ]);
     }
 
     public function test_id_yang_bukan_kandidat_ditolak_meski_dikirim_dari_layar(): void

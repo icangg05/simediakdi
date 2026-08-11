@@ -39,6 +39,7 @@ class KunciGemini extends Model
             // menyebut toIso8601String tanpa menyebut kolomnya.
             'rpd_google' => 'integer',
             'rpd_google_at' => 'datetime',
+            'rpd_manual' => 'integer',
             'rpd_terpakai' => 'integer',
             'rpd_hari' => 'date',
         ];

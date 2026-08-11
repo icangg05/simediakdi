@@ -115,15 +115,15 @@ Satu media bisa punya beberapa sumber. Contohnya RSS berita utama, RSS kategori 
 | id | bigserial | no | | |
 | media_id | bigint | yes | | FK media. Null untuk sumber Google News yang lintas media |
 | nama | varchar(150) | no | | |
-| tipe | varchar(20) | no | | CHECK: `rss`, `scrape`, `google_news` |
+| tipe | varchar(20) | no | | CHECK: `rss`, `scrape`, `scrape_render`. `google_news` sudah dicabut |
 | url | varchar(500) | no | | |
-| selector | jsonb | yes | | Untuk tipe `scrape`: `{"item":"...","judul":"...","tautan":"..."}` |
+| selector | jsonb | yes | | Wajib untuk `scrape` dan `scrape_render`: `{"item":"...","judul":"...","tautan":"..."}`. Pada `scrape_render`, `item` juga jadi syarat tunggu peramban |
 | kata_kunci | varchar(255) | yes | | Untuk tipe `google_news` |
 | interval_menit | integer | no | 30 | |
 | aktif | boolean | no | true | |
 | dijalankan_terakhir_at | timestamptz | yes | | |
 | berhasil_terakhir_at | timestamptz | yes | | |
-| gagal_berturut | smallint | no | 0 | Sumber dinonaktifkan saat mencapai 5 (F-07) |
+| gagal_berturut | smallint | no | 0 | Ditandai perlu diperiksa saat mencapai 5 (F-07). Tidak menonaktifkan sumber |
 | pesan_error_terakhir | text | yes | | |
 | created_at / updated_at | timestamptz | no | | |
 

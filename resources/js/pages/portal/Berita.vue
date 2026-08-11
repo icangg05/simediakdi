@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import DataTable from '@/components/data-table/DataTable.vue';
+import BadgeTahapPortal from '@/components/domain/BadgeTahapPortal.vue';
+import PemilihRentangTanggal from '@/components/domain/PemilihRentangTanggal.vue';
+import { Badge } from '@/components/ui/badge';
+import { useFilterTabel } from '@/composables/useFilterTabel';
 import LayoutPortal from '@/layouts/LayoutPortal.vue';
-import type { KolomDefinisi, PaginasiMeta } from '@/types/tabel';
+import type { FilterDefinisi, KolomDefinisi, PaginasiMeta } from '@/types/tabel';
 import { Head } from '@inertiajs/vue3';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { ExternalLink } from 'lucide-vue-next';
+import { computed } from 'vue';
 
 interface Baris {
     id: number;
@@ -14,17 +19,55 @@ interface Baris {
     diambil_at: string;
     dipublikasikan_at: string | null;
     jumlah_kata: number | null;
+    ditambahkan_sendiri: boolean;
+    tahap: 'tampil' | 'diproses' | 'di_luar_pantauan' | 'gagal';
 }
 
 const props = defineProps<{
     artikel: { data: Baris[] } & PaginasiMeta;
+    periode: { dari: string; sampai: string };
 }>();
+
+// Instance sendiri, bukan yang di dalam DataTable. `kunjungi` menggabungkan
+// perubahan tanggal ke query string yang sedang berlaku, jadi pencarian dan
+// urutan yang sudah dipilih tidak ikut hilang saat rentangnya diganti.
+const { kunjungi } = useFilterTabel('/portal/berita');
 
 const kolom: KolomDefinisi[] = [
     { kunci: 'judul', judul: 'Judul', bisaDiurutkan: true },
+    { kunci: 'sumber', judul: 'Asal', lebar: 'w-36' },
+    { kunci: 'tahap', judul: 'Tahap', lebar: 'w-40' },
     { kunci: 'diambil_at', judul: 'Terpantau', bisaDiurutkan: true, lebar: 'w-40' },
     { kunci: 'jumlah_kata', judul: 'Kata', kelas: 'angka text-right', lebar: 'w-20' },
 ];
+
+/**
+ * Saringan asal baris, pasangan dari kolom "Asal" di tabelnya.
+ *
+ * Nilainya `crawler` dan `portal`, sama persis dengan filter asal di panel
+ * admin, sedangkan labelnya ditulis dari sudut pandang media. Media tidak
+ * memakai kata "crawler", dan admin tidak menyebut kirimannya "Anda tambahkan".
+ *
+ * Gunanya bukan sekadar menyaring. Proporsi kiriman mandiri yang tinggi adalah
+ * petunjuk bahwa sumber feed media itu perlu diperiksa, dan tanpa saringan ini
+ * media tidak punya cara menghitungnya selain memindai tabel baris per baris.
+ */
+const filter: FilterDefinisi[] = [
+    {
+        kunci: 'asal',
+        label: 'Asal',
+        opsi: [
+            { nilai: 'crawler', label: 'Ditemukan otomatis' },
+            { nilai: 'portal', label: 'Anda tambahkan' },
+        ],
+    },
+];
+
+const rentang = computed(
+    () =>
+        `${format(new Date(props.periode.dari), 'd MMM', { locale: id })} sampai ` +
+        `${format(new Date(props.periode.sampai), 'd MMM yyyy', { locale: id })}`,
+);
 
 const waktu = (n: string) => format(new Date(n), 'd MMM yyyy, HH:mm', { locale: id });
 </script>
@@ -32,25 +75,72 @@ const waktu = (n: string) => format(new Date(n), 'd MMM yyyy, HH:mm', { locale: 
 <template>
     <Head title="Berita saya" />
 
-    <LayoutPortal judul="Berita saya" :breadcrumbs="[{ title: 'Berita saya', href: '/portal/berita' }]">
-        <p class="text-sm text-muted-foreground">
-            Berita media Anda yang tertangkap sistem. Satu URL hanya masuk sekali, jadi daftar ini tidak memuat baris kembar.
+    <LayoutPortal
+        judul="Berita saya"
+        :breadcrumbs="[
+            { title: 'Portal media', href: '/portal' },
+            { title: 'Berita saya', href: '/portal/berita' },
+        ]"
+    >
+        <p class="max-w-[75ch] text-sm leading-relaxed text-muted-foreground">
+            Berita media Anda yang terbit {{ rentang }}. Berita temuan sistem muncul setelah dinilai masuk pantauan Pemkot Kendari, sedangkan berita
+            yang Anda tambahkan sendiri selalu ada di sini beserta tahapnya. Disaring menurut tanggal terbit, bukan tanggal berita itu terpantau.
         </p>
 
         <DataTable
             :kolom="kolom"
             :data="props.artikel.data"
             :meta="props.artikel"
+            :filter="filter"
             pencarian
             url-basis="/portal/berita"
-            judul-kosong="Belum ada berita yang tertangkap"
-            keterangan-kosong="Sistem membaca RSS media Anda tiap 15 menit. Kalau berita baru tidak muncul juga dalam sehari, kabari Diskominfo agar sumber feed-nya diperiksa."
+            judul-kosong="Tidak ada berita pada rentang ini"
+            keterangan-kosong="Coba perlebar rentang tanggalnya. Kalau berita Anda memang tidak pernah muncul, tambahkan sendiri lewat halaman Tambah berita."
         >
+            <!-- Rentang tanggal berdiri sejajar dengan pencarian dan filter
+                 asal, tidak disembunyikan di balik sheet. Halaman ini memang
+                 halaman penyaring, dan menutupi hasilnya dengan lapisan membuat
+                 pengguna membuka-tutup lapisan itu hanya untuk melihat akibat
+                 pilihannya.
+
+                 `tanpa-sheet` yang mewujudkan itu, dan sebelumnya memang
+                 tertinggal: `inline` hanya memindahkan pintasan periode ke
+                 header, sedangkan kedua kotak tanggalnya tetap di dalam sheet.
+                 Halaman arsip eksekutif sudah memakai keduanya, dan halaman ini
+                 sekarang menyusul. -->
+            <template #aksi>
+                <PemilihRentangTanggal
+                    :dari="props.periode.dari"
+                    :sampai="props.periode.sampai"
+                    inline
+                    tanpa-sheet
+                    @ubah="(dari, sampai) => kunjungi({ dari, sampai })"
+                />
+            </template>
+
             <template #sel-judul="{ baris }">
                 <a :href="baris.url" target="_blank" rel="noopener noreferrer" class="inline-flex items-start gap-1 font-medium hover:underline">
                     <span class="line-clamp-2">{{ baris.judul }}</span>
                     <ExternalLink class="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
                 </a>
+            </template>
+
+            <!-- Penanda asal baris, bukan penilaian atas isinya, jadi ia tidak
+                 melanggar aturan bahwa portal tidak menampilkan sentimen.
+                 Gunanya: media bisa melihat berapa banyak beritanya yang hanya
+                 masuk karena dikirim sendiri, dan itu petunjuk bahwa sumber
+                 feed mereka perlu diperiksa. -->
+            <template #sel-sumber="{ baris }">
+                <Badge :variant="baris.ditambahkan_sendiri ? 'outline' : 'secondary'" class="font-normal">
+                    {{ baris.ditambahkan_sendiri ? 'Anda tambahkan' : 'Otomatis' }}
+                </Badge>
+            </template>
+
+            <!-- Kolom ini yang membuat selisih dengan KPI beranda bisa dibaca,
+                 bukan ditebak. Berita temuan sistem di sini selalu berlencana
+                 "Tampil"; yang berlencana lain pasti kiriman media sendiri. -->
+            <template #sel-tahap="{ baris }">
+                <BadgeTahapPortal :tahap="baris.tahap" />
             </template>
 
             <template #sel-diambil_at="{ baris }">

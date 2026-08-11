@@ -13,12 +13,20 @@ enum TipeSumber: string
 {
     case Rss = 'rss';
     case Scrape = 'scrape';
+    case ScrapeRender = 'scrape_render';
 
     public function label(): string
     {
         return match ($this) {
             self::Rss => 'RSS',
             self::Scrape => 'Scraping',
+            self::ScrapeRender => 'Scraping (perlu render)',
         };
+    }
+
+    /** Kedua tipe scraping memakai selector yang sama, hanya cara mengambil halamannya yang beda. */
+    public function pakaiSelector(): bool
+    {
+        return $this === self::Scrape || $this === self::ScrapeRender;
     }
 }

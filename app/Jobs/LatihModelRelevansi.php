@@ -41,7 +41,7 @@ class LatihModelRelevansi implements ShouldQueue
     public int $tries = 1;
 
     /**
-     * Dua belas jam.
+     * Tujuh hari.
      *
      * Job menunggui layanan sepanjang pelatihan, jadi seluruh durasinya
      * terhitung sebagai satu pekerjaan yang berjalan. Batas ini harus lebih
@@ -49,14 +49,26 @@ class LatihModelRelevansi implements ShouldQueue
      * tidak worker membunuh prosesnya lebih dulu dan barisnya tertinggal
      * berstatus berjalan selamanya.
      *
-     * Sebelumnya enam jam, dan angka itu terlampaui oleh pelatihan nyata:
-     * checkpoint 24 layer pada potongan 384 token memakan dua setengah jam per
-     * epoch di CPU empat thread, jadi tiga epoch tidak pernah sampai garis
-     * akhir. Base model di sini memang cuma satu dan memang besar, jadi
-     * pelatihan berjam-jam adalah keadaan normal, bukan gejala. Batas waktunya
-     * yang harus mengikuti, bukan sebaliknya.
+     * Angkanya sudah dinaikkan dua kali, dan keduanya karena alasan yang sama:
+     * pelatihan nyata melewatinya. Enam jam kalah oleh checkpoint 24 layer pada
+     * potongan 384 token, yang memakan dua setengah jam per epoch di CPU empat
+     * thread. Dua belas jam cukup untuk snapshot 2.000 item, yang selesai dalam
+     * 5 jam 45 menit, tetapi tidak untuk yang lebih besar.
+     *
+     * Tujuh hari dipilih supaya snapshot 10.000 item muat dengan kelonggaran
+     * yang lebar. Pelatihan di CPU tumbuh kira-kira sebanding dengan jumlah
+     * data, jadi 10.000 item berarti sekitar 29 jam. Batas yang hanya sedikit
+     * di atas perkiraan itu akan kalah lagi begitu ada yang menambah epoch,
+     * memanjangkan potongan token, atau melatih di mesin yang lebih sibuk.
+     *
+     * Batas yang kelewat longgar tidak berbahaya di sini, karena bukan ia yang
+     * menghentikan pelatihan yang macet. Pelatihan yang salah dihentikan tombol
+     * Batalkan, dan pelatihan yang layanannya mati berhenti sendiri lewat
+     * `status()` yang memulangkan null. Batas waktu hanyalah jaring terakhir,
+     * dan jaring terakhir yang terpasang terlalu tinggi jauh lebih murah
+     * daripada yang memotong pekerjaan 29 jam pada jam kedua belas.
      */
-    public int $timeout = 43200;
+    public int $timeout = 604800;
 
     public function __construct(public int $pelatihanId)
     {

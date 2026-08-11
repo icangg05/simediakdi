@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import BadgeSentimen from '@/components/domain/BadgeSentimen.vue';
+import BadgeTahapPortal from '@/components/domain/BadgeTahapPortal.vue';
 import { formatDistanceToNow } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { ExternalLink, Newspaper } from 'lucide-vue-next';
+import { ExternalLink, Newspaper, PlusCircle } from 'lucide-vue-next';
 
 defineProps<{
     judul: string;
@@ -13,6 +14,26 @@ defineProps<{
     perluReview?: boolean;
     /** Panel eksekutif menampilkan sentimen; portal media tidak boleh. */
     tampilkanSentimen?: boolean;
+    /**
+     * Berita ini ditambahkan sendiri oleh media, bukan ditemukan crawler.
+     *
+     * Penanda asal baris, bukan penilaian apa pun terhadap isinya, jadi ia
+     * aman ditampilkan di portal media. Berguna karena media perlu tahu berita
+     * mana yang tertangkap sistem tanpa diminta dan mana yang hanya masuk
+     * karena mereka mengirimnya, dan itu yang menentukan apakah sumber feed
+     * mereka perlu diperiksa.
+     */
+    ditambahkanSendiri?: boolean;
+    /**
+     * Tahap perjalanan artikel seperti yang dibaca peran media.
+     *
+     * Menyebut relevansi, bukan sentimen, jadi ia tidak melanggar aturan bahwa
+     * portal media tidak menampilkan nada berita. Hanya dikirim oleh beranda
+     * portal, satu-satunya daftar yang memuat artikel yang belum selesai
+     * dinilai. Daftar lain isinya sudah pasti berada di tahap tampil, dan
+     * lencana yang selalu berbunyi sama di setiap baris hanya menambah bising.
+     */
+    tahap?: 'tampil' | 'diproses' | 'di_luar_pantauan' | 'gagal' | null;
     /**
      * Alasan model memberi label itu, satu atau dua kalimat.
      *
@@ -54,10 +75,18 @@ defineProps<{
                     <Newspaper class="h-3 w-3 shrink-0" aria-hidden="true" />
                     <span class="truncate">{{ media ?? 'Media belum ditautkan' }}</span>
                 </span>
+                <span
+                    v-if="ditambahkanSendiri"
+                    class="inline-flex shrink-0 items-center gap-1 rounded-md border border-dashed px-2 py-0.5 font-medium text-foreground/75"
+                >
+                    <PlusCircle class="h-3 w-3 shrink-0" aria-hidden="true" />
+                    Anda tambahkan
+                </span>
                 {{ formatDistanceToNow(new Date(diambilAt), { addSuffix: true, locale: id }) }}
             </p>
         </div>
 
         <BadgeSentimen v-if="tampilkanSentimen" :label="label ?? null" :perlu-review="perluReview" class="mt-0.5 shrink-0" />
+        <BadgeTahapPortal v-else-if="tahap" :tahap="tahap" class="mt-0.5 shrink-0" />
     </article>
 </template>

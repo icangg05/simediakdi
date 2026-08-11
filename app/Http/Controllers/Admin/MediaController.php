@@ -5,7 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\TierMedia;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\SimpanMediaRequest;
+use App\Jobs\TemukanFeedMedia;
+use App\Models\LogCrawl;
 use App\Models\Media;
+use App\Models\SumberFeed;
 use App\Support\KueriTabel;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,7 +20,14 @@ class MediaController extends Controller
 {
     public function index(Request $request): Response
     {
-        $media = KueriTabel::untuk(Media::query()->withCount('sumberFeed'), $request)
+        $media = KueriTabel::untuk(
+            Media::query()
+                ->withCount([
+                    'sumberFeed',
+                    'sumberFeed as sumber_feed_aktif_count' => fn ($q) => $q->where('aktif', true),
+                ]),
+            $request,
+        )
             ->cari(['nama', 'domain', 'kota'])
             ->saring(['tier' => 'tier', 'jenis' => 'jenis', 'partner' => 'partner', 'aktif' => 'aktif'])
             ->urut(['nama', 'tier', 'jenis', 'domain', 'created_at'], 'nama')
@@ -38,8 +48,57 @@ class MediaController extends Controller
     {
         $media = Media::create($request->validated());
 
-        return to_route('admin.media.index')
-            ->with('sukses', "Media {$media->nama} ditambahkan.");
+        TemukanFeedMedia::dispatch($media->id);
+
+        return to_route('admin.media.show', $media)
+            ->with('sukses', "Media {$media->nama} ditambahkan.")
+            ->with('catatan', 'Alamat RSS-nya sedang dicari otomatis dari domain. Muat ulang halaman ini sebentar lagi.');
+    }
+
+    /**
+     * Halaman detail: identitas, sumber feed, dan riwayat pengambilannya.
+     *
+     * Menggantikan halaman Sumber Feed yang berdiri sendiri. Sumber feed tidak
+     * pernah berarti apa pun tanpa medianya, dan daftar global memaksa admin
+     * mengingat sumber mana milik siapa hanya untuk mengubah satu alamat.
+     */
+    public function show(Media $media): Response
+    {
+        $media->loadCount('artikel');
+
+        return Inertia::render('admin/media/Detail', [
+            'media' => $media,
+            'sumberFeed' => $media->sumberFeed()
+                ->orderBy('nama')
+                ->get()
+                ->map(fn (SumberFeed $s) => [
+                    ...$s->only([
+                        'id', 'nama', 'tipe', 'url', 'selector', 'kata_kunci',
+                        'interval_menit', 'aktif', 'gagal_berturut', 'pesan_error_terakhir',
+                    ]),
+                    'berhasil_terakhir_at' => $s->berhasil_terakhir_at?->toIso8601String(),
+                    'dijalankan_terakhir_at' => $s->dijalankan_terakhir_at?->toIso8601String(),
+                ]),
+            // Riwayat lintas seluruh sumber milik media ini. Halaman Log crawl
+            // tetap ada untuk penelusuran menyeluruh, yang di sini hanya cukup
+            // untuk menjawab "pengambilan terakhirnya berhasil atau tidak".
+            'riwayat' => LogCrawl::query()
+                ->whereIn('sumber_feed_id', $media->sumberFeed()->pluck('id'))
+                ->with('sumberFeed:id,nama')
+                ->latest('dimulai_at')
+                ->limit(10)
+                ->get()
+                ->map(fn (LogCrawl $l) => [
+                    'id' => $l->id,
+                    'sumber' => $l->sumberFeed?->nama,
+                    'status' => $l->status,
+                    'jumlah_baru' => $l->jumlah_baru,
+                    'jumlah_ditemukan' => $l->jumlah_ditemukan,
+                    'pesan' => $l->pesan,
+                    'dimulai_at' => $l->dimulai_at?->toIso8601String(),
+                ]),
+            'maksGagal' => (int) config('crawler.maks_gagal_berturut'),
+        ]);
     }
 
     public function edit(Media $media): Response
@@ -51,7 +110,15 @@ class MediaController extends Controller
     {
         $media->update($request->validated());
 
-        return to_route('admin.media.index')
+        // Domain berganti berarti alamat feed lama hampir pasti mati. Pencarian
+        // diulang, tetapi hanya kalau medianya memang belum punya sumber feed:
+        // alamat yang sudah diisi tangan tidak boleh ditimpa hasil tebakan.
+        if ($media->wasChanged(['domain', 'url_website'])) {
+            $media->forceFill(['feed_dicari_at' => null])->save();
+            TemukanFeedMedia::dispatch($media->id);
+        }
+
+        return to_route('admin.media.show', $media)
             ->with('sukses', "Media {$media->nama} diperbarui.");
     }
 
@@ -68,6 +135,10 @@ class MediaController extends Controller
      */
     public function crawl(Media $media): RedirectResponse
     {
+        if (! $media->aktif) {
+            return back()->with('galat', "{$media->nama} sedang nonaktif. Aktifkan dulu sebelum menariknya.");
+        }
+
         $jumlah = $media->sumberFeed()->where('aktif', true)->count();
 
         if ($jumlah === 0) {
@@ -80,13 +151,36 @@ class MediaController extends Controller
             ->with('catatan', 'Hasilnya muncul di halaman Log crawl beberapa saat lagi.');
     }
 
+    /**
+     * Saklar induk pengambilan berita.
+     *
+     * Dipisahkan dari `destroy` karena keduanya memang beda maksud, dan dulu
+     * disatukan. Tombol berlabel "Nonaktifkan" memanggil soft delete, sehingga
+     * medianya lenyap dari daftar alih-alih tampil sebagai baris nonaktif, dan
+     * satu-satunya cara menghidupkannya lagi adalah lewat basis data.
+     *
+     * Sejak seluruh media dicrawl secara bawaan, saklar ini yang menjadi satu
+     * -satunya cara menghentikan pengambilan tanpa membuang datanya.
+     */
+    public function aktif(Media $media): RedirectResponse
+    {
+        $media->update(['aktif' => ! $media->aktif]);
+
+        return back()->with(
+            'sukses',
+            $media->aktif
+                ? "{$media->nama} diaktifkan. Beritanya mulai ditarik lagi pada jadwal berikutnya."
+                : "{$media->nama} dinonaktifkan. Tidak ada lagi berita yang ditarik dari media ini.",
+        );
+    }
+
     public function destroy(Media $media): RedirectResponse
     {
         // Soft delete: artikel yang sudah terkumpul tetap menunjuk media ini.
         $media->delete();
 
         return to_route('admin.media.index')
-            ->with('sukses', "Media {$media->nama} dinonaktifkan.");
+            ->with('sukses', "Media {$media->nama} dihapus. Artikel yang sudah terkumpul tetap tersimpan.");
     }
 
     /** @return array<string, list<array{nilai: string, label: string}>> */

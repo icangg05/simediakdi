@@ -40,8 +40,9 @@ class PenyelesaiArtikel
         $artikel->save();
 
         if ($hasil->isi === null || $hasil->isi === '') {
-            // Ekstraksi kosong bukan kegagalan fatal: judul dan URL sudah cukup
-            // untuk pencocokan pemuatan kontrak. Ditandai supaya bisa diaudit.
+            // Ekstraksi kosong bukan kegagalan fatal: judul dan URL sudah
+            // cukup untuk mencatat bahwa beritanya ada. Ditandai supaya bisa
+            // diaudit.
             Log::warning('Ekstraksi isi kosong', ['artikel_id' => $artikel->id, 'url' => $artikel->url]);
             $artikel->update(['pesan_gagal' => 'Isi artikel tidak dapat diekstrak dari halaman.']);
 

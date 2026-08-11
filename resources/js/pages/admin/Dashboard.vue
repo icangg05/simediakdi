@@ -39,7 +39,6 @@ const props = defineProps<{
     proporsiSumber: {
         otomatis: number;
         laporan_media: number;
-        input_admin: number;
         total: number;
         persen_mandiri: number;
         melewati_ambang: boolean;
@@ -177,7 +176,7 @@ onUnmounted(() => clearInterval(pewaktu));
             </Card>
 
             <Card>
-                <CardHeader class="pb-3"><CardTitle class="text-base">Asal catatan pemuatan</CardTitle></CardHeader>
+                <CardHeader class="pb-3"><CardTitle class="text-base">Asal berita di arsip</CardTitle></CardHeader>
                 <CardContent class="space-y-2">
                     <template v-if="proporsiSumber.total > 0">
                         <div class="flex h-2 overflow-hidden rounded-full bg-muted">
@@ -190,15 +189,11 @@ onUnmounted(() => clearInterval(pewaktu));
                                 <dd class="angka">{{ formatAngka(proporsiSumber.otomatis) }}</dd>
                             </div>
                             <div class="flex justify-between">
-                                <dt>Dilaporkan media</dt>
+                                <dt>Ditambahkan media</dt>
                                 <dd class="angka">
                                     {{ formatAngka(proporsiSumber.laporan_media) }}
                                     ({{ formatPersen(proporsiSumber.persen_mandiri) }})
                                 </dd>
-                            </div>
-                            <div class="flex justify-between">
-                                <dt>Dimasukkan admin</dt>
-                                <dd class="angka">{{ formatAngka(proporsiSumber.input_admin) }}</dd>
                             </div>
                         </dl>
                         <p
@@ -210,9 +205,7 @@ onUnmounted(() => clearInterval(pewaktu));
                             berita kritis. Periksa cakupan sumber feed.
                         </p>
                     </template>
-                    <p v-else class="text-xs text-muted-foreground">
-                        Belum ada catatan pemuatan. Kartu ini terisi setelah kontrak dan portal media aktif.
-                    </p>
+                    <p v-else class="text-xs text-muted-foreground">Belum ada artikel di arsip. Kartu ini terisi setelah crawler berjalan.</p>
                 </CardContent>
             </Card>
 

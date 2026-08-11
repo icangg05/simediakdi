@@ -59,6 +59,12 @@ class ArsipBeritaController extends Controller
                 'diambil_at' => $a->diambil_at,
                 'label' => $a->analisisSentimen->first()?->label_efektif?->value,
                 'perlu_review' => (bool) $a->analisisSentimen->first()?->perlu_review,
+                // Alasan model atas labelnya, sama seperti di dashboard dan
+                // halaman sentimen. Judul berita sering tidak cukup untuk
+                // menilai apakah nadanya masuk akal, dan barisnya di sini
+                // sekarang punya ruang untuk memuat kalimat itu. Relasinya
+                // sudah ikut dimuat di atas, jadi tidak ada kueri tambahan.
+                'ringkasan_ai' => $a->analisisSentimen->first()?->reason_summary,
             ]),
             // Penanda bahwa daftar ini sedang dipersempit ke satu topik.
             // Tanpa penanda, pembaca yang mengetuk kartu topik di ringkasan

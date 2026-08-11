@@ -78,6 +78,28 @@ export type PeranPengguna = 'superadmin' | 'walikota' | 'media';
 export type LabelSentimen = 'negatif' | 'netral' | 'positif';
 
 /**
+ * Satu sumber pengambilan milik sebuah media.
+ *
+ * Ditaruh di sini, bukan di komponennya, karena halaman detail media dan dialog
+ * formulirnya harus sepakat soal bentuknya, dan `<script setup>` tidak boleh
+ * mengekspor apa pun.
+ */
+export interface SumberFeedBaris {
+    id: number;
+    nama: string;
+    tipe: 'rss' | 'scrape' | 'scrape_render';
+    url: string;
+    selector: { item?: string; judul?: string; tautan?: string } | null;
+    kata_kunci: string | null;
+    interval_menit: number;
+    aktif: boolean;
+    gagal_berturut: number;
+    pesan_error_terakhir: string | null;
+    berhasil_terakhir_at: string | null;
+    dijalankan_terakhir_at: string | null;
+}
+
+/**
  * Satuan pengelompokan grafik tren, ditentukan server dari panjang rentang.
  * Cerminan RingkasanEksekutif::satuan().
  */

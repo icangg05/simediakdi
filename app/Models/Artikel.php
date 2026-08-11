@@ -45,6 +45,50 @@ class Artikel extends Model
     }
 
     /**
+     * Pengguna media yang mengirim berita ini lewat portal, null kalau crawler
+     * yang menemukannya sendiri.
+     */
+    public function pelapor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'dilaporkan_oleh');
+    }
+
+    /**
+     * Tahap perjalanan artikel seperti yang dibaca media di portal.
+     *
+     * Ada di model, bukan di controller, karena dua layar menjawab pertanyaan
+     * yang sama: daftar kiriman di halaman Tambah berita, dan pesan hasil
+     * pemeriksaan URL. Sewaktu keduanya punya salinan sendiri, pemeriksaan URL
+     * berbunyi "penilaiannya masih berjalan" untuk artikel yang sudah lama
+     * diputus di luar pantauan, dan media menyimpulkan kirimannya tersangkut.
+     *
+     * Menyebut relevansi, bukan sentimen. Hanya sentimen yang dirahasiakan dari
+     * media (dokumen 01 bagian 8).
+     *
+     * @return 'tampil'|'di_luar_pantauan'|'diproses'|'gagal'
+     */
+    public function tahapPortal(): string
+    {
+        $analisis = $this->analisisSentimen->first();
+
+        if ($analisis === null) {
+            // Halaman yang gagal diunduh tidak pernah sampai ke antrean
+            // penilaian, jadi ia tidak boleh ikut berbunyi "sedang diproses".
+            // Media yang membaca kalimat itu akan menunggu, dan yang ditunggu
+            // tidak pernah datang. Pemanggil wajib ikut memilih kolom
+            // `status_proses`, kalau tidak cabang ini diam-diam tidak pernah
+            // menyala.
+            return $this->status_proses === 'gagal' ? 'gagal' : 'diproses';
+        }
+
+        if (! $analisis->relevan) {
+            return 'di_luar_pantauan';
+        }
+
+        return $analisis->label_efektif === null ? 'diproses' : 'tampil';
+    }
+
+    /**
      * Tanggal yang berarti "kapan berita ini muncul".
      *
      * Tanggal terbit dari feed, dan tanggal unduh hanya sebagai cadangan saat

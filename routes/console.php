@@ -17,8 +17,20 @@ Schedule::command('crawl:feeds')
     ->withoutOverlapping()
     ->runInBackground();
 
-// Hari ini ditulis ulang tiap 10 menit supaya dashboard tidak basi.
-Schedule::command('hitung:ringkasan-harian --hari=1')
+// Seminggu terakhir ditulis ulang tiap 10 menit supaya dashboard tidak basi.
+//
+// Dulu hanya `--hari=1`, dan itu meleset untuk kasus yang justru paling sering.
+// Artikel yang baru diunduh siang ini bisa terbit tiga hari lalu, dan agregasi
+// memakai tanggal terbit, jadi barisnya jatuh ke tanggal yang tidak ikut
+// dihitung ulang. Akibatnya media itu tampak nol di Peringkat Media sampai
+// penyisiran 90 hari berjalan pukul 03:10 keesokan harinya. Detikcom dan
+// Portal.id sempat kosong seharian karena ini padahal artikelnya sudah masuk
+// dan sudah berlabel.
+//
+// Tujuh hari, sepadan dengan rentang bawaan halaman eksekutif. Sekitar dua
+// ratus upsert satu baris tiap sepuluh menit, dan itu jauh lebih murah
+// daripada pimpinan membaca angka nol yang tidak benar.
+Schedule::command('hitung:ringkasan-harian --hari=7')
     ->everyTenMinutes()
     ->withoutOverlapping();
 
@@ -59,10 +71,6 @@ Schedule::command('log:bersihkan')->dailyAt('02:30');
 Schedule::command('alert:periksa')
     ->everyFifteenMinutes()
     ->withoutOverlapping();
-
-// Pagi hari sebelum jam kerja: peringatan tenggat kontrak berguna saat masih
-// ada waktu menindaklanjutinya hari itu juga.
-Schedule::command('kontrak:periksa-tenggat')->dailyAt('07:00');
 
 // Antrean klasifikasi Gemini, dua irama untuk dua pekerjaan yang berbeda
 // biayanya. Pengisian menyisir seluruh tabel artikel dengan tiga kueri

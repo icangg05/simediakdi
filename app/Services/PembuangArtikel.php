@@ -15,10 +15,8 @@ use Illuminate\Support\Collection;
  * sekarang adalah baris yang masih ada di tabel artikel.
  *
  * Database menjaga sisanya. Foreign key dari analisis_sentimen dan
- * antrean_gemini memakai CASCADE, sedangkan pemuatan memakai SET NULL. Baris
- * pemuatan juga menyimpan url, judul, arsip_teks, dan arsip_screenshot_path
- * miliknya sendiri, jadi bukti klaim media tetap utuh setelah artikel yang
- * diklaim hilang.
+ * antrean_gemini memakai CASCADE, jadi barisnya ikut terhapus tanpa perlu
+ * disebut di sini.
  */
 class PembuangArtikel
 {

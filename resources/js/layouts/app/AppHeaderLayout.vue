@@ -5,7 +5,15 @@ import AppShell from '@/components/AppShell.vue';
 </script>
 
 <template>
-    <AppShell class="flex-col">
+    <!--
+        `variant="header"` wajib disebut. Tanpa itu AppShell jatuh ke cabang
+        SidebarProvider, dan pembungkusnya memasang `text-sidebar-foreground`
+        ke seluruh isi halaman. Warna itu nyaris putih karena sidebar berlatar
+        navy, jadi setiap teks yang tidak menyebut warnanya sendiri menjadi
+        putih di atas latar terang panel eksekutif. Judul dan label di halaman
+        pengaturan hilang persis karena ini.
+    -->
+    <AppShell variant="header" class="flex-col">
         <AppHeader />
 
         <!--

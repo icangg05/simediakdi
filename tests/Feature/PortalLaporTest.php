@@ -3,31 +3,29 @@
 namespace Tests\Feature;
 
 use App\Enums\PeranPengguna;
-use App\Enums\StatusVerifikasi;
-use App\Jobs\ArsipkanBuktiPemuatan;
+use App\Jobs\AmbilIsiArtikel;
+use App\Models\AnalisisSentimen;
 use App\Models\Artikel;
-use App\Models\Kontrak;
 use App\Models\Media;
-use App\Models\Pemuatan;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 /**
- * Lapor pemuatan, dokumen 04 bagian C.6.
+ * Tambah berita dari portal media, dokumen 04 bagian C.6.
  *
- * Yang diuji di sini bukan tampilannya, melainkan batas-batas yang kalau jebol
- * berakibat pada uang: URL media lain yang diklaim sebagai pemuatan sendiri,
- * satu berita yang dihitung dua kali, dan laporan yang masuk tanpa verifikasi.
+ * Tidak ada persetujuan admin: berita yang dikirim media langsung masuk arsip.
+ * Karena itu satu-satunya penjaga yang tersisa adalah pemeriksaan domain, dan
+ * di situlah tes ini menaruh perhatiannya. Kalau batas itu jebol, satu akun
+ * media bisa menyuntikkan berita milik pesaingnya ke arsip yang dibaca panel
+ * eksekutif.
  */
 class PortalLaporTest extends TestCase
 {
     use RefreshDatabase;
 
     private Media $media;
-
-    private Kontrak $kontrak;
 
     private User $pic;
 
@@ -39,20 +37,40 @@ class PortalLaporTest extends TestCase
 
         $this->media = Media::create(['nama' => 'Kendari Pos', 'slug' => 'kendari-pos', 'domain' => 'kendaripos.test']);
 
-        $this->kontrak = Kontrak::withoutGlobalScopes()->create([
-            'media_id' => $this->media->id,
-            'judul' => 'Publikasi 2026',
-            'jenis' => 'publikasi',
-            'status' => 'aktif',
-            'tanggal_mulai' => now()->subDays(30)->toDateString(),
-            'tanggal_akhir' => now()->addDays(60)->toDateString(),
-            'target_pemuatan' => 20,
-        ]);
-
         $this->pic = User::create([
             'name' => 'PIC Kendari Pos', 'email' => 'pic@kendaripos.test', 'password' => 'rahasia123',
             'peran' => PeranPengguna::Media, 'media_id' => $this->media->id, 'email_verified_at' => now(),
         ]);
+    }
+
+    /** @param  array<string, mixed>  $baris */
+    private function tambah(array $baris)
+    {
+        return $this->actingAs($this->pic)->post('/portal/lapor', ['baris' => [$baris]]);
+    }
+
+    /** Artikel media ini yang sudah dinilai relevan dan berlabel. */
+    private function beritaTerpantau(
+        string $url,
+        string $judul = 'Berita terpantau',
+        ?string $terbit = null,
+        ?int $dilaporkanOleh = null,
+    ): Artikel {
+        $artikel = Artikel::withoutGlobalScopes()->create([
+            'media_id' => $this->media->id, 'judul' => $judul,
+            'url' => $url, 'url_kanonik' => $url,
+            'diambil_at' => now(), 'status_proses' => 'selesai',
+            'dipublikasikan_at' => $terbit,
+            'dilaporkan_oleh' => $dilaporkanOleh,
+        ]);
+
+        AnalisisSentimen::create([
+            'artikel_id' => $artikel->id, 'relevan' => true,
+            'label_model' => 'netral', 'perlu_review' => false,
+            'model_versi' => 'uji', 'dianalisis_at' => now(),
+        ]);
+
+        return $artikel;
     }
 
     /**
@@ -61,125 +79,238 @@ class PortalLaporTest extends TestCase
      */
     public function test_url_dari_domain_media_lain_ditolak(): void
     {
-        $this->actingAs($this->pic)->post('/portal/lapor', [
-            'kontrak_id' => $this->kontrak->id,
-            'baris' => [[
-                'url' => 'https://mediapesaing.test/berita-a',
-                'judul' => 'Berita milik media lain',
-                'tanggal' => now()->toDateString(),
-            ]],
+        $this->tambah([
+            'url' => 'https://mediapesaing.test/berita-a',
+            'judul' => 'Berita milik media lain',
+            'tanggal' => now()->toDateString(),
         ]);
 
-        $this->assertSame(0, Pemuatan::withoutGlobalScopes()->count());
+        $this->assertSame(0, Artikel::withoutGlobalScopes()->count());
     }
 
     public function test_subdomain_media_sendiri_diterima(): void
     {
-        $this->actingAs($this->pic)->post('/portal/lapor', [
-            'kontrak_id' => $this->kontrak->id,
-            'baris' => [[
-                'url' => 'https://daerah.kendaripos.test/berita-b',
-                'judul' => 'Berita dari subdomain',
-                'tanggal' => now()->toDateString(),
-            ]],
+        $this->tambah([
+            'url' => 'https://daerah.kendaripos.test/berita-b',
+            'judul' => 'Berita dari subdomain',
+            'tanggal' => now()->toDateString(),
         ]);
 
-        $this->assertSame(1, Pemuatan::withoutGlobalScopes()->count());
-    }
-
-    /** Laporan media selalu menunggu manusia. Yang langsung sah hanya temuan crawler. */
-    public function test_laporan_media_berstatus_menunggu_verifikasi(): void
-    {
-        $this->actingAs($this->pic)->post('/portal/lapor', [
-            'kontrak_id' => $this->kontrak->id,
-            'baris' => [[
-                'url' => 'https://kendaripos.test/berita-c',
-                'judul' => 'Berita C',
-                'tanggal' => now()->toDateString(),
-            ]],
-        ]);
-
-        $pemuatan = Pemuatan::withoutGlobalScopes()->first();
-
-        $this->assertSame(StatusVerifikasi::Menunggu, $pemuatan->status_verifikasi);
-        $this->assertSame('laporan_media', $pemuatan->sumber_catatan);
-        $this->assertSame($this->pic->id, $pemuatan->dilaporkan_oleh);
-    }
-
-    /** F-52: bukti diambil di latar belakang, media tidak menunggunya. */
-    public function test_pengarsipan_bukti_dijadwalkan_di_antrean(): void
-    {
-        $this->actingAs($this->pic)->post('/portal/lapor', [
-            'kontrak_id' => $this->kontrak->id,
-            'baris' => [[
-                'url' => 'https://kendaripos.test/berita-d',
-                'judul' => 'Berita D',
-                'tanggal' => now()->toDateString(),
-            ]],
-        ]);
-
-        Queue::assertPushed(ArsipkanBuktiPemuatan::class);
+        $this->assertSame(1, Artikel::withoutGlobalScopes()->count());
     }
 
     /**
-     * Artikel yang sudah ditemukan crawler tidak boleh dihitung dua kali.
-     * Kalau ini jebol, realisasi kontrak yang dibayar bisa dua kali lipat dari
-     * pemuatan yang sebenarnya terjadi.
+     * Berita kiriman masuk arsip seketika, tanpa antrean persetujuan, dan
+     * melewati jalur pemrosesan yang sama dengan temuan crawler.
      */
-    public function test_url_yang_sudah_tercatat_tidak_membuat_baris_kedua(): void
+    public function test_berita_yang_ditambahkan_langsung_masuk_arsip(): void
     {
-        Pemuatan::withoutGlobalScopes()->create([
-            'kontrak_id' => $this->kontrak->id,
-            'media_id' => $this->media->id,
-            'url' => 'https://kendaripos.test/berita-e',
-            'judul' => 'Berita E',
-            'tanggal_muat' => now()->toDateString(),
-            'sumber_catatan' => 'otomatis',
-            'status_verifikasi' => StatusVerifikasi::Terverifikasi,
+        $this->tambah([
+            'url' => 'https://kendaripos.test/berita-c',
+            'judul' => 'Berita C',
+            'tanggal' => now()->subDay()->toDateString(),
         ]);
 
-        $this->actingAs($this->pic)->post('/portal/lapor', [
-            'kontrak_id' => $this->kontrak->id,
-            'baris' => [[
-                'url' => 'https://kendaripos.test/berita-e?utm_source=wa',
-                'judul' => 'Berita E',
-                'tanggal' => now()->toDateString(),
-            ]],
-        ]);
+        $artikel = Artikel::withoutGlobalScopes()->firstOrFail();
 
-        $this->assertSame(1, Pemuatan::withoutGlobalScopes()->count());
+        $this->assertSame('Berita C', $artikel->judul);
+        $this->assertSame($this->media->id, $artikel->media_id);
+        // Pembeda berita kiriman dari temuan crawler, dipakai kartu bias F-54.
+        $this->assertSame($this->pic->id, $artikel->dilaporkan_oleh);
+        Queue::assertPushed(AmbilIsiArtikel::class);
     }
 
-    /** F-48: daftar yang sudah tercatat otomatis tampil sebelum form. */
-    public function test_halaman_lapor_menampilkan_yang_sudah_tercatat_otomatis(): void
+    /**
+     * Berita yang sudah ditangkap crawler tidak perlu ditambahkan lagi. Kalau
+     * ini jebol, satu berita masuk arsip dua kali dan seluruh agregasi
+     * menghitungnya dobel.
+     */
+    public function test_url_yang_sudah_ada_di_arsip_tidak_membuat_baris_kedua(): void
     {
-        Pemuatan::withoutGlobalScopes()->create([
-            'kontrak_id' => $this->kontrak->id,
-            'media_id' => $this->media->id,
+        $this->beritaTerpantau('https://kendaripos.test/berita-d', 'Berita D');
+
+        // Parameter pelacak berbeda, berita yang sama. Pemeriksaan memakai URL
+        // kanonik justru untuk kasus ini.
+        $this->tambah([
+            'url' => 'https://kendaripos.test/berita-d?utm_source=wa',
+            'judul' => 'Berita D',
+            'tanggal' => now()->toDateString(),
+        ]);
+
+        $this->assertSame(1, Artikel::withoutGlobalScopes()->count());
+    }
+
+    /** F-48: berita yang sudah terpantau tampil sebelum form. */
+    public function test_halaman_tambah_menampilkan_berita_yang_sudah_terpantau(): void
+    {
+        $this->beritaTerpantau('https://kendaripos.test/berita-e', 'Sudah terpantau');
+
+        $this->actingAs($this->pic)
+            ->get('/portal/lapor')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('sudahOtomatis', 1)
+                ->where('sudahOtomatis.0.judul', 'Sudah terpantau'));
+    }
+
+    /**
+     * Berita kiriman belum tampil di "Berita saya" sampai penilaiannya selesai.
+     * Tahapannya harus terbaca, kalau tidak media mengirim ulang berita yang
+     * sebenarnya sudah masuk.
+     */
+    public function test_kiriman_sendiri_menampilkan_tahap_pemrosesannya(): void
+    {
+        $this->tambah([
             'url' => 'https://kendaripos.test/berita-f',
-            'judul' => 'Sudah ketemu crawler',
-            'tanggal_muat' => now()->toDateString(),
-            'sumber_catatan' => 'otomatis',
-            'status_verifikasi' => StatusVerifikasi::Terverifikasi,
+            'judul' => 'Berita F',
+            'tanggal' => now()->toDateString(),
         ]);
 
         $this->actingAs($this->pic)
             ->get('/portal/lapor')
             ->assertOk()
-            ->assertInertia(fn ($page) => $page->has('sudahOtomatis', 1));
+            ->assertInertia(fn ($page) => $page
+                ->has('kiriman', 1)
+                ->where('kiriman.0.status', 'diproses'));
     }
 
-    /** Tanggal muat di masa depan hampir selalu salah ketik, bukan laporan sah. */
-    public function test_tanggal_muat_di_masa_depan_ditolak(): void
+    /** Berita yang dinilai di luar pantauan tidak boleh terbaca sebagai masih diproses. */
+    public function test_kiriman_yang_tidak_relevan_ditandai_di_luar_pantauan(): void
     {
-        $this->actingAs($this->pic)->post('/portal/lapor', [
-            'kontrak_id' => $this->kontrak->id,
-            'baris' => [[
-                'url' => 'https://kendaripos.test/berita-g',
-                'judul' => 'Berita G',
-                'tanggal' => now()->addDay()->toDateString(),
-            ]],
+        $artikel = Artikel::withoutGlobalScopes()->create([
+            'media_id' => $this->media->id, 'judul' => 'Berita G',
+            'url' => 'https://kendaripos.test/berita-g', 'url_kanonik' => 'https://kendaripos.test/berita-g',
+            'diambil_at' => now(), 'status_proses' => 'selesai', 'dilaporkan_oleh' => $this->pic->id,
+        ]);
+
+        AnalisisSentimen::create([
+            'artikel_id' => $artikel->id, 'relevan' => false,
+            'perlu_review' => false, 'model_versi' => 'uji', 'dianalisis_at' => now(),
+        ]);
+
+        $this->actingAs($this->pic)
+            ->get('/portal/lapor')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('kiriman.0.status', 'di_luar_pantauan'));
+    }
+
+    /**
+     * Pemeriksaan URL harus menyebut keadaan artikelnya, bukan satu kalimat
+     * untuk semua keadaan.
+     *
+     * Ini keluhan nyata: media menempel tautan berita yang tidak relevan, layar
+     * menjawab "sudah ada di sistem, penilaiannya masih berjalan", lalu berita
+     * itu tidak pernah muncul di mana pun. Crawler memang menyimpan seluruh isi
+     * feed lebih dulu, termasuk yang kemudian dinilai di luar pantauan, jadi
+     * tercatat tidak sama dengan terpantau dan pesannya harus mengatakan itu.
+     */
+    public function test_periksa_menyebut_url_tercatat_yang_di_luar_pantauan(): void
+    {
+        $artikel = Artikel::withoutGlobalScopes()->create([
+            'media_id' => $this->media->id, 'judul' => 'Berita tidak relevan',
+            'url' => 'https://kendaripos.test/berita-i', 'url_kanonik' => 'https://kendaripos.test/berita-i',
+            'diambil_at' => now(), 'status_proses' => 'tidak_relevan',
+        ]);
+
+        AnalisisSentimen::create([
+            'artikel_id' => $artikel->id, 'relevan' => false,
+            'perlu_review' => false, 'model_versi' => 'uji', 'dianalisis_at' => now(),
+        ]);
+
+        $this->actingAs($this->pic)
+            ->post('/portal/lapor/periksa', ['tautan' => 'https://kendaripos.test/berita-i'])
+            ->assertSessionHas('hasilPeriksa', fn (array $hasil) => $hasil['baris'][0]['tahap'] === 'di_luar_pantauan'
+                && str_contains($hasil['baris'][0]['pesan'], 'di luar pantauan'));
+    }
+
+    /** Tanggal terbit di masa depan hampir selalu salah ketik, bukan kiriman sah. */
+    public function test_tanggal_terbit_di_masa_depan_ditolak(): void
+    {
+        $this->tambah([
+            'url' => 'https://kendaripos.test/berita-h',
+            'judul' => 'Berita H',
+            'tanggal' => now()->addDay()->toDateString(),
         ])->assertSessionHasErrors('baris.0.tanggal');
+    }
+
+    /**
+     * "Berita saya" hanya memuat yang sudah dinilai relevan dan berlabel,
+     * populasi yang sama dengan panel eksekutif. Artikel mentah hasil crawl
+     * tidak boleh bocor ke sini.
+     */
+    public function test_berita_saya_hanya_memuat_yang_relevan_dan_berlabel(): void
+    {
+        $this->beritaTerpantau('https://kendaripos.test/relevan', 'Berita relevan');
+
+        // Belum dinilai sama sekali. Tidak boleh muncul.
+        Artikel::withoutGlobalScopes()->create([
+            'media_id' => $this->media->id, 'judul' => 'Belum dinilai',
+            'url' => 'https://kendaripos.test/mentah', 'url_kanonik' => 'https://kendaripos.test/mentah',
+            'diambil_at' => now(), 'status_proses' => 'mentah',
+        ]);
+
+        $this->actingAs($this->pic)
+            ->get('/portal/berita')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('artikel.data', 1)
+                ->where('artikel.data.0.judul', 'Berita relevan'));
+    }
+
+    /**
+     * Penanda asal baris. Media perlu tahu berita mana yang tertangkap sistem
+     * tanpa diminta, karena itu yang menentukan apakah sumber feed-nya sehat.
+     */
+    public function test_berita_saya_menandai_asal_tiap_baris(): void
+    {
+        $this->beritaTerpantau('https://kendaripos.test/otomatis', 'Temuan crawler');
+        $this->beritaTerpantau('https://kendaripos.test/kiriman', 'Kiriman sendiri', dilaporkanOleh: $this->pic->id);
+
+        $this->actingAs($this->pic)
+            ->get('/portal/berita?urut=judul&arah=asc')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('artikel.data', 2)
+                ->where('artikel.data.0.judul', 'Kiriman sendiri')
+                ->where('artikel.data.0.ditambahkan_sendiri', true)
+                ->where('artikel.data.1.judul', 'Temuan crawler')
+                ->where('artikel.data.1.ditambahkan_sendiri', false));
+    }
+
+    /**
+     * Rentang disaring menurut tanggal terbit, bukan tanggal unduh. Penarikan
+     * arsip memasukkan berita lama pada satu hari yang sama, dan menyaringnya
+     * dengan tanggal unduh membuat berita bulan lalu menghilang dari rentang
+     * yang seharusnya memuatnya.
+     */
+    public function test_berita_saya_disaring_rentang_tanggal_terbit(): void
+    {
+        $this->beritaTerpantau('https://kendaripos.test/baru', 'Terbit kemarin', terbit: now()->subDay()->toDateTimeString());
+        $this->beritaTerpantau('https://kendaripos.test/lama', 'Terbit tahun lalu', terbit: now()->subYear()->toDateTimeString());
+
+        // Bawaan 30 hari: yang tahun lalu di luar rentang.
+        $this->actingAs($this->pic)
+            ->get('/portal/berita')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('artikel.data', 1)
+                ->where('artikel.data.0.judul', 'Terbit kemarin'));
+
+        $this->actingAs($this->pic)
+            ->get('/portal/berita?dari='.now()->subYear()->subWeek()->toDateString().'&sampai='.now()->toDateString())
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->has('artikel.data', 2));
+    }
+
+    /** Rentang yang sedang berlaku ikut dikirim, supaya pemilih tanggal tidak menampilkan nilai basi. */
+    public function test_berita_saya_mengirim_rentang_yang_berlaku(): void
+    {
+        $this->actingAs($this->pic)
+            ->get('/portal/berita?dari=2026-07-01&sampai=2026-07-31')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('periode.dari', '2026-07-01')
+                ->where('periode.sampai', '2026-07-31'));
     }
 
     /**
@@ -189,11 +320,7 @@ class PortalLaporTest extends TestCase
      */
     public function test_berita_saya_tidak_memuat_field_sentimen(): void
     {
-        Artikel::withoutGlobalScopes()->create([
-            'media_id' => $this->media->id, 'judul' => 'Berita uji',
-            'url' => 'https://kendaripos.test/uji', 'url_kanonik' => 'https://kendaripos.test/uji',
-            'diambil_at' => now(), 'status_proses' => 'selesai',
-        ]);
+        $this->beritaTerpantau('https://kendaripos.test/uji', 'Berita uji');
 
         $this->actingAs($this->pic)
             ->get('/portal/berita')

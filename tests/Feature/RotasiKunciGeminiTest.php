@@ -526,6 +526,79 @@ class RotasiKunciGeminiTest extends TestCase
             ->assertInertia(fn ($p) => $p->where('kunci.0.rpd_google', 250));
     }
 
+    /**
+     * Batas harian dibaca menurut derajat sumbernya, bukan menurut kolom mana
+     * yang kebetulan terisi.
+     *
+     * Angka admin ada karena `rpd_google` punya lubang yang tidak bisa ditutup
+     * sendiri: ia hanya terisi dari 429 harian, sedangkan penjaga kuota menahan
+     * kunci sebelum 429 itu terjadi. Tanpa jalur ini kunci berbayar terkunci
+     * selamanya di angka free tier tanpa satu pun galat.
+     */
+    public function test_batas_harian_mendahulukan_google_lalu_admin_lalu_bawaan(): void
+    {
+        config(['ai.batas_kunci.rpd' => 500]);
+
+        $kunci = $this->kunci('Kunci A');
+
+        $this->assertSame(500, $this->rotasi->batasHarian($kunci));
+
+        $kunci->forceFill(['rpd_manual' => 10000])->save();
+
+        $this->assertSame(10000, $this->rotasi->batasHarian($kunci->fresh()));
+
+        // Google menang. Angka admin yang terlalu besar terkoreksi sendiri
+        // begitu 429 harian benar-benar terjadi dan menyebut jatah aslinya.
+        $kunci->forceFill(['rpd_google' => 2000])->save();
+
+        $this->assertSame(2000, $this->rotasi->batasHarian($kunci->fresh()));
+    }
+
+    public function test_admin_bisa_menyetel_dan_mengosongkan_batas_harian(): void
+    {
+        $kunci = $this->kunci('Kunci A');
+        $admin = User::factory()->create();
+
+        $this->actingAs($admin)
+            ->put("/admin/pengaturan/kunci/{$kunci->id}", ['rpd_manual' => 10000])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(10000, $kunci->fresh()->rpd_manual);
+
+        // Menyetel batas tidak boleh menyentuh sakelar aktif, karena keduanya
+        // datang dari kendali yang berbeda di layar.
+        $this->assertTrue($kunci->fresh()->aktif);
+
+        // Dikosongkan lewat string kosong, persis seperti yang dikirim layar.
+        // Bidang bernilai null hilang dari badan permintaan saat dikodekan
+        // sebagai form, dan controller membaca ada tidaknya bidang ini untuk
+        // membedakan "kosongkan batas" dari "ubah sakelar aktif".
+        $this->actingAs($admin)
+            ->put("/admin/pengaturan/kunci/{$kunci->id}", ['rpd_manual' => ''])
+            ->assertSessionHasNoErrors();
+
+        $this->assertNull($kunci->fresh()->rpd_manual);
+    }
+
+    /**
+     * Permintaan tanpa satu pun bidang ditolak.
+     *
+     * Sebelum ada `required_without`, bidang `aktif` yang hilang terbaca sebagai
+     * perintah menyalakan kunci, jadi permintaan kosong diam-diam menghidupkan
+     * kunci yang baru saja dimatikan admin.
+     */
+    public function test_ubah_kunci_menolak_permintaan_tanpa_bidang(): void
+    {
+        $kunci = $this->kunci('Kunci A');
+        $kunci->forceFill(['aktif' => false])->save();
+
+        $this->actingAs(User::factory()->create())
+            ->put("/admin/pengaturan/kunci/{$kunci->id}", [])
+            ->assertSessionHasErrors('aktif');
+
+        $this->assertFalse($kunci->fresh()->aktif);
+    }
+
     private function kunci(string $label, ?CarbonInterface $limitSampai = null): KunciGemini
     {
         return KunciGemini::create([

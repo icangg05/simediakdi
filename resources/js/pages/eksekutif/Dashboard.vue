@@ -335,7 +335,7 @@ function rupaTopik(nada: LabelSentimen) {
     <Head title="Kondisi pemberitaan Kota Kendari" />
 
     <LayoutEksekutif>
-        <header class="muncul flex flex-wrap items-end justify-between gap-3">
+        <header class="flex flex-wrap items-end justify-between gap-3">
             <div>
                 <h1 class="text-2xl font-semibold text-primary dark:text-aksen-biru">Kondisi pemberitaan Kota Kendari</h1>
                 <p class="text-sm text-muted-foreground">Apa yang ditulis media tentang Pemerintah Kota, {{ rentangTerbaca }}</p>
@@ -434,16 +434,12 @@ function rupaTopik(nada: LabelSentimen) {
                         </ul>
 
                         <!--
-                            Sisanya tetap disebut. Berita yang labelnya belum
-                            cukup yakin dikeluarkan dari barisan di atas supaya
-                            kesimpulannya ringkas, tapi menghilangkannya diam
-                            diam berarti tiga persentase di atas menyembunyikan
-                            selisih yang tidak pernah dijelaskan.
+                            Berita yang labelnya belum pasti tidak disebut di
+                            sini. Angka itu tidak berarti apa pun bagi pembaca
+                            halaman ini, dan tiga persentase di atas sudah
+                            berjumlah seratus karena dasarnya memang hanya
+                            berita berlabel.
                         -->
-                        <p v-if="kpi.perlu_review > 0" class="angka text-xs text-muted-foreground">
-                            {{ formatAngka(kpi.perlu_review) }} berita lain masih dicek ulang karena label modelnya belum cukup yakin, dan belum
-                            dihitung di tiga angka di atas.
-                        </p>
                     </div>
                 </CardContent>
             </Card>
@@ -462,7 +458,7 @@ function rupaTopik(nada: LabelSentimen) {
             <Card class="muncul overflow-hidden" style="animation-delay: 100ms">
                 <CardHeader class="flex-row items-center justify-between gap-3 bg-aksen-ungu/[0.07] py-3.5">
                     <CardTitle class="flex items-center gap-2.5 text-base">
-                        <span class="grid h-8 w-8 place-items-center rounded-xl bg-aksen-ungu text-white shadow-sm">
+                        <span class="grid h-8 w-8 place-items-center rounded-xl bg-aksen-ungu text-white shadow-sm dark:text-background">
                             <Sparkles class="h-[18px] w-[18px]" aria-hidden="true" />
                         </span>
                         Ulasan pemberitaan periode ini
@@ -732,7 +728,10 @@ function rupaTopik(nada: LabelSentimen) {
                         :style="{ animationDelay: `${320 + urutan * 90}ms` }"
                     >
                         <p :class="bagian.aksen" class="flex items-center gap-3 text-sm font-semibold leading-snug">
-                            <span :class="bagian.tile" class="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white shadow-sm">
+                            <span
+                                :class="bagian.tile"
+                                class="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white shadow-sm dark:text-background"
+                            >
                                 <component :is="bagian.ikon" class="h-[18px] w-[18px]" aria-hidden="true" />
                             </span>
                             {{ bagian.judul }}
@@ -851,7 +850,7 @@ function rupaTopik(nada: LabelSentimen) {
             <Card class="muncul overflow-hidden" style="animation-delay: 500ms">
                 <CardHeader class="flex-row items-center justify-between bg-aksen-toska/[0.08] py-3.5">
                     <CardTitle class="flex items-center gap-2.5 text-base">
-                        <span class="grid h-8 w-8 place-items-center rounded-xl bg-aksen-toska text-white shadow-sm">
+                        <span class="grid h-8 w-8 place-items-center rounded-xl bg-aksen-toska text-white shadow-sm dark:text-background">
                             <Globe2 class="h-[18px] w-[18px]" aria-hidden="true" />
                         </span>
                         Media yang paling banyak memberitakan
@@ -927,7 +926,7 @@ function rupaTopik(nada: LabelSentimen) {
                 <Card v-if="beritaPerhatian.length" class="overflow-hidden border-sentimen-negatif/25 bg-sentimen-negatif-lembut/50">
                     <CardHeader class="flex-row items-center justify-between pb-3">
                         <CardTitle class="flex items-center gap-2.5 text-base text-sentimen-negatif">
-                            <span class="grid h-8 w-8 place-items-center rounded-xl bg-sentimen-negatif text-white shadow-sm">
+                            <span class="grid h-8 w-8 place-items-center rounded-xl bg-sentimen-negatif text-white shadow-sm dark:text-background">
                                 <TriangleAlert class="h-[18px] w-[18px]" aria-hidden="true" />
                             </span>
                             Berita yang bernada negatif
@@ -967,7 +966,7 @@ function rupaTopik(nada: LabelSentimen) {
                 <Card v-if="beritaPositif.length" class="overflow-hidden border-sentimen-positif/25 bg-sentimen-positif-lembut/40">
                     <CardHeader class="flex-row items-center justify-between pb-3">
                         <CardTitle class="flex items-center gap-2.5 text-base text-sentimen-positif">
-                            <span class="grid h-8 w-8 place-items-center rounded-xl bg-sentimen-positif text-white shadow-sm">
+                            <span class="grid h-8 w-8 place-items-center rounded-xl bg-sentimen-positif text-white shadow-sm dark:text-background">
                                 <ThumbsUp class="h-[18px] w-[18px]" aria-hidden="true" />
                             </span>
                             Berita bernada positif
@@ -1008,7 +1007,7 @@ function rupaTopik(nada: LabelSentimen) {
             <Card class="muncul overflow-hidden" style="animation-delay: 620ms">
                 <CardHeader class="flex-row items-center justify-between bg-aksen-biru/[0.07] py-3.5">
                     <CardTitle class="flex items-center gap-2.5 text-base">
-                        <span class="grid h-8 w-8 place-items-center rounded-xl bg-aksen-biru text-white shadow-sm">
+                        <span class="grid h-8 w-8 place-items-center rounded-xl bg-aksen-biru text-white shadow-sm dark:text-background">
                             <Clock class="h-[18px] w-[18px]" aria-hidden="true" />
                         </span>
                         Berita terbaru

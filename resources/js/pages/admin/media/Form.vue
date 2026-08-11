@@ -154,12 +154,12 @@ function simpan() {
                     </div>
 
                     <label class="flex items-center gap-2 text-sm">
-                        <Checkbox v-model="form.partner" />
+                        <Checkbox v-model:checked="form.partner" />
                         Punya kerja sama dengan Pemkot
                     </label>
 
                     <label class="flex items-center gap-2 text-sm">
-                        <Checkbox v-model="form.aktif" />
+                        <Checkbox v-model:checked="form.aktif" />
                         Aktif
                     </label>
 

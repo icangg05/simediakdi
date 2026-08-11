@@ -6,7 +6,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { CalendarDays } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 /**
  * Tombol yang membuka sheet dari bawah, bukan dropdown kecil (dokumen 04 C.1).
@@ -17,13 +17,37 @@ import { computed, ref } from 'vue';
  * dalam sheet. Berpindah antara ringkasan harian, mingguan, bulanan, dan tiga
  * bulanan adalah hal yang paling sering dilakukan di panel eksekutif, dan
  * mengubur pilihannya di balik satu ketukan membuatnya jarang dipakai.
+ *
+ * `tanpaSheet` membuka kedua kotak tanggal langsung di halaman dan meniadakan
+ * sheet sama sekali. Dipakai di halaman yang memang halaman penyaring, tempat
+ * rentang tanggal berdiri sejajar dengan pencarian dan filter lain. Menyembunyikan
+ * satu penyaring di balik lapisan yang menutupi hasilnya membuat pengguna
+ * menutup dan membuka lapisan itu berulang kali hanya untuk melihat akibat
+ * pilihannya.
  */
-const props = defineProps<{ dari: string; sampai: string; inline?: boolean }>();
+const props = defineProps<{ dari: string; sampai: string; inline?: boolean; tanpaSheet?: boolean }>();
 const emit = defineEmits<{ ubah: [dari: string, sampai: string] }>();
 
 const terbuka = ref(false);
 const dariLokal = ref(props.dari);
 const sampaiLokal = ref(props.sampai);
+
+/**
+ * Kotak tanggal ikut rentang yang sedang berlaku, bukan hanya rentang saat
+ * komponen pertama kali dipasang.
+ *
+ * Kunjungan Inertia di panel eksekutif memakai `preserveState`, jadi instance
+ * komponen ini bertahan dan kedua ref lokalnya tidak ikut berganti saat prop
+ * berubah. Dulu tidak terlihat karena isinya hanya muncul di dalam sheet.
+ * Begitu kotaknya berdiri di halaman, nilai basi itu langsung terbaca.
+ */
+watch(
+    () => [props.dari, props.sampai] as const,
+    ([dari, sampai]) => {
+        dariLokal.value = dari;
+        sampaiLokal.value = sampai;
+    },
+);
 
 const pintasan = [
     { label: 'Hari ini', hari: 0 },
@@ -75,23 +99,53 @@ const ringkas = computed(() => {
 
 <template>
     <div class="flex flex-wrap items-center gap-1.5">
-        <div v-if="inline" class="flex flex-wrap items-center gap-1 rounded-lg bg-muted p-1">
+        <!--
+            Alas deretan pintasan memakai `secondary`, bukan `muted`.
+            Di mode gelap `muted` bernilai 6,9% sedangkan latar halaman 3,9%,
+            selisih yang tidak terlihat mata, sehingga deretan ini kehilangan
+            bentuknya dan keempat pintasan mengambang tanpa wadah. `secondary`
+            bernilai 92,1% di mode terang dan 14,9% di mode gelap, dua-duanya
+            terbaca sebagai bidang tersendiri.
+        -->
+        <div v-if="inline" class="flex flex-wrap items-center gap-1 rounded-lg bg-secondary p-1">
             <Button
                 v-for="p in pintasan"
                 :key="p.label"
                 :variant="p.label === pintasanAktif ? 'default' : 'ghost'"
                 size="sm"
-                class="h-7 px-2.5 text-xs"
+                class="h-8 px-3 text-sm font-semibold"
+                :class="p.label === pintasanAktif ? '' : 'text-foreground hover:bg-background'"
                 @click="pakaiPintasan(p.hari)"
             >
                 {{ p.label }}
             </Button>
         </div>
 
-        <Sheet v-model:open="terbuka">
+        <!--
+            Dua kotak tanggal bawaan peramban, bukan kalender buatan sendiri.
+            Di ponsel keduanya memanggil pemilih tanggal milik sistem, yang
+            sudah dikenal pengguna dan sudah benar soal zona waktu, format, dan
+            navigasi papan ketik.
+        -->
+        <div v-if="tanpaSheet" class="flex flex-wrap items-center gap-1.5">
+            <Label for="rentang-dari" class="text-xs text-muted-foreground">Dari</Label>
+            <Input id="rentang-dari" v-model="dariLokal" type="date" :max="sampaiLokal" class="h-8 w-[9.5rem] text-sm" @change="terapkan" />
+
+            <Label for="rentang-sampai" class="text-xs text-muted-foreground">sampai</Label>
+            <Input id="rentang-sampai" v-model="sampaiLokal" type="date" :min="dariLokal" class="h-8 w-[9.5rem] text-sm" @change="terapkan" />
+        </div>
+
+        <Sheet v-else v-model:open="terbuka">
+            <!--
+                Tinggi 40 piksel supaya sejajar dengan deretan pintasan di
+                sebelahnya, yang tingginya 32 piksel ditambah 4 piksel isi
+                di atas dan di bawah. Sebelumnya tombol ini `h-10` bawaan
+                sedangkan deretannya 36 piksel, dan selisih 4 piksel itu
+                membuat keduanya terlihat tidak sengaja diletakkan sebaris.
+            -->
             <SheetTrigger as-child>
-                <Button variant="outline" class="gap-2">
-                    <CalendarDays class="h-4 w-4" aria-hidden="true" />
+                <Button variant="outline" class="h-10 gap-2 font-semibold text-foreground">
+                    <CalendarDays class="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                     <span class="text-sm">{{ ringkas }}</span>
                 </Button>
             </SheetTrigger>

@@ -505,7 +505,7 @@ RELEVANSI_ARTEFAK_PATH=/var/www/simedia/storage/app/private/relevance-models
 RELEVANSI_TRAINING_SECRET=
 RELEVANSI_TRAINING_TIMEOUT=1800
 
-CRAWL_USER_AGENT="SimediaKendariBot/1.0 (+https://simedia.kendarikota.go.id/bot)"
+CRAWL_USER_AGENT="SimediaKendariBot/1.0 (+https://simedia.kendarikota.go.id)"
 CRAWL_DELAY_MS=1500
 CRAWL_TIMEOUT=20
 
@@ -536,7 +536,8 @@ Crawler bekerja dari luar, jadi CMS media tidak menentukan apakah media bisa dip
 |-------------|-------|---------|
 | WordPress | RSS di `/feed` | Hampir selalu aktif. Cek juga `/feed` per kategori |
 | Blogger / Blogspot | RSS bawaan | Selalu tersedia di `https://NAMA.blogspot.com/feeds/posts/default?alt=rss`, juga untuk custom domain di path yang sama. Tidak perlu diaktifkan pemilik blog |
-| PHP biasa / CMS lain | Coba `/feed`, `/rss`, `/rss.xml`, `<link rel="alternate" type="application/rss+xml">` di homepage | Kalau tidak ada, pakai tipe `scrape` dengan CSS selector, atau andalkan Google News RSS |
+| PHP biasa / CMS lain | Coba `/feed`, `/rss`, `/rss.xml`, `<link rel="alternate" type="application/rss+xml">` di homepage | Kalau tidak ada, pakai tipe `scrape` dengan CSS selector |
+| SPA (Nuxt, Next, React) | Tidak ada RSS, dan halaman indeksnya kosong di HTML mentah | Pakai tipe `scrape_render`. Halaman dibuka Chromium lewat layanan arsip `/render` lebih dulu, dengan selector item sebagai syarat tunggu. Contoh: tempo.co |
 | React / SPA render klien | HTML unduhan kosong | Tiga pilihan berurutan: (1) cek apakah tetap ada RSS atau sitemap.xml, banyak SPA masih punya; (2) Playwright untuk render; (3) jadikan laporan mandiri portal sebagai jalur utama untuk media ini. Google News RSS tetap menangkap indeksnya |
 
 Saat mendaftarkan sumber baru di sprint 0, catat jenis situsnya di kolom `catatan` media. Media dengan situs SPA tanpa feed diberi tahu sejak awal bahwa jalur mereka adalah portal pelaporan, supaya ekspektasinya jelas.

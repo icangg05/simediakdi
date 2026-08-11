@@ -55,10 +55,23 @@ function labelTerpilih(): string {
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="start" class="w-56">
-            <DropdownMenuItem v-for="opsi in filter.opsi" :key="opsi.nilai" class="gap-2" @select.prevent="alihkan(opsi.nilai)">
-                <Checkbox :checked="terpilih.includes(opsi.nilai)" class="pointer-events-none" />
-                <span>{{ opsi.label }}</span>
-            </DropdownMenuItem>
+            <!--
+                Tingginya dibatasi dan sisanya digulir. Filter media memuat tiga
+                puluh pilihan, dan tanpa batas ini daftarnya tumbuh melewati tepi
+                layar sehingga pilihan terbawah tidak bisa dijangkau sama sekali.
+                Batasnya dipasang di sini, bukan di halaman pemanggil, karena
+                setiap filter berdaftar panjang punya masalah yang sama.
+
+                Yang digulir hanya daftar pilihannya. Tombol hapus filter tetap
+                menempel di kaki menu, supaya jalan keluarnya tidak ikut hilang
+                ke bawah bersama dua puluh baris lainnya.
+            -->
+            <div class="max-h-64 overflow-y-auto">
+                <DropdownMenuItem v-for="opsi in filter.opsi" :key="opsi.nilai" class="gap-2" @select.prevent="alihkan(opsi.nilai)">
+                    <Checkbox :checked="terpilih.includes(opsi.nilai)" class="pointer-events-none" />
+                    <span class="truncate">{{ opsi.label }}</span>
+                </DropdownMenuItem>
+            </div>
 
             <template v-if="terpilih.length">
                 <DropdownMenuSeparator />

@@ -90,5 +90,9 @@ export function useFilterTabel(urlBasis: string) {
 
     const adaFilterAktif = computed(() => Object.keys(kueri.value).some((k) => k !== 'halaman' && kueri.value[k] !== ''));
 
-    return { kueri, urut, arah, cari, urutkan, cariDengan, saring, nilaiFilter, keHalaman, bersihkan, adaFilterAktif };
+    // `kunjungi` ikut dikembalikan supaya halaman yang tidak memakai DataTable
+    // tetap bisa mengubah satu parameter tanpa menjatuhkan parameter lain.
+    // Menyusun `router.get` sendiri di halaman berarti menyalin ulang aturan
+    // penggabungan query dan aturan kembali ke halaman satu.
+    return { kueri, kunjungi, urut, arah, cari, urutkan, cariDengan, saring, nilaiFilter, keHalaman, bersihkan, adaFilterAktif };
 }

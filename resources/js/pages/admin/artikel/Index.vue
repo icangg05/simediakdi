@@ -36,6 +36,7 @@ interface BarisArtikel {
     judul: string;
     url: string;
     media: string | null;
+    ditambahkan_media: boolean;
     dipublikasikan_at: string | null;
     diambil_at: string;
     status_proses: string;
@@ -50,6 +51,7 @@ const props = defineProps<{
     sentimen: LabelSentimen | null;
     media: string | null;
     penyedia: string | null;
+    asal: string | null;
     koreksi: boolean;
     pantauan: string;
     opsiMedia: OpsiFilter[];
@@ -128,6 +130,20 @@ const mediaTerpilih = computed({
 const penyediaTerpilih = computed({
     get: () => props.penyedia ?? SEMUA,
     set: (nilai: string) => pindah({ penyedia: nilai === SEMUA ? null : nilai }),
+});
+
+/**
+ * Jalan masuk artikel, bukan penilaian atas isinya.
+ *
+ * `dilaporkan_oleh` terisi hanya untuk berita yang diketik pengguna media di
+ * portal. Saringan ini menjawab pertanyaan yang tidak bisa dijawab kolom mana
+ * pun sebelumnya: berapa banyak arsip yang datang karena feed bekerja, dan
+ * berapa banyak yang datang karena media menambalnya sendiri. Berlaku di
+ * ketiga tahap, karena kolomnya sudah terisi sejak baris artikel dibuat.
+ */
+const asalTerpilih = computed({
+    get: () => props.asal ?? SEMUA,
+    set: (nilai: string) => pindah({ asal: nilai === SEMUA ? null : nilai }),
 });
 
 /**
@@ -530,6 +546,17 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                         </SelectContent>
                     </Select>
 
+                    <Select v-model="asalTerpilih">
+                        <SelectTrigger class="h-8 w-44" aria-label="Saring menurut asal berita">
+                            <SelectValue placeholder="Semua asal" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem :value="SEMUA">Semua asal</SelectItem>
+                            <SelectItem value="crawler">Otomatis (crawler)</SelectItem>
+                            <SelectItem value="portal">Ditambahkan media</SelectItem>
+                        </SelectContent>
+                    </Select>
+
                     <!-- Menyala berarti hanya baris yang pernah disentuh
                          manusia. Penanda yang sama sudah tampil sebagai badge
                          Dikoreksi di kolom Hasil AI, jadi tombol ini menyaring
@@ -604,8 +631,13 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                     </div>
                 </template>
 
+                <!-- Penanda asal ikut di kolom Media, bukan kolom sendiri.
+                     Mayoritas baris datang dari crawler, jadi kolom penuh yang
+                     hampir selalu berbunyi sama hanya memakan lebar tanpa
+                     memberi tahu apa pun. -->
                 <template #sel-media="{ baris }">
                     <span class="text-sm text-muted-foreground">{{ baris.media ?? '-' }}</span>
+                    <Badge v-if="baris.ditambahkan_media" variant="outline" class="ml-1.5 font-normal"> Dari media </Badge>
                 </template>
 
                 <!-- Tanda hubung untuk tanggal terbit yang kosong, bukan

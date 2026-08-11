@@ -40,6 +40,20 @@ class ArtikelPortalResource extends JsonResource
             'dipublikasikan_at' => $this->dipublikasikan_at,
             'diambil_at' => $this->diambil_at,
             'tanggal_muat' => Waktu::tanggalWita($this->diambil_at),
+            // Ditemukan crawler sendiri, atau ditambahkan media lewat portal.
+            // Bukan field sentimen: yang dibedakan di sini asal barisnya, bukan
+            // penilaian apa pun terhadap isinya.
+            'ditambahkan_sendiri' => $this->dilaporkan_oleh !== null,
+            // Tahap perjalanan artikel, dan bukan pelanggaran aturan di atas.
+            // Yang disebutnya relevansi, bukan sentimen, dan relevansi memang
+            // harus terbaca media: tanpa itu mereka tidak punya cara mengetahui
+            // mengapa berita yang sudah dikirim tidak pernah muncul.
+            //
+            // `whenLoaded`, supaya halaman yang tidak memuat relasinya tidak
+            // diam-diam menjalankan satu kueri per baris. Halaman "Berita saya"
+            // memuat 25 baris per halaman dan tidak membutuhkannya, karena
+            // seluruh isinya sudah pasti berada di tahap tampil.
+            'tahap' => $this->whenLoaded('analisisSentimen', fn () => $this->tahapPortal()),
         ];
     }
 }

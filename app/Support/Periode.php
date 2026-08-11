@@ -27,6 +27,23 @@ readonly class Periode
     {
         [$bawaanDari, $bawaanSampai] = $ringkasan->rentangBawaan();
 
+        return self::dariRequestDenganBawaan($request, $bawaanDari, $bawaanSampai);
+    }
+
+    /**
+     * Rentang dengan bawaan yang ditentukan pemanggil.
+     *
+     * Portal media memakai ini, bukan `dariRequest()`, karena bawaan di sana
+     * tidak ada hubungannya dengan rentang ringkasan eksekutif. Yang dipakai
+     * bersama tetap seluruh aturannya: pembacaan parameter, pembalikan rentang
+     * terbalik, dan batas 366 hari. Menyalin aturan itu ke controller berarti
+     * satu salinan yang cepat atau lambat berbeda dari aslinya.
+     */
+    public static function dariRequestDenganBawaan(
+        Request $request,
+        CarbonImmutable $bawaanDari,
+        CarbonImmutable $bawaanSampai,
+    ): self {
         $dari = self::tanggal($request->query('dari'), $bawaanDari);
         $sampai = self::tanggal($request->query('sampai'), $bawaanSampai);
 

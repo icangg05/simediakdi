@@ -51,11 +51,6 @@ class Media extends Model
         return $this->hasMany(Artikel::class);
     }
 
-    public function kontrak(): HasMany
-    {
-        return $this->hasMany(Kontrak::class);
-    }
-
     public function pengguna(): HasMany
     {
         return $this->hasMany(User::class);

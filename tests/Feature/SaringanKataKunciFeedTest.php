@@ -137,4 +137,32 @@ class SaringanKataKunciFeedTest extends TestCase
         $this->assertSame(1, $log->jumlah_baru);
         $this->assertStringContainsString('2 item dibuang saringan kata kunci', $log->pesan);
     }
+
+    /**
+     * Media nasional menyebut daerahnya dengan nama yang berganti-ganti. Satu
+     * kata kunci berarti memilih salah satu dan membuang sisanya.
+     */
+    public function test_beberapa_kata_kunci_dipisah_koma(): void
+    {
+        $this->sumber('Kendari, Sultra, Sulawesi Tenggara');
+
+        $this->jalankan($this->feed(
+            'Wali Kota Kendari Resmikan Pasar',
+            'Tambang Nikel di Sultra Disegel',
+            'Banjir Rendam Sulawesi Tenggara',
+            'Harga Emas Naik di Awal Pekan',
+        ));
+
+        $this->assertSame(3, Artikel::withoutGlobalScopes()->count());
+    }
+
+    /** Spasi di sekitar koma dan koma tersasar tidak boleh mematikan saringan. */
+    public function test_koma_berlebih_dan_spasi_diabaikan(): void
+    {
+        $this->sumber('  Kendari ,, Sultra ,  ');
+
+        $this->jalankan($this->feed('Berita Kendari', 'Berita Jakarta'));
+
+        $this->assertSame(1, Artikel::withoutGlobalScopes()->count());
+    }
 }

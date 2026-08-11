@@ -81,7 +81,6 @@ function simpan() {
                             <option value="lonjakan_negatif">Lonjakan berita negatif</option>
                             <option value="kata_kunci_muncul">Kata kunci muncul di judul</option>
                             <option value="sumber_mati">Sumber feed berhenti menghasilkan berita</option>
-                            <option value="kontrak_tertinggal">Kontrak tertinggal dari target</option>
                         </select>
                         <InputError :message="form.errors.jenis" />
                     </div>

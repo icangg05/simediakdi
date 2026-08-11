@@ -3,9 +3,7 @@
 namespace App\Services\Portal;
 
 use App\Models\Artikel;
-use App\Models\Kontrak;
 use App\Models\Media;
-use App\Models\Pemuatan;
 use App\Services\Crawler\EkstraktorArtikel;
 use App\Services\Crawler\EkstraktorWordPress;
 use App\Services\Crawler\GagalMengunduh;
@@ -15,7 +13,7 @@ use App\Services\Crawler\UrlDitolak;
 use App\Support\Waktu;
 
 /**
- * Memeriksa satu URL laporan pemuatan sebelum media menekan "Kirim semua"
+ * Memeriksa satu URL laporan berita sebelum media menekan "Kirim semua"
  * (F-49, F-50, F-51).
  *
  * Seluruh keputusan diambil di sini supaya pratinjau di layar dan baris yang
@@ -33,6 +31,28 @@ class PemeriksaUrlLaporan
 
     public const GAGAL = 'gagal';
 
+    /**
+     * Pesan untuk URL yang sudah tercatat, satu per tahap.
+     *
+     * Sebelumnya satu kalimat dipakai untuk ketiganya, dan kalimat itu
+     * berbunyi "penilaiannya masih berjalan". Untuk berita yang sudah diputus
+     * di luar pantauan itu keliru: media diberi tahu untuk menunggu sesuatu
+     * yang tidak akan pernah datang, lalu menyimpulkan sistemnya tersangkut.
+     *
+     * Ini juga jawaban atas keheranan yang paling sering muncul, yaitu berita
+     * yang belum pernah ditambahkan siapa pun tetapi sudah berstatus "sudah
+     * ada". Crawler menyimpan seluruh isi feed lebih dulu, termasuk berita yang
+     * kemudian dinilai di luar pantauan, jadi tercatat tidak berarti terpantau.
+     *
+     * @var array<string, string>
+     */
+    private const PESAN_TERCATAT = [
+        'tampil' => 'Sudah ada di sistem dan tampil di Berita saya.',
+        'diproses' => 'Sudah ada di sistem, penilaiannya masih berjalan. Belum tampil di Berita saya sampai penilaian itu selesai.',
+        'di_luar_pantauan' => 'Sudah ada di sistem, tetapi dinilai di luar pantauan Pemkot Kendari, jadi tidak masuk Berita saya. Menambahkannya lagi tidak mengubah penilaian itu.',
+        'gagal' => 'Sudah ada di sistem, tetapi halamannya tidak bisa dibaca sehingga penilaiannya tidak pernah berjalan. Laporkan ke Diskominfo kalau tautannya masih bisa dibuka dari peramban.',
+    ];
+
     public function __construct(
         private NormalisasiUrl $normalisasi,
         private PengunduhHalaman $pengunduh,
@@ -42,9 +62,9 @@ class PemeriksaUrlLaporan
 
     /**
      * @return array<string, mixed> {url, url_kanonik, status, judul, tanggal,
-     *                              pesan, pemuatan_id, artikel_id}
+     *                              pesan, artikel_id, tahap}
      */
-    public function periksa(string $url, Media $media, Kontrak $kontrak): array
+    public function periksa(string $url, Media $media): array
     {
         $url = trim($url);
         $kanonik = $this->normalisasi->kanonik($url);
@@ -56,8 +76,10 @@ class PemeriksaUrlLaporan
             'judul' => null,
             'tanggal' => null,
             'pesan' => null,
-            'pemuatan_id' => null,
             'artikel_id' => null,
+            // Hanya terisi untuk URL yang sudah tercatat. Selalu ada sebagai
+            // kunci supaya bentuk barisnya seragam di layar.
+            'tahap' => null,
         ];
 
         if (! $this->domainCocok($kanonik, $media)) {
@@ -68,38 +90,28 @@ class PemeriksaUrlLaporan
             ];
         }
 
+        // Sudah ditangkap crawler. Inilah yang dimaksud "sudah otomatis", dan
+        // melaporkannya lagi tidak menambah apa pun.
+        //
         // Dicek terhadap URL kanonik, bukan URL yang ditempel: satu berita
         // sering dibagikan dengan parameter pelacak yang berbeda-beda.
-        $sudahAda = Pemuatan::withoutGlobalScopes()
-            ->where('kontrak_id', $kontrak->id)
-            ->where('url', $kanonik)
-            ->first(['id', 'judul', 'tanggal_muat', 'sumber_catatan']);
+        $artikel = Artikel::withoutGlobalScopes()
+            ->where('url_kanonik', $kanonik)
+            // `status_proses` ikut dipilih karena tahapPortal() membacanya untuk
+            // membedakan halaman yang gagal diunduh dari yang masih mengantre.
+            ->first(['id', 'judul', 'dipublikasikan_at', 'diambil_at', 'status_proses']);
 
-        if ($sudahAda !== null) {
+        if ($artikel !== null) {
+            $tahap = $artikel->tahapPortal();
+
             return [
                 ...$hasil,
                 'status' => self::SUDAH_TERCATAT,
-                'judul' => $sudahAda->judul,
-                'tanggal' => $sudahAda->tanggal_muat?->toDateString(),
-                'pemuatan_id' => $sudahAda->id,
-                'pesan' => $sudahAda->sumber_catatan === 'otomatis'
-                    ? 'Sudah ditemukan sistem lewat crawler dan sudah dihitung ke kontrak.'
-                    : 'Sudah pernah dilaporkan.',
-            ];
-        }
-
-        // Artikel yang sudah ter-crawl memberi judul dan tanggal tanpa perlu
-        // mengunduh ulang halamannya.
-        $artikel = Artikel::withoutGlobalScopes()
-            ->where('url_kanonik', $kanonik)
-            ->first(['id', 'judul', 'dipublikasikan_at', 'diambil_at']);
-
-        if ($artikel !== null) {
-            return [
-                ...$hasil,
                 'judul' => $artikel->judul,
                 'tanggal' => Waktu::tanggalWita($artikel->dipublikasikan_at ?? $artikel->diambil_at),
                 'artikel_id' => $artikel->id,
+                'tahap' => $tahap,
+                'pesan' => self::PESAN_TERCATAT[$tahap],
             ];
         }
 

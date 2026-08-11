@@ -95,7 +95,7 @@ Penomoran dipakai sebagai acuan di dokumen 04 dan 07. Prioritas: **W** wajib ver
 | F-04 | Sistem menandai artikel duplikat sebagai turunan dari artikel pertama, tanpa menghapusnya | W |
 | F-05 | Sistem menarik hasil Google News RSS untuk kata kunci yang dikonfigurasi, guna menangkap media di luar daftar | W |
 | F-06 | Sistem mencatat setiap eksekusi crawl beserta jumlah temuan dan error | W |
-| F-07 | Sistem menonaktifkan sumber otomatis setelah lima kegagalan berturut-turut dan memberi tahu admin | S |
+| F-07 | Sistem menghitung kegagalan berturut-turut tiap sumber dan menandai yang mencapai lima di dashboard. Penonaktifan otomatis dicabut, hanya admin yang boleh mematikan sumber | S |
 | F-08 | Admin dapat menambah sumber scraping dengan CSS selector untuk situs tanpa RSS | S |
 | F-09 | Admin dapat memasukkan artikel manual lewat URL, dan sistem mengekstrak isinya | S |
 

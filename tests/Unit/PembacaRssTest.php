@@ -97,4 +97,46 @@ class PembacaRssTest extends TestCase
     {
         $this->assertSame([], $this->pembaca->baca('<html>bukan feed</html>', 'https://contoh.id/feed'));
     }
+
+    /**
+     * Kasus nyata yang mematikan sumber Telisik: satu judul memuat `&`
+     * telanjang, dan XML menolak seluruh dokumen sehingga sepuluh berita
+     * hilang sekaligus.
+     */
+    public function test_ampersand_telanjang_tidak_merobohkan_feed(): void
+    {
+        $xml = <<<'XML'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <rss version="2.0"><channel>
+          <item>
+            <title>H&BM City Square Buka Lowongan Kerja</title>
+            <link>https://contoh.id/berita?utm=rss&oc=3&hl=id</link>
+          </item>
+        </channel></rss>
+        XML;
+
+        $item = $this->pembaca->baca($xml, 'https://contoh.id/feed');
+
+        $this->assertCount(1, $item);
+        $this->assertSame('H&BM City Square Buka Lowongan Kerja', $item[0]->judul);
+        $this->assertSame('https://contoh.id/berita?utm=rss&oc=3&hl=id', $item[0]->url);
+    }
+
+    /** Entitas yang sudah benar tidak boleh ikut di-escape ganda. */
+    public function test_entitas_yang_sudah_benar_tidak_berubah(): void
+    {
+        $xml = <<<'XML'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <rss version="2.0"><channel>
+          <item>
+            <title>Ratna &amp; Rekan Gugat Tarif &#8220;Baru&#8221;</title>
+            <link>https://contoh.id/gugat</link>
+          </item>
+        </channel></rss>
+        XML;
+
+        $item = $this->pembaca->baca($xml, 'https://contoh.id/feed');
+
+        $this->assertSame('Ratna & Rekan Gugat Tarif “Baru”', $item[0]->judul);
+    }
 }

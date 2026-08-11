@@ -91,7 +91,7 @@ class HandleInertiaRequests extends Middleware
                     ? (string) Str::uuid7()
                     : null,
             ],
-            // Hasil pratinjau lapor pemuatan. Dibagikan lewat session, bukan
+            // Hasil pratinjau tambah berita. Dibagikan lewat session, bukan
             // disimpan di komponen, supaya menyegarkan halaman membuangnya
             // alih-alih menyodorkan pratinjau basi yang sudah tidak cocok
             // dengan isi database.
