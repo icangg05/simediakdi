@@ -1,15 +1,20 @@
 <script setup lang="ts">
 import DataTable from '@/components/data-table/DataTable.vue';
 import BadgeTahapPortal from '@/components/domain/BadgeTahapPortal.vue';
+import KopHalaman from '@/components/domain/KopHalaman.vue';
 import PemilihRentangTanggal from '@/components/domain/PemilihRentangTanggal.vue';
+import PilKop from '@/components/domain/PilKop.vue';
 import { Badge } from '@/components/ui/badge';
+import { buttonVariants } from '@/components/ui/button';
 import { useFilterTabel } from '@/composables/useFilterTabel';
+import { useFormatAngka } from '@/composables/useFormatAngka';
 import LayoutPortal from '@/layouts/LayoutPortal.vue';
+import { cn } from '@/lib/utils';
 import type { FilterDefinisi, KolomDefinisi, PaginasiMeta } from '@/types/tabel';
-import { Head } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { ExternalLink } from 'lucide-vue-next';
+import { CalendarRange, ExternalLink, Newspaper, Plus, PlusCircle } from 'lucide-vue-next';
 import { computed } from 'vue';
 
 interface Baris {
@@ -27,6 +32,8 @@ const props = defineProps<{
     artikel: { data: Baris[] } & PaginasiMeta;
     periode: { dari: string; sampai: string };
 }>();
+
+const { formatAngka } = useFormatAngka();
 
 // Instance sendiri, bukan yang di dalam DataTable. `kunjungi` menggabungkan
 // perubahan tanggal ke query string yang sedang berlaku, jadi pencarian dan
@@ -70,22 +77,57 @@ const rentang = computed(
 );
 
 const waktu = (n: string) => format(new Date(n), 'd MMM yyyy, HH:mm', { locale: id });
+
+/*
+ * Tombol satu-satunya di halaman ini, dan warnanya navy karena ia aksi utama
+ * peran media. Ia diletakkan di kop, bukan di dekat tabel, karena tabel ini
+ * halaman baca dan tombol yang berdiri di antara saringan dan hasilnya akan
+ * terbaca sebagai saringan lain.
+ */
+const TOMBOL_KOP = cn(
+    buttonVariants({ size: 'sm' }),
+    'gap-1.5 bg-white text-brand shadow-sm shadow-black/10 hover:bg-white/90 focus-visible:ring-offset-brand',
+);
 </script>
 
 <template>
     <Head title="Berita saya" />
 
+    <!--
+        `lebar` dinaikkan ke sedang, sebelumnya sempit.
+
+        Halaman ini memuat tabel berkolom lima, dan max-w-3xl memaksa kolom
+        Judul menyempit sampai hampir setiap baris terpotong dua baris.
+        Halaman satu tugas memang pantas sempit, tetapi tabel penyaring bukan
+        halaman satu tugas.
+    -->
     <LayoutPortal
-        judul="Berita saya"
+        lebar="sedang"
         :breadcrumbs="[
             { title: 'Portal media', href: '/portal' },
             { title: 'Berita saya', href: '/portal/berita' },
         ]"
     >
-        <p class="max-w-[75ch] text-sm leading-relaxed text-muted-foreground">
-            Berita media Anda yang terbit {{ rentang }}. Berita temuan sistem muncul setelah dinilai masuk pantauan Pemkot Kendari, sedangkan berita
-            yang Anda tambahkan sendiri selalu ada di sini beserta tahapnya. Disaring menurut tanggal terbit, bukan tanggal berita itu terpantau.
-        </p>
+        <!--
+            Kop navy bersama, sama dengan beranda portal dan seluruh panel admin.
+            Sebelumnya halaman ini hanya mencetak satu h1 polos di atas paragraf
+            abu, dan bersebelahan dengan beranda yang berkop navy ia terbaca
+            sebagai halaman dari aplikasi yang berbeda.
+        -->
+        <KopHalaman
+            judul="Berita saya"
+            keterangan="Berita temuan sistem muncul setelah dinilai masuk pantauan Pemkot Kendari, sedangkan berita yang Anda tambahkan sendiri selalu ada di sini beserta tahapnya. Disaring menurut tanggal terbit, bukan tanggal berita itu terpantau."
+        >
+            <template #aksi>
+                <Link href="/portal/lapor" :class="TOMBOL_KOP">
+                    <Plus class="size-4" aria-hidden="true" />
+                    Tambah berita terlewat
+                </Link>
+            </template>
+
+            <PilKop :ikon="CalendarRange">{{ rentang }}</PilKop>
+            <PilKop :ikon="Newspaper">{{ formatAngka(props.artikel.total) }} berita pada rentang ini</PilKop>
+        </KopHalaman>
 
         <DataTable
             :kolom="kolom"
@@ -119,9 +161,17 @@ const waktu = (n: string) => format(new Date(n), 'd MMM yyyy, HH:mm', { locale: 
             </template>
 
             <template #sel-judul="{ baris }">
-                <a :href="baris.url" target="_blank" rel="noopener noreferrer" class="inline-flex items-start gap-1 font-medium hover:underline">
+                <a
+                    :href="baris.url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="group inline-flex items-start gap-1 font-medium hover:underline"
+                >
                     <span class="line-clamp-2">{{ baris.judul }}</span>
-                    <ExternalLink class="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <ExternalLink
+                        class="mt-0.5 size-3 shrink-0 text-muted-foreground transition-transform duration-150 group-hover:-translate-y-px group-hover:translate-x-px group-hover:text-brand dark:group-hover:text-brand-terang"
+                        aria-hidden="true"
+                    />
                 </a>
             </template>
 
@@ -129,11 +179,17 @@ const waktu = (n: string) => format(new Date(n), 'd MMM yyyy, HH:mm', { locale: 
                  melanggar aturan bahwa portal tidak menampilkan sentimen.
                  Gunanya: media bisa melihat berapa banyak beritanya yang hanya
                  masuk karena dikirim sendiri, dan itu petunjuk bahwa sumber
-                 feed mereka perlu diperiksa. -->
+                 feed mereka perlu diperiksa.
+
+                 Kiriman mandiri diberi ikon dan tepi putus-putus, bukan warna.
+                 Rona apa pun di kolom ini akan bersaing dengan kolom Tahap di
+                 sebelahnya, dan yang perlu terbaca lebih dulu adalah tahapnya. -->
             <template #sel-sumber="{ baris }">
-                <Badge :variant="baris.ditambahkan_sendiri ? 'outline' : 'secondary'" class="font-normal">
-                    {{ baris.ditambahkan_sendiri ? 'Anda tambahkan' : 'Otomatis' }}
+                <Badge v-if="baris.ditambahkan_sendiri" variant="outline" class="gap-1 border-dashed font-normal">
+                    <PlusCircle class="size-3 shrink-0" aria-hidden="true" />
+                    Anda tambahkan
                 </Badge>
+                <Badge v-else variant="secondary" class="font-normal">Otomatis</Badge>
             </template>
 
             <!-- Kolom ini yang membuat selisih dengan KPI beranda bisa dibaca,

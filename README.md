@@ -160,9 +160,10 @@ docker compose exec app php artisan kontrak:periksa-tenggat --kering
 docker compose exec app php artisan hitung:entitas --semua
 ```
 
-Alert butuh `TELEGRAM_BOT_TOKEN` dan `TELEGRAM_CHAT_ID` di `.env`. Selama
-keduanya kosong, `/admin/alert` menampilkan peringatan: aturan tetap dinilai
-dan tercatat di riwayat, tapi pesannya tidak sampai ke mana pun.
+Alert butuh token bot dan chat ID Telegram yang diisi di `/admin/pengaturan`.
+Keduanya tersimpan di database, tokennya terenkripsi, dan tidak ada lagi di
+`.env`. Selama keduanya kosong, `/admin/alert` menampilkan peringatan: aturan
+tetap dinilai dan tercatat di riwayat, tapi pesannya tidak sampai ke mana pun.
 
 Pencocokan entitas memakai kamus dengan alias, bukan model NER. Entitas yang
 dipantau Pemkot adalah daftar tertutup dan pendek, dan salah tulisnya bisa

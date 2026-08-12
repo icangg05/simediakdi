@@ -59,10 +59,52 @@ html {
     --color-tier-nasional: oklch(0.5 0.14 265);
     --color-tier-regional: oklch(0.6 0.1 220);
     --color-tier-lokal: oklch(0.65 0.05 200);
+
+    /*
+     * Latar bidang isi panel admin, dan sejak 12 Agustus 2026 juga portal media.
+     *
+     * Namanya tetap `latar-admin` walaupun pemakainya sudah dua panel. Mengganti
+     * namanya berarti menyunting setiap kelas `bg-latar-admin` di seluruh
+     * repositori demi ketepatan sebutan, dan nilainya sendiri tidak berubah
+     * sedikit pun. Yang penting justru kebalikannya: kedua panel harus memakai
+     * nilai yang sama persis, karena satu pengguna superadmin bisa berpindah di
+     * antara keduanya dalam satu sesi.
+     *
+     * Sebelumnya bidang ini memakai `--background` yang bernilai putih murni,
+     * sama persis dengan `--card`. Akibatnya kartu putih berdiri di atas latar
+     * putih dan satu-satunya yang memisahkan keduanya adalah garis tepi setipis
+     * satu piksel. Sekarang latarnya diturunkan sedikit sehingga kartu terbaca
+     * terangkat tanpa perlu menambah bayangan, dan bidang seluas layar tidak
+     * lagi memantulkan putih penuh ke mata yang menatapnya sepanjang jam kerja.
+     *
+     * Nilainya ditentukan dua tetangga sekaligus, bukan selera. Ia harus cukup
+     * jauh dari `--card` yang putih supaya kartu terbaca terangkat, dan cukup
+     * jauh dari `--muted` yang menjadi jalur kelompok tab supaya jalur itu
+     * tidak lebur ke latar. Percobaan pertama di L 0,965 gagal pada syarat
+     * kedua: jaraknya ke jalur tab hanya 0,005 dan kelompok tabnya hilang.
+     * L 0,95 memberi 0,050 ke kartu dan 0,020 ke jalur tab. Teks utama di
+     * atasnya 17,1:1, jadi keterbacaan tidak berkurang.
+     *
+     * Bukan `--background` yang diubah, dan itu disengaja. Nilai itu dipakai
+     * juga oleh pil tab yang sedang aktif di halaman Berita dan Antrean AI,
+     * yang berdiri di atas jalur `--muted`. Menggeser `--background` mendekati
+     * `--muted` akan membuat tab aktif dan jalurnya nyaris sewarna, dan
+     * penanda tab mana yang sedang terbuka hilang.
+     */
+    --color-latar-admin: oklch(0.95 0.004 250);
 }
 
 .dark {
     --color-brand-lembut: oklch(0.26 0.04 250);
+
+    /*
+     * Arahnya membalik di mode gelap: latar menjadi lebih gelap daripada kartu,
+     * bukan lebih terang. `--card` mode gelap berada di L 0,145, jadi latar ini
+     * disetel 0,030 di bawahnya. Kartu tetap yang terangkat, sama seperti di
+     * mode terang, hanya lapisannya yang bertukar tempat. Tidak sampai hitam
+     * murni, karena bidang hitam pekat menghapus seluruh kedalaman.
+     */
+    --color-latar-admin: oklch(0.115 0.008 250);
 
     /* Aksen dicerahkan di latar gelap, kalau tidak teksnya tenggelam. */
     --color-aksen-biru: oklch(0.72 0.11 250);
@@ -232,6 +274,49 @@ html {
     animation: tumbuh 900ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
+/*
+ * Garis aliran: cahaya yang menyusuri sebuah garis selama pekerjaan berjalan.
+ *
+ * Ditarik ke sini setelah pemakaiannya menyentuh empat halaman, yaitu Antrean
+ * AI, Dashboard admin, dan dua halaman portal media. Sebelum itu ia disalin
+ * sebagai gaya scoped di tiap berkas, dan menggeser satu nilai berarti
+ * menyunting empat tempat yang harus sepakat. Prinsip produk nomor 6 menyebut
+ * ambangnya dua kali pakai.
+ *
+ * Artinya wajib dijaga sama di semua pemakainya: kelasnya hanya boleh menempel
+ * saat memang ada yang mengalir, dan harus dilepas begitu berhenti. Garis yang
+ * terus bergerak pada antrean yang kosong berbohong lebih keras daripada teks
+ * apa pun yang bisa ditulis di sebelahnya.
+ *
+ * Dipasang sebagai pseudo elemen supaya tidak ada satu pun simpul kosong
+ * tambahan di dalam DOM. Pemanggil menyediakan sendiri `position: relative` dan
+ * `overflow: hidden` pada garisnya.
+ *
+ * Putarannya sengaja lambat dan puncak terangnya sengaja rendah. Ini gerakan
+ * yang berjalan selama halaman terbuka, kadang di monitor ruangan seharian, dan
+ * sapuan terang yang cepat akan menarik mata setiap beberapa detik tanpa pernah
+ * membawa kabar baru.
+ */
+.aliran::after {
+    content: '';
+    position: absolute;
+    inset-block: 0;
+    left: 0;
+    width: 34%;
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.5), transparent);
+    animation: aliran-jalan 5s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes aliran-jalan {
+    from {
+        transform: translateX(-100%);
+    }
+
+    to {
+        transform: translateX(400%);
+    }
+}
+
 /* Denyut pelan untuk penanda peringatan yang belum dibaca. */
 @keyframes denyut {
     0%,
@@ -270,7 +355,8 @@ html {
 
     .muncul,
     .tumbuh,
-    .denyut {
+    .denyut,
+    .aliran::after {
         animation: none;
     }
 }
@@ -291,7 +377,20 @@ html {
         --secondary: 0 0% 92.1%;
         --secondary-foreground: 0 0% 9%;
         --muted: 0 0% 96.1%;
-        --muted-foreground: 0 0% 45.1%;
+        /*
+         * Digelapkan dari 45,1% bawaan starter kit.
+         *
+         * Nilai lama tidak pernah benar-benar aman. Di atas kartu putih ia
+         * hanya mencapai 4,74:1, dan di atas jalur tab `--muted` sudah gagal
+         * sejak awal di 4,35:1, di bawah ambang 4,5 WCAG AA. Latar isi panel
+         * admin yang sekarang bertinta abu menurunkannya lagi menjadi 4,10:1.
+         *
+         * Pada 41% ketiganya lolos: 5,53 di atas kartu putih, 5,07 di atas
+         * jalur tab, 4,78 di atas latar abu. Warna ini dipakai hampir setiap
+         * label sekunder di seluruh aplikasi, jadi satu nilai yang benar di
+         * sini menutup lebih banyak layar daripada penambalan per halaman.
+         */
+        --muted-foreground: 0 0% 41%;
         --accent: 0 0% 96.1%;
         --accent-foreground: 0 0% 9%;
         /*

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import DialogSumberFeed from '@/components/domain/DialogSumberFeed.vue';
-import { Badge } from '@/components/ui/badge';
+import KopHalaman from '@/components/domain/KopHalaman.vue';
+import PilKop from '@/components/domain/PilKop.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import LayoutAdmin from '@/layouts/LayoutAdmin.vue';
@@ -8,8 +9,26 @@ import type { SumberFeedBaris } from '@/types';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { formatDistanceToNow } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { CircleAlert, Loader, Pencil, Play, Plus, Rss, Trash2, TriangleAlert } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import {
+    CircleAlert,
+    CircleCheck,
+    CircleX,
+    Globe,
+    Handshake,
+    History,
+    Layers,
+    Loader,
+    Newspaper,
+    Pencil,
+    Play,
+    Plus,
+    Power,
+    Rss,
+    Trash2,
+    TriangleAlert,
+    UserRound,
+} from 'lucide-vue-next';
+import { computed, ref, type Component } from 'vue';
 
 interface Media {
     id: number;
@@ -106,16 +125,22 @@ const keadaan = computed(() => {
 });
 
 const RUPA_KEADAAN = {
-    mati: 'border-sentimen-netral/30 bg-sentimen-netral-lembut text-sentimen-netral',
-    tunggu: 'border-aksen-biru/30 bg-aksen-biru/10 text-aksen-biru',
-    kosong: 'border-sentimen-review/30 bg-sentimen-review-lembut text-sentimen-review',
+    mati: 'bg-muted text-muted-foreground ring-border',
+    tunggu: 'bg-aksen-biru/10 text-aksen-biru ring-aksen-biru/25',
+    kosong: 'bg-sentimen-review-lembut text-sentimen-review ring-sentimen-review/25',
 } as const;
 
-const RUPA_STATUS = {
-    sukses: 'bg-sentimen-positif-lembut text-sentimen-positif',
-    sebagian: 'bg-sentimen-review-lembut text-sentimen-review',
-    gagal: 'bg-sentimen-negatif-lembut text-sentimen-negatif',
-} as const;
+const RUPA_STATUS: Record<BarisRiwayat['status'], { kelas: string; titik: string; ikon: Component }> = {
+    sukses: { kelas: 'bg-sentimen-positif-lembut text-sentimen-positif', titik: 'bg-sentimen-positif', ikon: CircleCheck },
+    sebagian: { kelas: 'bg-sentimen-review-lembut text-sentimen-review', titik: 'bg-sentimen-review', ikon: TriangleAlert },
+    gagal: { kelas: 'bg-sentimen-negatif-lembut text-sentimen-negatif', titik: 'bg-sentimen-negatif', ikon: CircleX },
+};
+
+const warnaTier: Record<Media['tier'], string> = {
+    nasional: 'bg-tier-nasional/10 text-tier-nasional ring-tier-nasional/25',
+    regional: 'bg-tier-regional/10 text-tier-regional ring-tier-regional/25',
+    lokal: 'bg-tier-lokal/10 text-tier-lokal ring-tier-lokal/25',
+};
 
 function sejak(iso: string | null): string {
     return iso ? formatDistanceToNow(new Date(iso), { addSuffix: true, locale: id }) : 'belum pernah';
@@ -132,122 +157,215 @@ function sejak(iso: string | null): string {
 function bermasalah(sumber: SumberFeedBaris): boolean {
     return sumber.gagal_berturut >= props.maksGagal;
 }
+
+/** Titik pada rel sumber: hijau sehat, merah gagal berulang, abu dimatikan. */
+function titikSumber(sumber: SumberFeedBaris): string {
+    if (!sumber.aktif) return 'bg-muted-foreground/40';
+    if (bermasalah(sumber)) return 'bg-sentimen-negatif';
+
+    return 'bg-sentimen-positif';
+}
+
+const sumberAktif = computed(() => props.sumberFeed.filter((s) => s.aktif).length);
+
+const bisaTarik = computed(() => props.media.aktif && sumberAktif.value > 0);
+
+/** Keterangan identitas, dipakai sebagai bidang bergaris di kartu pertama. */
+const identitas = computed(() => [
+    { ikon: Globe, label: 'Domain', nilai: props.media.domain ?? '-' },
+    { ikon: Newspaper, label: 'Jenis', nilai: props.media.jenis, kapital: true },
+    {
+        ikon: UserRound,
+        label: 'Kontak',
+        nilai: `${props.media.nama_pic ?? '-'}${props.media.kontak_pic ? `, ${props.media.kontak_pic}` : ''}`,
+    },
+    { ikon: History, label: 'Artikel terkumpul', nilai: String(props.media.artikel_count), angka: true },
+]);
 </script>
 
 <template>
     <Head :title="media.nama" />
 
     <LayoutAdmin
-        :judul="media.nama"
         :breadcrumbs="[
             { title: 'Media', href: '/admin/media' },
             { title: media.nama, href: `/admin/media/${media.id}` },
         ]"
     >
+        <KopHalaman :judul="media.nama" :keterangan="media.url_website ?? undefined">
+            <template #aksi>
+                <!--
+                    Tiga tombol, tiga bobot yang berbeda.
+
+                    Menarik sekarang adalah yang paling sering ditekan di layar
+                    ini, jadi ia yang mendapat bidang putih penuh. Ubah identitas
+                    hanya membuka form. Saklar induk diberi warna keadaan
+                    tujuannya: merah kalau ia akan mematikan pengambilan, hijau
+                    kalau ia akan menghidupkannya. Sebelumnya saklar ini memakai
+                    `variant="destructive"` yang berarti merah pekat, dan
+                    mematikan satu media bukan tindakan yang tidak bisa
+                    dibatalkan.
+
+                    Rona saklar itu diambil dari palet Tailwind, bukan token
+                    sentimen, dengan alasan dan nilai yang sama seperti di
+                    `PilKop`: token sentimen terlalu gelap untuk latar navy.
+                -->
+                <button
+                    type="button"
+                    class="tekan inline-flex items-center gap-2 rounded-lg bg-white px-3.5 py-2 text-xs font-semibold text-brand transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand disabled:opacity-50"
+                    :disabled="!bisaTarik"
+                    :title="bisaTarik ? undefined : 'Butuh media aktif dengan sekurangnya satu sumber aktif'"
+                    @click="router.post(`/admin/media/${media.id}/crawl`, {}, { preserveScroll: true })"
+                >
+                    <Play class="size-3.5" aria-hidden="true" />
+                    Tarik sekarang
+                </button>
+
+                <Link
+                    :href="`/admin/media/${media.id}/edit`"
+                    class="tekan inline-flex items-center gap-2 rounded-lg bg-white/10 px-3.5 py-2 text-xs font-medium text-white ring-1 ring-inset ring-white/25 transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand"
+                >
+                    <Pencil class="size-3.5" aria-hidden="true" />
+                    Ubah identitas
+                </Link>
+
+                <button
+                    type="button"
+                    class="tekan inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-medium ring-1 ring-inset transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand"
+                    :class="
+                        media.aktif
+                            ? 'bg-red-300/15 text-red-200 ring-red-300/40 hover:bg-red-300/25'
+                            : 'bg-emerald-300/15 text-emerald-200 ring-emerald-300/40 hover:bg-emerald-300/25'
+                    "
+                    @click="router.post(`/admin/media/${media.id}/aktif`, {}, { preserveScroll: true })"
+                >
+                    <Power class="size-3.5" aria-hidden="true" />
+                    {{ media.aktif ? 'Nonaktifkan' : 'Aktifkan' }}
+                </button>
+            </template>
+
+            <PilKop :nada="media.aktif ? 'baik' : 'buruk'" :ikon="media.aktif ? CircleCheck : CircleX">
+                {{ media.aktif ? 'Aktif' : 'Nonaktif' }}
+            </PilKop>
+            <PilKop v-if="media.partner" :ikon="Handshake">Partner Pemkot</PilKop>
+            <PilKop :nada="sumberAktif > 0 ? 'netral' : 'tunggu'" :ikon="sumberAktif > 0 ? Rss : TriangleAlert">
+                <span class="angka">{{ sumberAktif }}</span> dari <span class="angka">{{ sumberFeed.length }}</span> sumber aktif
+            </PilKop>
+            <PilKop :ikon="Newspaper">
+                <span class="angka">{{ media.artikel_count }}</span> artikel terkumpul
+            </PilKop>
+        </KopHalaman>
+
         <div class="space-y-4">
-            <!-- Identitas dan saklar induk, satu kartu di paling atas. -->
-            <Card>
-                <CardContent class="flex flex-wrap items-start justify-between gap-4 pt-6">
-                    <div class="min-w-0 space-y-2">
-                        <!--
-                            Nama medianya tidak dicetak lagi di sini. LayoutAdmin
-                            sudah menaruhnya sebagai judul halaman, dan
-                            mengulangnya satu tingkat lebih kecil menghasilkan
-                            dua tulisan sama persis berjarak text-xl ke text-lg,
-                            beda 1,11 kali, terlalu dekat untuk terbaca sebagai
-                            tingkatan dan terlalu mirip untuk terbaca sebagai
-                            dua hal berbeda.
-                        -->
-                        <div class="flex flex-wrap items-center gap-2">
-                            <Badge :variant="media.aktif ? 'outline' : 'secondary'">
-                                {{ media.aktif ? 'Aktif' : 'Nonaktif' }}
-                            </Badge>
-                            <Badge v-if="media.partner" variant="secondary">Partner</Badge>
+            <!-- Identitas sebagai bidang bergaris, bukan daftar definisi polos.
+                 Empat keterangan yang berbagi satu bidang terbaca sebagai satu
+                 kelompok, dan ikon di tiap sel membuat mata bisa melompat ke
+                 yang dicarinya tanpa membaca labelnya. -->
+            <Card class="muncul overflow-hidden" style="animation-delay: 80ms">
+                <CardContent class="p-0">
+                    <dl class="grid grid-cols-1 gap-px bg-border sm:grid-cols-2 lg:grid-cols-5">
+                        <!-- Tier punya selnya sendiri karena ia satu-satunya
+                             keterangan di sini yang mengubah perhitungan: ia
+                             menentukan pembobotan media di peringkat. Warnanya
+                             memakai token tier yang sama dengan daftar media. -->
+                        <div class="min-w-0 space-y-1 bg-card p-4">
+                            <dt class="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <Layers class="size-3.5 shrink-0" aria-hidden="true" />
+                                Tier
+                            </dt>
+                            <dd>
+                                <span
+                                    class="inline-flex rounded-md px-1.5 py-0.5 text-xs font-medium capitalize ring-1 ring-inset"
+                                    :class="warnaTier[media.tier]"
+                                >
+                                    {{ media.tier }}
+                                </span>
+                            </dd>
                         </div>
 
-                        <dl class="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
-                            <div class="flex gap-2">
-                                <dt class="text-muted-foreground">Domain</dt>
-                                <dd class="min-w-0 truncate">{{ media.domain ?? '-' }}</dd>
-                            </div>
-                            <div class="flex gap-2">
-                                <dt class="text-muted-foreground">Tier</dt>
-                                <dd class="capitalize">{{ media.tier }}, {{ media.jenis }}</dd>
-                            </div>
-                            <div class="flex gap-2">
-                                <dt class="text-muted-foreground">Kontak</dt>
-                                <dd class="min-w-0 truncate">{{ media.nama_pic ?? '-' }}{{ media.kontak_pic ? `, ${media.kontak_pic}` : '' }}</dd>
-                            </div>
-                            <div class="flex gap-2">
-                                <dt class="text-muted-foreground">Artikel terkumpul</dt>
-                                <dd class="angka">{{ media.artikel_count }}</dd>
-                            </div>
-                        </dl>
-                    </div>
-
-                    <div class="flex shrink-0 flex-wrap items-center gap-2">
-                        <Button variant="outline" size="sm" as-child>
-                            <Link :href="`/admin/media/${media.id}/edit`">
-                                <Pencil class="mr-1.5 h-4 w-4" />
-                                Ubah identitas
-                            </Link>
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            :disabled="!media.aktif || !sumberFeed.some((s) => s.aktif)"
-                            @click="router.post(`/admin/media/${media.id}/crawl`, {}, { preserveScroll: true })"
-                        >
-                            <Play class="mr-1.5 h-4 w-4" />
-                            Tarik sekarang
-                        </Button>
-                        <Button
-                            :variant="media.aktif ? 'destructive' : 'default'"
-                            size="sm"
-                            @click="router.post(`/admin/media/${media.id}/aktif`, {}, { preserveScroll: true })"
-                        >
-                            {{ media.aktif ? 'Nonaktifkan' : 'Aktifkan' }}
-                        </Button>
-                    </div>
+                        <div v-for="i in identitas" :key="i.label" class="min-w-0 space-y-0.5 bg-card p-4">
+                            <dt class="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <component :is="i.ikon" class="size-3.5 shrink-0" aria-hidden="true" />
+                                {{ i.label }}
+                            </dt>
+                            <dd
+                                class="truncate text-sm font-medium"
+                                :class="[i.kapital ? 'capitalize' : '', i.angka ? 'angka' : '']"
+                                :title="i.nilai"
+                            >
+                                {{ i.nilai }}
+                            </dd>
+                        </div>
+                    </dl>
                 </CardContent>
             </Card>
 
-            <div v-if="keadaan" class="flex items-start gap-3 rounded-xl border px-4 py-3.5" :class="RUPA_KEADAAN[keadaan.nada]">
-                <component :is="keadaan.ikon" class="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+            <div
+                v-if="keadaan"
+                class="muncul flex items-start gap-3 rounded-xl px-4 py-3.5 ring-1 ring-inset"
+                :class="RUPA_KEADAAN[keadaan.nada]"
+                style="animation-delay: 120ms"
+            >
+                <component
+                    :is="keadaan.ikon"
+                    class="mt-0.5 size-5 shrink-0"
+                    :class="keadaan.nada === 'tunggu' ? 'animate-spin motion-reduce:animate-none' : ''"
+                    aria-hidden="true"
+                />
                 <div class="min-w-0">
                     <p class="text-sm font-semibold">{{ keadaan.judul }}</p>
-                    <p class="text-sm text-foreground/75">{{ keadaan.pesan }}</p>
+                    <p class="text-sm opacity-80">{{ keadaan.pesan }}</p>
                 </div>
             </div>
 
             <!--
                 Pengambilan. Inilah yang dulu jadi halaman Sumber Feed sendiri.
             -->
-            <Card>
-                <CardHeader class="flex-row items-center justify-between gap-3 py-4">
-                    <CardTitle class="flex items-center gap-2.5 text-base">
-                        <span class="grid h-8 w-8 place-items-center rounded-xl bg-aksen-biru text-white shadow-sm dark:text-background">
-                            <Rss class="h-[18px] w-[18px]" aria-hidden="true" />
+            <Card class="muncul overflow-hidden" style="animation-delay: 160ms">
+                <CardHeader class="flex-row items-center justify-between gap-3 space-y-0 border-b py-3">
+                    <CardTitle class="flex items-center gap-2 text-sm font-semibold">
+                        <span class="grid size-7 place-items-center rounded-md bg-aksen-biru/10 text-aksen-biru">
+                            <Rss class="size-4" aria-hidden="true" />
                         </span>
                         Sumber pengambilan
                     </CardTitle>
-                    <Button size="sm" @click="tambah">
-                        <Plus class="mr-1.5 h-4 w-4" />
+                    <Button size="sm" class="tekan h-8" @click="tambah">
+                        <Plus class="size-4" aria-hidden="true" />
                         Tambah sumber
                     </Button>
                 </CardHeader>
 
-                <CardContent>
+                <CardContent class="p-0">
+                    <!-- Rel bertitik, bukan daftar rata. Titiknya berwarna
+                         menurut keadaan sumbernya, jadi sumber bermasalah
+                         terlihat sebelum lencananya dibaca. -->
                     <ul v-if="sumberFeed.length" class="divide-y">
-                        <li v-for="sumber in sumberFeed" :key="sumber.id" class="flex flex-wrap items-start justify-between gap-3 py-3">
+                        <li v-for="sumber in sumberFeed" :key="sumber.id" class="flex gap-3 px-4 py-3 transition-colors hover:bg-muted/40">
+                            <span
+                                class="mt-1.5 size-2 shrink-0 rounded-full ring-4 ring-transparent"
+                                :class="titikSumber(sumber)"
+                                aria-hidden="true"
+                            />
+
                             <div class="min-w-0 flex-1 space-y-1">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <span class="text-sm font-medium">{{ sumber.nama }}</span>
-                                    <Badge variant="secondary" class="uppercase">{{ sumber.tipe }}</Badge>
-                                    <Badge v-if="bermasalah(sumber)" class="bg-sentimen-negatif-lembut text-sentimen-negatif">
-                                        Gagal {{ sumber.gagal_berturut }}× berturut-turut
-                                    </Badge>
-                                    <Badge v-if="!sumber.aktif" variant="secondary">Nonaktif</Badge>
+                                    <span class="rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium uppercase text-muted-foreground">
+                                        {{ sumber.tipe }}
+                                    </span>
+                                    <span
+                                        v-if="bermasalah(sumber)"
+                                        class="inline-flex items-center gap-1 rounded-md bg-sentimen-negatif-lembut px-1.5 py-0.5 text-[11px] font-medium text-sentimen-negatif"
+                                    >
+                                        <TriangleAlert class="size-3 shrink-0" aria-hidden="true" />
+                                        Gagal <span class="angka">{{ sumber.gagal_berturut }}&times;</span> berturut-turut
+                                    </span>
+                                    <span
+                                        v-if="!sumber.aktif"
+                                        class="rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+                                    >
+                                        Nonaktif
+                                    </span>
                                 </div>
 
                                 <p class="truncate text-xs text-muted-foreground">{{ sumber.url }}</p>
@@ -263,17 +381,31 @@ function bermasalah(sumber: SumberFeedBaris): boolean {
                             </div>
 
                             <div class="flex shrink-0 gap-1">
-                                <Button variant="ghost" size="icon" class="h-8 w-8" aria-label="Ubah sumber" @click="ubah(sumber)">
-                                    <Pencil class="h-4 w-4" />
+                                <Button variant="ghost" size="icon" class="size-8" aria-label="Ubah sumber" @click="ubah(sumber)">
+                                    <Pencil class="size-4" aria-hidden="true" />
                                 </Button>
-                                <Button variant="ghost" size="icon" class="h-8 w-8 text-destructive" aria-label="Hapus sumber" @click="hapus(sumber)">
-                                    <Trash2 class="h-4 w-4" />
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    class="size-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                    aria-label="Hapus sumber"
+                                    @click="hapus(sumber)"
+                                >
+                                    <Trash2 class="size-4" aria-hidden="true" />
                                 </Button>
                             </div>
                         </li>
                     </ul>
 
-                    <p v-else class="py-4 text-sm text-muted-foreground">Belum ada sumber pengambilan untuk media ini.</p>
+                    <div v-else class="flex flex-col items-center gap-2 px-6 py-10 text-center">
+                        <div class="grid size-10 place-items-center rounded-full bg-muted text-muted-foreground">
+                            <Rss class="size-5" aria-hidden="true" />
+                        </div>
+                        <p class="text-sm font-medium">Belum ada sumber pengambilan</p>
+                        <p class="max-w-sm text-xs text-muted-foreground">
+                            Selama tidak ada satu pun sumber, media ini tidak akan pernah menarik berita.
+                        </p>
+                    </div>
                 </CardContent>
             </Card>
 
@@ -282,19 +414,32 @@ function bermasalah(sumber: SumberFeedBaris): boolean {
                 halaman Log crawl, yang di sini hanya menjawab satu pertanyaan:
                 pengambilan terakhirnya berhasil atau tidak.
             -->
-            <Card v-if="riwayat.length">
-                <CardHeader class="py-4">
-                    <CardTitle class="text-base">Riwayat pengambilan</CardTitle>
+            <Card v-if="riwayat.length" class="muncul overflow-hidden" style="animation-delay: 220ms">
+                <CardHeader class="flex-row items-center gap-2 space-y-0 border-b py-3">
+                    <span class="grid size-7 place-items-center rounded-md bg-muted text-muted-foreground">
+                        <History class="size-4" aria-hidden="true" />
+                    </span>
+                    <CardTitle class="text-sm font-semibold">Riwayat pengambilan</CardTitle>
                 </CardHeader>
-                <CardContent>
+
+                <CardContent class="p-0">
                     <ul class="divide-y">
-                        <li v-for="baris in riwayat" :key="baris.id" class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5 text-sm">
-                            <span class="rounded px-1.5 py-0.5 text-xs font-medium capitalize" :class="RUPA_STATUS[baris.status]">
+                        <li
+                            v-for="baris in riwayat"
+                            :key="baris.id"
+                            class="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm transition-colors hover:bg-muted/40"
+                        >
+                            <span
+                                class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium capitalize"
+                                :class="RUPA_STATUS[baris.status].kelas"
+                            >
+                                <component :is="RUPA_STATUS[baris.status].ikon" class="size-3 shrink-0" aria-hidden="true" />
                                 {{ baris.status }}
                             </span>
                             <span class="min-w-0 flex-1 truncate text-muted-foreground">{{ baris.sumber ?? '-' }}</span>
                             <span class="angka text-xs text-muted-foreground">
-                                {{ baris.jumlah_baru }} baru dari {{ baris.jumlah_ditemukan }} ditemukan
+                                <span :class="baris.jumlah_baru > 0 ? 'font-semibold text-foreground' : ''">{{ baris.jumlah_baru }}</span>
+                                baru dari {{ baris.jumlah_ditemukan }} ditemukan
                             </span>
                             <span class="angka shrink-0 text-xs text-muted-foreground">{{ sejak(baris.dimulai_at) }}</span>
                             <p v-if="baris.pesan" class="w-full text-xs text-sentimen-negatif">{{ baris.pesan }}</p>

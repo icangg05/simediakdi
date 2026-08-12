@@ -508,10 +508,9 @@ RELEVANSI_TRAINING_TIMEOUT=1800
 CRAWL_USER_AGENT="SimediaKendariBot/1.0 (+https://simedia.kendarikota.go.id)"
 CRAWL_DELAY_MS=1500
 CRAWL_TIMEOUT=20
-
-TELEGRAM_BOT_TOKEN=
-TELEGRAM_CHAT_ID=
 ```
+
+Kredensial Telegram tidak ada di daftar ini. `TELEGRAM_BOT_TOKEN` dan `TELEGRAM_CHAT_ID` dicabut sejak tabel `pengaturan_alert` ada. Token bot dan chat ID disetel dari `/admin/pengaturan`, tersimpan di database, dan tokennya terenkripsi seperti kunci Gemini.
 
 Ambang keyakinan ditaruh di environment, bukan hardcode, karena Anda akan menyetelnya setelah gold set jadi dan tidak akan mau deploy ulang untuk mengubah satu angka.
 

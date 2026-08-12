@@ -12,9 +12,10 @@ import { useFormatAngka } from '@/composables/useFormatAngka';
 import { router, useForm } from '@inertiajs/vue3';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { Loader2, Trash2, TriangleAlert } from 'lucide-vue-next';
+import { Database, Loader2, Scissors, SlidersHorizontal, ThumbsDown, ThumbsUp, Trash2, TriangleAlert } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import type { Kandidat, Snapshot } from './tipe';
+import { IKON_SNAPSHOT, WARNA_SNAPSHOT } from './tipe';
 
 const props = defineProps<{ kandidat: Kandidat; snapshot: Snapshot[] }>();
 
@@ -94,6 +95,33 @@ const pembagian = computed(() => {
 const totalKomposisi = computed(() => form.persen_relevan + form.persen_tidak_relevan);
 const totalPembagian = computed(() => Number(form.persen_train) + Number(form.persen_validation) + Number(form.persen_test));
 
+/**
+ * Pratinjau pembagian sebagai satu batang bertiga warna.
+ *
+ * Training, validation, dan testing bukan tiga hal sejajar yang berdiri
+ * sendiri, ia satu himpunan yang dipotong tiga. Tiga kotak angka menyembunyikan
+ * itu, satu batang yang terbagi menunjukkannya. Batang ini juga yang paling
+ * cepat memberitahu bahwa jumlahnya belum seratus persen, karena bagiannya
+ * langsung terlihat tidak menutup lebar penuh.
+ */
+const potongan = computed(() => [
+    {
+        kunci: 'train',
+        judul: 'Training',
+        persen: Number(form.persen_train) || 0,
+        jumlah: pembagian.value.train,
+        kelas: 'bg-brand dark:bg-brand-terang',
+    },
+    {
+        kunci: 'validation',
+        judul: 'Validation',
+        persen: Number(form.persen_validation) || 0,
+        jumlah: pembagian.value.validation,
+        kelas: 'bg-aksen-biru',
+    },
+    { kunci: 'test', judul: 'Testing', persen: Number(form.persen_test) || 0, jumlah: pembagian.value.test, kelas: 'bg-aksen-ungu' },
+]);
+
 /** Alasan tombol dikunci, dalam kalimat yang bisa dibaca pengguna. */
 const halangan = computed<string | null>(() => {
     if (props.kandidat.total === 0) {
@@ -146,69 +174,85 @@ function hapus() {
 }
 
 const waktu = (nilai: string | null) => (nilai ? format(new Date(nilai), 'd MMM yyyy HH:mm', { locale: id }) : '-');
-
-const WARNA_STATUS: Record<string, string> = {
-    siap: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200',
-    terpakai: 'bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-200',
-    arsip: 'bg-neutral-200 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-200',
-};
 </script>
 
 <template>
     <div class="space-y-4">
         <!-- Ringkasan kandidat -->
-        <Card>
-            <CardHeader class="pb-3">
-                <CardTitle class="text-base">Kandidat dataset</CardTitle>
+        <Card class="muncul overflow-hidden" style="animation-delay: 120ms">
+            <CardHeader class="flex-row items-center gap-2 space-y-0 border-b py-3">
+                <div class="grid size-7 place-items-center rounded-md bg-aksen-biru/10 text-aksen-biru">
+                    <Database class="size-4" aria-hidden="true" />
+                </div>
+                <CardTitle class="text-sm font-semibold">Kandidat dataset</CardTitle>
             </CardHeader>
-            <CardContent class="space-y-3">
-                <p class="text-muted-foreground">
+
+            <CardContent class="space-y-4 pt-4">
+                <p class="max-w-[75ch] text-sm text-muted-foreground">
                     Artikel yang sudah dinilai Gemini, keputusannya sudah pasti, dan isinya sekurangnya
                     {{ formatAngka(kandidat.min_panjang_isi) }} karakter. Artikel yang masih menunggu penilaian atau berstatus perlu review tidak
                     ikut, karena keduanya belum punya label yang bisa dilatihkan.
                 </p>
 
-                <div class="grid gap-3 sm:grid-cols-3">
-                    <div class="rounded-lg border p-3">
+                <!-- Tiga angka berbagi satu bidang bergaris, bukan tiga kotak
+                     berbingkai di dalam kartu. Titik warna di sebelah label
+                     adalah keterangan batang di bawahnya. -->
+                <div class="grid grid-cols-1 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-3">
+                    <div class="space-y-0.5 bg-card p-3">
                         <p class="text-xs text-muted-foreground">Total kandidat</p>
                         <p class="angka text-2xl font-semibold">{{ formatAngka(kandidat.total) }}</p>
                     </div>
-                    <div class="rounded-lg border p-3">
-                        <p class="text-xs text-muted-foreground">Relevan</p>
-                        <p class="angka text-2xl font-semibold text-emerald-600 dark:text-emerald-400">
-                            {{ formatAngka(kandidat.relevan) }}
+                    <div class="space-y-0.5 bg-card p-3">
+                        <p class="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <ThumbsUp class="size-3 shrink-0 text-aksen-toska" aria-hidden="true" />
+                            Relevan
                         </p>
-                        <p class="text-xs text-muted-foreground">{{ formatPersen(kandidat.persen_relevan) }}</p>
+                        <p class="angka text-2xl font-semibold text-aksen-toska">{{ formatAngka(kandidat.relevan) }}</p>
+                        <p class="angka text-xs text-muted-foreground">{{ formatPersen(kandidat.persen_relevan) }}</p>
                     </div>
-                    <div class="rounded-lg border p-3">
-                        <p class="text-xs text-muted-foreground">Tidak Relevan</p>
-                        <p class="angka text-2xl font-semibold text-red-600 dark:text-red-400">
-                            {{ formatAngka(kandidat.tidak_relevan) }}
+                    <div class="space-y-0.5 bg-card p-3">
+                        <p class="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <ThumbsDown class="size-3 shrink-0" aria-hidden="true" />
+                            Tidak Relevan
                         </p>
-                        <p class="text-xs text-muted-foreground">{{ formatPersen(kandidat.persen_tidak_relevan) }}</p>
+                        <p class="angka text-2xl font-semibold text-muted-foreground">{{ formatAngka(kandidat.tidak_relevan) }}</p>
+                        <p class="angka text-xs text-muted-foreground">{{ formatPersen(kandidat.persen_tidak_relevan) }}</p>
                     </div>
                 </div>
 
-                <!-- Batang distribusi. Angka persen sudah ada di atas, batang ini
-                     hanya membuat ketimpangannya terlihat tanpa dibaca. -->
+                <!--
+                    Batang distribusi. Angka persen sudah ada di atas, batang ini
+                    hanya membuat ketimpangannya terlihat tanpa dibaca.
+
+                    Toska untuk Relevan dan abu untuk Tidak Relevan, bukan hijau
+                    dan merah seperti sebelumnya. Merah di seluruh panel admin
+                    berarti kabar buruk atau kegagalan, dan artikel yang tidak
+                    membahas Pemkot bukan keduanya. Ia cuma di luar cakupan, dan
+                    dataset yang seimbang justru membutuhkannya sebanyak yang
+                    relevan.
+                -->
                 <div
                     v-if="kandidat.total > 0"
-                    class="flex h-2 overflow-hidden rounded-full"
+                    class="flex h-2 overflow-hidden rounded-full bg-muted"
                     role="img"
                     :aria-label="`Distribusi kandidat: relevan ${kandidat.persen_relevan} persen, tidak relevan ${kandidat.persen_tidak_relevan} persen`"
                 >
-                    <div class="bg-emerald-500" :style="{ width: `${kandidat.persen_relevan}%` }" />
-                    <div class="bg-red-500" :style="{ width: `${kandidat.persen_tidak_relevan}%` }" />
+                    <div class="tumbuh bg-aksen-toska" :style="{ width: `${kandidat.persen_relevan}%` }" />
+                    <div class="tumbuh bg-muted-foreground/40" :style="{ width: `${kandidat.persen_tidak_relevan}%`, animationDelay: '120ms' }" />
                 </div>
             </CardContent>
         </Card>
 
         <!-- Form pembuatan snapshot -->
-        <Card>
-            <CardHeader class="pb-3">
-                <CardTitle class="text-base">Buat snapshot dataset</CardTitle>
+        <Card class="muncul overflow-hidden" style="animation-delay: 180ms">
+            <CardHeader class="flex-row items-center gap-2 space-y-0 border-b py-3">
+                <div class="grid size-7 place-items-center rounded-md bg-brand-lembut text-brand dark:text-white">
+                    <Scissors class="size-4" aria-hidden="true" />
+                </div>
+                <CardTitle class="text-sm font-semibold">Buat snapshot dataset</CardTitle>
             </CardHeader>
-            <CardContent class="space-y-4">
+
+            <CardContent class="space-y-5 pt-4">
                 <div class="grid gap-3 sm:grid-cols-2">
                     <div class="space-y-1">
                         <Label for="nama">Nama snapshot</Label>
@@ -222,14 +266,22 @@ const WARNA_STATUS: Record<string, string> = {
                     </div>
                 </div>
 
-                <div class="space-y-2 rounded-lg border p-3">
-                    <p class="font-medium">Komposisi label</p>
+                <!-- Dua kelompok setelan dipisahkan judul bergaris, bukan kotak
+                     berbingkai di dalam kartu. Kartu di dalam kartu menambah
+                     satu tepi yang harus dibaca mata tanpa menambah satu pun
+                     keterangan. -->
+                <section class="space-y-3">
+                    <div class="flex items-center gap-2">
+                        <SlidersHorizontal class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                        <h3 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Komposisi label</h3>
+                        <span class="h-px flex-1 bg-border" aria-hidden="true"></span>
+                    </div>
 
                     <div class="grid gap-3 sm:grid-cols-3">
                         <div class="space-y-1">
                             <Label for="jumlah">Jumlah total artikel</Label>
                             <Input id="jumlah" v-model.number="form.jumlah_total" type="number" :min="MIN_TOTAL" :max="maksimum" />
-                            <p class="text-xs text-muted-foreground">Maksimum {{ formatAngka(maksimum) }} pada komposisi ini.</p>
+                            <p class="angka text-xs text-muted-foreground">Maksimum {{ formatAngka(maksimum) }} pada komposisi ini.</p>
                             <InputError :message="form.errors.jumlah_total" />
                         </div>
                         <div class="space-y-1">
@@ -242,7 +294,7 @@ const WARNA_STATUS: Record<string, string> = {
                                 max="90"
                                 @update:model-value="setelRelevan(Number($event))"
                             />
-                            <p class="angka text-xs text-muted-foreground">Perkiraan {{ formatAngka(estimasi.relevan) }} artikel</p>
+                            <p class="angka text-xs text-aksen-toska">Perkiraan {{ formatAngka(estimasi.relevan) }} artikel</p>
                             <InputError :message="form.errors.persen_relevan" />
                         </div>
                         <div class="space-y-1">
@@ -256,14 +308,26 @@ const WARNA_STATUS: Record<string, string> = {
                         </div>
                     </div>
 
-                    <p class="text-xs text-muted-foreground">
-                        Total komposisi {{ totalKomposisi }} persen. Data diambil acak dari kandidat, dan seed di bawah membuat pengambilan yang sama
-                        bisa diulang.
-                    </p>
-                </div>
+                    <div class="flex h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+                        <div class="bg-aksen-toska transition-[width] duration-300 ease-out" :style="{ width: `${form.persen_relevan}%` }" />
+                        <div
+                            class="bg-muted-foreground/40 transition-[width] duration-300 ease-out"
+                            :style="{ width: `${form.persen_tidak_relevan}%` }"
+                        />
+                    </div>
 
-                <div class="space-y-2 rounded-lg border p-3">
-                    <p class="font-medium">Pembagian dataset</p>
+                    <p class="text-xs text-muted-foreground">
+                        Total komposisi <span class="angka">{{ totalKomposisi }}</span> persen. Data diambil acak dari kandidat, dan seed di bawah
+                        membuat pengambilan yang sama bisa diulang.
+                    </p>
+                </section>
+
+                <section class="space-y-3">
+                    <div class="flex items-center gap-2">
+                        <Scissors class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                        <h3 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pembagian dataset</h3>
+                        <span class="h-px flex-1 bg-border" aria-hidden="true"></span>
+                    </div>
 
                     <div class="grid gap-3 sm:grid-cols-4">
                         <div class="space-y-1">
@@ -292,33 +356,62 @@ const WARNA_STATUS: Record<string, string> = {
                         </div>
                     </div>
 
-                    <p :class="['text-xs', totalPembagian === 100 ? 'text-muted-foreground' : 'font-medium text-red-600 dark:text-red-400']">
-                        Total pembagian {{ totalPembagian }} persen. Pembagian dilakukan stratified, jadi proporsi Relevan dan Tidak Relevan tetap
-                        sama di ketiga bagian.
-                    </p>
-                </div>
+                    <!-- Pratinjau potongan. Satu himpunan yang dibelah tiga,
+                         digambar sebagai satu batang yang terbelah tiga. Kalau
+                         jumlahnya belum seratus persen, batangnya tidak menutup
+                         lebar penuh dan itu terlihat sebelum angkanya dibaca. -->
+                    <div class="space-y-1.5">
+                        <div class="flex h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+                            <div
+                                v-for="p in potongan"
+                                :key="p.kunci"
+                                class="transition-[width] duration-300 ease-out"
+                                :class="p.kelas"
+                                :style="{ width: `${p.persen}%` }"
+                            />
+                        </div>
+                        <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                            <span v-for="p in potongan" :key="p.kunci" class="inline-flex items-center gap-1.5">
+                                <span class="size-2 shrink-0 rounded-full" :class="p.kelas" aria-hidden="true"></span>
+                                {{ p.judul }} <span class="angka font-medium text-foreground">{{ formatAngka(p.jumlah) }}</span>
+                            </span>
+                        </div>
+                    </div>
 
+                    <p :class="['text-xs', totalPembagian === 100 ? 'text-muted-foreground' : 'font-medium text-sentimen-negatif']">
+                        Total pembagian <span class="angka">{{ totalPembagian }}</span> persen. Pembagian dilakukan stratified, jadi proporsi Relevan
+                        dan Tidak Relevan tetap sama di ketiga bagian.
+                    </p>
+                </section>
+
+                <!-- Kuning berarti menunggu keputusan atau menunggu syarat
+                     terpenuhi, sama dengan lencana Menunggu di daftar
+                     pelatihan. Ini bukan galat, ini daftar yang belum lengkap. -->
                 <div
                     v-if="halangan"
-                    class="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+                    class="flex items-start gap-2 rounded-lg bg-sentimen-review-lembut p-3 text-sm text-sentimen-review ring-1 ring-inset ring-sentimen-review/25"
                 >
-                    <TriangleAlert class="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                    <TriangleAlert class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                     <p>{{ halangan }}</p>
                 </div>
 
-                <Button :disabled="form.processing || halangan !== null" @click="simpan">
-                    <Loader2 v-if="form.processing" class="h-4 w-4 animate-spin" aria-hidden="true" />
+                <Button :disabled="form.processing || halangan !== null" class="tekan" @click="simpan">
+                    <Loader2 v-if="form.processing" class="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
                     Buat Snapshot Dataset
                 </Button>
             </CardContent>
         </Card>
 
         <!-- Daftar snapshot -->
-        <Card>
-            <CardHeader class="pb-3">
-                <CardTitle class="text-base">Snapshot tersimpan</CardTitle>
+        <Card class="muncul overflow-hidden" style="animation-delay: 240ms">
+            <CardHeader class="flex-row items-center justify-between gap-2 space-y-0 border-b py-3">
+                <CardTitle class="text-sm font-semibold">Snapshot tersimpan</CardTitle>
+                <span v-if="snapshot.length" class="angka rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                    {{ formatAngka(snapshot.length) }}
+                </span>
             </CardHeader>
-            <CardContent class="px-0 sm:px-6">
+
+            <CardContent class="p-0">
                 <KeadaanKosong
                     v-if="snapshot.length === 0"
                     judul="Belum ada snapshot"
@@ -341,7 +434,7 @@ const WARNA_STATUS: Record<string, string> = {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            <TableRow v-for="s in snapshot" :key="s.id">
+                            <TableRow v-for="s in snapshot" :key="s.id" class="transition-colors hover:bg-muted/40">
                                 <TableCell class="font-medium">
                                     {{ s.nama }}
                                     <p v-if="s.deskripsi" class="text-xs font-normal text-muted-foreground">
@@ -349,22 +442,37 @@ const WARNA_STATUS: Record<string, string> = {
                                     </p>
                                 </TableCell>
                                 <TableCell class="angka text-right">{{ formatAngka(s.total) }}</TableCell>
-                                <TableCell class="angka text-right">
+                                <TableCell class="angka text-right text-aksen-toska">
                                     {{ formatAngka(s.total_relevan) }}
-                                    <span class="text-xs text-muted-foreground">({{ s.persen_relevan }}%)</span>
+                                    <span class="text-xs opacity-70">({{ s.persen_relevan }}%)</span>
                                 </TableCell>
-                                <TableCell class="angka text-right">
+                                <TableCell class="angka text-right text-muted-foreground">
                                     {{ formatAngka(s.total_tidak_relevan) }}
-                                    <span class="text-xs text-muted-foreground">({{ s.persen_tidak_relevan }}%)</span>
+                                    <span class="text-xs opacity-70">({{ s.persen_tidak_relevan }}%)</span>
                                 </TableCell>
-                                <TableCell class="angka whitespace-nowrap">
-                                    {{ formatAngka(s.total_train) }} / {{ formatAngka(s.total_validation) }} /
-                                    {{ formatAngka(s.total_test) }}
+                                <!-- Batang mini menggantikan tiga angka yang
+                                     dipisah garis miring. Angkanya tetap ada di
+                                     bawahnya, yang bertambah cuma bentuk yang
+                                     bisa dibandingkan antar baris tanpa dibaca. -->
+                                <TableCell class="min-w-[7rem]">
+                                    <div class="flex h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+                                        <div class="bg-brand dark:bg-brand-terang" :style="{ width: `${s.persen_train}%` }" />
+                                        <div class="bg-aksen-biru" :style="{ width: `${s.persen_validation}%` }" />
+                                        <div class="bg-aksen-ungu" :style="{ width: `${s.persen_test}%` }" />
+                                    </div>
+                                    <p class="angka mt-1 whitespace-nowrap text-xs text-muted-foreground">
+                                        {{ formatAngka(s.total_train) }} / {{ formatAngka(s.total_validation) }} / {{ formatAngka(s.total_test) }}
+                                    </p>
                                 </TableCell>
                                 <TableCell class="angka text-right">{{ s.random_seed }}</TableCell>
                                 <TableCell>
-                                    <Badge class="capitalize" :class="WARNA_STATUS[s.status]">{{ s.status }}</Badge>
-                                    <p v-if="s.pelatihan_count > 0" class="mt-1 text-xs text-muted-foreground">{{ s.pelatihan_count }} pelatihan</p>
+                                    <Badge variant="outline" class="gap-1 rounded-md border-transparent capitalize" :class="WARNA_SNAPSHOT[s.status]">
+                                        <component :is="IKON_SNAPSHOT[s.status]" class="size-3 shrink-0" aria-hidden="true" />
+                                        {{ s.status }}
+                                    </Badge>
+                                    <p v-if="s.pelatihan_count > 0" class="angka mt-1 text-xs text-muted-foreground">
+                                        {{ s.pelatihan_count }} pelatihan
+                                    </p>
                                 </TableCell>
                                 <TableCell class="whitespace-nowrap text-xs text-muted-foreground">
                                     {{ waktu(s.dibuat_at) }}
@@ -382,7 +490,7 @@ const WARNA_STATUS: Record<string, string> = {
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        class="h-7"
+                                        class="h-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                                         :disabled="s.pelatihan_count > 0"
                                         :aria-label="
                                             s.pelatihan_count > 0
@@ -391,7 +499,7 @@ const WARNA_STATUS: Record<string, string> = {
                                         "
                                         @click="akanDihapus = s"
                                     >
-                                        <Trash2 class="h-4 w-4" aria-hidden="true" />
+                                        <Trash2 class="size-4" aria-hidden="true" />
                                     </Button>
                                 </TableCell>
                             </TableRow>

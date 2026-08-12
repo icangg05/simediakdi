@@ -101,8 +101,9 @@ class AntreGemini extends Command
 
         return $kueri->whereHas('analisisSentimen', function (Builder $analisis) use ($relevan) {
             $analisis->where('relevan', $relevan)
-                // Provider kosong berarti keputusannya warisan pipeline lama
-                // yang tidak pernah mencap barisnya.
+                // Provider kosong berarti barisnya tidak mencatat siapa yang
+                // memutuskan, sehingga keputusannya tidak bisa ditelusuri dan
+                // perlu dinilai ulang oleh penilai yang mencap dirinya.
                 //
                 // Dulu syarat ini berbunyi "kosong atau bukan gemini", dan itu
                 // benar selama gemini satu-satunya penyedia yang mencap. Sejak

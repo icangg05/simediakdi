@@ -39,6 +39,13 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
       )
       "
     >
+      <!--
+        Slot untuk isi yang harus tetap terlihat saat daftarnya digulir, misalnya
+        kotak cari. Ditaruh di luar SelectViewport dengan sengaja: apa pun yang
+        masuk lewat slot bawaan ikut tergulung bersama daftarnya dan hilang dari
+        layar begitu penggunanya menggulir ke item kesepuluh.
+      -->
+      <slot name="atas" />
       <SelectScrollUpButton />
       <SelectViewport :class="cn('p-1', position === 'popper' && 'h-(--reka-select-trigger-height) w-full min-w-(--reka-select-trigger-width)')">
         <slot />

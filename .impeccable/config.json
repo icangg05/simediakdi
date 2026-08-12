@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "resources/js/pages/admin/artikel/Index.vue"
+        ],
+        "createdAt": "2026-08-12T01:33:45.207Z",
+        "reason": "Skala tiga langkah yang disengaja untuk tabel admin padat. Loncatan xl ke sm berrasio 1,43, di atas ambang. Loncatan sm ke xs adalah pembeda teks utama dan metadata, sesuai panduan Operate. Dikonfirmasi pengguna."
+      }
+    ]
+  }
+}

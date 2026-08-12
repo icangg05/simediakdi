@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import DataTable from '@/components/data-table/DataTable.vue';
+import BadgeSentimen from '@/components/domain/BadgeSentimen.vue';
+import KopHalaman from '@/components/domain/KopHalaman.vue';
+import PilKop from '@/components/domain/PilKop.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -13,8 +16,24 @@ import type { KolomDefinisi, OpsiFilter, PaginasiMeta } from '@/types/tabel';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { BrainCircuit, ExternalLink, Loader2, RotateCcw, Sparkles, ThumbsDown, ThumbsUp, Trash2, UserPen } from 'lucide-vue-next';
-import { computed, ref, watch } from 'vue';
+import {
+    BrainCircuit,
+    ExternalLink,
+    Filter,
+    Loader2,
+    Minus,
+    Newspaper,
+    RotateCcw,
+    Sparkles,
+    Target,
+    ThumbsDown,
+    ThumbsUp,
+    Trash2,
+    TrendingDown,
+    TrendingUp,
+    UserPen,
+} from 'lucide-vue-next';
+import { computed, ref, watch, type Component } from 'vue';
 
 type LabelSentimen = 'negatif' | 'netral' | 'positif';
 type JalurKlasifikasi = 'gemini' | 'indobert';
@@ -118,6 +137,42 @@ const mediaTerpilih = computed({
     get: () => props.media ?? SEMUA,
     set: (nilai: string) => pindah({ media: nilai === SEMUA ? null : nilai }),
 });
+
+/*
+ * Pencarian media disaring di peramban, bukan lewat permintaan ke server.
+ *
+ * Seluruh daftar media memang sudah ikut terkirim bersama halaman lewat
+ * `opsiMedia`, dan jumlahnya puluhan, bukan puluhan ribu. Menyaringnya lewat
+ * server berarti satu permintaan untuk setiap huruf yang diketik, untuk
+ * menyaring daftar yang sudah ada seluruhnya di memori peramban.
+ */
+const cariMedia = ref('');
+
+const opsiMediaTersaring = computed(() => {
+    const kata = cariMedia.value.trim().toLowerCase();
+
+    if (kata === '') return props.opsiMedia;
+
+    return props.opsiMedia.filter((opsi) => opsi.label.toLowerCase().includes(kata));
+});
+
+/**
+ * Tombol navigasi tetap milik dropdown, huruf dan angka milik kotak cari.
+ *
+ * Reka UI menyalakan lompat-ketik pada daftarnya: menekan huruf akan memindahkan
+ * sorotan ke item yang berawalan huruf itu. Tanpa penghalang ini, mengetik di
+ * kotak cari akan sekaligus melompati daftar di bawahnya, dan huruf yang sama
+ * mengerjakan dua hal yang saling berlawanan. Panah, Enter, Escape, dan Tab
+ * sengaja dibiarkan naik supaya dropdown tetap bisa dijelajahi dan ditutup lewat
+ * papan ketik.
+ */
+const TOMBOL_DROPDOWN = ['ArrowUp', 'ArrowDown', 'Home', 'End', 'Enter', 'Escape', 'Tab'];
+
+function ketikanCari(peristiwa: KeyboardEvent) {
+    if (TOMBOL_DROPDOWN.includes(peristiwa.key)) return;
+
+    peristiwa.stopPropagation();
+}
 
 /**
  * Penilai yang mengerjakan barisnya, bukan penilai yang sedang disetel.
@@ -404,8 +459,46 @@ function putuskan() {
  */
 const bisaDiputuskan = computed(() => props.tahap === 'review');
 
+/*
+ * Sistem warna halaman ini: satu rona, satu arti.
+ *
+ * Sebelumnya halaman ini memakai palet Tailwind mentah, emerald, rose, violet,
+ * sky, dan slate, sementara sisa aplikasi memakai token domain di app.css. Dua
+ * akibatnya nyata. Badge "Positif" di sini hijau emerald sedangkan badge
+ * "Positif" di panel eksekutif hijau token, dua warna berbeda untuk satu arti
+ * yang sama persis. Dan satu rona dipakai untuk arti yang berbeda: hijau
+ * menandai nada positif sekaligus tombol "tandai relevan", merah menandai nada
+ * negatif sekaligus tombol buang. Admin melihat tombol merah "Tidak" persis di
+ * sebelah badge merah "Negatif", dua hal yang tidak berhubungan sama sekali.
+ *
+ * Pembagian yang berlaku sekarang, dan tidak boleh dilanggar di halaman ini:
+ *
+ * | Rona            | Arti                              |
+ * |-----------------|-----------------------------------|
+ * | Hijau sentimen  | Nada pemberitaan positif          |
+ * | Abu sentimen    | Nada pemberitaan netral           |
+ * | Merah sentimen  | Nada pemberitaan negatif          |
+ * | Kuning sentimen | Menunggu keputusan manusia        |
+ * | Aksen ungu      | Gemini, penilai LLM eksternal     |
+ * | Aksen biru      | IndoBERT, model lokal             |
+ * | Aksen toska     | Masuk lingkup pantauan            |
+ * | Abu redup       | Di luar lingkup pantauan          |
+ * | Destructive     | Penghapusan permanen              |
+ *
+ * Ketiga rona aksen dipilih karena app.css memang menyediakannya untuk
+ * keperluan di luar nada, dan rona-nya sengaja dijauhkan dari palet sentimen.
+ * Ketiganya juga sudah punya nilai mode gelap tersendiri, jadi tidak ada warna
+ * yang tenggelam saat temanya dibalik.
+ */
+
 /**
- * Warna badge, dipakai bersama filter dan tabel.
+ * Relevansi diwarnai menurut lingkup, bukan menurut baik dan buruk.
+ *
+ * Dulu Relevan hijau dan Tidak relevan merah. Selain meminjam rona sentimen,
+ * merah menyiratkan berita yang buruk, padahal artinya hanya di luar cakupan
+ * Pemkot. Berita kegiatan perusahaan swasta bukan kabar buruk, ia sekadar bukan
+ * urusan sistem ini. Sekarang relevan memakai toska yang berarti terhitung, dan
+ * tidak relevan memakai abu redup yang berarti dikesampingkan.
  *
  * `variant="outline"` wajib menyertainya. Varian bawaan Badge membawa
  * `hover:bg-primary/80`, dan tailwind-merge mempertahankannya karena `bg-` dan
@@ -414,19 +507,30 @@ const bisaDiputuskan = computed(() => props.tahap === 'review');
  * ditekan padahal bukan.
  */
 const warnaRelevansi = (relevan: boolean) =>
-    relevan
-        ? 'border-transparent bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-        : 'border-transparent bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300';
+    relevan ? 'border-transparent bg-aksen-toska/10 text-aksen-toska' : 'border-transparent bg-muted text-muted-foreground';
 
+/**
+ * Rona nada, diambil dari token yang sama dengan BadgeSentimen dan grafik.
+ *
+ * Dipakai saringan nada di kepala halaman. Badge di dalam tabel tidak memakai
+ * peta ini melainkan komponen BadgeSentimen langsung, karena komponen itu
+ * menyatakan dirinya satu-satunya tempat yang boleh merender indikator sentimen
+ * dan ia sudah membawa ikon serta teks sebagai penanda kedua.
+ */
 const warnaSentimen: Record<LabelSentimen, string> = {
-    positif: 'border-transparent bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
-    netral: 'border-transparent bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-300',
-    negatif: 'border-transparent bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300',
+    positif: 'bg-sentimen-positif-lembut text-sentimen-positif',
+    netral: 'bg-sentimen-netral-lembut text-sentimen-netral',
+    negatif: 'bg-sentimen-negatif-lembut text-sentimen-negatif',
+};
+
+/** Ikon nada, supaya saringan tidak bergantung pada warna saja. */
+const ikonSentimen: Record<LabelSentimen, Component> = {
+    positif: TrendingUp,
+    netral: Minus,
+    negatif: TrendingDown,
 };
 
 const { formatAngka } = useFormatAngka();
-
-const kapital = (teks: string) => teks.charAt(0).toUpperCase() + teks.slice(1);
 
 const waktu = (n: string) => format(new Date(n), 'd MMM yyyy', { locale: id });
 
@@ -439,59 +543,50 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
 <template>
     <Head title="Artikel" />
 
-    <LayoutAdmin>
-        <div class="space-y-4 p-4">
-            <div>
-                <h1 class="text-xl font-semibold">Artikel</h1>
-                <p class="text-sm text-muted-foreground">
-                    Pilih Gemini penuh atau kombinasi IndoBERT + Gemini untuk setiap artikel. Yang dinilai: {{ pantauan }}.
-                </p>
-            </div>
+    <!-- Bilah kop aplikasi mengisi dirinya dari daftar ini. Tanpa daftar itu
+         yang tampil hanya tombol sidebar dengan sisa ruang kosong sepanjang
+         layar, dan halaman ini menjadi satu-satunya halaman admin yang kopnya
+         tidak menyebutkan sedang berada di mana. -->
+    <LayoutAdmin :breadcrumbs="[{ title: 'Berita', href: '/admin/artikel' }]">
+        <!--
+            Jarak tepi tidak ditulis lagi di sini. LayoutAdmin sudah membungkus
+            slotnya dengan `p-4`, jadi `p-4` kedua di halaman ini memberi bidang
+            isinya dua lapis jarak dan membuat tabelnya lebih sempit daripada
+            tabel di seluruh halaman admin lain.
+        -->
+        <div class="space-y-4">
+            <KopHalaman
+                judul="Berita"
+                keterangan="Arsip berita beserta putusan relevansi dan nadanya. Setiap baris bisa dinilai ulang lewat Gemini penuh atau kombinasi IndoBERT dan Gemini."
+            >
+                <PilKop :ikon="Target">Yang dinilai: {{ pantauan }}</PilKop>
+                <PilKop :ikon="Newspaper">
+                    <span class="angka">{{ formatAngka(artikel.total) }}</span> berita pada saringan ini
+                </PilKop>
+                <!-- Jeda kuota diangkat ke kop, bukan hanya tercetak di tombol
+                     tiap baris. Selama jeda berjalan seluruh tabel terkunci, dan
+                     itu keadaan halaman, bukan keadaan satu baris. -->
+                <PilKop v-if="jeda > 0" nada="tunggu" :ikon="Loader2" berputar>
+                    Kuota Gemini pulih dalam <span class="angka">{{ jeda }}</span> detik
+                </PilKop>
+            </KopHalaman>
 
-            <!-- Dua kelompok tombol, relevansi di kiri dan tahap di kanan.
-                 Keduanya filter, tetapi menjawab pertanyaan yang berbeda:
-                 tahap menentukan sudah sampai mana artikelnya, relevansi
-                 menentukan apa keputusannya. Menjejerkan keduanya dalam satu
-                 baris membuat pasangan yang tidak masuk akal terlihat sendiri,
-                 misalnya Belum diklasifikasi yang disaring Relevan. -->
-            <div class="flex flex-wrap items-center justify-between gap-2">
-                <!-- Placeholder kosong menjaga tahap tetap di kanan saat filter
-                     relevansi disembunyikan. Tanpa ini justify-between menarik
-                     kelompok tahap ke kiri, dan posisinya berpindah setiap kali
-                     admin membuka Belum diklasifikasi. -->
-                <div v-if="relevansiBisaDisaring" class="flex flex-wrap gap-1 rounded-lg bg-muted p-1">
-                    <button
-                        v-for="r in daftarRelevansi"
-                        :key="r.nilai"
-                        type="button"
-                        class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
-                        :class="relevansi === r.nilai ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
-                        :aria-pressed="relevansi === r.nilai"
-                        @click="pindah({ relevansi: r.nilai, sentimen: null })"
-                    >
-                        {{ r.label }}
-                        <span class="angka ml-1 text-xs opacity-70">{{ formatAngka(r.jumlah) }}</span>
-                    </button>
-                </div>
-                <div v-else />
+            <!--
+                Tiga kelompok saringan, dijejer mengikuti urutan menyempitnya.
 
-                <!-- Sentimen di tengah, memakai warna yang sama dengan badge di
-                     kolom Hasil AI supaya hijau di filter dan hijau di tabel
-                     berarti hal yang sama. -->
-                <div v-if="sentimenBisaDisaring" class="flex flex-wrap gap-1 rounded-lg bg-muted p-1">
-                    <button
-                        v-for="s in saringanSentimen"
-                        :key="s.nilai"
-                        type="button"
-                        class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
-                        :class="sentimen === s.nilai ? warnaSentimen[s.nilai] + ' shadow-sm' : 'text-muted-foreground hover:text-foreground'"
-                        :aria-pressed="sentimen === s.nilai"
-                        @click="pindah({ sentimen: sentimen === s.nilai ? null : s.nilai })"
-                    >
-                        {{ s.label }}
-                    </button>
-                </div>
-                <div v-else />
+                Tahap lebih dulu karena ia menentukan dua kelompok lainnya
+                muncul atau tidak: relevansi hanya ada di Selesai, dan sentimen
+                hanya ada setelah relevansi disetel ke Relevan. Sebelumnya
+                urutannya terbalik dan posisinya dijaga `justify-between` dengan
+                dua `div` kosong sebagai pengganjal, sehingga kelompok tahap
+                berpindah tempat setiap kali admin membuka Belum diklasifikasi.
+
+                Panah di antara kelompok menyatakan penyempitan itu sebagai
+                bentuk, jadi tidak perlu satu kalimat pun untuk menjelaskan
+                kenapa dua kelompok lainnya kadang tidak ada.
+            -->
+            <div class="muncul flex flex-wrap items-center gap-2" style="animation-delay: 60ms">
+                <Filter class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
 
                 <div class="flex flex-wrap gap-1 rounded-lg bg-muted p-1">
                     <!-- Pindah tahap ikut membuang saringan relevansi. Kalau
@@ -502,8 +597,12 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                         v-for="t in daftarTahap"
                         :key="t.nilai"
                         type="button"
-                        class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
-                        :class="tahap === t.nilai ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+                        class="tekan rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+                        :class="
+                            tahap === t.nilai
+                                ? 'bg-brand text-white shadow-sm dark:bg-brand-terang'
+                                : 'text-muted-foreground hover:bg-background hover:text-foreground'
+                        "
                         :aria-pressed="tahap === t.nilai"
                         @click="pindahTahap(t.nilai)"
                     >
@@ -511,9 +610,77 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                         <span class="angka ml-1 text-xs opacity-70">{{ formatAngka(t.jumlah) }}</span>
                     </button>
                 </div>
+
+                <svg
+                    v-if="relevansiBisaDisaring"
+                    viewBox="0 0 12 24"
+                    class="h-5 w-3 shrink-0 text-muted-foreground/40"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    aria-hidden="true"
+                >
+                    <path d="M3 6l5 6-5 6" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+
+                <div v-if="relevansiBisaDisaring" class="flex flex-wrap gap-1 rounded-lg bg-muted p-1">
+                    <button
+                        v-for="r in daftarRelevansi"
+                        :key="r.nilai"
+                        type="button"
+                        class="tekan rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+                        :class="
+                            relevansi === r.nilai
+                                ? 'bg-aksen-toska text-white shadow-sm dark:text-background'
+                                : 'text-muted-foreground hover:bg-background hover:text-foreground'
+                        "
+                        :aria-pressed="relevansi === r.nilai"
+                        @click="pindah({ relevansi: r.nilai, sentimen: null })"
+                    >
+                        {{ r.label }}
+                        <span class="angka ml-1 text-xs opacity-70">{{ formatAngka(r.jumlah) }}</span>
+                    </button>
+                </div>
+
+                <svg
+                    v-if="sentimenBisaDisaring"
+                    viewBox="0 0 12 24"
+                    class="h-5 w-3 shrink-0 text-muted-foreground/40"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    aria-hidden="true"
+                >
+                    <path d="M3 6l5 6-5 6" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+
+                <!-- Memakai token nada yang sama dengan BadgeSentimen di kolom
+                     Hasil AI supaya hijau di saringan dan hijau di tabel berarti
+                     hal yang sama persis. Ikonnya juga sama, karena warna
+                     sendirian bukan penanda yang cukup. -->
+                <div v-if="sentimenBisaDisaring" class="flex flex-wrap gap-1 rounded-lg bg-muted p-1">
+                    <button
+                        v-for="s in saringanSentimen"
+                        :key="s.nilai"
+                        type="button"
+                        class="tekan inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+                        :class="
+                            sentimen === s.nilai
+                                ? warnaSentimen[s.nilai] + ' shadow-sm'
+                                : 'text-muted-foreground hover:bg-background hover:text-foreground'
+                        "
+                        :aria-pressed="sentimen === s.nilai"
+                        @click="pindah({ sentimen: sentimen === s.nilai ? null : s.nilai })"
+                    >
+                        <component :is="ikonSentimen[s.nilai]" class="size-3.5 shrink-0" aria-hidden="true" />
+                        {{ s.label }}
+                    </button>
+                </div>
             </div>
 
             <DataTable
+                class="muncul"
+                style="animation-delay: 120ms"
                 :kolom="kolom"
                 :data="artikel.data"
                 :meta="artikel"
@@ -523,15 +690,35 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                 keterangan-kosong="Pilih tahap lain di atas, atau tunggu crawler mengambil berita baru."
             >
                 <template #aksi>
-                    <Select v-model="mediaTerpilih">
+                    <!-- Kotak cari dikosongkan setiap dropdown ditutup. Saringan
+                         yang tertinggal dari pemakaian sebelumnya membuat daftar
+                         terbuka dalam keadaan sudah terpotong, dan media yang
+                         hilang darinya terbaca seperti media yang terhapus. -->
+                    <Select v-model="mediaTerpilih" @update:open="(terbuka) => terbuka || (cariMedia = '')">
                         <SelectTrigger class="h-8 w-44" aria-label="Saring menurut media">
                             <SelectValue placeholder="Semua media" />
                         </SelectTrigger>
                         <SelectContent>
+                            <template #atas>
+                                <div class="border-b p-1">
+                                    <Input
+                                        v-model="cariMedia"
+                                        class="h-8 border-0 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                                        placeholder="Cari media"
+                                        aria-label="Cari nama media"
+                                        @keydown="ketikanCari"
+                                    />
+                                </div>
+                            </template>
+
                             <SelectItem :value="SEMUA">Semua media</SelectItem>
-                            <SelectItem v-for="m in opsiMedia" :key="m.nilai" :value="m.nilai">
+                            <SelectItem v-for="m in opsiMediaTersaring" :key="m.nilai" :value="m.nilai">
                                 {{ m.label }}
                             </SelectItem>
+
+                            <p v-if="opsiMediaTersaring.length === 0" class="px-2 py-3 text-center text-xs text-muted-foreground">
+                                Tidak ada media bernama "{{ cariMedia }}".
+                            </p>
                         </SelectContent>
                     </Select>
 
@@ -656,8 +843,13 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                     <div v-if="baris.analisis === null" class="text-sm text-muted-foreground">Belum dinilai</div>
 
                     <div v-else class="space-y-1.5">
+                        <!-- Seluruh penanda di baris ini memakai bentuk yang sama,
+                             `rounded-md` dengan bobot medium, mengikuti bentuk
+                             BadgeSentimen. Pil bulat berdampingan dengan chip
+                             bersudut di satu baris terbaca sebagai dua jenis
+                             benda padahal keduanya penanda yang setara. -->
                         <div class="flex flex-wrap items-center gap-1.5">
-                            <Badge variant="outline" :class="warnaRelevansi(baris.analisis.relevan)">
+                            <Badge variant="outline" class="rounded-md font-medium" :class="warnaRelevansi(baris.analisis.relevan)">
                                 {{ baris.analisis.relevan ? 'Relevan' : 'Tidak relevan' }}
                             </Badge>
 
@@ -665,21 +857,37 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                                  pernah dinilai relevan lalu dikoreksi menjadi tidak relevan
                                  tetap menyimpan label lamanya, dan label itu sudah tidak
                                  dihitung agregasi mana pun. Menampilkannya membuat admin
-                                 membaca angka yang tidak ada di dashboard. -->
-                            <Badge
-                                v-if="baris.analisis.relevan && baris.analisis.label_efektif"
-                                variant="outline"
-                                :class="warnaSentimen[baris.analisis.label_efektif]"
-                            >
-                                {{ kapital(baris.analisis.label_efektif) }}
-                            </Badge>
+                                 membaca angka yang tidak ada di dashboard.
 
-                            <Badge v-if="baris.analisis.perlu_review" variant="outline"> Perlu review </Badge>
+                                 Dirender BadgeSentimen, bukan Badge berwarna sendiri.
+                                 Komponen itu menyatakan dirinya satu-satunya tempat yang
+                                 boleh merender indikator sentimen, dan halaman ini dulu
+                                 melanggarnya dengan palet emerald dan rose buatan sendiri.
+                                 Akibatnya hijau "Positif" di sini berbeda dari hijau
+                                 "Positif" di panel eksekutif. -->
+                            <BadgeSentimen v-if="baris.analisis.relevan && baris.analisis.label_efektif" :label="baris.analisis.label_efektif" />
+
+                            <Badge
+                                v-if="baris.analisis.perlu_review"
+                                variant="outline"
+                                class="rounded-md bg-sentimen-review-lembut font-medium text-sentimen-review"
+                            >
+                                Perlu review
+                            </Badge>
 
                             <!-- Penanda bahwa nilainya keputusan manusia, bukan Gemini.
                                  Tanpa ini admin tidak bisa membedakan baris yang sudah
-                                 diperiksa dari baris yang kebetulan sependapat. -->
-                            <Badge v-if="baris.analisis.relevan_manual !== null || baris.analisis.label_manual" variant="outline"> Dikoreksi </Badge>
+                                 diperiksa dari baris yang kebetulan sependapat. Ikonnya
+                                 sama dengan tombol saringan Dikoreksi di atas tabel,
+                                 karena keduanya menyaring dan menandai hal yang sama. -->
+                            <Badge
+                                v-if="baris.analisis.relevan_manual !== null || baris.analisis.label_manual"
+                                variant="outline"
+                                class="rounded-md font-medium"
+                            >
+                                <UserPen class="size-3 shrink-0" aria-hidden="true" />
+                                Dikoreksi
+                            </Badge>
 
                             <!-- Penanda penilai relevansi, hanya untuk IndoBERT.
                                  Gemini tidak diberi badge karena ia yang
@@ -687,8 +895,20 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                                  yang muncul di setiap baris berhenti menjadi
                                  penanda. Yang perlu terlihat sekali lihat adalah
                                  baris yang keputusannya datang dari model baru
-                                 dan karena itu perlu diperiksa lebih dulu. -->
-                            <Badge v-if="baris.analisis.provider === 'indobert'" variant="outline"> IndoBERT </Badge>
+                                 dan karena itu perlu diperiksa lebih dulu.
+
+                                 Biru aksen dan ikon BrainCircuit, sama persis
+                                 dengan tombol IndoBERT di kolom aksi, jadi
+                                 penanda hasil dan tombol yang menghasilkannya
+                                 terbaca sebagai satu hal. -->
+                            <Badge
+                                v-if="baris.analisis.provider === 'indobert'"
+                                variant="outline"
+                                class="rounded-md bg-aksen-biru/10 font-medium text-aksen-biru"
+                            >
+                                <BrainCircuit class="size-3 shrink-0" aria-hidden="true" />
+                                IndoBERT
+                            </Badge>
                         </div>
 
                         <p v-if="baris.analisis.reason_summary" class="text-xs text-muted-foreground">
@@ -717,9 +937,19 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                             terbaca. Barisnya sendiri tetap dibedakan lewat ikon
                             berputar, jadi admin tahu mana yang sedang dikerjakan.
                         -->
+                        <!-- Ungu berarti Gemini, biru berarti IndoBERT, dan
+                             pasangan itu berlaku di seluruh halaman: tombolnya,
+                             badge penilai di kolom Hasil AI, dan tombol
+                             konfirmasi di dialog reset. Isian penuh untuk
+                             Gemini karena ia jalur bawaan, garis tepi untuk
+                             IndoBERT karena ia pilihan kedua.
+
+                             `dark:text-background`, bukan putih terus. Token
+                             aksen dicerahkan di mode gelap, jadi isian penuhnya
+                             membalik arah dan teks putih di atasnya hilang. -->
                         <Button
                             size="sm"
-                            class="w-full bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-70"
+                            class="w-full bg-aksen-ungu text-white hover:bg-aksen-ungu/90 disabled:opacity-70 dark:text-background"
                             :disabled="terkunci"
                             title="Relevansi dan sentimen dinilai dengan Gemini"
                             @click="klasifikasi(baris, 'gemini')"
@@ -738,7 +968,7 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                         <Button
                             size="sm"
                             variant="outline"
-                            class="w-full border-sky-300 text-sky-700 hover:bg-sky-50 hover:text-sky-800 disabled:opacity-70 dark:border-sky-800 dark:text-sky-300 dark:hover:bg-sky-950"
+                            class="w-full border-aksen-biru/40 text-aksen-biru hover:bg-aksen-biru/10 hover:text-aksen-biru disabled:opacity-70"
                             :disabled="terkunci"
                             title="Relevansi dinilai IndoBERT, sentimen dinilai Gemini"
                             @click="klasifikasi(baris, 'indobert')"
@@ -761,23 +991,31 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                             Reset koreksi
                         </button>
 
+                        <!-- Kedua tombol memakai warna hasil yang akan mereka
+                             tuliskan: toska untuk masuk pantauan, abu redup
+                             untuk di luar pantauan. Sebelumnya keduanya hijau
+                             dan merah, dan tombol merah "Tidak" berdiri persis
+                             di sebelah badge merah "Negatif" yang artinya sama
+                             sekali berbeda. Ibu jari naik dan turun tetap ada
+                             sebagai penanda kedua, karena keputusan ini tidak
+                             boleh bergantung pada warna saja. -->
                         <div v-if="bisaDiputuskan" class="flex gap-1">
                             <button
                                 type="button"
-                                class="inline-flex flex-1 items-center justify-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 transition-colors hover:bg-emerald-200 disabled:opacity-50 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
+                                class="inline-flex flex-1 items-center justify-center gap-1 rounded-md bg-aksen-toska/10 px-2 py-1 text-xs font-medium text-aksen-toska transition-colors hover:bg-aksen-toska/20 disabled:opacity-50"
                                 :disabled="terkunci"
                                 @click="tanyakan(baris, true)"
                             >
-                                <ThumbsUp class="size-3" />
+                                <ThumbsUp class="size-3" aria-hidden="true" />
                                 Relevan
                             </button>
                             <button
                                 type="button"
-                                class="inline-flex flex-1 items-center justify-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-800 transition-colors hover:bg-rose-200 disabled:opacity-50 dark:bg-rose-950 dark:text-rose-300 dark:hover:bg-rose-900"
+                                class="inline-flex flex-1 items-center justify-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
                                 :disabled="terkunci"
                                 @click="tanyakan(baris, false)"
                             >
-                                <ThumbsDown class="size-3" />
+                                <ThumbsDown class="size-3" aria-hidden="true" />
                                 Tidak
                             </button>
                         </div>
@@ -785,7 +1023,7 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                         <button
                             v-if="pembuangan.boleh"
                             type="button"
-                            class="inline-flex items-center justify-center gap-1 rounded-md border px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:hover:bg-rose-950"
+                            class="inline-flex items-center justify-center gap-1 rounded-md border px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-sentimen-negatif/40 hover:bg-sentimen-negatif-lembut hover:text-sentimen-negatif disabled:opacity-50"
                             :disabled="sedangBuang"
                             @click="buangSatu(baris)"
                         >
@@ -825,11 +1063,16 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
 
                 <DialogFooter>
                     <Button variant="outline" @click="konfirmasiRelevansi = null">Batal</Button>
+                    <!-- Warnanya mengikuti tombol yang membuka dialog ini, jadi
+                         admin menekan dua tombol berwarna sama untuk satu
+                         keputusan. Menandai tidak relevan bukan tindakan
+                         merusak, artikelnya tetap tersimpan dan keputusannya
+                         bisa dicabut, jadi tombolnya tidak memakai merah. -->
                     <Button
                         :class="
                             konfirmasiRelevansi?.relevan
-                                ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                                : 'bg-rose-600 text-white hover:bg-rose-700'
+                                ? 'bg-aksen-toska text-white hover:bg-aksen-toska/90 dark:text-background'
+                                : 'bg-foreground text-background hover:bg-foreground/90'
                         "
                         @click="putuskan"
                     >
@@ -863,7 +1106,12 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
 
                 <DialogFooter>
                     <Button variant="outline" @click="konfirmasiReset = null">Batal</Button>
-                    <Button class="bg-violet-600 text-white hover:bg-violet-700" @click="reset"> Cabut dan nilai ulang </Button>
+                    <!-- Ungu, sama seperti tombol Klasifikasi Gemini, karena
+                         yang dijalankan tombol ini memang satu penilaian Gemini
+                         baru dan memakai kuotanya. -->
+                    <Button class="bg-aksen-ungu text-white hover:bg-aksen-ungu/90 dark:text-background" @click="reset">
+                        Cabut dan nilai ulang
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

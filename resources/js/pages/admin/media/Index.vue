@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import DataTable from '@/components/data-table/DataTable.vue';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import KopHalaman from '@/components/domain/KopHalaman.vue';
+import PilKop from '@/components/domain/PilKop.vue';
 import LayoutAdmin from '@/layouts/LayoutAdmin.vue';
 import type { AksiBaris, FilterDefinisi, KolomDefinisi, OpsiFilter, PaginasiMeta } from '@/types/tabel';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { Plus } from 'lucide-vue-next';
+import { CircleCheck, Handshake, Loader, Newspaper, Plus, TriangleAlert } from 'lucide-vue-next';
+import { computed, type Component } from 'vue';
 
 interface BarisMedia {
     id: number;
@@ -31,7 +32,7 @@ const kolom: KolomDefinisi[] = [
     { kunci: 'domain', judul: 'Domain', bisaDiurutkan: true },
     { kunci: 'tier', judul: 'Tier', bisaDiurutkan: true, lebar: 'w-28' },
     { kunci: 'jenis', judul: 'Jenis', bisaDiurutkan: true, lebar: 'w-24' },
-    { kunci: 'sumber_feed_count', judul: 'Pengambilan', lebar: 'w-44' },
+    { kunci: 'sumber_feed_count', judul: 'Pengambilan', lebar: 'w-48' },
     { kunci: 'aktif', judul: 'Status', lebar: 'w-28' },
 ];
 
@@ -69,9 +70,9 @@ const aksiBaris: AksiBaris<BarisMedia>[] = [
 ];
 
 const warnaTier: Record<BarisMedia['tier'], string> = {
-    nasional: 'bg-tier-nasional/10 text-tier-nasional',
-    regional: 'bg-tier-regional/10 text-tier-regional',
-    lokal: 'bg-tier-lokal/10 text-tier-lokal',
+    nasional: 'bg-tier-nasional/10 text-tier-nasional ring-tier-nasional/25',
+    regional: 'bg-tier-regional/10 text-tier-regional ring-tier-regional/25',
+    lokal: 'bg-tier-lokal/10 text-tier-lokal ring-tier-lokal/25',
 };
 
 /**
@@ -82,30 +83,74 @@ const warnaTier: Record<BarisMedia['tier'], string> = {
  * Angka telanjang tidak menjawab itu: nol bisa berarti masih dicari, bisa
  * berarti sudah dicari dan tidak ketemu, dan keduanya menuntut tindakan
  * berbeda.
+ *
+ * Tiap keadaan sekarang membawa ikonnya sendiri. Empat frasa berwarna yang
+ * hanya berbeda warna memaksa mata membaca kalimatnya satu per satu, dan yang
+ * dicari admin saat menyisir daftar ini adalah baris yang bermasalah, bukan
+ * bacaan.
  */
-function pengambilan(baris: BarisMedia): { teks: string; kelas: string } {
+function pengambilan(baris: BarisMedia): { teks: string; kelas: string; ikon: Component } {
     if (!baris.aktif) {
-        return { teks: 'Dihentikan', kelas: 'text-muted-foreground' };
+        return { teks: 'Dihentikan', kelas: 'text-muted-foreground', ikon: TriangleAlert };
     }
 
     if (baris.sumber_feed_aktif_count > 0) {
-        return { teks: `${baris.sumber_feed_aktif_count} sumber aktif`, kelas: 'text-sentimen-positif' };
+        return { teks: `${baris.sumber_feed_aktif_count} sumber aktif`, kelas: 'text-sentimen-positif', ikon: CircleCheck };
     }
 
     if (baris.sumber_feed_count > 0) {
-        return { teks: 'Semua sumber mati', kelas: 'text-sentimen-negatif' };
+        return { teks: 'Semua sumber mati', kelas: 'text-sentimen-negatif', ikon: TriangleAlert };
     }
 
     return baris.feed_dicari_at === null
-        ? { teks: 'Mencari RSS', kelas: 'text-aksen-biru' }
-        : { teks: 'RSS tidak ketemu', kelas: 'text-sentimen-review' };
+        ? { teks: 'Mencari RSS', kelas: 'text-aksen-biru', ikon: Loader }
+        : { teks: 'RSS tidak ketemu', kelas: 'text-sentimen-review', ikon: TriangleAlert };
 }
+
+/**
+ * Ringkasan di kop dihitung dari halaman yang sedang terbuka, kecuali totalnya.
+ *
+ * `media.total` datang dari paginator dan benar untuk seluruh tabel. Dua angka
+ * lainnya hanya menghitung baris yang terlihat, jadi labelnya menyebut "di
+ * halaman ini". Menyebutnya sebagai angka keseluruhan akan berbohong begitu
+ * daftarnya lebih dari satu halaman, dan itu jenis angka yang sekali ketahuan
+ * salah membuat seluruh kop berhenti dipercaya.
+ */
+const bermasalah = computed(() => props.media.data.filter((m) => m.aktif && m.sumber_feed_aktif_count === 0).length);
+
+const partner = computed(() => props.media.data.filter((m) => m.partner).length);
 </script>
 
 <template>
     <Head title="Media" />
 
-    <LayoutAdmin judul="Media" :breadcrumbs="[{ title: 'Media', href: '/admin/media' }]">
+    <LayoutAdmin :breadcrumbs="[{ title: 'Media', href: '/admin/media' }]">
+        <KopHalaman
+            judul="Media"
+            keterangan="Daftar media yang beritanya ditarik sistem, beserta sumber pengambilan masing-masing. Media nonaktif tidak ditarik sama sekali."
+        >
+            <template #aksi>
+                <!-- Putih penuh: satu-satunya aksi utama halaman ini. -->
+                <Link
+                    href="/admin/media/create"
+                    class="tekan inline-flex items-center gap-2 rounded-lg bg-white px-3.5 py-2 text-xs font-semibold text-brand transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand"
+                >
+                    <Plus class="size-3.5" aria-hidden="true" />
+                    Tambah media
+                </Link>
+            </template>
+
+            <PilKop :ikon="Newspaper">
+                <span class="angka">{{ media.total }}</span> media terdaftar
+            </PilKop>
+            <PilKop v-if="partner > 0" :ikon="Handshake">
+                <span class="angka">{{ partner }}</span> partner di halaman ini
+            </PilKop>
+            <PilKop v-if="bermasalah > 0" nada="tunggu" :ikon="TriangleAlert">
+                <span class="angka">{{ bermasalah }}</span> tanpa sumber aktif di halaman ini
+            </PilKop>
+        </KopHalaman>
+
         <DataTable
             :kolom="kolom"
             :data="media.data"
@@ -118,24 +163,32 @@ function pengambilan(baris: BarisMedia): { teks: string; kelas: string } {
             judul-kosong="Belum ada media"
             keterangan-kosong="Tambahkan media partner lebih dulu, lalu daftarkan sumber feed-nya."
         >
-            <template #aksi>
-                <Button as-child size="sm" class="ml-auto h-8">
-                    <Link href="/admin/media/create">
-                        <Plus class="mr-1.5 h-4 w-4" />
-                        Tambah media
-                    </Link>
-                </Button>
-            </template>
-
             <template #sel-nama="{ baris }">
                 <div class="flex items-center gap-2">
-                    <Link :href="`/admin/media/${baris.id}`" class="font-medium hover:underline">{{ baris.nama }}</Link>
-                    <Badge v-if="baris.partner" variant="secondary" class="text-xs">Partner</Badge>
+                    <Link
+                        :href="`/admin/media/${baris.id}`"
+                        class="rounded font-medium decoration-brand/40 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                        {{ baris.nama }}
+                    </Link>
+                    <!-- Toska berarti terhitung dan masuk lingkup, sama dengan
+                         label Relevan di halaman Berita. Media partner adalah
+                         media yang pemuatannya dihitung terhadap kontrak. -->
+                    <span
+                        v-if="baris.partner"
+                        class="inline-flex items-center gap-1 rounded-md bg-aksen-toska/10 px-1.5 py-0.5 text-[11px] font-medium text-aksen-toska"
+                    >
+                        <Handshake class="size-3 shrink-0" aria-hidden="true" />
+                        Partner
+                    </span>
                 </div>
             </template>
 
             <template #sel-sumber_feed_count="{ baris }">
-                <span class="text-sm" :class="pengambilan(baris).kelas">{{ pengambilan(baris).teks }}</span>
+                <span class="inline-flex items-center gap-1.5 text-sm" :class="pengambilan(baris).kelas">
+                    <component :is="pengambilan(baris).ikon" class="size-3.5 shrink-0" aria-hidden="true" />
+                    {{ pengambilan(baris).teks }}
+                </span>
             </template>
 
             <template #sel-domain="{ baris }">
@@ -143,7 +196,7 @@ function pengambilan(baris: BarisMedia): { teks: string; kelas: string } {
             </template>
 
             <template #sel-tier="{ baris }">
-                <span class="rounded px-1.5 py-0.5 text-xs font-medium capitalize" :class="warnaTier[baris.tier]">
+                <span class="rounded-md px-1.5 py-0.5 text-xs font-medium capitalize ring-1 ring-inset" :class="warnaTier[baris.tier]">
                     {{ baris.tier }}
                 </span>
             </template>
@@ -152,10 +205,14 @@ function pengambilan(baris: BarisMedia): { teks: string; kelas: string } {
                 <span class="capitalize">{{ baris.jenis }}</span>
             </template>
 
+            <!-- Titik berisian, bukan lencana bergaris. Kolom ini dibaca sambil
+                 menyisir ke bawah, dan bentuk kecil yang sama di tiap baris
+                 lebih cepat dibandingkan daripada kotak berteks. -->
             <template #sel-aktif="{ baris }">
-                <Badge :variant="baris.aktif ? 'outline' : 'secondary'">
+                <span class="inline-flex items-center gap-1.5 text-xs" :class="baris.aktif ? '' : 'text-muted-foreground'">
+                    <span class="size-1.5 shrink-0 rounded-full" :class="baris.aktif ? 'bg-sentimen-positif' : 'bg-muted-foreground/50'" />
                     {{ baris.aktif ? 'Aktif' : 'Nonaktif' }}
-                </Badge>
+                </span>
             </template>
         </DataTable>
     </LayoutAdmin>

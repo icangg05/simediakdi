@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AnalisisSentimen;
 use App\Models\Artikel;
 use App\Models\LogCrawl;
 use App\Models\Media;
@@ -38,11 +39,15 @@ class HalamanAdminTest extends TestCase
             'jumlah_baru' => 3, 'jumlah_salinan' => 2, 'status' => 'sukses',
         ]);
 
-        Artikel::withoutGlobalScopes()->create([
+        $artikel = Artikel::withoutGlobalScopes()->create([
             'media_id' => $media->id, 'judul' => 'Berita contoh',
             'url' => 'https://contoh.id/berita', 'url_kanonik' => 'https://contoh.id/berita',
             'isi' => 'Isi berita contoh.', 'jumlah_kata' => 3,
             'diambil_at' => now(), 'status_proses' => 'selesai',
+        ]);
+
+        AnalisisSentimen::create([
+            'artikel_id' => $artikel->id, 'relevan' => true, 'label_model' => 'netral',
         ]);
     }
 
@@ -102,16 +107,91 @@ class HalamanAdminTest extends TestCase
         $media = Media::first();
 
         // 23.00 WITA hari ini = 15.00 UTC hari ini. Masih "hari ini" di Kendari.
-        Artikel::withoutGlobalScopes()->create([
+        $malam = Artikel::withoutGlobalScopes()->create([
             'media_id' => $media->id, 'judul' => 'Berita malam',
             'url' => 'https://contoh.id/malam', 'url_kanonik' => 'https://contoh.id/malam',
             'diambil_at' => Waktu::awalHariIni()->addHours(23),
             'status_proses' => 'selesai',
         ]);
 
+        AnalisisSentimen::create([
+            'artikel_id' => $malam->id, 'relevan' => true, 'label_model' => 'positif',
+        ]);
+
         $this->actingAs(User::factory()->create())
             ->get('/admin')
             ->assertOk()
             ->assertInertia(fn ($page) => $page->where('kpi.artikel_hari_ini', 2));
+    }
+
+    /**
+     * Angka dan daftar di dashboard hanya menghitung berita yang relevan.
+     *
+     * Artikel yang sudah diputus di luar pantauan bukan berita Pemkot. Ia tidak
+     * boleh ikut menaikkan hitungan hari ini, dan tidak boleh muncul di daftar
+     * berita terbaru. Diuji bersamaan supaya keduanya tidak bisa berselisih:
+     * angka di kop dan baris di bawahnya wajib menghitung populasi yang sama.
+     */
+    public function test_dashboard_menyembunyikan_berita_tidak_relevan(): void
+    {
+        $media = Media::first();
+
+        $tidakRelevan = Artikel::withoutGlobalScopes()->create([
+            'media_id' => $media->id, 'judul' => 'Kegiatan perusahaan swasta',
+            'url' => 'https://contoh.id/swasta', 'url_kanonik' => 'https://contoh.id/swasta',
+            'diambil_at' => Waktu::awalHariIni()->addHours(10),
+            'status_proses' => 'tidak_relevan',
+        ]);
+
+        AnalisisSentimen::create([
+            'artikel_id' => $tidakRelevan->id, 'relevan' => false,
+        ]);
+
+        // Artikel yang belum dinilai sama sekali juga belum berhak tampil:
+        // relevansinya belum diputuskan, jadi ia belum berita yang terhitung.
+        Artikel::withoutGlobalScopes()->create([
+            'media_id' => $media->id, 'judul' => 'Belum dinilai',
+            'url' => 'https://contoh.id/mentah', 'url_kanonik' => 'https://contoh.id/mentah',
+            'diambil_at' => Waktu::awalHariIni()->addHours(11),
+            'status_proses' => 'mentah',
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->get('/admin')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                // Hanya artikel relevan dari setUp() yang terhitung.
+                ->where('kpi.artikel_hari_ini', 1)
+                ->has('artikelTerbaru', 1)
+                ->where('artikelTerbaru.0.judul', 'Berita contoh')
+                // Media, bukan nama sumber feed, yang bernama "Contoh RSS".
+                ->where('artikelTerbaru.0.media', 'Contoh'));
+    }
+
+    /**
+     * Kartu sumber bermasalah dikelompokkan per media, bukan per feed.
+     *
+     * Dua feed rusak milik satu media sebelumnya menghasilkan dua baris dengan
+     * tulisan yang sama persis, tanpa cara membedakannya dari layar ini.
+     */
+    public function test_media_bermasalah_dikelompokkan_per_media(): void
+    {
+        $media = Media::first();
+
+        SumberFeed::create([
+            'media_id' => $media->id, 'nama' => 'Contoh RSS kedua', 'tipe' => 'rss',
+            'url' => 'https://contoh.id/feed-2', 'gagal_berturut' => 7,
+            'pesan_error_terakhir' => 'Koneksi habis waktu',
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->get('/admin')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('mediaBermasalah', 1)
+                ->where('mediaBermasalah.0.nama', 'Contoh')
+                // Kegagalan terparah yang mewakili, bukan yang pertama ditemukan.
+                ->where('mediaBermasalah.0.gagal_berturut', 7)
+                ->where('mediaBermasalah.0.jumlah_sumber', 2));
     }
 }

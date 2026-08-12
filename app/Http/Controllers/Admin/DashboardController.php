@@ -7,9 +7,11 @@ use App\Models\AntreanGemini;
 use App\Models\Artikel;
 use App\Models\KunciGemini;
 use App\Models\LogCrawl;
+use App\Models\Media;
 use App\Models\PengaturanAi;
 use App\Models\SumberFeed;
 use App\Support\Waktu;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -18,23 +20,32 @@ class DashboardController extends Controller
     public function __invoke(): Response
     {
         return Inertia::render('admin/Dashboard', [
+            'pantauan' => config('pantauan.nama'),
             'kpi' => $this->kpi(),
             'ekstraksi' => $this->ekstraksi(),
             'kesehatan' => $this->kesehatan(),
-            'proporsiSumber' => $this->proporsiSumber(),
-            'sumberBermasalah' => $this->sumberBermasalah(),
+            'mediaBermasalah' => $this->mediaBermasalah(),
             'artikelTerbaru' => $this->artikelTerbaru(),
         ]);
     }
 
-    /** Angka disajikan bersama pembandingnya, bukan berdiri sendiri. */
+    /**
+     * Angka disajikan bersama pembandingnya, bukan berdiri sendiri.
+     *
+     * Hitungan beritanya disaring relevansi. Halaman ini menjawab "berapa berita
+     * Pemkot yang masuk", dan artikel yang sudah dinilai tidak relevan bukan
+     * jawaban atas pertanyaan itu. Penyaringan yang sama dipakai pada daftar
+     * berita terbaru di bawahnya, supaya angka di atas dan baris di bawah
+     * menghitung populasi yang sama.
+     */
     private function kpi(): array
     {
         $mulaiPekanIni = now()->subDays(7);
         $mulaiPekanLalu = now()->subDays(14);
 
-        $pekanIni = Artikel::query()->where('diambil_at', '>=', $mulaiPekanIni)->count();
+        $pekanIni = Artikel::query()->relevan()->where('diambil_at', '>=', $mulaiPekanIni)->count();
         $pekanLalu = Artikel::query()
+            ->relevan()
             ->whereBetween('diambil_at', [$mulaiPekanLalu, $mulaiPekanIni])
             ->count();
 
@@ -42,12 +53,21 @@ class DashboardController extends Controller
             // Batas hari WITA, bukan UTC. whereDate('diambil_at', today())
             // akan salah setiap pukul 00.00-08.00 waktu Kendari.
             'artikel_hari_ini' => Artikel::query()
+                ->relevan()
                 ->where('diambil_at', '>=', Waktu::awalHariIni())
                 ->count(),
             'artikel_pekan_ini' => $pekanIni,
             'selisih_pekan_lalu' => $pekanIni - $pekanLalu,
+            // Sengaja tidak disaring relevansi. Artikel yang gagal diproses tidak
+            // pernah sampai ke penilaian, jadi ia tidak punya keputusan relevan
+            // sama sekali. Menyaringnya akan membuat angka ini nol selamanya dan
+            // menyembunyikan justru keadaan yang perlu ditindaklanjuti.
             'gagal_proses' => Artikel::query()->where('status_proses', 'gagal')->count(),
-            'sumber_aktif' => SumberFeed::query()->where('aktif', true)->count(),
+            // Media, bukan sumber feed. Yang dikelola admin dan yang tercetak di
+            // seluruh layar lain adalah nama media. Satu media bisa punya
+            // beberapa feed, sehingga jumlah feed tidak pernah cocok dengan
+            // daftar media yang dilihat admin di halaman Media.
+            'media_aktif' => Media::query()->where('aktif', true)->count(),
         ];
     }
 
@@ -209,49 +229,85 @@ class DashboardController extends Controller
     }
 
     /**
-     * F-54. Kalau laporan mandiri melewati 40%, angka sentimen berisiko bias:
-     * media memilih sendiri berita mana yang dilaporkan, dan berita kritis
-     * jarang termasuk, jadi sistem hanya melihat sisi baiknya.
+     * Media yang penarikan beritanya sedang bermasalah.
      *
-     * Dihitung dari kolom `dilaporkan_oleh` di tabel artikel: terisi berarti
-     * berita itu dikirim media lewat portal, kosong berarti crawler yang
-     * menemukannya. Yang menentukan bias adalah komposisi bahan yang
-     * dianalisis, dan bahan itu ada di tabel artikel.
+     * Kegagalan tercatat di tabel `sumber_feed`, tapi yang ditampilkan adalah
+     * medianya. Nama feed hanya dikenal saat mendaftarkannya, sedangkan seluruh
+     * layar lain di sistem ini menyebut media, jadi daftar bernama feed memaksa
+     * admin menerjemahkan sendiri satu nama ke nama lain sebelum bisa bertindak.
+     *
+     * Dikelompokkan per media, bukan per feed. Satu media dengan tiga feed rusak
+     * sebelumnya menghasilkan tiga baris beruntun bertuliskan nama yang sama
+     * persis, dan tidak ada cara membedakannya dari layar ini. Sekarang barisnya
+     * satu, dengan jumlah feed yang bermasalah sebagai keterangan.
+     *
+     * @return list<array<string, mixed>>
      */
-    private function proporsiSumber(): array
-    {
-        $total = Artikel::query()->count();
-        $laporanMedia = Artikel::query()->whereNotNull('dilaporkan_oleh')->count();
-
-        $persenMandiri = $total === 0 ? 0.0 : round($laporanMedia / $total * 100, 1);
-
-        return [
-            'otomatis' => max(0, $total - $laporanMedia),
-            'laporan_media' => $laporanMedia,
-            'total' => $total,
-            'persen_mandiri' => $persenMandiri,
-            'melewati_ambang' => $persenMandiri > 40,
-        ];
-    }
-
-    private function sumberBermasalah(): array
+    private function mediaBermasalah(): array
     {
         return SumberFeed::query()
             ->with('media:id,nama')
             ->where('gagal_berturut', '>', 0)
             ->orderByDesc('gagal_berturut')
-            ->limit(5)
-            ->get(['id', 'media_id', 'nama', 'gagal_berturut', 'aktif', 'pesan_error_terakhir'])
+            ->get(['id', 'media_id', 'nama', 'gagal_berturut', 'pesan_error_terakhir'])
+            ->groupBy(fn (SumberFeed $feed) => $feed->media_id ?? 0)
+            ->map(function (Collection $feed, int|string $mediaId) {
+                // Feed terparah mewakili medianya. Ia yang paling lama gagal,
+                // jadi pesan errornya yang paling mungkin menjelaskan sebabnya.
+                $terparah = $feed->first();
+
+                return [
+                    'id' => (int) $mediaId,
+                    'nama' => $terparah->media?->nama ?? 'Media belum ditautkan',
+                    'gagal_berturut' => (int) $terparah->gagal_berturut,
+                    'jumlah_sumber' => $feed->count(),
+                    'pesan_error_terakhir' => $terparah->pesan_error_terakhir,
+                ];
+            })
+            ->sortByDesc('gagal_berturut')
+            ->take(5)
+            ->values()
             ->all();
     }
 
+    /**
+     * Berita relevan yang paling baru masuk.
+     *
+     * Disaring relevansi, sama seperti KPI di atasnya. Artikel yang sudah
+     * diputus tidak relevan bukan berita Pemkot, dan menampilkannya di daftar
+     * berjudul berita terbaru membuat admin memeriksa ulang sesuatu yang sudah
+     * selesai diputuskan.
+     *
+     * Sentimennya ikut dikirim karena daftar ini sekarang hanya berisi artikel
+     * relevan, jadi kolom itu selalu punya isi yang berarti. Label yang dibaca
+     * adalah `label_efektif`, kolom generated yang sudah mendahulukan koreksi
+     * manual admin di atas tebakan model.
+     *
+     * @return list<array<string, mixed>>
+     */
     private function artikelTerbaru(): array
     {
         return Artikel::query()
-            ->with('media:id,nama')
+            ->relevan()
+            ->with(['media:id,nama', 'analisisSentimen:id,artikel_id,label_efektif,perlu_review'])
             ->orderByDesc('diambil_at')
             ->limit(8)
-            ->get(['id', 'media_id', 'judul', 'url', 'diambil_at', 'status_proses'])
+            ->get(['id', 'media_id', 'judul', 'diambil_at'])
+            ->map(function (Artikel $artikel) {
+                $analisis = $artikel->analisisSentimen->first();
+
+                return [
+                    'id' => $artikel->id,
+                    'judul' => $artikel->judul,
+                    // Nama media, bukan nama sumber feed. Feed adalah alamat
+                    // teknis tempat berita ditarik, dan admin tidak pernah
+                    // menyebutnya saat membicarakan asal sebuah berita.
+                    'media' => $artikel->media?->nama,
+                    'diambil_at' => $artikel->diambil_at,
+                    'label' => $analisis?->label_efektif?->value,
+                    'perlu_review' => (bool) $analisis?->perlu_review,
+                ];
+            })
             ->all();
     }
 }

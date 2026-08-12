@@ -14,6 +14,14 @@ export interface NavItem {
     href: string;
     icon?: LucideIcon;
     isActive?: boolean;
+    /**
+     * Label kelompok di sidebar. Item berurutan dengan label yang sama menyatu
+     * jadi satu kelompok, dan item tanpa label berdiri sendiri tanpa judul.
+     *
+     * Opsional karena hanya sidebar yang mengelompokkan. Header eksekutif dan
+     * footer tetap membaca daftar yang sama sebagai satu baris datar.
+     */
+    kelompok?: string;
 }
 
 export interface SharedData {

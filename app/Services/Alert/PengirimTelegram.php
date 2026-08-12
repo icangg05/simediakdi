@@ -2,6 +2,7 @@
 
 namespace App\Services\Alert;
 
+use App\Models\PengaturanAlert;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
@@ -23,13 +24,19 @@ class PengirimTelegram
     /** @return array{terkirim: bool, error: ?string} */
     public function kirim(string $pesan, ?string $chatId = null): array
     {
-        $token = (string) config('alert.telegram.token');
-        $tujuan = $chatId ?? (string) config('alert.telegram.chat_id');
+        // Dibaca dari PengaturanAlert, bukan langsung dari config. Nilai yang
+        // disetel admin lewat halaman Pengaturan mengalahkan `.env`, dan
+        // urutan itu ditulis satu kali di modelnya supaya tidak ada pemanggil
+        // yang menyalinnya lalu suatu hari berbeda.
+        $pengaturan = PengaturanAlert::aktif();
+
+        $token = $pengaturan->token();
+        $tujuan = $chatId ?? $pengaturan->chatId();
 
         if ($token === '' || $tujuan === '') {
             return [
                 'terkirim' => false,
-                'error' => 'TELEGRAM_BOT_TOKEN atau TELEGRAM_CHAT_ID belum diisi di .env.',
+                'error' => 'Token bot atau chat ID Telegram belum diisi. Setel di halaman Pengaturan sistem.',
             ];
         }
 

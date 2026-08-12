@@ -2,10 +2,9 @@
 import { useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
-// Components
-import HeadingSmall from '@/components/HeadingSmall.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import {
     Dialog,
     DialogClose,
@@ -18,70 +17,110 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Loader2, TriangleAlert } from 'lucide-vue-next';
 
+/*
+ * CATATAN PRODUK, perlu keputusan.
+ *
+ * PRODUCT.md bagian Keamanan berbunyi "Akun dinonaktifkan, tidak dihapus", dan
+ * `ProfileController::destroy` memanggil `$user->delete()`. Tombol di bawah
+ * karena itu bertentangan dengan batasan produk yang sudah ditetapkan, dan ia
+ * juga menghapus jejak yang diandalkan audit log.
+ *
+ * Berkas ini tidak menghapus fiturnya sendiri, karena mencabut kemampuan yang
+ * sudah berjalan bukan keputusan yang boleh diambil diam-diam. Yang dilakukan
+ * di sini hanya membuat akibatnya terbaca sejelas mungkin sebelum ditekan.
+ */
 const passwordInput = ref<HTMLInputElement | null>(null);
 
 const form = useForm({
     password: '',
 });
 
-const deleteUser = (e: Event) => {
+const hapusAkun = (e: Event) => {
     e.preventDefault();
 
     form.delete(route('profile.destroy'), {
         preserveScroll: true,
-        onSuccess: () => closeModal(),
+        onSuccess: () => tutup(),
         onError: () => passwordInput.value?.focus(),
         onFinish: () => form.reset(),
     });
 };
 
-const closeModal = () => {
+const tutup = () => {
     form.clearErrors();
     form.reset();
 };
 </script>
 
 <template>
-    <div class="space-y-6">
-        <HeadingSmall title="Delete account" description="Delete your account and all of its resources" />
-        <div class="space-y-4 rounded-lg border border-red-100 bg-red-50 p-4 dark:border-red-200/10 dark:bg-red-700/10">
-            <div class="relative space-y-0.5 text-red-600 dark:text-red-100">
-                <p class="font-medium">Warning</p>
-                <p class="text-sm">Please proceed with caution, this cannot be undone.</p>
+    <!--
+        Bidang merah, bukan kartu putih dengan satu tombol merah di dalamnya.
+
+        Ini satu-satunya tindakan di seluruh area pengaturan yang tidak bisa
+        dibatalkan, dan ia berdiri persis di bawah form yang tombolnya cuma
+        menyimpan nama. Bidang berwarna memisahkan keduanya sebelum dibaca,
+        sehingga tidak ada yang menekannya karena mengira itu tombol simpan
+        kedua.
+    -->
+    <Card class="muncul overflow-hidden border-destructive/30" style="animation-delay: 140ms">
+        <CardContent class="space-y-4 bg-destructive/5 p-5 sm:p-6">
+            <div class="flex items-start gap-3">
+                <span class="grid size-8 shrink-0 place-items-center rounded-lg bg-destructive/10 text-destructive">
+                    <TriangleAlert class="size-4" aria-hidden="true" />
+                </span>
+                <div class="min-w-0 space-y-1">
+                    <h2 class="text-sm font-semibold text-destructive">Hapus akun</h2>
+                    <p class="text-sm text-muted-foreground">
+                        Akun beserta seluruh datanya dihapus permanen dan tidak bisa dikembalikan. Kalau Anda hanya ingin berhenti memakai sistem
+                        untuk sementara, minta admin menonaktifkan akun Anda alih-alih menghapusnya.
+                    </p>
+                </div>
             </div>
+
             <Dialog>
                 <DialogTrigger as-child>
-                    <Button variant="destructive">Delete account</Button>
+                    <Button variant="destructive" class="tekan">Hapus akun saya</Button>
                 </DialogTrigger>
+
                 <DialogContent>
-                    <form class="space-y-6" @submit="deleteUser">
+                    <form class="space-y-5" @submit="hapusAkun">
                         <DialogHeader class="space-y-3">
-                            <DialogTitle>Are you sure you want to delete your account?</DialogTitle>
+                            <DialogTitle>Hapus akun ini secara permanen?</DialogTitle>
                             <DialogDescription>
-                                Once your account is deleted, all of its resources and data will also be permanently deleted. Please enter your
-                                password to confirm you would like to permanently delete your account.
+                                Begitu akun dihapus, seluruh data yang menempel padanya ikut hilang dan tidak bisa dipulihkan. Masukkan kata sandi
+                                Anda untuk memastikan ini benar-benar Anda.
                             </DialogDescription>
                         </DialogHeader>
 
-                        <div class="grid gap-2">
-                            <Label for="password" class="sr-only">Password</Label>
-                            <Input id="password" type="password" name="password" ref="passwordInput" v-model="form.password" placeholder="Password" />
+                        <div class="grid gap-1.5">
+                            <Label for="password">Kata sandi</Label>
+                            <Input
+                                id="password"
+                                ref="passwordInput"
+                                v-model="form.password"
+                                type="password"
+                                name="password"
+                                autocomplete="current-password"
+                                placeholder="Kata sandi Anda"
+                            />
                             <InputError :message="form.errors.password" />
                         </div>
 
                         <DialogFooter>
                             <DialogClose as-child>
-                                <Button variant="secondary" @click="closeModal"> Cancel </Button>
+                                <Button type="button" variant="outline" @click="tutup">Batal</Button>
                             </DialogClose>
 
-                            <Button variant="destructive" :disabled="form.processing">
-                                <button type="submit">Delete account</button>
+                            <Button type="submit" variant="destructive" :disabled="form.processing">
+                                <Loader2 v-if="form.processing" class="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                                Hapus permanen
                             </Button>
                         </DialogFooter>
                     </form>
                 </DialogContent>
             </Dialog>
-        </div>
-    </div>
+        </CardContent>
+    </Card>
 </template>

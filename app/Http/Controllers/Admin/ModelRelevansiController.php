@@ -430,6 +430,65 @@ class ModelRelevansiController extends Controller
     /**
      * @return array<int, array<string, mixed>>
      */
+    /**
+     * Teks utuh satu pengujian, diambil hanya saat modal detailnya dibuka.
+     *
+     * Ada sebagai rute tersendiri, bukan sebagai field tambahan di riwayatUji(),
+     * dan alasannya tertulis di method itu: halaman ini menarik dirinya sendiri
+     * tiap tiga detik selama pelatihan berjalan, dan teks berita utuh dikali
+     * tiga puluh baris dikali dua puluh tarikan semenit adalah muatan yang
+     * tumbuh bersama panjang artikel untuk sesuatu yang dibaca sekali.
+     *
+     * JSON polos, bukan kunjungan Inertia. Detail satu baris tidak mengubah
+     * keadaan halaman, dan kunjungan parsial di tengah polling justru akan
+     * berebut dengan tarikan yang sedang berjalan.
+     *
+     * Aman tanpa pemeriksaan tambahan: seluruh rute model-relevansi sudah
+     * terbatas superadmin, dan tabel uji manual tidak pernah memuat data milik
+     * media mana pun.
+     */
+    public function detailUji(UjiManualRelevansi $uji): JsonResponse
+    {
+        return response()->json(['teks' => $uji->teks]);
+    }
+
+    /**
+     * Menghapus satu baris riwayat pengujian.
+     *
+     * Tanpa gerbang tambahan, dan itu bukan kelalaian. Tabel `uji_manual_relevansi`
+     * adalah catatan coba-coba: ia tidak pernah menyentuh artikel produksi, tidak
+     * dibaca gold set, tidak dipakai menghitung akurasi, dan tidak menjadi bukti
+     * apa pun. Yang hilang saat barisnya dihapus hanyalah catatan bahwa seseorang
+     * pernah menempelkan sepotong teks ke kotak uji.
+     *
+     * Bandingkan dengan PembuangArtikel, yang punya gerbang berlapis justru
+     * karena artikel adalah isi laporan dan bukti realisasi kontrak. Menyamakan
+     * keduanya akan membuat gerbang di sana terbaca sebagai formalitas.
+     *
+     * Siapa pun superadmin boleh menghapus baris siapa pun. Halaman ini
+     * laboratorium bersama, dan riwayat yang hanya bisa dibersihkan oleh yang
+     * membuatnya akan menumpuk selamanya begitu satu akun dinonaktifkan.
+     */
+    public function hapusUji(UjiManualRelevansi $uji): RedirectResponse
+    {
+        $uji->delete();
+
+        return back()->with('sukses', 'Satu baris riwayat pengujian dihapus.');
+    }
+
+    /** Mengosongkan seluruh riwayat pengujian sekaligus. */
+    public function kosongkanUji(): RedirectResponse
+    {
+        $jumlah = UjiManualRelevansi::query()->delete();
+
+        return back()->with(
+            $jumlah > 0 ? 'sukses' : 'galat',
+            $jumlah > 0
+                ? "{$jumlah} baris riwayat pengujian dihapus."
+                : 'Tidak ada riwayat pengujian yang bisa dihapus.',
+        );
+    }
+
     private function riwayatUji(): array
     {
         return UjiManualRelevansi::query()

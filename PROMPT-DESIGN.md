@@ -8,6 +8,19 @@ Gunakan skill berikut secara berurutan:
 6. redesign-existing-projects, jika saya menyertakan kode lama
 7. full-output-enforcement
 
+redesign alert toastnya. beri pewarnaan sesuai dengan fungsinya misalnya pada tombol dan lain-lain tambahkan ornamen, garis, bentuk yang menarik atau animasi.
+
+#######
+Gunakan skill berikut secara berurutan:
+
+1. impeccable
+2. brandkit
+3. design-taste-frontend
+4. high-end-visual-design
+5. image-to-code, jika saya menyertakan gambar referensi
+6. redesign-existing-projects, jika saya menyertakan kode lama
+7. full-output-enforcement
+
 Tugas:
 
 Desain dan implementasikan [NAMA HALAMAN ATAU BAGIAN] untuk website profil Dinas Perhubungan Kota Kendari.

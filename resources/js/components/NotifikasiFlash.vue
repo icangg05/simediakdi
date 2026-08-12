@@ -31,28 +31,43 @@ const DURASI = 4500;
 const DURASI_GALAT = 8000;
 
 /**
- * Warna hanya di border, badannya tetap putih.
+ * Warna toast diserahkan ke satu kelas nada, bukan ke daftar kelas utilitas.
  *
- * Awalan `group-[.toaster]:` wajib, bukan hiasan. Sonner.vue menempelkan
- * `group-[.toaster]:border-border` pada setiap toast, dan tailwind-merge hanya
- * membuang kelas lama kalau kelas barunya memakai varian yang sama persis.
- * Tanpa awalan itu keduanya lolos, lalu selector bervarian menang karena
- * spesifisitasnya lebih tinggi, dan seluruh toast kembali berwarna abu.
+ * Kelasnya hanya penanda. Yang menerjemahkannya menjadi rel warna, tinta latar,
+ * tepi kartu, bayangan, tile ikon, tombol aksi, dan batang sisa waktu adalah
+ * blok gaya di components/ui/sonner/Sonner.vue. Satu penanda menggerakkan
+ * seluruh bagian, jadi menambah nada baru cukup satu baris di sini dan satu
+ * blok di sana.
+ *
+ * Sebelumnya isinya rangkaian `group-[.toaster]:border-*` untuk mengalahkan
+ * kelas bawaan yang ditempel Sonner.vue pada setiap toast. Kelas bawaan itu
+ * sudah dihapus, jadi perang spesifisitasnya ikut selesai.
  */
-const BORDER = {
-    hijau: 'group-[.toaster]:border-2 group-[.toaster]:border-emerald-500',
-    merah: 'group-[.toaster]:border-2 group-[.toaster]:border-rose-500',
+const NADA = {
+    hijau: 'toast-nada-hijau',
+    merah: 'toast-nada-merah',
     // Kuning untuk yang belum diputuskan. Bukan hijau dan bukan merah, karena
     // Gemini tidak menjawab relevan maupun tidak relevan, melainkan menolak
     // menjawab dan menyerahkannya ke manusia.
-    kuning: 'group-[.toaster]:border-2 group-[.toaster]:border-amber-500',
+    kuning: 'toast-nada-kuning',
 };
 
-/** Border mengikuti nada, dengan hijau sebagai bawaan untuk sukses biasa. */
-const BORDER_NADA: Record<string, string> = {
-    tidak_relevan: BORDER.merah,
-    perlu_review: BORDER.kuning,
+/** Warna mengikuti nada, dengan hijau sebagai bawaan untuk sukses biasa. */
+const KELAS_NADA: Record<string, string> = {
+    tidak_relevan: NADA.merah,
+    perlu_review: NADA.kuning,
 };
+
+/**
+ * Durasi diteruskan ke CSS supaya batang sisa waktu habis persis bersama
+ * toast-nya.
+ *
+ * Angkanya tinggal di berkas ini, dan gayanya membacanya lewat `--durasi`.
+ * Menyalin angkanya ke CSS berarti dua nilai yang harus sepakat selamanya, dan
+ * yang pertama meleset justru penandanya: batang yang sudah habis sementara
+ * toast masih menempel di layar.
+ */
+const gaya = (durasi: number) => ({ '--durasi': `${durasi}ms` });
 
 /**
  * Warna kata sentimen saja, bukan seluruh baris keterangannya.
@@ -124,7 +139,8 @@ function tampilkan(flash: SharedData['flash']) {
     if (flash?.sukses) {
         toast.success(flash.sukses, {
             duration: DURASI,
-            classes: { toast: BORDER_NADA[flash.nada ?? ''] ?? BORDER.hijau },
+            style: gaya(DURASI),
+            classes: { toast: KELAS_NADA[flash.nada ?? ''] ?? NADA.hijau },
             description: keterangan(flash),
             ...aksi,
         });
@@ -133,7 +149,8 @@ function tampilkan(flash: SharedData['flash']) {
     if (flash?.galat) {
         toast.error(flash.galat, {
             duration: DURASI_GALAT,
-            classes: { toast: BORDER.merah },
+            style: gaya(DURASI_GALAT),
+            classes: { toast: NADA.merah },
             ...aksi,
         });
     }

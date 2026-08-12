@@ -24,13 +24,21 @@ class AntreanGemini extends Model
      *
      * Angka kecil dikerjakan lebih dulu. Artikel yang belum punya analisis sama
      * sekali paling depan karena ia satu-satunya yang benar-benar belum
-     * terjawab. Dua sisanya sudah punya jawaban dari pipeline IndoBERT lama,
-     * jadi menundanya tidak meninggalkan lubang di dashboard.
+     * terjawab. Dua sisanya sudah punya jawaban, jadi menundanya tidak
+     * meninggalkan lubang di dashboard.
+     *
+     * Labelnya menyebut keadaan datanya, bukan sejarah sistemnya. Dulu keduanya
+     * berbunyi "dari pipeline lama", dan itu berhenti berarti apa-apa bagi admin
+     * yang membaca layar: pipeline yang dimaksud sudah lama tidak ada, dan tidak
+     * ada tempat di antarmuka yang menjelaskan pipeline mana. Yang benar-benar
+     * disaring kandidat prioritas 2 dan 3 adalah `provider` yang kosong, yaitu
+     * baris yang keputusannya tidak mencatat siapa penilainya. Itu yang membuat
+     * keputusannya tidak bisa ditelusuri, dan itu alasan ia dinilai ulang.
      */
     public const PRIORITAS = [
-        1 => 'Belum ada analisis',
-        2 => 'Relevan, label dari pipeline lama',
-        3 => 'Tidak relevan, keputusan pipeline lama',
+        1 => 'Belum pernah dinilai',
+        2 => 'Relevan, penilainya tidak tercatat',
+        3 => 'Tidak relevan, penilainya tidak tercatat',
     ];
 
     public const STATUS = ['menunggu', 'berjalan', 'selesai', 'gagal'];

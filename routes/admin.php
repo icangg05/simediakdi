@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AntreanAiController;
 use App\Http\Controllers\Admin\ArtikelController;
 use App\Http\Controllers\Admin\AturanAlertController;
+use App\Http\Controllers\Admin\CadanganController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EksporController;
 use App\Http\Controllers\Admin\KoreksiLabelController;
@@ -99,6 +100,30 @@ Route::prefix('admin')->name('admin.')->middleware('peran:superadmin,walikota')-
             ->middleware('throttle:10,1,uji-kunci')
             ->name('pengaturan.kunci.uji');
 
+        // Kredensial Telegram. Dipegang AturanAlertController karena ia sudah
+        // memiliki seluruh urusan kanal alert, termasuk tombol kirim uji yang
+        // ada tepat di sebelah formnya di layar. Rutenya tetap di bawah
+        // `pengaturan` karena di situlah formnya berada.
+        Route::put('pengaturan/telegram', [AturanAlertController::class, 'simpanTelegram'])->name('pengaturan.telegram');
+
+        /*
+         * Cadangan database. Terbatas superadmin, dan ini yang paling ketat
+         * dari seluruh grup ini: satu berkasnya berisi seluruh isi basis data,
+         * termasuk kredensial media partner dan laporan yang belum
+         * diverifikasi. Walikota membaca angka, tidak mengunduh sumbernya.
+         */
+        Route::get('cadangan', [CadanganController::class, 'index'])->name('cadangan.index');
+
+        // Throttle-nya bukan soal beban server, melainkan soal ruang disk.
+        // Satu penekanan adalah satu berkas baru, dan tombol tanpa batas adalah
+        // tombol yang cepat atau lambat ditekan dua puluh kali berturut-turut.
+        Route::post('cadangan', [CadanganController::class, 'buat'])
+            ->middleware('throttle:5,1,cadangan')
+            ->name('cadangan.buat');
+
+        Route::get('cadangan/{nama}/unduh', [CadanganController::class, 'unduh'])->name('cadangan.unduh');
+        Route::delete('cadangan/{nama}', [CadanganController::class, 'hapus'])->name('cadangan.hapus');
+
         // Model Relevansi. Terbatas superadmin, sama seperti pengaturan Gemini
         // di atasnya dan karena alasan yang sama: yang ditentukan dari halaman
         // ini bukan angka yang dibaca, melainkan model mana yang berlaku.
@@ -129,6 +154,15 @@ Route::prefix('admin')->name('admin.')->middleware('peran:superadmin,walikota')-
             Route::post('uji', [ModelRelevansiController::class, 'uji'])
                 ->middleware('throttle:30,1,model-relevansi-uji')
                 ->name('uji');
+            // Teks utuh satu pengujian, dibaca modal detail di tab Pengujian.
+            // Terpisah dari daftar riwayat supaya muatan polling tiap tiga detik
+            // tidak ikut membawa isi berita utuh dikali tiga puluh baris.
+            Route::get('uji/{uji}', [ModelRelevansiController::class, 'detailUji'])->name('uji.detail');
+            // Riwayat uji adalah catatan coba-coba, bukan data produksi, jadi
+            // penghapusannya tidak lewat PembuangArtikel dan tidak punya gerbang
+            // apa pun selain batas superadmin milik seluruh grup ini.
+            Route::delete('uji/{uji}', [ModelRelevansiController::class, 'hapusUji'])->name('uji.hapus');
+            Route::delete('uji', [ModelRelevansiController::class, 'kosongkanUji'])->name('uji.kosongkan');
         });
     });
 

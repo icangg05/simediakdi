@@ -25,14 +25,14 @@ class PenggunaController extends Controller
     public function index(Request $request): Response
     {
         $pengguna = KueriTabel::untuk(User::query()->with('media:id,nama'), $request)
-            ->cari(['name', 'email', 'jabatan'])
+            ->cari(['name', 'username', 'email', 'jabatan'])
             ->saring(['peran' => 'peran', 'aktif' => 'aktif', 'media' => 'media_id'])
-            ->urut(['name', 'email', 'peran', 'login_terakhir_at'], 'name')
+            ->urut(['name', 'username', 'email', 'peran', 'login_terakhir_at'], 'name')
             ->halaman();
 
         return Inertia::render('admin/pengguna/Index', [
             'pengguna' => $pengguna->through(fn (User $u) => [
-                ...$u->only(['id', 'name', 'email', 'jabatan', 'aktif']),
+                ...$u->only(['id', 'name', 'username', 'email', 'jabatan', 'aktif']),
                 'peran' => $u->peran->value,
                 'peran_label' => $u->peran->label(),
                 'media' => $u->media?->only(['id', 'nama']),
@@ -72,7 +72,7 @@ class PenggunaController extends Controller
     {
         return Inertia::render('admin/pengguna/Form', [
             'pengguna' => [
-                ...$pengguna->only(['id', 'name', 'email', 'jabatan', 'telepon', 'aktif', 'media_id']),
+                ...$pengguna->only(['id', 'name', 'username', 'email', 'jabatan', 'telepon', 'aktif', 'media_id']),
                 'peran' => $pengguna->peran->value,
             ],
             'daftarMedia' => self::daftarMedia(),

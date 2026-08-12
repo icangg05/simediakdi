@@ -22,7 +22,7 @@ class AuthenticationTest extends TestCase
         $user = User::factory()->create();
 
         $response = $this->post('/login', [
-            'email' => $user->email,
+            'username' => $user->username,
             'password' => 'password',
         ]);
 
@@ -35,11 +35,26 @@ class AuthenticationTest extends TestCase
         $user = User::factory()->create();
 
         $this->post('/login', [
-            'email' => $user->email,
+            'username' => $user->username,
             'password' => 'wrong-password',
         ]);
 
         $this->assertGuest();
+    }
+
+    public function test_username_dibentuk_dari_nama_email()
+    {
+        $user = User::factory()->create(['email' => 'humas.setda@kendarikota.go.id']);
+
+        $this->assertSame('humas.setda', $user->username);
+    }
+
+    public function test_username_yang_bentrok_memakai_nama_domain()
+    {
+        User::factory()->create(['email' => 'portal@britakita.net']);
+        $kedua = User::factory()->create(['email' => 'portal@telisik.id']);
+
+        $this->assertSame('portal.telisik', $kedua->username);
     }
 
     public function test_users_can_logout()

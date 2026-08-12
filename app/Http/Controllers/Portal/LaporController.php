@@ -8,6 +8,7 @@ use App\Models\Artikel;
 use App\Models\Media;
 use App\Services\Crawler\ItemFeed;
 use App\Services\Crawler\PencatatArtikel;
+use App\Services\PembuangArtikel;
 use App\Services\Portal\PemeriksaUrlLaporan;
 use App\Support\Waktu;
 use Illuminate\Http\RedirectResponse;
@@ -122,6 +123,36 @@ class LaporController extends Controller
             $tersimpan > 0 ? 'sukses' : 'galat',
             $this->ringkasan($tersimpan, $dilewati, $ditolak),
         );
+    }
+
+    /**
+     * Mencabut satu berita yang ditambahkan media ini sendiri.
+     *
+     * Route model binding yang menyaring lebih dulu. `Artikel` memakai scope
+     * global MilikMedia, dan binding implisit Laravel menjalankan scope itu,
+     * jadi akun media yang menyebut id milik media lain mendapat 404 sebelum
+     * satu baris pun di method ini berjalan.
+     *
+     * Sisanya diserahkan ke PembuangArtikel, satu-satunya pintu penghapusan
+     * artikel di aplikasi ini. Di situ pula tertulis mengapa gerbang portal
+     * berbeda dari gerbang admin, dan apa akibatnya terhadap bukti realisasi
+     * kontrak.
+     */
+    public function destroy(Request $request, Artikel $artikel, PembuangArtikel $pembuang): RedirectResponse
+    {
+        $media = $this->media($request);
+
+        // 403, bukan 404. Barisnya memang ada dan memang milik media ini, yang
+        // ditolak adalah jenis beritanya: temuan crawler tidak boleh dicabut
+        // siapa pun dari portal. Menjawab 404 di sini akan membuat media
+        // mengira beritanya sudah terhapus padahal masih berdiri.
+        abort_unless(
+            $pembuang->buangKirimanPortal($artikel, $media),
+            403,
+            'Hanya berita yang Anda tambahkan sendiri lewat portal yang bisa dicabut. Berita temuan sistem tidak bisa dihapus dari sini.',
+        );
+
+        return to_route('portal.lapor')->with('sukses', 'Berita dicabut dari sistem.');
     }
 
     /**

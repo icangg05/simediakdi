@@ -3,6 +3,7 @@ import DataTablePagination from '@/components/data-table/DataTablePagination.vue
 import DataTableToolbar from '@/components/data-table/DataTableToolbar.vue';
 import KeadaanKosong from '@/components/KeadaanKosong.vue';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useFilterTabel } from '@/composables/useFilterTabel';
@@ -60,7 +61,37 @@ function labelUrut(kolom: KolomDefinisi): string {
             <template #aksi><slot name="aksi" /></template>
         </DataTableToolbar>
 
-        <div class="rounded-md border">
+        <!--
+            Kartu, bukan sekadar kotak bergaris.
+
+            Sebelumnya pembungkus ini hanya `rounded-md border` tanpa latar,
+            sehingga isinya mewarisi latar halaman. Selama seluruh panel
+            berlatar putih hal itu tidak terlihat, karena putih di dalam kotak
+            sama dengan putih di luarnya. Sejak bidang isi panel admin bertinta
+            abu, tabelnya ikut abu dan garis tepinya melingkari bidang yang
+            warnanya sama dengan sekelilingnya. Panel eksekutif sudah lebih dulu
+            punya gejala yang sama karena latarnya bergradien.
+
+            Memakai komponen Card, bukan menyalin kelasnya, supaya radius,
+            bayangan, dan warna permukaannya ikut satu sumber yang sama dengan
+            seluruh kartu lain di aplikasi.
+
+            Bilah alat dan penomoran halaman sengaja tetap di luar kartu.
+            Keduanya kendali, bukan data, dan menariknya masuk membuat kartu ini
+            berhenti berarti "ini tabelnya".
+        -->
+        <!--
+            `overflow-hidden` menahan isi tabel di dalam sudut membulat kartu.
+            Baris terakhir menyalakan latar saat kursor lewat, dan tanpa
+            penahan ini latarnya menembus lengkungan sudut bawah dan tampak
+            sebagai dua sudut siku yang mencuat.
+
+            Aman terhadap gulir mendatar: yang menggulung adalah pembungkus
+            `overflow-auto` milik Table.vue di dalam sini, bukan kartu ini. Aman
+            juga terhadap menu aksi baris, karena DropdownMenuContent dirender
+            lewat portal sehingga tidak pernah terpotong induknya.
+        -->
+        <Card class="overflow-hidden">
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -151,7 +182,7 @@ function labelUrut(kolom: KolomDefinisi): string {
                     </TableRow>
                 </TableBody>
             </Table>
-        </div>
+        </Card>
 
         <DataTablePagination :meta="meta" @ke-halaman="keHalaman" />
     </div>

@@ -118,6 +118,24 @@ class Artikel extends Model
     }
 
     /**
+     * Artikel yang sudah dinyatakan relevan terhadap konteks pantauan.
+     *
+     * Bedanya dengan relevanBerlabel(): scope ini tidak menuntut label sentimen
+     * sudah turun. Dashboard admin memantau arus masuk, dan artikel yang baru
+     * saja dinyatakan relevan tapi sentimennya masih mengantre tetap berita yang
+     * sah untuk ditampilkan. Panel eksekutif punya kebutuhan yang berbeda dan
+     * tetap memakai relevanBerlabel().
+     *
+     * Membaca kolom `relevan`, yang sudah berisi keputusan akhir: koreksi manual
+     * admin lewat ArtikelController menuliskannya ke kolom yang sama, jadi tidak
+     * ada syarat tambahan yang perlu ditumpuk di sini.
+     */
+    public function scopeRelevan(Builder $kueri): Builder
+    {
+        return $kueri->whereHas('analisisSentimen', fn (Builder $q) => $q->where('relevan', true));
+    }
+
+    /**
      * Artikel yang lolos relevansi dan sudah punya label sentimen.
      *
      * Ini populasi yang boleh muncul di panel eksekutif. Artikel hasil crawl

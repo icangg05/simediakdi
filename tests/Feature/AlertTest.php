@@ -7,9 +7,11 @@ use App\Models\AnalisisSentimen;
 use App\Models\Artikel;
 use App\Models\AturanAlert;
 use App\Models\Media;
+use App\Models\PengaturanAlert;
 use App\Models\RiwayatAlert;
 use App\Models\User;
 use App\Services\Alert\PemeriksaAturan;
+use App\Services\Alert\PengirimTelegram;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -90,7 +92,7 @@ class AlertTest extends TestCase
      */
     public function test_kegagalan_pengiriman_tetap_tercatat_di_riwayat(): void
     {
-        config(['alert.telegram.token' => 'palsu', 'alert.telegram.chat_id' => '-100']);
+        $this->kredensialTelegram();
         Http::fake(['api.telegram.org/*' => Http::response(['description' => 'chat not found'], 400)]);
 
         $this->artikelNegatif(6, jamLalu: 1);
@@ -111,7 +113,7 @@ class AlertTest extends TestCase
      */
     public function test_pengiriman_gagal_tetap_menahan_percobaan_berikutnya(): void
     {
-        config(['alert.telegram.token' => 'palsu', 'alert.telegram.chat_id' => '-100']);
+        $this->kredensialTelegram();
         Http::fake(['api.telegram.org/*' => Http::response(['description' => 'chat not found'], 400)]);
 
         $this->artikelNegatif(6, jamLalu: 1);
@@ -121,6 +123,93 @@ class AlertTest extends TestCase
         $this->artisan('alert:periksa');
 
         $this->assertSame(1, RiwayatAlert::count());
+    }
+
+    /**
+     * Notifikasi uji membawa satu berita sungguhan, sama seperti alert
+     * berita negatif yang akan datang nanti, bukan kalimat tetap.
+     */
+    public function test_notifikasi_uji_memuat_berita_negatif_terakhir(): void
+    {
+        $this->kredensialTelegram();
+        Http::fake(['api.telegram.org/*' => Http::response(['ok' => true])]);
+
+        $this->artikelNegatif(1, jamLalu: 5);
+        $this->artikelNegatif(1, jamLalu: 1);
+
+        $this->actingAs(User::factory()->create())
+            ->post('/admin/alert/uji-telegram')
+            ->assertSessionHas('sukses');
+
+        Http::assertSent(function ($request) {
+            // Satu berita saja, yang jam 1 lalu, bukan yang jam 5 lalu.
+            return str_contains($request['text'], 'Berita negatif 1-0')
+                && ! str_contains($request['text'], 'Berita negatif 5-0');
+        });
+    }
+
+    /** Arsip kosong tetap mengirim, hanya pesannya pendek. */
+    public function test_notifikasi_uji_jatuh_ke_pesan_singkat_saat_tidak_ada_berita_negatif(): void
+    {
+        $this->kredensialTelegram();
+        Http::fake(['api.telegram.org/*' => Http::response(['ok' => true])]);
+
+        $this->actingAs(User::factory()->create())
+            ->post('/admin/alert/uji-telegram')
+            ->assertSessionHas('sukses');
+
+        Http::assertSent(fn ($request) => str_contains($request['text'], 'Belum ada berita negatif di arsip'));
+    }
+
+    /**
+     * Pesan uji harus tidak mungkin dikira alert sungguhan.
+     *
+     * Isinya sengaja sama persis, karena itulah yang sedang diuji. Yang
+     * membedakan hanya satu baris penanda, dan baris itu wajib ada di kepala
+     * pesan supaya terbaca di pratinjau notifikasi tanpa membuka aplikasinya.
+     */
+    public function test_notifikasi_uji_ditandai_sebagai_uji_coba(): void
+    {
+        $this->kredensialTelegram();
+        Http::fake(['api.telegram.org/*' => Http::response(['ok' => true])]);
+
+        $this->artikelNegatif(1, jamLalu: 1);
+
+        $this->actingAs(User::factory()->create())->post('/admin/alert/uji-telegram');
+
+        Http::assertSent(function ($request) {
+            // Penanda hanya satu baris di kepala, dan isinya di bawahnya
+            // adalah alert apa adanya, tanpa satu kata tambahan pun.
+            // Namanya sengaja tidak ikut diperiksa. Nama aturan adalah data
+            // yang boleh diganti admin kapan saja, dan tes yang terikat
+            // padanya pecah setiap kali kalimatnya diperhalus.
+            return str_starts_with($request['text'], "🧪 <b>UJI COBA</b>\n\n🚨 <b>")
+                && str_contains($request['text'], 'Berita negatif 1-0');
+        });
+    }
+
+    /**
+     * Alert sungguhan membawa berita yang memicunya, bukan angkanya saja.
+     *
+     * "12 berita negatif dalam 6 jam" tidak memberitahu apa yang sedang
+     * terjadi, dan penerimanya tetap harus membuka dashboard untuk tahu apakah
+     * ini satu peristiwa besar atau dua belas hal kecil.
+     */
+    public function test_alert_sungguhan_memuat_judul_berita_pemicunya(): void
+    {
+        $this->kredensialTelegram();
+        Http::fake(['api.telegram.org/*' => Http::response(['ok' => true])]);
+
+        $this->artikelNegatif(6, jamLalu: 1);
+        $this->aturan();
+
+        $this->artisan('alert:periksa')->assertSuccessful();
+
+        Http::assertSent(function ($request) {
+            return str_starts_with($request['text'], '📈 <b>Lonjakan negatif Pemkot</b>')
+                && str_contains($request['text'], 'Berita negatif 1-')
+                && ! str_contains($request['text'], 'UJI COBA');
+        });
     }
 
     public function test_aturan_kata_kunci_tanpa_istilah_ditolak_saat_disimpan(): void
@@ -133,6 +222,107 @@ class AlertTest extends TestCase
             'kanal' => 'telegram',
             'kondisi' => ['istilah' => []],
         ])->assertSessionHasErrors('kondisi.istilah');
+    }
+
+    /**
+     * Kredensial yang diisi dari layar itulah yang dipakai pengirim.
+     *
+     * Satu-satunya sumbernya sekarang database. Kalau jalur ini pernah putus,
+     * admin yang mengganti chat ID karena grup Diskominfo dibuat ulang akan
+     * melihat form tersimpan rapi sementara alert tetap dikirim ke grup lama.
+     */
+    public function test_kredensial_telegram_dari_layar_dipakai_pengirim(): void
+    {
+        Http::fake(['api.telegram.org/*' => Http::response(['ok' => true])]);
+
+        $this->actingAs(User::factory()->create())
+            ->put('/admin/pengaturan/telegram', [
+                'telegram_token' => '987654321:token-dari-layar',
+                'telegram_chat_id' => '-1009999999999',
+            ])
+            ->assertSessionHas('sukses');
+
+        app(PengirimTelegram::class)->kirim('halo');
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '987654321:token-dari-layar')
+            && $request['chat_id'] === '-1009999999999');
+    }
+
+    /**
+     * Token yang dibiarkan kosong berarti "biarkan yang tersimpan".
+     *
+     * Token tidak pernah dikirim kembali ke layar, jadi kotaknya selalu kosong
+     * saat halaman dibuka. Kalau kosong diartikan "hapus", admin yang hanya
+     * ingin mengganti chat ID akan mematikan seluruh alert tanpa satu pun
+     * pesan yang menyebutkan sebabnya.
+     */
+    public function test_token_kosong_tidak_menghapus_token_yang_tersimpan(): void
+    {
+        $pengguna = User::factory()->create();
+
+        $this->actingAs($pengguna)->put('/admin/pengaturan/telegram', [
+            'telegram_token' => '111111111:token-pertama',
+            'telegram_chat_id' => '-100111',
+        ]);
+
+        $this->actingAs($pengguna)->put('/admin/pengaturan/telegram', [
+            'telegram_token' => '',
+            'telegram_chat_id' => '-100222',
+        ]);
+
+        $pengaturan = PengaturanAlert::aktif();
+
+        $this->assertSame('111111111:token-pertama', $pengaturan->token());
+        $this->assertSame('-100222', $pengaturan->chatId());
+    }
+
+    /**
+     * Chat ID yang dikosongkan benar-benar mengosongkan kanal.
+     *
+     * Tidak ada lagi cadangan `.env` yang diam-diam mengambil alih, jadi
+     * kanalnya terbaca belum siap sampai ada yang mengisinya lagi.
+     */
+    public function test_chat_id_kosong_mengosongkan_kanal(): void
+    {
+        $pengguna = User::factory()->create();
+
+        $this->actingAs($pengguna)->put('/admin/pengaturan/telegram', [
+            'telegram_token' => '222222222:token-kedua',
+            'telegram_chat_id' => '-100333',
+        ]);
+
+        $this->actingAs($pengguna)->put('/admin/pengaturan/telegram', [
+            'telegram_token' => '',
+            'telegram_chat_id' => '',
+        ]);
+
+        $this->assertSame('', PengaturanAlert::aktif()->chatId());
+        $this->assertFalse(PengaturanAlert::aktif()->siap());
+    }
+
+    /** Salah tempel yang paling sering terjadi ditahan sebelum tersimpan. */
+    public function test_token_yang_bukan_bentuk_token_bot_ditolak(): void
+    {
+        $this->actingAs(User::factory()->create())
+            ->put('/admin/pengaturan/telegram', [
+                'telegram_token' => 'https://t.me/BotDiskominfoKendari',
+                'telegram_chat_id' => '-100444',
+            ])
+            ->assertSessionHasErrors('telegram_token');
+
+        $this->assertNull(PengaturanAlert::aktif()->telegram_token);
+    }
+
+    /**
+     * Kredensial Telegram hanya ada di database, jadi pengujian yang butuh
+     * kanal hidup mengisinya di sana, bukan lewat config.
+     */
+    private function kredensialTelegram(): void
+    {
+        PengaturanAlert::aktif()->update([
+            'telegram_token' => '123456789:palsu',
+            'telegram_chat_id' => '-100',
+        ]);
     }
 
     /** @param  array<string, mixed>  $kondisi */

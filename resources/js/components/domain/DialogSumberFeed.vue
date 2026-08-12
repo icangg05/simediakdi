@@ -132,8 +132,8 @@ function simpan() {
 
                 <template v-if="pakaiSelector">
                     <p v-if="form.tipe === 'scrape_render'" class="text-xs text-muted-foreground sm:col-span-2">
-                        Halaman dibuka lewat peramban dulu supaya daftar beritanya yang dirakit JavaScript ikut terbaca. Jauh lebih lambat
-                        daripada scraping biasa, jadi pakai hanya kalau tipe Scraping tidak menemukan satu item pun.
+                        Halaman dibuka lewat peramban dulu supaya daftar beritanya yang dirakit JavaScript ikut terbaca. Jauh lebih lambat daripada
+                        scraping biasa, jadi pakai hanya kalau tipe Scraping tidak menemukan satu item pun.
                     </p>
                     <div class="grid gap-1.5">
                         <Label for="sf-item">Selector item</Label>

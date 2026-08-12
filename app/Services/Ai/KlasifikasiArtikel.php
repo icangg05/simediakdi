@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai;
 
+use App\Enums\LabelSentimen;
+use App\Jobs\KirimAlertBeritaNegatif;
 use App\Models\AnalisisSentimen;
 use App\Models\Artikel;
 use App\Models\PengaturanAi;
@@ -258,6 +260,18 @@ class KlasifikasiArtikel
             'prompt_version' => $hasil->versiPrompt,
             'dianalisis_at' => now(),
         ]);
+
+        // Berita negatif dikabarkan saat itu juga, bukan menunggu penilaian
+        // berkala 15 menit sekali. Ini satu-satunya titik seluruh jalur
+        // klasifikasi menuliskan label sentimen, jadi memasangnya di sini
+        // membuat tombol di layar, antrean latar belakang, dan penilaian ulang
+        // memicu hal yang sama tanpa satu pun pemanggil perlu mengingatnya.
+        //
+        // `refresh` diperlukan: `label_efektif` kolom generated Postgres, dan
+        // nilainya baru ada setelah dibaca ulang dari database.
+        if ($baris->refresh()->label_efektif === LabelSentimen::Negatif) {
+            KirimAlertBeritaNegatif::dispatch($artikel->id);
+        }
 
         return $hasil;
     }

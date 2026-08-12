@@ -23,7 +23,7 @@ class WalikotaTidakBisaMenulisTest extends TestCase
 
     private Media $media;
 
-    /** @var array<string, int> */
+    /** @var array<string, int|string> */
     private array $parameter = [];
 
     protected function setUp(): void
@@ -89,6 +89,11 @@ class WalikotaTidakBisaMenulisTest extends TestCase
             'kunci' => $kunci->id,
             'snapshot' => $snapshot->id,
             'pelatihan' => $pelatihan->id,
+            // Cadangan database tidak punya baris di tabel mana pun, parameternya
+            // nama berkas. Nilainya tidak perlu benar-benar ada di disk: gerbang
+            // peran berada di middleware, jadi ia menjawab 403 sebelum controller
+            // sempat memeriksa keberadaan berkasnya.
+            'nama' => 'simedia-2026-08-12-101500.sql.gz',
         ];
     }
 

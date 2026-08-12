@@ -331,4 +331,76 @@ class PortalLaporTest extends TestCase
                 ->missing('artikel.data.0.analisis_sentimen')
                 ->missing('artikel.data.0.isi'));
     }
+
+    /**
+     * Media boleh mencabut kirimannya sendiri, termasuk yang sudah terhitung.
+     *
+     * Batas ini ditetapkan pemilik produk pada 12 Agustus 2026, dan akibatnya
+     * tertulis lengkap di PembuangArtikel::buangKirimanPortal(). Diuji dengan
+     * berita berlencana "Tampil" justru karena itu kasus yang paling berat
+     * akibatnya: kalau suatu saat kebijakannya dibalik, tes inilah yang gagal
+     * lebih dulu dan memaksa keputusannya ditinjau ulang, bukan ditemukan
+     * belakangan lewat angka realisasi yang menyusut tanpa penjelasan.
+     */
+    public function test_media_bisa_mencabut_kirimannya_sendiri(): void
+    {
+        $artikel = $this->beritaTerpantau(
+            'https://kendaripos.test/kiriman-saya',
+            'Kiriman sendiri',
+            dilaporkanOleh: $this->pic->id,
+        );
+
+        $this->actingAs($this->pic)
+            ->delete("/portal/lapor/{$artikel->id}")
+            ->assertRedirect('/portal/lapor');
+
+        $this->assertSame(0, Artikel::withoutGlobalScopes()->whereKey($artikel->id)->count());
+    }
+
+    /**
+     * Temuan crawler tidak bisa dicabut dari portal, walaupun medianya sendiri.
+     *
+     * `dilaporkan_oleh` kosong berarti sistem yang menemukannya, dan arsip
+     * temuan sistem bukan milik media untuk disunting. 403, bukan 404: barisnya
+     * memang ada dan memang milik media ini, yang ditolak jenis beritanya.
+     */
+    public function test_media_tidak_bisa_mencabut_temuan_crawler(): void
+    {
+        $artikel = $this->beritaTerpantau('https://kendaripos.test/temuan-sistem', 'Temuan crawler');
+
+        $this->actingAs($this->pic)
+            ->delete("/portal/lapor/{$artikel->id}")
+            ->assertForbidden();
+
+        $this->assertSame(1, Artikel::withoutGlobalScopes()->whereKey($artikel->id)->count());
+    }
+
+    /**
+     * Batas antar media, sama pentingnya dengan F-50 pada arah sebaliknya.
+     *
+     * Scope global MilikMedia yang menegakkannya lewat route model binding,
+     * jadi jawabannya 404: bagi akun ini barisnya memang tidak pernah ada.
+     */
+    public function test_media_tidak_bisa_mencabut_kiriman_media_lain(): void
+    {
+        $lain = Media::create(['nama' => 'Media Pesaing', 'slug' => 'media-pesaing', 'domain' => 'mediapesaing.test']);
+
+        $picLain = User::create([
+            'name' => 'PIC Pesaing', 'email' => 'pic@mediapesaing.test', 'password' => 'rahasia123',
+            'peran' => PeranPengguna::Media, 'media_id' => $lain->id, 'email_verified_at' => now(),
+        ]);
+
+        $artikel = Artikel::withoutGlobalScopes()->create([
+            'media_id' => $lain->id, 'judul' => 'Kiriman media lain',
+            'url' => 'https://mediapesaing.test/kiriman', 'url_kanonik' => 'https://mediapesaing.test/kiriman',
+            'diambil_at' => now(), 'status_proses' => 'selesai',
+            'dilaporkan_oleh' => $picLain->id,
+        ]);
+
+        $this->actingAs($this->pic)
+            ->delete("/portal/lapor/{$artikel->id}")
+            ->assertNotFound();
+
+        $this->assertSame(1, Artikel::withoutGlobalScopes()->whereKey($artikel->id)->count());
+    }
 }

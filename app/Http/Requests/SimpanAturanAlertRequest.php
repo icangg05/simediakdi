@@ -11,7 +11,7 @@ class SimpanAturanAlertRequest extends FormRequest
     {
         return [
             'nama' => ['required', 'string', 'max:150'],
-            'jenis' => ['required', 'in:lonjakan_negatif,kata_kunci_muncul,sumber_mati'],
+            'jenis' => ['required', 'in:lonjakan_negatif,kata_kunci_muncul,sumber_mati,berita_negatif'],
             'ambang' => ['nullable', 'numeric', 'min:0'],
 
             // Batas bawah 1 jam. Jendela di bawah itu membandingkan angka yang

@@ -8,6 +8,7 @@ use App\Models\Artikel;
 use App\Models\Media;
 use App\Models\PelatihanModelRelevansi;
 use App\Models\SnapshotDatasetRelevansi;
+use App\Models\UjiManualRelevansi;
 use App\Models\User;
 use App\Services\ModelRelevansi\KandidatDataset;
 use App\Services\ModelRelevansi\LayananRelevansi;
@@ -429,6 +430,71 @@ class ModelRelevansiTest extends TestCase
             ->assertSessionHas('hasilUji');
 
         $this->assertDatabaseCount('uji_manual_relevansi', 1);
+
+        /*
+         * Teks utuhnya bisa dibaca lagi lewat rute detail, dan itu yang dipakai
+         * modal detail di tab Pengujian.
+         *
+         * Daftar riwayat sengaja hanya membawa potongan 160 karakter supaya
+         * muatan polling tiap tiga detik tidak ikut membawa isi berita utuh.
+         * Konsekuensinya tombol salin di modal akan menyalin potongan, bukan
+         * teks yang benar-benar diuji, kalau rute ini diam-diam berhenti
+         * bekerja. Diperiksa di sini karena kegagalannya tidak menimbulkan galat
+         * apa pun di layar, hanya teks yang tiba-tiba lebih pendek.
+         */
+        $uji = UjiManualRelevansi::query()->latest('id')->firstOrFail();
+
+        $this->actingAs($this->admin)
+            ->getJson("/admin/model-relevansi/uji/{$uji->id}")
+            ->assertOk()
+            ->assertJson(['teks' => 'kendari walikota kendari pemerintah kota kendari membangun jalan di kendari']);
+    }
+
+    /**
+     * Riwayat pengujian bisa dibersihkan, per baris maupun sekaligus.
+     *
+     * Tanpa ini, satu-satunya cara membuang teks percobaan yang terlanjur
+     * tersimpan adalah menunggunya terdorong keluar oleh 30 pengujian
+     * berikutnya. Model dan datasetnya sengaja ikut diperiksa masih utuh
+     * sesudahnya: `uji_manual_relevansi` memakai `cascadeOnDelete` ke tabel
+     * pelatihan, dan arah kebalikannya tidak pernah boleh berlaku.
+     */
+    public function test_riwayat_pengujian_bisa_dihapus_per_baris_dan_sekaligus(): void
+    {
+        $this->kandidat(40, 40);
+
+        $snapshot = app(KandidatDataset::class)->buat($this->resepSnapshot(), $this->admin);
+        $pelatihan = $this->pelatihan($snapshot);
+
+        $baris = collect(['teks percobaan pertama', 'teks percobaan kedua', 'teks percobaan ketiga'])
+            ->map(fn (string $teks) => UjiManualRelevansi::create([
+                'pelatihan_model_relevansi_id' => $pelatihan->id,
+                'teks' => $teks,
+                'label_prediksi' => 'relevan',
+                'probabilitas_relevan' => 0.9,
+                'probabilitas_tidak_relevan' => 0.1,
+                'confidence' => 0.8,
+                'inferensi_ms' => 120,
+                'dibuat_oleh' => $this->admin->id,
+            ]));
+
+        $this->actingAs($this->admin)
+            ->delete("/admin/model-relevansi/uji/{$baris->first()->id}")
+            ->assertSessionHas('sukses');
+
+        $this->assertDatabaseCount('uji_manual_relevansi', 2);
+        $this->assertDatabaseMissing('uji_manual_relevansi', ['id' => $baris->first()->id]);
+
+        $this->actingAs($this->admin)
+            ->delete('/admin/model-relevansi/uji')
+            ->assertSessionHas('sukses');
+
+        $this->assertDatabaseCount('uji_manual_relevansi', 0);
+
+        // Yang dibuang hanya catatan coba-coba. Model dan snapshot yang menjadi
+        // induknya tidak boleh ikut hilang.
+        $this->assertNotNull($pelatihan->fresh());
+        $this->assertNotNull($snapshot->fresh());
     }
 
     public function test_hanya_satu_model_yang_bisa_aktif(): void

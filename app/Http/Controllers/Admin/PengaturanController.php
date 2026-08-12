@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\KunciGemini;
 use App\Models\PelatihanModelRelevansi;
 use App\Models\PengaturanAi;
+use App\Models\PengaturanAlert;
 use App\Services\Ai\RotasiKunciGemini;
 use App\Services\Arsip\PenangkapLayar;
 use App\Services\ModelRelevansi\LayananRelevansi;
@@ -38,6 +39,8 @@ class PengaturanController extends Controller
 {
     public function __invoke(PenangkapLayar $arsip, RotasiKunciGemini $rotasi, LayananRelevansi $relevansi): Response
     {
+        $alert = PengaturanAlert::aktif();
+
         return Inertia::render('admin/Pengaturan', [
             'pengaturanAi' => PengaturanAi::aktif()->only([
                 'model',
@@ -115,6 +118,29 @@ class PengaturanController extends Controller
              * ditampilkan menempel pada kuncinya masing-masing.
              */
             'resetHarian' => $rotasi->resetHarian()->toIso8601String(),
+
+            /*
+             * Kredensial Telegram, tanpa tokennya.
+             *
+             * Token yang pernah muncul di layar admin harus dianggap bocor,
+             * dan tidak ada satu pun layar yang perlu membacanya kembali.
+             * Yang dikirim hanya kenyataan bahwa ia terisi, supaya form bisa
+             * mengatakan "biarkan kosong untuk mempertahankan yang tersimpan"
+             * alih-alih memaksa admin menempel ulang token setiap kali ia
+             * hanya ingin mengganti chat ID.
+             *
+             * Chat ID dikirim penuh. Ia bukan rahasia, dan menyembunyikannya
+             * hanya membuat admin tidak bisa memeriksa grup mana yang sedang
+             * dituju tanpa menebak.
+             *
+             * Tidak ada lagi penanda asal nilai. Keduanya hanya bisa berasal
+             * dari form ini, karena cadangan `.env` sudah dihapus.
+             */
+            'telegram' => [
+                'chat_id' => $alert->chatId(),
+                'token_terisi' => $alert->token() !== '',
+                'siap' => $alert->siap(),
+            ],
             'kelompok' => [
                 [
                     'judul' => 'Etika crawling',
@@ -128,10 +154,13 @@ class PengaturanController extends Controller
                 ],
                 [
                     'judul' => 'Alert',
-                    'catatan' => null,
+                    // Token dan chat ID Telegram tidak lagi di sini. Keduanya
+                    // pindah ke kartu Telegram di atas yang punya form
+                    // sendiri, dan menampilkannya dua kali akan membuat kolom
+                    // "diubah lewat .env" berbohong tentang salah satunya.
+                    'catatan' => 'Kredensial Telegram disetel di kartu Notifikasi Telegram di atas. Yang tersisa di sini hanya ambang yang menentukan kapan sebuah feed dianggap mati.',
                     'nilai' => [
-                        ['label' => 'Token bot Telegram', 'nilai' => config('alert.telegram.token') !== '' ? 'terisi' : 'belum diisi', 'env' => 'TELEGRAM_BOT_TOKEN', 'diukur' => null],
-                        ['label' => 'Chat ID grup', 'nilai' => config('alert.telegram.chat_id') !== '' ? config('alert.telegram.chat_id') : 'belum diisi', 'env' => 'TELEGRAM_CHAT_ID', 'diukur' => null],
+                        ['label' => 'Feed dianggap mati setelah', 'nilai' => config('alert.sumber_mati_jam').' jam', 'env' => 'ALERT_SUMBER_MATI_JAM', 'diukur' => 'Media daerah wajar diam semalaman, jadi ambangnya jam, bukan menit.'],
                     ],
                 ],
             ],

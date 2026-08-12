@@ -572,8 +572,8 @@ tahun bukan isu.
    terlacak lewat entitas. Kelas negatif kini hanya perlu cukup sampel pada
    satu konteks, bukan tiga.
 4. **Chat ID grup Telegram Diskominfo.** Seluruh jalur alert sudah jadi dan
-   teruji, termasuk pencatatan kegagalan pengiriman. Yang kosong hanya
-   `TELEGRAM_BOT_TOKEN` dan `TELEGRAM_CHAT_ID`. Isi di `.env`, lalu tekan
+   teruji, termasuk pencatatan kegagalan pengiriman. Yang kosong hanya token
+   bot dan chat ID-nya. Isi di `/admin/pengaturan`, lalu tekan
    "Kirim pesan uji" di `/admin/alert` sebelum membuat aturan pertama.
    Halaman itu menampilkan peringatan selama keduanya masih kosong, karena
    aturan yang terpicu benar tanpa penerima adalah kegagalan diam.

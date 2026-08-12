@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import InputError from '@/components/InputError.vue';
-import TextLink from '@/components/TextLink.vue';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -15,21 +14,20 @@ import {
     LayoutDashboard,
     LoaderCircle,
     Lock,
-    Mail,
     Rss,
     ScanSearch,
     ShieldCheck,
     TriangleAlert,
+    UserRound,
 } from 'lucide-vue-next';
 import { ref } from 'vue';
 
 defineProps<{
     status?: string;
-    canResetPassword: boolean;
 }>();
 
 const form = useForm({
-    email: '',
+    username: '',
     password: '',
     remember: false,
 });
@@ -287,34 +285,29 @@ const submit = () => {
 
                     <form @submit.prevent="submit" class="mt-5 flex flex-col gap-4 sm:mt-6">
                         <div class="grid gap-2">
-                            <Label for="email">Alamat email</Label>
+                            <Label for="username">Nama pengguna</Label>
                             <div class="group relative">
-                                <Mail
+                                <UserRound
                                     class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition-colors duration-200 group-focus-within:text-brand dark:group-focus-within:text-brand-terang"
                                     :stroke-width="1.75"
                                 />
                                 <Input
-                                    id="email"
-                                    type="email"
+                                    id="username"
+                                    type="text"
                                     required
                                     autofocus
                                     tabindex="1"
-                                    autocomplete="email"
-                                    v-model="form.email"
-                                    placeholder="nama@instansi.go.id"
+                                    autocomplete="username"
+                                    v-model="form.username"
+                                    placeholder="nama pengguna Anda"
                                     class="h-11 border-brand/15 bg-brand/[0.04] pl-10 transition-shadow duration-200 focus-visible:ring-brand/70 dark:border-white/[0.12] dark:bg-white/[0.05] dark:focus-visible:ring-brand-terang"
                                 />
                             </div>
-                            <InputError :message="form.errors.email" />
+                            <InputError :message="form.errors.username" />
                         </div>
 
                         <div class="grid gap-2">
-                            <div class="flex items-center justify-between gap-3">
-                                <Label for="password">Kata sandi</Label>
-                                <TextLink v-if="canResetPassword" :href="route('password.request')" class="text-sm" tabindex="5"
-                                    >Lupa kata sandi?</TextLink
-                                >
-                            </div>
+                            <Label for="password">Kata sandi</Label>
                             <div class="group relative">
                                 <Lock
                                     class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition-colors duration-200 group-focus-within:text-brand dark:group-focus-within:text-brand-terang"

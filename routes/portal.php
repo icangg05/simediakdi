@@ -17,4 +17,8 @@ Route::prefix('portal')->name('portal.')->middleware('peran:media,superadmin')->
         ->middleware('throttle:20,1')
         ->name('lapor.periksa');
     Route::post('lapor', [LaporController::class, 'store'])->name('lapor.store');
+    // Mencabut satu kiriman sendiri. Batas siapa boleh mencabut apa dijaga
+    // PembuangArtikel::buangKirimanPortal(), bukan di sini, karena penghapusan
+    // artikel hanya punya satu pintu di seluruh aplikasi.
+    Route::delete('lapor/{artikel}', [LaporController::class, 'destroy'])->name('lapor.destroy');
 });

@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import Heading from '@/components/Heading.vue';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
+import KopHalaman from '@/components/domain/KopHalaman.vue';
+import PilKop from '@/components/domain/PilKop.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import LayoutEksekutif from '@/layouts/LayoutEksekutif.vue';
-import { type BreadcrumbItem, type NavItem, type SharedData } from '@/types';
+import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { KeyRound, Palette, UserRound } from 'lucide-vue-next';
+import { computed, type Component } from 'vue';
 
 const props = withDefaults(defineProps<{ breadcrumbs?: BreadcrumbItem[] }>(), {
     breadcrumbs: () => [],
@@ -35,22 +35,35 @@ const cangkang = computed(() => (eksekutif.value ? LayoutEksekutif : AppLayout))
 // atribut itu jatuh ke elemen DOM sebagai teks.
 const propCangkang = computed(() => (eksekutif.value ? {} : { breadcrumbs: props.breadcrumbs }));
 
-const sidebarNavItems: NavItem[] = [
-    {
-        title: 'Profile',
-        href: '/settings/profile',
-    },
-    {
-        title: 'Password',
-        href: '/settings/password',
-    },
-    {
-        title: 'Appearance',
-        href: '/settings/appearance',
-    },
+const pengguna = computed(() => page.props.auth.user);
+
+/**
+ * Sebutan peran dalam bahasa Indonesia.
+ *
+ * Nilai mentahnya nama kolom database, bukan kalimat, dan halaman ini dibaca
+ * pengguna dari ketiga peran. Sebutannya disamakan dengan yang dipakai form
+ * pengguna di panel admin.
+ */
+const SEBUTAN_PERAN: Record<string, string> = {
+    superadmin: 'Admin Diskominfo',
+    walikota: 'Wali Kota dan Staf',
+    media: 'Pengelola Media',
+};
+
+/**
+ * Tiga halaman pengaturan, dalam bahasa Indonesia.
+ *
+ * Seluruh antarmuka wajib berbahasa Indonesia tanpa kecuali, dan area ini
+ * satu-satunya yang masih memakai teks bawaan starter kit. Ikonnya ditambahkan
+ * supaya menu ini terbaca sebagai daftar tujuan, bukan tiga tombol seragam.
+ */
+const menu: { judul: string; href: string; ikon: Component }[] = [
+    { judul: 'Profil', href: '/settings/profile', ikon: UserRound },
+    { judul: 'Kata sandi', href: '/settings/password', ikon: KeyRound },
+    { judul: 'Tampilan', href: '/settings/appearance', ikon: Palette },
 ];
 
-const currentPath = window.location.pathname;
+const jalurSekarang = window.location.pathname;
 </script>
 
 <template>
@@ -60,30 +73,55 @@ const currentPath = window.location.pathname;
             sendiri, jadi jarak di sini hanya dipasang untuk cangkang sidebar.
             Tanpa penjagaan ini isinya mendapat dua lapis jarak tepi.
         -->
-        <div :class="eksekutif ? '' : 'px-4 py-6'">
-            <Heading title="Settings" description="Manage your profile and account settings" />
+        <div :class="['space-y-6', eksekutif ? '' : 'p-4']">
+            <KopHalaman judul="Pengaturan akun" keterangan="Mengubah identitas, kata sandi, dan tampilan untuk akun Anda sendiri.">
+                <template #aksi>
+                    <!-- Inisial, bukan foto. Sistem tidak menyimpan avatar dan
+                         tidak akan menyimpannya, jadi bidang berhuruf adalah
+                         penanda paling jujur yang bisa dipasang di sini. -->
+                    <div class="flex items-center gap-3 rounded-lg bg-white/10 px-3 py-2 ring-1 ring-inset ring-white/20">
+                        <span class="grid size-9 shrink-0 place-items-center rounded-full bg-white/15 text-sm font-semibold" aria-hidden="true">
+                            {{ pengguna?.name?.charAt(0).toUpperCase() ?? '?' }}
+                        </span>
+                        <div class="min-w-0 text-sm leading-tight">
+                            <p class="truncate font-medium">{{ pengguna?.name }}</p>
+                            <p class="truncate text-xs text-white/70">{{ pengguna?.email }}</p>
+                        </div>
+                    </div>
+                </template>
 
-            <div class="flex flex-col space-y-8 md:space-y-0 lg:flex-row lg:space-x-12 lg:space-y-0">
-                <aside class="w-full max-w-xl lg:w-48">
-                    <nav class="flex flex-col space-x-0 space-y-1">
-                        <Button
-                            v-for="item in sidebarNavItems"
+                <PilKop v-if="pengguna?.peran" :ikon="UserRound">
+                    {{ SEBUTAN_PERAN[pengguna.peran] ?? pengguna.peran }}
+                </PilKop>
+            </KopHalaman>
+
+            <div class="flex flex-col gap-8 lg:flex-row lg:gap-12">
+                <!-- Menu jadi daftar bertautan, bukan tiga tombol ghost yang
+                     bedanya hanya latar abu. Halaman yang sedang terbuka diberi
+                     bidang navy lembut dan garis merek di sisi kirinya, penanda
+                     yang sama dengan menu sidebar utama. -->
+                <aside class="w-full lg:w-56 lg:shrink-0">
+                    <nav class="flex gap-1 overflow-x-auto lg:flex-col lg:overflow-visible" aria-label="Menu pengaturan akun">
+                        <Link
+                            v-for="item in menu"
                             :key="item.href"
-                            variant="ghost"
-                            :class="['w-full justify-start', { 'bg-muted': currentPath === item.href }]"
-                            as-child
+                            :href="item.href"
+                            :aria-current="jalurSekarang === item.href ? 'page' : undefined"
+                            class="tekan inline-flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            :class="
+                                jalurSekarang === item.href
+                                    ? 'bg-brand-lembut text-brand dark:text-white'
+                                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                            "
                         >
-                            <Link :href="item.href">
-                                {{ item.title }}
-                            </Link>
-                        </Button>
+                            <component :is="item.ikon" class="size-4 shrink-0" aria-hidden="true" />
+                            {{ item.judul }}
+                        </Link>
                     </nav>
                 </aside>
 
-                <Separator class="my-6 md:hidden" />
-
-                <div class="flex-1 md:max-w-2xl">
-                    <section class="max-w-xl space-y-12">
+                <div class="min-w-0 flex-1">
+                    <section class="max-w-2xl space-y-8">
                         <slot />
                     </section>
                 </div>

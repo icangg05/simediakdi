@@ -81,6 +81,7 @@ class PenggunaTest extends TestCase
 
         $this->actingAs($this->admin)->put("/admin/pengguna/{$pengguna->id}", [
             'name' => 'Nama Baru',
+            'username' => $pengguna->username,
             'email' => $pengguna->email,
             'password' => '',
             'peran' => 'superadmin',
@@ -125,6 +126,7 @@ class PenggunaTest extends TestCase
 
         $this->actingAs($this->admin)->put("/admin/pengguna/{$this->admin->id}", [
             'name' => $this->admin->name,
+            'username' => $this->admin->username,
             'email' => $this->admin->email,
             'peran' => 'superadmin',
             'aktif' => false,
@@ -143,6 +145,7 @@ class PenggunaTest extends TestCase
 
         $this->actingAs($this->admin)->put("/admin/pengguna/{$this->admin->id}", [
             'name' => $this->admin->name,
+            'username' => $this->admin->username,
             'email' => $this->admin->email,
             'peran' => 'media',
             'media_id' => $media->id,
@@ -158,6 +161,7 @@ class PenggunaTest extends TestCase
 
         $this->actingAs($this->admin)->put("/admin/pengguna/{$kedua->id}", [
             'name' => $kedua->name,
+            'username' => $kedua->username,
             'email' => $kedua->email,
             'peran' => 'walikota',
             'aktif' => true,
@@ -174,5 +178,116 @@ class PenggunaTest extends TestCase
             'password' => 'rahasia-panjang',
             'peran' => 'superadmin',
         ])->assertSessionHasErrors('email');
+    }
+
+    /**
+     * Username dibentuk sistem saat isiannya dikosongkan pada akun baru.
+     *
+     * Jalur inilah yang membuat 30 akun media bisa didaftarkan tanpa memikirkan
+     * username satu per satu, dan ia harus tetap terbuka sesudah isian username
+     * muncul di form. Kalau tertutup, form yang tadinya bisa diisi empat kolom
+     * berubah menjadi lima tanpa alasan.
+     */
+    public function test_username_dibentuk_otomatis_saat_dikosongkan(): void
+    {
+        $this->actingAs($this->admin)->post('/admin/pengguna', [
+            'name' => 'PIC Media',
+            'username' => '',
+            'email' => 'humas.setda@kp.test',
+            'password' => 'rahasia-panjang',
+            'peran' => 'media',
+            'media_id' => $this->media->id,
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame('humas.setda', User::where('email', 'humas.setda@kp.test')->first()->username);
+    }
+
+    public function test_username_bisa_diubah_lewat_form_ubah(): void
+    {
+        $pengguna = User::factory()->create();
+
+        $this->actingAs($this->admin)->put("/admin/pengguna/{$pengguna->id}", [
+            'name' => $pengguna->name,
+            'username' => 'humas.kendari',
+            'email' => $pengguna->email,
+            'peran' => 'superadmin',
+            'aktif' => true,
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame('humas.kendari', $pengguna->refresh()->username);
+    }
+
+    /**
+     * Username adalah kredensial masuk, jadi mengosongkannya pada akun yang
+     * sudah ada bukan "biarkan apa adanya" melainkan "cabut cara masuknya".
+     * Berbeda dari kata sandi, yang memang dirancang boleh dikosongkan.
+     */
+    public function test_username_kosong_saat_menyunting_ditolak(): void
+    {
+        $pengguna = User::factory()->create();
+        $lama = $pengguna->username;
+
+        $this->actingAs($this->admin)->put("/admin/pengguna/{$pengguna->id}", [
+            'name' => $pengguna->name,
+            'username' => '',
+            'email' => $pengguna->email,
+            'peran' => 'superadmin',
+            'aktif' => true,
+        ])->assertSessionHasErrors('username');
+
+        $this->assertSame($lama, $pengguna->refresh()->username);
+    }
+
+    /** Huruf besar dan spasi dirapikan sebelum diperiksa, bukan ditolak mentah. */
+    public function test_username_dirapikan_menjadi_huruf_kecil(): void
+    {
+        $pengguna = User::factory()->create();
+
+        $this->actingAs($this->admin)->put("/admin/pengguna/{$pengguna->id}", [
+            'name' => $pengguna->name,
+            'username' => '  Humas.Kendari  ',
+            'email' => $pengguna->email,
+            'peran' => 'superadmin',
+            'aktif' => true,
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame('humas.kendari', $pengguna->refresh()->username);
+    }
+
+    public function test_username_berbentuk_salah_ditolak(): void
+    {
+        $pengguna = User::factory()->create();
+
+        $this->actingAs($this->admin)->put("/admin/pengguna/{$pengguna->id}", [
+            'name' => $pengguna->name,
+            'username' => 'humas kendari',
+            'email' => $pengguna->email,
+            'peran' => 'superadmin',
+            'aktif' => true,
+        ])->assertSessionHasErrors('username');
+    }
+
+    /**
+     * Uniknya diperiksa termasuk terhadap akun yang sudah dihapus lunak.
+     *
+     * Indeks unik di database tidak mengenal soft delete. Validasi yang
+     * melewatkan baris terhapus akan lolos di sini lalu gagal sebagai galat SQL
+     * mentah di layar admin, dan itu persis jenis galat yang tidak bisa
+     * ditindaklanjuti siapa pun yang membacanya.
+     */
+    public function test_username_ganda_ditolak_termasuk_terhadap_akun_terhapus(): void
+    {
+        $terhapus = User::factory()->create(['username' => 'humas.lama']);
+        $terhapus->delete();
+
+        $pengguna = User::factory()->create();
+
+        $this->actingAs($this->admin)->put("/admin/pengguna/{$pengguna->id}", [
+            'name' => $pengguna->name,
+            'username' => 'humas.lama',
+            'email' => $pengguna->email,
+            'peran' => 'superadmin',
+            'aktif' => true,
+        ])->assertSessionHasErrors('username');
     }
 }

@@ -6,6 +6,7 @@ use App\Models\AturanAlert;
 use App\Models\RiwayatAlert;
 use App\Services\Alert\PemeriksaAturan;
 use App\Services\Alert\PengirimTelegram;
+use App\Services\Alert\PesanAlert;
 use Illuminate\Console\Command;
 
 class PeriksaAlert extends Command
@@ -20,6 +21,12 @@ class PeriksaAlert extends Command
     {
         $aturan = AturanAlert::query()
             ->where('aktif', true)
+            // Alert berita negatif dikirim KirimAlertBeritaNegatif tepat setelah
+            // artikelnya dinilai, jadi ia tidak punya urusan dengan penilaian
+            // berkala. Tanpa baris ini ia ikut terbaca tiap 15 menit, selalu
+            // menghasilkan null, dan muncul di hitungan "dilewati" seolah ada
+            // yang menahannya.
+            ->where('jenis', '!=', 'berita_negatif')
             ->when($this->option('aturan'), fn ($q, $id) => $q->where('id', $id))
             ->get();
 
@@ -49,7 +56,14 @@ class PeriksaAlert extends Command
                 continue;
             }
 
-            $pesan = "<b>{$satu->nama}</b>\n{$hasil['ringkasan']}";
+            // Berita contoh diambil dari payload aturannya sendiri, dan
+            // kuncinya memang berbeda per jenis. Aturan yang tidak menyediakan
+            // apa pun, misalnya sumber feed mati, mengirim ringkasannya saja.
+            $pesan = PesanAlert::alert(
+                $satu,
+                $hasil['ringkasan'],
+                $hasil['payload']['contoh'] ?? $hasil['payload']['artikel'] ?? [],
+            );
 
             if ($this->option('kering')) {
                 $this->line("[uji] {$satu->nama}: {$hasil['ringkasan']}");

@@ -7,6 +7,9 @@
  * ketinggalan tidak menimbulkan galat, hanya prop bertipe salah diam-diam.
  */
 
+import { Archive, CircleCheck, CircleSlash, CircleX, Hourglass, Layers, Loader2, ThumbsDown, ThumbsUp } from 'lucide-vue-next';
+import type { Component } from 'vue';
+
 export type StatusPelatihan = 'menunggu' | 'berjalan' | 'berhasil' | 'gagal' | 'dibatalkan';
 
 export type Label = 'relevan' | 'tidak_relevan';
@@ -149,13 +152,51 @@ export interface Opsi {
     batas: Record<'epoch' | 'batch_size' | 'learning_rate' | 'max_seq_length' | 'early_stopping', Batas>;
 }
 
-/** Warna badge status pelatihan. Satu sumber, dipakai dua tab. */
+/*
+ * Sistem warna halaman ini, disamakan dengan halaman Berita dan Antrean AI.
+ *
+ * Sebelumnya seluruh berkas di folder ini memakai palet Tailwind mentah, dan
+ * akibatnya sama persis dengan yang dulu terjadi di halaman Antrean AI: satu
+ * rona memikul dua arti yang berbeda, dan keduanya berdiri berdampingan di satu
+ * layar. Hijau berarti "artikel relevan" sekaligus "pelatihan berhasil", jadi
+ * pada kartu riwayat pelatihan berdiri lencana hijau "Model aktif" tepat di
+ * atas batang distribusi hijau yang artinya label Relevan. Merah berarti
+ * "artikel tidak relevan" sekaligus "pelatihan gagal", padahal aturan yang
+ * sudah ditetapkan halaman Berita berbunyi tegas: berita di luar cakupan Pemkot
+ * bukan kabar buruk dan tidak boleh diwarnai merah.
+ *
+ * Pembagiannya sekarang:
+ *
+ * | Rona            | Arti di halaman ini                        |
+ * |-----------------|--------------------------------------------|
+ * | Navy merek      | Aksi utama, dan pekerjaan yang tuntas      |
+ * | Aksen toska     | Label Relevan, masuk lingkup pantauan      |
+ * | Abu redup       | Label Tidak Relevan, di luar lingkup       |
+ * | Aksen ungu      | Model sedang bekerja                       |
+ * | Aksen biru      | Snapshot dan berkas dataset                |
+ * | Hijau sentimen  | Berhasil, model aktif, layanan sehat       |
+ * | Merah sentimen  | Gagal, dan galat                           |
+ * | Kuning sentimen | Menunggu, dan hasil yang perlu ditinjau    |
+ *
+ * Warna tidak pernah menjadi penanda tunggal. Tiap status membawa ikonnya
+ * sendiri di `IKON_STATUS`, dan tiap label membawa ikonnya di `IKON_LABEL`.
+ */
+
+/** Warna lencana status pelatihan. Satu sumber, dipakai dua tab. */
 export const WARNA_STATUS: Record<StatusPelatihan, string> = {
-    menunggu: 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200',
-    berjalan: 'bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-200',
-    berhasil: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200',
-    gagal: 'bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200',
-    dibatalkan: 'bg-neutral-200 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-200',
+    menunggu: 'bg-sentimen-review-lembut text-sentimen-review',
+    berjalan: 'bg-aksen-ungu/10 text-aksen-ungu',
+    berhasil: 'bg-sentimen-positif-lembut text-sentimen-positif',
+    gagal: 'bg-sentimen-negatif-lembut text-sentimen-negatif',
+    dibatalkan: 'bg-muted text-muted-foreground',
+};
+
+export const IKON_STATUS: Record<StatusPelatihan, Component> = {
+    menunggu: Hourglass,
+    berjalan: Loader2,
+    berhasil: CircleCheck,
+    gagal: CircleX,
+    dibatalkan: CircleSlash,
 };
 
 export const LABEL_STATUS: Record<StatusPelatihan, string> = {
@@ -164,6 +205,51 @@ export const LABEL_STATUS: Record<StatusPelatihan, string> = {
     berhasil: 'Berhasil',
     gagal: 'Gagal',
     dibatalkan: 'Dibatalkan',
+};
+
+/**
+ * Status snapshot. Biru berarti berkas dataset, dan snapshot yang sudah pernah
+ * dilatihkan diberi rona yang sama dengan pekerjaannya, bukan rona lain.
+ */
+export const WARNA_SNAPSHOT: Record<string, string> = {
+    siap: 'bg-aksen-biru/10 text-aksen-biru',
+    terpakai: 'bg-brand-lembut text-brand dark:text-white',
+    arsip: 'bg-muted text-muted-foreground',
+};
+
+export const IKON_SNAPSHOT: Record<string, Component> = {
+    siap: CircleCheck,
+    terpakai: Layers,
+    arsip: Archive,
+};
+
+/**
+ * Warna label relevansi, satu sumber untuk seluruh folder ini.
+ *
+ * Toska untuk Relevan dan abu untuk Tidak Relevan, sama persis dengan halaman
+ * Berita dan Antrean AI, sehingga satu warna berarti satu hal di seluruh panel
+ * admin. Sebelumnya nilai ini disalin ke TabPengujian dan TabSnapshot dengan
+ * palet hijau dan merah yang berbeda dari keduanya.
+ */
+export const WARNA_LABEL: Record<Label, string> = {
+    relevan: 'bg-aksen-toska/10 text-aksen-toska',
+    tidak_relevan: 'bg-muted text-muted-foreground',
+};
+
+/** Bidang berisian penuh, untuk batang distribusi dan tile berikon. */
+export const ISIAN_LABEL: Record<Label, string> = {
+    relevan: 'bg-aksen-toska',
+    tidak_relevan: 'bg-muted-foreground/40',
+};
+
+export const IKON_LABEL: Record<Label, Component> = {
+    relevan: ThumbsUp,
+    tidak_relevan: ThumbsDown,
+};
+
+export const SEBUTAN_LABEL: Record<Label, string> = {
+    relevan: 'Relevan',
+    tidak_relevan: 'Tidak Relevan',
 };
 
 /** Durasi dalam detik menjadi kalimat pendek. */

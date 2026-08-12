@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import BadgeSentimen from '@/components/domain/BadgeSentimen.vue';
-import { Badge } from '@/components/ui/badge';
+import KopHalaman from '@/components/domain/KopHalaman.vue';
+import PilKop from '@/components/domain/PilKop.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -10,8 +11,28 @@ import LayoutAdmin from '@/layouts/LayoutAdmin.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { ArrowLeft, Check, Copy, ExternalLink, RotateCcw } from 'lucide-vue-next';
-import { ref } from 'vue';
+import {
+    ArrowLeft,
+    Building2,
+    CalendarDays,
+    Check,
+    ChevronRight,
+    Copy,
+    DownloadCloud,
+    ExternalLink,
+    FileText,
+    Loader2,
+    Minus,
+    PenLine,
+    Quote,
+    Radar,
+    Rss,
+    ScanSearch,
+    TrendingDown,
+    TrendingUp,
+    UserRoundCheck,
+} from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 type Label = 'negatif' | 'netral' | 'positif';
 
@@ -107,25 +128,70 @@ const adaKoreksi = (analisis: Analisis) => analisis.relevan_manual !== null || a
  * Status mentah tidak layak dibaca manusia.
  *
  * `tidak_relevan` dan `perlu_review` adalah nama kolom, bukan kalimat. Yang
- * tampil di badge harus sama dengan nama tahap di halaman daftar, supaya admin
- * tahu di tab mana artikel ini akan ditemukannya lagi.
+ * tampil di lencana harus sama dengan nama tahap di halaman daftar, supaya
+ * admin tahu di tab mana artikel ini akan ditemukannya lagi.
+ *
+ * Nadanya menempel di keadaan proses, bukan di nada berita. Selesai memakai
+ * hijau karena ia pekerjaan yang tuntas, menunggu review memakai kuning karena
+ * ia menunggu keputusan manusia, dan gagal memakai merah. Ronanya diambil dari
+ * PilKop, satu-satunya tempat yang mengurus warna di atas navy kop.
  */
-const labelProses: Record<string, string> = {
-    mentah: 'Belum diklasifikasi',
-    isi_diambil: 'Belum diklasifikasi',
-    perlu_review: 'Menunggu review',
-    dianalisis: 'Selesai',
-    selesai: 'Selesai',
-    tidak_relevan: 'Selesai',
-    gagal: 'Gagal',
+const gayaProses: Record<string, { teks: string; nada: 'netral' | 'baik' | 'tunggu' | 'buruk' }> = {
+    mentah: { teks: 'Belum diklasifikasi', nada: 'netral' },
+    isi_diambil: { teks: 'Belum diklasifikasi', nada: 'netral' },
+    perlu_review: { teks: 'Menunggu review', nada: 'tunggu' },
+    dianalisis: { teks: 'Selesai', nada: 'baik' },
+    selesai: { teks: 'Selesai', nada: 'baik' },
+    tidak_relevan: { teks: 'Selesai', nada: 'baik' },
+    gagal: { teks: 'Gagal', nada: 'buruk' },
 };
 
-const warnaRelevansi = (relevan: boolean) =>
-    relevan
-        ? 'border-transparent bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-        : 'border-transparent bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300';
+const proses = computed(() => gayaProses[props.artikel.status_proses] ?? { teks: props.artikel.status_proses, nada: 'netral' as const });
+
+/**
+ * Tidak relevan diwarnai abu, bukan merah.
+ *
+ * Versi sebelumnya memakai rose untuk "tidak relevan" dan itu meminjam warna
+ * yang di seluruh aplikasi berarti nada negatif. Artikel yang tidak membahas
+ * Pemkot bukan berita buruk, ia cuma di luar cakupan. Toska dipakai untuk
+ * relevan, sama dengan halaman daftar berita, sehingga satu warna berarti satu
+ * hal di kedua layar.
+ */
+const tileRelevansi = (relevan: boolean) => (relevan ? 'bg-aksen-toska text-white dark:text-background' : 'bg-muted-foreground/80 text-background');
+
+/** Tombol koreksi memakai warna nada yang diwakilinya, plus ikon yang sama dengan lencana sentimen. */
+const pilihanLabel: Array<{ nilai: Label; ikon: typeof TrendingUp; aktif: string; diam: string }> = [
+    {
+        nilai: 'negatif',
+        ikon: TrendingDown,
+        aktif: 'border-transparent bg-sentimen-negatif text-white dark:text-background',
+        diam: 'border-sentimen-negatif/30 text-sentimen-negatif hover:bg-sentimen-negatif-lembut',
+    },
+    {
+        nilai: 'netral',
+        ikon: Minus,
+        aktif: 'border-transparent bg-sentimen-netral text-white dark:text-background',
+        diam: 'border-sentimen-netral/30 text-sentimen-netral hover:bg-sentimen-netral-lembut',
+    },
+    {
+        nilai: 'positif',
+        ikon: TrendingUp,
+        aktif: 'border-transparent bg-sentimen-positif text-white dark:text-background',
+        diam: 'border-sentimen-positif/30 text-sentimen-positif hover:bg-sentimen-positif-lembut',
+    },
+];
 
 const waktu = (nilai: string | null) => (nilai ? format(new Date(nilai), 'd MMMM yyyy, HH:mm', { locale: id }) : '-');
+
+/** Baris keterangan di kop. Ikon dipakai supaya matanya bisa melompat tanpa membaca labelnya. */
+const keterangan = computed(() => [
+    { ikon: Building2, label: 'Media', nilai: props.artikel.media?.nama ?? 'Belum ditautkan' },
+    { ikon: PenLine, label: 'Penulis', nilai: props.artikel.penulis ?? '-' },
+    { ikon: FileText, label: 'Kata', nilai: formatAngka(props.artikel.jumlah_kata) },
+    { ikon: CalendarDays, label: 'Terbit', nilai: waktu(props.artikel.dipublikasikan_at) },
+    { ikon: DownloadCloud, label: 'Diambil', nilai: waktu(props.artikel.diambil_at) },
+    { ikon: Rss, label: 'Sumber', nilai: props.artikel.sumber_feed?.nama ?? '-' },
+]);
 
 const tersalin = ref(false);
 
@@ -155,123 +221,184 @@ async function salin() {
              tombol Lihat di dalam toast, jadi pengguna sering sampai di sini
              tanpa pernah melewati daftar artikel dan tidak punya jalan pulang
              yang jelas. -->
-        <Link href="/admin/artikel" class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft class="size-4" />
+        <Link
+            href="/admin/artikel"
+            class="group inline-flex items-center gap-1.5 rounded-md text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+            <ArrowLeft class="size-4 transition-transform duration-200 group-hover:-translate-x-0.5 motion-reduce:transition-none" />
             Kembali ke daftar artikel
         </Link>
 
-        <div class="grid gap-4 lg:grid-cols-3">
-            <div class="space-y-4 lg:col-span-2">
-                <Card>
-                    <CardContent class="space-y-3 p-4">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <Badge :variant="artikel.status_proses === 'gagal' ? 'destructive' : 'outline'">
-                                {{ labelProses[artikel.status_proses] ?? artikel.status_proses }}
-                            </Badge>
-                        </div>
+        <!--
+            Kop artikel memakai navy merek, bukan kartu putih seperti sisanya.
 
-                        <div class="flex items-start gap-2">
-                            <h1 class="flex-1 text-xl font-semibold leading-snug">{{ artikel.judul }}</h1>
+            Halaman ini punya satu subjek tunggal dan seluruh panel di bawahnya
+            berbicara tentang subjek itu. Bidang gelap di puncak halaman
+            menjadikan judulnya jangkar yang tidak bisa tertukar dengan kartu
+            data, dan sekaligus membawa warna merek ke layar yang selama ini
+            seluruhnya abu dan putih.
+        -->
+        <KopHalaman :judul="artikel.judul">
+            <template #aksi>
+                <!-- Tombol utama halaman ini: membuka sumbernya. Verifikasi
+                     admin selalu berakhir di halaman aslinya, jadi itu yang
+                     mendapat bidang penuh. -->
+                <a
+                    :href="artikel.url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="tekan group inline-flex items-center gap-2 rounded-lg bg-white px-3.5 py-2 text-xs font-semibold text-brand transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand"
+                >
+                    Buka halaman aslinya
+                    <ExternalLink
+                        class="size-3.5 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 motion-reduce:transition-none"
+                        aria-hidden="true"
+                    />
+                </a>
 
-                            <Button size="sm" variant="outline" class="h-7 shrink-0 text-xs" @click="salin">
-                                <component :is="tersalin ? Check : Copy" class="size-3" />
-                                {{ tersalin ? 'Tersalin' : 'Salin artikel' }}
-                            </Button>
-                        </div>
+                <button
+                    type="button"
+                    class="tekan inline-flex items-center gap-2 rounded-lg bg-white/10 px-3.5 py-2 text-xs font-medium text-white ring-1 ring-inset ring-white/25 transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand"
+                    @click="salin"
+                >
+                    <component :is="tersalin ? Check : Copy" class="size-3.5" aria-hidden="true" />
+                    {{ tersalin ? 'Tersalin' : 'Salin artikel' }}
+                </button>
+            </template>
 
-                        <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground sm:grid-cols-3">
-                            <div>
-                                <dt class="inline">Media:</dt>
-                                <dd class="inline">{{ artikel.media?.nama ?? 'Belum ditautkan' }}</dd>
-                            </div>
-                            <div>
-                                <dt class="inline">Penulis:</dt>
-                                <dd class="inline">{{ artikel.penulis ?? '-' }}</dd>
-                            </div>
-                            <div>
-                                <dt class="inline">Kata:</dt>
-                                <dd class="angka inline">{{ formatAngka(artikel.jumlah_kata) }}</dd>
-                            </div>
-                            <div>
-                                <dt class="inline">Terbit:</dt>
-                                <dd class="inline">{{ waktu(artikel.dipublikasikan_at) }}</dd>
-                            </div>
-                            <div>
-                                <dt class="inline">Diambil:</dt>
-                                <dd class="inline">{{ waktu(artikel.diambil_at) }}</dd>
-                            </div>
-                            <div>
-                                <dt class="inline">Sumber:</dt>
-                                <dd class="inline">{{ artikel.sumber_feed?.nama ?? '-' }}</dd>
-                            </div>
-                        </dl>
+            <PilKop :nada="proses.nada" :ikon="ScanSearch">{{ proses.teks }}</PilKop>
+            <PilKop v-if="artikel.media" :ikon="Building2">{{ artikel.media.nama }}</PilKop>
 
-                        <a :href="artikel.url" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs underline">
-                            Buka halaman aslinya <ExternalLink class="h-3 w-3" aria-hidden="true" />
-                        </a>
+            <template #bawah>
+                <dl class="mt-4 grid grid-cols-1 gap-x-6 gap-y-2 text-xs sm:grid-cols-2 lg:grid-cols-3">
+                    <div v-for="item in keterangan" :key="item.label" class="flex items-center gap-2 text-white/75">
+                        <component :is="item.ikon" class="size-3.5 shrink-0 text-white/50" aria-hidden="true" />
+                        <dt class="sr-only">{{ item.label }}</dt>
+                        <dd class="truncate" :class="item.label === 'Kata' ? 'angka' : ''" :title="item.nilai">
+                            <span class="text-white/50">{{ item.label }}</span>
+                            <span class="mx-1.5 text-white/25">/</span>
+                            <span class="font-medium text-white">{{ item.nilai }}</span>
+                        </dd>
+                    </div>
+                </dl>
+            </template>
+        </KopHalaman>
+
+        <div class="grid gap-4 lg:grid-cols-5">
+            <div class="space-y-4 lg:col-span-3">
+                <Card v-if="artikel.isi" class="muncul overflow-hidden" style="animation-delay: 90ms">
+                    <CardHeader class="flex-row items-center justify-between gap-3 space-y-0 border-b bg-muted/30 py-3">
+                        <CardTitle class="text-sm font-semibold">Isi hasil ekstraksi</CardTitle>
+                        <span class="angka rounded-full bg-background px-2 py-0.5 text-[11px] text-muted-foreground ring-1 ring-inset ring-border">
+                            {{ formatAngka(artikel.jumlah_kata) }} kata
+                        </span>
+                    </CardHeader>
+
+                    <!--
+                        Bayangan pudar di kaki bidang gulir. Teks yang terpotong
+                        rata di tepi kartu terbaca seperti sudah habis, dan admin
+                        berhenti menggulir padahal artikelnya masih separuh.
+                    -->
+                    <CardContent class="relative p-0">
+                        <p class="max-h-[28rem] overflow-y-auto whitespace-pre-line px-5 py-4 text-sm leading-[1.75] [text-wrap:pretty]">
+                            {{ artikel.isi }}
+                        </p>
+                        <div
+                            class="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-card to-transparent"
+                            aria-hidden="true"
+                        ></div>
                     </CardContent>
                 </Card>
 
-                <Card v-if="artikel.isi">
-                    <CardHeader class="pb-2"><CardTitle class="text-base">Isi hasil ekstraksi</CardTitle></CardHeader>
-                    <CardContent>
-                        <p class="max-h-96 overflow-y-auto whitespace-pre-line text-sm leading-relaxed">
-                            {{ artikel.isi }}
+                <Card v-else class="muncul" style="animation-delay: 90ms">
+                    <CardContent class="flex flex-col items-center gap-2 py-10 text-center">
+                        <div class="grid size-10 place-items-center rounded-full bg-muted text-muted-foreground">
+                            <FileText class="size-5" aria-hidden="true" />
+                        </div>
+                        <p class="text-sm font-medium">Isi artikel belum terekstrak</p>
+                        <p class="max-w-xs text-xs text-muted-foreground">
+                            Crawler sudah mencatat tautannya, tapi teksnya belum berhasil diambil. Tanpa teks, artikel ini tidak bisa dinilai.
                         </p>
                     </CardContent>
                 </Card>
             </div>
 
-            <div class="space-y-4">
-                <Card>
-                    <CardHeader class="pb-2">
-                        <CardTitle class="text-base">Relevansi dan sentimen</CardTitle>
+            <div class="lg:col-span-2">
+                <Card class="muncul lg:sticky lg:top-4" style="animation-delay: 160ms">
+                    <CardHeader class="flex-row items-center gap-2 space-y-0 border-b py-3">
+                        <div class="grid size-7 place-items-center rounded-md bg-aksen-biru/10 text-aksen-biru">
+                            <Radar class="size-4" aria-hidden="true" />
+                        </div>
+                        <CardTitle class="text-sm font-semibold">Putusan sistem</CardTitle>
                     </CardHeader>
-                    <CardContent class="space-y-3">
-                        <p v-if="!artikel.analisis_sentimen.length" class="text-xs text-muted-foreground">
-                            Belum diklasifikasi. Jalankan lewat tombol di halaman Antrean Klasifikasi.
-                        </p>
 
-                        <div v-for="analisis in artikel.analisis_sentimen" :key="analisis.id" class="space-y-2 rounded-md border p-3">
-                            <!--
-                                Relevansi ditampilkan lebih dulu dan selalu, bukan
-                                hanya sentimennya. Ia keputusan pertama yang
-                                menentukan segalanya: artikel yang tidak relevan
-                                tidak pernah dinilai nadanya dan tidak pernah masuk
-                                dashboard, dan tanpa badge ini layar detail tidak
-                                menyebutkan alasan itu sama sekali.
-                            -->
-                            <div class="flex flex-wrap items-center gap-1.5">
-                                <Badge variant="outline" :class="warnaRelevansi(analisis.relevan)">
-                                    {{ analisis.relevan ? 'Relevan' : 'Tidak relevan' }}
-                                </Badge>
-
-                                <BadgeSentimen v-if="analisis.relevan" :label="analisis.label_efektif" :perlu-review="analisis.perlu_review" />
-
-                                <!-- <Badge v-if="analisis.perlu_review" variant="outline">
-                                    Perlu review
-                                </Badge> -->
-
-                                <!-- Membedakan keputusan manusia dari kebetulan
-                                     model sependapat. -->
-                                <Badge v-if="analisis.relevan_manual !== null || analisis.label_manual" variant="outline"> Dikoreksi manusia </Badge>
+                    <CardContent class="pt-4">
+                        <div v-if="!artikel.analisis_sentimen.length" class="flex flex-col items-center gap-2 py-6 text-center">
+                            <div class="grid size-10 place-items-center rounded-full bg-muted text-muted-foreground">
+                                <ScanSearch class="size-5" aria-hidden="true" />
                             </div>
+                            <p class="text-sm font-medium">Belum diklasifikasi</p>
+                            <p class="max-w-[26ch] text-xs text-muted-foreground">
+                                Jalankan penilaiannya lewat tombol di halaman Antrean Klasifikasi.
+                            </p>
+                        </div>
 
-                            <!-- Reset hanya muncul kalau memang ada yang bisa
-                                 dicabut. Tombol yang selalu tampil mengundang
-                                 klik pada artikel yang tidak pernah dikoreksi,
-                                 dan itu berarti satu panggilan Gemini terbuang
-                                 untuk mengulang hasil yang sudah ada. -->
-                            <button
-                                v-if="adaKoreksi(analisis)"
-                                type="button"
-                                class="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
-                                :disabled="sedangReset"
-                                @click="konfirmasiReset = true"
-                            >
-                                <RotateCcw class="size-3" />
-                                {{ sedangReset ? 'Menilai ulang...' : 'Reset koreksi' }}
-                            </button>
+                        <!--
+                            Putusan dibaca sebagai rangkaian, bukan tumpukan
+                            kartu di dalam kartu.
+
+                            Relevansi menentukan apakah sentimen pernah dinilai,
+                            dan koreksi manusia menimpa keduanya. Rel bertitik
+                            menampilkan urutan sebab akibat itu sebagai satu
+                            garis, sehingga admin melihat di langkah mana
+                            keputusan berhenti tanpa harus membaca kalimatnya.
+                        -->
+                        <ol v-for="analisis in artikel.analisis_sentimen" :key="analisis.id" class="space-y-0">
+                            <li class="rel relative pb-5 pl-9">
+                                <span
+                                    class="absolute left-0 top-0 grid size-7 place-items-center rounded-full"
+                                    :class="tileRelevansi(analisis.relevan)"
+                                >
+                                    <component :is="analisis.relevan ? Check : Minus" class="size-4" aria-hidden="true" />
+                                </span>
+
+                                <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Relevansi</p>
+                                <p class="mt-0.5 text-sm font-semibold">
+                                    {{ analisis.relevan ? 'Relevan dengan Pemkot Kendari' : 'Di luar cakupan Pemkot Kendari' }}
+                                </p>
+                                <p v-if="analisis.provider" class="mt-1 text-xs text-muted-foreground">Dinilai {{ analisis.provider }}.</p>
+                            </li>
+
+                            <li class="rel relative pb-5 pl-9">
+                                <span
+                                    class="absolute left-0 top-0 grid size-7 place-items-center rounded-full"
+                                    :class="analisis.relevan ? 'bg-brand-lembut text-brand dark:text-white' : 'bg-muted text-muted-foreground'"
+                                >
+                                    <TrendingUp class="size-4" aria-hidden="true" />
+                                </span>
+
+                                <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Sentimen</p>
+
+                                <template v-if="analisis.relevan">
+                                    <div class="mt-1 flex flex-wrap items-center gap-1.5">
+                                        <BadgeSentimen :label="analisis.label_efektif" :perlu-review="analisis.perlu_review" />
+                                        <span
+                                            v-if="analisis.perlu_review"
+                                            class="denyut size-1.5 rounded-full bg-sentimen-review"
+                                            aria-hidden="true"
+                                        ></span>
+                                    </div>
+                                    <p class="mt-1.5 text-xs text-muted-foreground">
+                                        Analisis otomatis: cenderung {{ analisis.label_model ?? 'belum diputuskan'
+                                        }}<span v-if="analisis.perlu_review">, ditandai untuk diperiksa manusia</span>.
+                                        <template v-if="analisis.model_versi"> Dinilai {{ analisis.model_versi }}.</template>
+                                    </p>
+                                </template>
+
+                                <p v-else class="mt-0.5 text-xs text-muted-foreground">
+                                    Tidak dinilai nadanya. Artikel yang tidak membahas Pemkot tidak punya nada terhadap Pemkot.
+                                </p>
+                            </li>
 
                             <!--
                                 Alasan dan kutipan bukti, bukan angka skor. Gemini tidak
@@ -279,87 +406,134 @@ async function salin() {
                                 Kutipan di bawah sudah diverifikasi ada di isi artikel;
                                 yang tidak lolos verifikasi tidak pernah menjadi label.
                             -->
-                            <div v-if="analisis.reason_summary" class="space-y-1 rounded bg-muted/50 p-2">
-                                <p class="text-[11px] leading-snug text-muted-foreground">
-                                    {{ analisis.reason_summary }}
-                                </p>
+                            <li v-if="analisis.reason_summary" class="rel relative pb-5 pl-9">
+                                <span class="absolute left-0 top-0 grid size-7 place-items-center rounded-full bg-aksen-biru/10 text-aksen-biru">
+                                    <Quote class="size-4" aria-hidden="true" />
+                                </span>
 
-                                <details v-if="analisis.evidence?.length" class="text-[11px]">
-                                    <summary class="cursor-pointer text-muted-foreground hover:text-foreground">
-                                        Bukti ({{ analisis.evidence.length }})
+                                <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Alasan</p>
+                                <p class="mt-0.5 text-xs leading-relaxed">{{ analisis.reason_summary }}</p>
+
+                                <details v-if="analisis.evidence?.length" class="group mt-2">
+                                    <summary
+                                        class="inline-flex cursor-pointer list-none items-center gap-1 rounded text-xs font-medium text-aksen-biru transition-colors hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                    >
+                                        <ChevronRight
+                                            class="size-3.5 transition-transform duration-200 group-open:rotate-90 motion-reduce:transition-none"
+                                            aria-hidden="true"
+                                        />
+                                        Kutipan bukti ({{ analisis.evidence.length }})
                                     </summary>
-                                    <ul class="mt-1 space-y-1 border-l pl-2 text-muted-foreground">
-                                        <li v-for="(kutipan, i) in analisis.evidence" :key="i">“{{ kutipan }}”</li>
+
+                                    <ul class="mt-2 space-y-1.5 border-l border-aksen-biru/30 pl-3">
+                                        <li
+                                            v-for="(kutipan, i) in analisis.evidence"
+                                            :key="i"
+                                            class="text-xs italic leading-relaxed text-muted-foreground"
+                                        >
+                                            &ldquo;{{ kutipan }}&rdquo;
+                                        </li>
                                     </ul>
                                 </details>
+                            </li>
 
-                                <!-- Dua kalimat untuk dua keputusan, bukan satu
-                                     yang menggabungkan keduanya. `provider`
-                                     menjawab siapa yang menilai relevansi dan
-                                     `model_versi` menjawab model apa yang
-                                     menilai sentimen. Sejak relevansi bisa
-                                     dikerjakan IndoBERT keduanya sering
-                                     berbeda, dan menyambungnya jadi satu
-                                     kalimat berbunyi "Dinilai indobert:
-                                     gemini-3.5-flash". -->
-                                <p v-if="analisis.provider" class="text-[11px] text-muted-foreground">
-                                    Relevansi dinilai {{ analisis.provider }}.
-                                    <template v-if="analisis.relevan && analisis.model_versi">
-                                        Sentimen dinilai {{ analisis.model_versi }}.
-                                    </template>
+                            <li class="rel rel-akhir relative pl-9">
+                                <span
+                                    class="absolute left-0 top-0 grid size-7 place-items-center rounded-full"
+                                    :class="adaKoreksi(analisis) ? 'bg-aksen-ungu text-white dark:text-background' : 'bg-muted text-muted-foreground'"
+                                >
+                                    <UserRoundCheck class="size-4" aria-hidden="true" />
+                                </span>
+
+                                <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Koreksi manusia</p>
+
+                                <p v-if="analisis.label_manual" class="mt-0.5 text-xs leading-relaxed">
+                                    Diubah menjadi <strong class="capitalize">{{ analisis.label_manual }}</strong> oleh
+                                    {{ analisis.pengoreksi?.name ?? '-' }}, {{ waktu(analisis.dikoreksi_at) }}.
+                                    <span v-if="analisis.catatan_koreksi" class="text-muted-foreground"
+                                        >&ldquo;{{ analisis.catatan_koreksi }}&rdquo;</span
+                                    >
                                 </p>
-                            </div>
-
-                            <p v-if="!analisis.relevan" class="text-xs text-muted-foreground">
-                                Tidak dinilai sentimennya. Artikel yang tidak membahas Pemkot tidak punya nada terhadap Pemkot.
-                            </p>
-
-                            <template v-else>
-                                <p class="text-xs text-muted-foreground">
-                                    Analisis otomatis: cenderung {{ analisis.label_model ?? 'belum diputuskan' }}
-                                    <span v-if="analisis.perlu_review">, ditandai untuk diperiksa manusia</span>
+                                <p v-else-if="!adaKoreksi(analisis)" class="mt-0.5 text-xs text-muted-foreground">
+                                    Belum ada. Putusan di atas sepenuhnya hasil model.
                                 </p>
 
-                                <p v-if="analisis.label_manual" class="text-xs">
-                                    Dikoreksi menjadi <strong>{{ analisis.label_manual }}</strong> oleh {{ analisis.pengoreksi?.name ?? '-' }},
-                                    {{ waktu(analisis.dikoreksi_at) }}.
-                                    <span v-if="analisis.catatan_koreksi" class="text-muted-foreground"> “{{ analisis.catatan_koreksi }}” </span>
-                                </p>
+                                <!-- Koreksi hanya masuk akal untuk artikel yang
+                                     relevan. Yang di luar cakupan tidak punya
+                                     nada untuk dikoreksi. -->
+                                <template v-if="analisis.relevan">
+                                    <div v-if="sedangKoreksi === analisis.id" class="mt-3 space-y-2 rounded-lg bg-muted/40 p-3">
+                                        <div class="grid grid-cols-3 gap-1.5">
+                                            <button
+                                                v-for="pilihan in pilihanLabel"
+                                                :key="pilihan.nilai"
+                                                type="button"
+                                                class="tekan inline-flex items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-xs font-medium capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                                :class="form.label_manual === pilihan.nilai ? pilihan.aktif : pilihan.diam"
+                                                :aria-pressed="form.label_manual === pilihan.nilai"
+                                                @click="form.label_manual = pilihan.nilai"
+                                            >
+                                                <component :is="pilihan.ikon" class="size-3.5" aria-hidden="true" />
+                                                {{ pilihan.nilai }}
+                                            </button>
+                                        </div>
 
-                                <div v-if="sedangKoreksi === analisis.id" class="space-y-2">
-                                    <div class="flex gap-1">
-                                        <Button
-                                            v-for="pilihan in ['negatif', 'netral', 'positif'] as Label[]"
-                                            :key="pilihan"
-                                            size="sm"
-                                            :variant="form.label_manual === pilihan ? 'default' : 'outline'"
-                                            class="h-7 flex-1 text-xs capitalize"
-                                            @click="form.label_manual = pilihan"
-                                        >
-                                            {{ pilihan }}
-                                        </Button>
+                                        <Input v-model="form.catatan_koreksi" placeholder="Alasan koreksi" class="h-8 bg-background text-xs" />
+
+                                        <div class="flex flex-wrap items-center gap-1.5">
+                                            <Button size="sm" class="h-7 text-xs" :disabled="form.processing" @click="simpan(analisis)">
+                                                <Loader2
+                                                    v-if="form.processing"
+                                                    class="size-3 animate-spin motion-reduce:animate-none"
+                                                    aria-hidden="true"
+                                                />
+                                                Simpan koreksi
+                                            </Button>
+                                            <Button size="sm" variant="ghost" class="h-7 text-xs" @click="sedangKoreksi = null">Batal</Button>
+                                            <Button
+                                                v-if="analisis.label_manual"
+                                                size="sm"
+                                                variant="ghost"
+                                                class="h-7 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                @click="cabut(analisis)"
+                                            >
+                                                Cabut koreksi
+                                            </Button>
+                                        </div>
                                     </div>
-                                    <Input v-model="form.catatan_koreksi" placeholder="Alasan koreksi" class="h-8 text-xs" />
-                                    <div class="flex gap-1">
-                                        <Button size="sm" class="h-7 text-xs" :disabled="form.processing" @click="simpan(analisis)"> Simpan </Button>
-                                        <Button size="sm" variant="ghost" class="h-7 text-xs" @click="sedangKoreksi = null"> Batal </Button>
-                                        <Button
-                                            v-if="analisis.label_manual"
-                                            size="sm"
-                                            variant="ghost"
-                                            class="h-7 text-xs text-destructive"
-                                            @click="cabut(analisis)"
-                                        >
-                                            Cabut koreksi
-                                        </Button>
-                                    </div>
-                                </div>
 
-                                <Button v-else size="sm" variant="outline" class="h-7 w-full text-xs" @click="mulaiKoreksi(analisis)">
-                                    {{ analisis.label_manual ? 'Ubah koreksi' : 'Koreksi label' }}
-                                </Button>
-                            </template>
-                        </div>
+                                    <div v-else class="mt-3 flex flex-wrap items-center gap-1.5">
+                                        <button
+                                            type="button"
+                                            class="tekan inline-flex items-center gap-1.5 rounded-md border border-brand/30 px-2.5 py-1.5 text-xs font-medium text-brand transition-colors hover:bg-brand-lembut focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:border-white/25 dark:text-white dark:hover:bg-white/10"
+                                            @click="mulaiKoreksi(analisis)"
+                                        >
+                                            <PenLine class="size-3.5" aria-hidden="true" />
+                                            {{ analisis.label_manual ? 'Ubah koreksi' : 'Koreksi label' }}
+                                        </button>
+
+                                        <!-- Reset hanya muncul kalau memang ada yang bisa
+                                             dicabut. Tombol yang selalu tampil mengundang
+                                             klik pada artikel yang tidak pernah dikoreksi,
+                                             dan itu berarti satu panggilan Gemini terbuang
+                                             untuk mengulang hasil yang sudah ada. Ungu
+                                             dipakai di seluruh aplikasi untuk aksi yang
+                                             memanggil ulang AI dan memakan kuota. -->
+                                        <button
+                                            v-if="adaKoreksi(analisis)"
+                                            type="button"
+                                            class="tekan inline-flex items-center gap-1.5 rounded-md border border-aksen-ungu/40 px-2.5 py-1.5 text-xs font-medium text-aksen-ungu transition-colors hover:bg-aksen-ungu/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
+                                            :disabled="sedangReset"
+                                            @click="konfirmasiReset = true"
+                                        >
+                                            <Loader2 v-if="sedangReset" class="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                                            <ScanSearch v-else class="size-3.5" aria-hidden="true" />
+                                            {{ sedangReset ? 'Menilai ulang...' : 'Reset dan nilai ulang' }}
+                                        </button>
+                                    </div>
+                                </template>
+                            </li>
+                        </ol>
                     </CardContent>
                 </Card>
             </div>
@@ -383,9 +557,54 @@ async function salin() {
 
                 <DialogFooter>
                     <Button variant="outline" @click="konfirmasiReset = false">Batal</Button>
-                    <Button class="bg-violet-600 text-white hover:bg-violet-700" @click="reset"> Cabut dan nilai ulang </Button>
+                    <Button class="bg-aksen-ungu text-white hover:bg-aksen-ungu/90 dark:text-background" @click="reset">Cabut dan nilai ulang</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
     </LayoutAdmin>
 </template>
+
+<style scoped>
+/*
+ * Rel penghubung antar langkah putusan.
+ *
+ * Digambar sebagai pseudo elemen, bukan div, supaya tidak ada satu pun simpul
+ * kosong di dalam daftar yang dibacakan pembaca layar. Garisnya berhenti di
+ * langkah terakhir, kalau tidak ia menjuntai ke bawah tanpa tujuan.
+ *
+ * Tingginya dianimasikan dari nol saat halaman terbuka, jadi rel terbaca
+ * mengalir dari relevansi ke koreksi mengikuti urutan sebab akibatnya.
+ */
+.rel::before {
+    content: '';
+    position: absolute;
+    left: 0.8125rem;
+    top: 1.875rem;
+    bottom: 0.375rem;
+    width: 1px;
+    background: linear-gradient(180deg, hsl(var(--border)) 0%, hsl(var(--border) / 0.35) 100%);
+    transform-origin: top;
+    animation: rel-turun 700ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    animation-delay: 260ms;
+}
+
+.rel-akhir::before {
+    display: none;
+}
+
+@keyframes rel-turun {
+    from {
+        transform: scaleY(0);
+    }
+
+    to {
+        transform: scaleY(1);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rel::before {
+        animation: none;
+    }
+}
+</style>

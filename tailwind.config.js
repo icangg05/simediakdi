@@ -62,6 +62,8 @@ export default {
                     regional: warna('--color-tier-regional'),
                     lokal: warna('--color-tier-lokal'),
                 },
+                /* Latar bidang isi panel admin, sengaja bukan --background. */
+                'latar-admin': warna('--color-latar-admin'),
                 background: 'hsl(var(--background))',
                 foreground: 'hsl(var(--foreground))',
                 card: {

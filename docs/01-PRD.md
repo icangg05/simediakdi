@@ -230,7 +230,7 @@ Sembilan pertanyaan pembuka sudah dijawab. Bagian ini menyimpan jawabannya beser
 | 5 | Sentimen dinilai terhadap apa | Diserahkan ke pengembang, pilih yang relevan dengan tujuan sistem | Tiga konteks awal ditetapkan di bawah |
 | 6 | Media diberi akun | Ya, satu akun per media untuk menginput link berita | Portal media dan sprint 5 tetap penuh |
 | 7 | Siapa melabeli gold set | Pengembang | 8 jam pelabelan masuk hitungan sprint 3, sudah dianggarkan di dokumen 07 |
-| 8 | Siapa menerima dan mengatur alert Telegram | Superadmin Diskominfo | Chat ID disimpan di `.env` (`TELEGRAM_CHAT_ID`), hanya superadmin yang boleh mengelola aturan alert. Nomor grup diisi saat sprint 5 |
+| 8 | Siapa menerima dan mengatur alert Telegram | Superadmin Diskominfo | Chat ID dan token bot disimpan di tabel `pengaturan_alert`, disetel dari `/admin/pengaturan`, hanya superadmin yang boleh mengelola aturan alert. Nomor grup diisi saat sprint 5 |
 | 9 | Tenggat dari luar | Tidak ada | Tidak ada prioritas S yang perlu dipangkas di muka. Urutan pemangkasan di dokumen 07 tetap dipakai kalau jadwal melar |
 
 Dua keputusan tambahan dari sesi yang sama:

@@ -85,12 +85,25 @@ class PemeriksaAturan
             ? sprintf('rata-rata %s jendela sebelumnya %.1f', 4, $rata)
             : 'tidak ada pembanding di jendela sebelumnya';
 
+        // Tiga berita terbaru dari lonjakan itu sendiri, dibawa ikut ke dalam
+        // pesan. Angka "12 berita negatif dalam 6 jam" tidak memberitahu apa
+        // yang sedang terjadi, dan penerimanya tetap harus membuka dashboard
+        // untuk tahu apakah ini satu peristiwa besar atau dua belas hal kecil.
+        $contoh = (clone $dasar())
+            ->where('artikel.diambil_at', '>=', $mulai)
+            ->leftJoin('media', 'media.id', '=', 'artikel.media_id')
+            ->orderByDesc('artikel.diambil_at')
+            ->limit(3)
+            ->get(['artikel.judul', 'artikel.url', 'artikel.diambil_at', 'media.nama as media'])
+            ->toArray();
+
         return [
             'ringkasan' => "{$kini} berita negatif dalam {$jendela} jam terakhir ({$banding}).",
             'payload' => [
                 'jumlah' => $kini,
                 'rata_sebelumnya' => round($rata, 2),
                 'jendela_jam' => $jendela,
+                'contoh' => $contoh,
             ],
         ];
     }
