@@ -1,16 +1,26 @@
 <script setup lang="ts">
+import KartuEksekutif from '@/components/domain/KartuEksekutif.vue';
+import KopEksekutif from '@/components/domain/KopEksekutif.vue';
 import PemilihRentangTanggal from '@/components/domain/PemilihRentangTanggal.vue';
+import PilKop from '@/components/domain/PilKop.vue';
 import KeadaanKosong from '@/components/KeadaanKosong.vue';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { useFormatAngka } from '@/composables/useFormatAngka';
 import { usePeriodeEksekutif } from '@/composables/usePeriodeEksekutif';
 import LayoutEksekutif from '@/layouts/LayoutEksekutif.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { ArrowRight, Globe2, ListOrdered } from 'lucide-vue-next';
+import { ArrowRight, Globe2, ListOrdered, Newspaper, Radio } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+
+/*
+ * Arti warna di halaman ini mengikuti tabel yang sama dengan dashboard: toska
+ * untuk media dan jangkauannya, warna sentimen hanya untuk nada pemberitaan.
+ * Warna tier berdiri sendiri di luar keduanya, dan itu satu-satunya rona
+ * tambahan yang dipakai halaman ini.
+ */
 
 interface Baris {
     id: number;
@@ -58,9 +68,9 @@ const mediaMemberitakan = computed(() => props.peringkat.filter((m) => m.jumlah_
 /**
  * Volume media teratas, dipakai sebagai skala batang.
  *
- * Batang tiap baris digambar relatif terhadap angka ini, bukan terhadap
- * lebar penuh barisnya. Dengan begitu panjang batang bisa dibandingkan
- * antarbaris, persis seperti sumbu bersama pada grafik batang.
+ * Batang tiap baris digambar relatif terhadap angka ini, bukan terhadap lebar
+ * penuh barisnya. Dengan begitu panjang batang bisa dibandingkan antarbaris,
+ * persis seperti sumbu bersama pada grafik batang.
  */
 const puncak = computed(() => props.peringkat.reduce((tertinggi, m) => Math.max(tertinggi, m.jumlah_artikel), 0));
 
@@ -105,9 +115,18 @@ const daftar = computed(() => {
     return baris.sort((a, b) => b.jumlah_artikel - a.jumlah_artikel);
 });
 
+/**
+ * Dua pilihan urutan, masing-masing dengan warnanya sendiri saat menyala.
+ *
+ * Warnanya bukan hiasan, ia menyebut apa yang sedang diurutkan. Toska berarti
+ * papan sedang disusun menurut volume media, dan merah sentimen berarti papan
+ * sedang disusun menurut porsi berita negatif. Pengguna yang menoleh ke papan
+ * setelah beberapa detik bisa tahu urutan mana yang berlaku tanpa membaca
+ * label tombolnya.
+ */
 const opsiUrutan = [
-    { nilai: 'volume' as const, label: 'Terbanyak memberitakan' },
-    { nilai: 'negatif' as const, label: 'Porsi negatif tertinggi' },
+    { nilai: 'volume' as const, label: 'Terbanyak memberitakan', aktif: 'bg-aksen-toska text-white shadow-sm dark:text-background' },
+    { nilai: 'negatif' as const, label: 'Porsi negatif tertinggi', aktif: 'bg-sentimen-negatif text-white shadow-sm dark:text-background' },
 ];
 
 /** Lebar batang satu baris terhadap media teratas, dalam persen. */
@@ -160,10 +179,28 @@ const batangTier: Record<string, string> = {
     lokal: 'bg-tier-lokal',
 };
 
+const kartuTier: Record<string, string> = {
+    nasional: 'border-tier-nasional/25 bg-tier-nasional/[0.06]',
+    regional: 'border-tier-regional/25 bg-tier-regional/[0.06]',
+    lokal: 'border-tier-lokal/25 bg-tier-lokal/[0.06]',
+};
+
+const teksTier: Record<string, string> = {
+    nasional: 'text-tier-nasional',
+    regional: 'text-tier-regional',
+    lokal: 'text-tier-lokal',
+};
+
+const pitaTier: Record<string, string> = {
+    nasional: 'from-tier-nasional',
+    regional: 'from-tier-regional',
+    lokal: 'from-tier-lokal',
+};
+
 /**
  * Sebaran menurut jangkauan media.
  *
- * Pertanyaan yang berbeda dari papan peringkat, karena itu kartunya sendiri.
+ * Pertanyaan yang berbeda dari papan peringkat, karena itu bagiannya sendiri.
  * Papan peringkat menjawab siapa yang memberitakan, bagian ini menjawab
  * seberapa jauh berita itu keluar dari Kendari. Sebelumnya tier hanya lencana
  * berwarna di kolom tabel yang tidak dipakai menghitung apa pun.
@@ -181,98 +218,98 @@ const jangkauan = computed(() =>
                 jumlahArtikel: anggota.reduce((jumlah, m) => jumlah + m.jumlah_artikel, 0),
                 jumlahNegatif: anggota.reduce((jumlah, m) => jumlah + m.jumlah_negatif, 0),
                 batang: batangTier[tier] ?? 'bg-muted-foreground',
+                kartu: kartuTier[tier] ?? '',
+                teks: teksTier[tier] ?? '',
+                pita: pitaTier[tier] ?? '',
             };
         })
         .filter((t) => t.jumlahArtikel > 0),
 );
+
+/**
+ * Rupa nomor urut. Tiga teratas memakai navy merek, sisanya abu.
+ *
+ * Papan ini dibaca untuk menemukan siapa yang di puncak, dan tiga puluh nomor
+ * dengan bobot yang sama membuat puncaknya harus dicari baris demi baris.
+ */
+function rupaNomor(urut: number): string {
+    return urut < 3 ? 'bg-brand text-white shadow-sm dark:bg-aksen-biru dark:text-background' : 'bg-muted text-muted-foreground';
+}
 </script>
 
 <template>
     <Head title="Peringkat media" />
 
     <LayoutEksekutif>
-        <header class="flex flex-wrap items-end justify-between gap-3">
-            <div>
-                <h1 class="text-2xl font-semibold text-primary dark:text-aksen-biru">Peringkat media</h1>
-                <p class="text-sm text-muted-foreground">Media yang memberitakan Pemerintah Kota, {{ rentangTerbaca }}</p>
-            </div>
+        <!--
+            Kalimat pembuka pindah ke dalam kop, bukan paragraf yang melayang di
+            antara kop dan papan. Isinya tiga fakta, dan ketiganya memang
+            pembuka halaman: berapa media terdaftar, berapa di antaranya yang
+            benar benar menulis, dan berapa berita yang mereka hasilkan.
+        -->
+        <KopEksekutif judul="Peringkat media" :keterangan="`Media yang memberitakan Pemerintah Kota, ${rentangTerbaca}`">
+            <template #kendali>
+                <PemilihRentangTanggal :dari="periode.dari" :sampai="periode.sampai" inline @ubah="(dari, sampai) => pindah({ dari, sampai })" />
+            </template>
 
-            <PemilihRentangTanggal :dari="periode.dari" :sampai="periode.sampai" inline @ubah="(dari, sampai) => pindah({ dari, sampai })" />
-        </header>
+            <template v-if="totalBerita > 0" #pil>
+                <PilKop :ikon="Radio">{{ formatAngka(mediaMemberitakan) }} dari {{ formatAngka(peringkat.length) }} media menulis</PilKop>
+                <PilKop :ikon="Newspaper">{{ formatAngka(totalBerita) }} berita</PilKop>
+            </template>
+
+            <template v-if="totalBerita > 0">
+                Papan di bawah menyusun media menurut jumlah berita tentang Pemerintah Kota pada rentang ini. Ketuk satu baris untuk membaca
+                beritanya.
+            </template>
+        </KopEksekutif>
 
         <template v-if="totalBerita > 0">
-            <!--
-                Kalimat pembuka, bukan tiga kotak angka.
-
-                Isinya tiga fakta, dan ketiganya sudah cukup untuk membuka
-                halaman: berapa media terdaftar, berapa di antaranya yang benar
-                benar menulis, dan berapa berita yang mereka hasilkan. Angka
-                lainnya ada di barisnya masing-masing, tempat angka itu bisa
-                dicek asalnya.
-            -->
-            <p class="muncul max-w-[46rem] text-sm leading-relaxed text-muted-foreground" style="animation-delay: 60ms">
-                <span class="angka font-medium text-foreground"
-                    >{{ formatAngka(mediaMemberitakan) }} dari {{ formatAngka(peringkat.length) }} media</span
+            <div class="muncul" style="animation-delay: 80ms">
+                <KartuEksekutif
+                    judul="Papan peringkat media"
+                    :catatan="`${formatAngka(peringkat.length)} media terdaftar, termasuk yang belum menulis pada rentang ini`"
+                    :ikon="ListOrdered"
+                    rona="toska"
                 >
-                terdaftar memuat <span class="angka font-medium text-foreground">{{ formatAngka(totalBerita) }} berita</span> tentang Pemerintah Kota
-                pada rentang ini. Ketuk satu baris untuk membaca beritanya.
-            </p>
-
-            <Card class="muncul overflow-hidden" style="animation-delay: 120ms">
-                <CardHeader class="flex-row flex-wrap items-center justify-between gap-3 bg-aksen-biru/[0.07] py-3.5">
-                    <CardTitle class="flex items-center gap-2.5 text-base">
-                        <span class="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-aksen-biru text-white shadow-sm dark:text-background">
-                            <ListOrdered class="h-[18px] w-[18px]" aria-hidden="true" />
-                        </span>
-                        Papan peringkat media
-                        <span class="angka rounded-full bg-background/70 px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                            {{ formatAngka(peringkat.length) }}
-                        </span>
-                    </CardTitle>
-
                     <!--
                         Dua cara mengurutkan, bukan delapan kolom yang bisa
                         disortir. Halaman ini dibaca di ponsel dalam hitungan
                         detik, dan pertanyaan yang benar benar dibawa pembaca ke
                         sini hanya dua.
                     -->
-                    <div class="flex shrink-0 items-center gap-1 rounded-full bg-background/70 p-1" role="group" aria-label="Urutan papan peringkat">
-                        <button
-                            v-for="opsi in opsiUrutan"
-                            :key="opsi.nilai"
-                            type="button"
-                            :aria-pressed="urutan === opsi.nilai"
-                            class="ease-[cubic-bezier(0.32,0.72,0,1)] rounded-full px-3 py-1.5 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-                            :class="
-                                urutan === opsi.nilai
-                                    ? 'bg-aksen-biru text-white shadow-sm dark:text-background'
-                                    : 'text-muted-foreground hover:text-foreground'
-                            "
-                            @click="urutan = opsi.nilai"
-                        >
-                            {{ opsi.label }}
-                        </button>
-                    </div>
-                </CardHeader>
+                    <template #aksi>
+                        <div class="flex w-full items-center gap-1 rounded-full bg-muted p-1 sm:w-auto" role="group" aria-label="Urutan papan peringkat">
+                            <button
+                                v-for="opsi in opsiUrutan"
+                                :key="opsi.nilai"
+                                type="button"
+                                :aria-pressed="urutan === opsi.nilai"
+                                class="tekan ease-[cubic-bezier(0.32,0.72,0,1)] flex-1 rounded-full px-3 py-1.5 text-xs font-semibold leading-tight transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 sm:flex-none"
+                                :class="urutan === opsi.nilai ? opsi.aktif : 'text-muted-foreground hover:text-foreground'"
+                                @click="urutan = opsi.nilai"
+                            >
+                                {{ opsi.label }}
+                            </button>
+                        </div>
+                    </template>
 
-                <CardContent class="pt-4">
                     <!--
                         Keterangan warna ditulis sekali di atas daftar, bukan
                         diulang sebagai tiga keping angka di tiap baris. Tiga
                         puluh baris dikali tiga keping menghasilkan sembilan
                         puluh angka yang tidak satu pun dibaca.
                     -->
-                    <p class="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+                    <p class="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
                         <span class="inline-flex items-center gap-1.5">
-                            <span class="h-2 w-2 rounded-full bg-sentimen-positif" aria-hidden="true"></span>
+                            <span class="size-2 rounded-full bg-sentimen-positif" aria-hidden="true"></span>
                             Positif
                         </span>
                         <span class="inline-flex items-center gap-1.5">
-                            <span class="h-2 w-2 rounded-full bg-sentimen-netral" aria-hidden="true"></span>
+                            <span class="size-2 rounded-full bg-sentimen-netral" aria-hidden="true"></span>
                             Netral
                         </span>
                         <span class="inline-flex items-center gap-1.5">
-                            <span class="h-2 w-2 rounded-full bg-sentimen-negatif" aria-hidden="true"></span>
+                            <span class="size-2 rounded-full bg-sentimen-negatif" aria-hidden="true"></span>
                             Negatif
                         </span>
                         <span>Panjang batang dibandingkan terhadap media teratas.</span>
@@ -292,17 +329,15 @@ const jangkauan = computed(() =>
                                         bukan nomor baris yang kebetulan tetap.
                                     -->
                                     <span
-                                        class="angka grid h-7 w-7 shrink-0 place-items-center rounded-lg text-xs font-semibold"
-                                        :class="urut < 3 ? 'bg-primary text-primary-foreground dark:bg-aksen-biru' : 'bg-muted text-muted-foreground'"
+                                        class="angka grid size-7 shrink-0 place-items-center rounded-lg text-xs font-semibold"
+                                        :class="rupaNomor(urut)"
                                     >
                                         {{ urut + 1 }}
                                     </span>
 
                                     <span class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
                                         <span class="truncate text-sm font-semibold">{{ m.nama }}</span>
-                                        <Badge variant="secondary" :class="warnaTier[m.tier]" class="shrink-0 capitalize">
-                                            {{ m.tier }}
-                                        </Badge>
+                                        <Badge variant="secondary" :class="warnaTier[m.tier]" class="shrink-0 capitalize">{{ m.tier }}</Badge>
                                     </span>
 
                                     <span class="shrink-0 text-right">
@@ -310,20 +345,20 @@ const jangkauan = computed(() =>
                                             {{ formatAngka(m.jumlah_artikel) }}
                                             <span class="text-xs font-normal text-muted-foreground">berita</span>
                                         </span>
-                                        <span class="angka block text-xs text-muted-foreground">
-                                            {{ dari100(m.jumlah_artikel, totalBerita) }} dari 100
-                                        </span>
+                                        <span class="angka block text-xs text-muted-foreground"
+                                            >{{ dari100(m.jumlah_artikel, totalBerita) }} dari 100</span
+                                        >
                                     </span>
 
                                     <ArrowRight
-                                        class="ease-[cubic-bezier(0.32,0.72,0,1)] h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-300 group-hover:translate-x-1"
+                                        class="ease-[cubic-bezier(0.32,0.72,0,1)] size-4 shrink-0 text-muted-foreground transition-transform duration-300 group-hover:translate-x-1"
                                         aria-hidden="true"
                                     />
                                 </div>
 
                                 <div class="mt-2.5 flex items-center gap-3 pl-10">
                                     <span class="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-muted" role="img" :aria-label="bacaanBatang(m)">
-                                        <span class="tumbuh flex h-full rounded-full" :style="{ width: lebarBatang(m) }">
+                                        <span class="tumbuh flex h-full overflow-hidden rounded-full" :style="{ width: lebarBatang(m) }">
                                             <span
                                                 class="h-full bg-sentimen-positif"
                                                 :style="{ width: lebarPotong(m.jumlah_positif, m) }"
@@ -351,7 +386,7 @@ const jangkauan = computed(() =>
                                     -->
                                     <span
                                         v-if="m.jumlah_negatif > 0"
-                                        class="angka shrink-0 text-xs font-medium text-sentimen-negatif"
+                                        class="angka shrink-0 text-xs font-semibold text-sentimen-negatif"
                                         :class="{ 'opacity-70': urutan === 'volume' }"
                                     >
                                         {{ formatAngka(m.jumlah_negatif) }} negatif
@@ -370,39 +405,55 @@ const jangkauan = computed(() =>
                             </Link>
                         </li>
                     </ol>
-                </CardContent>
-            </Card>
+                </KartuEksekutif>
+            </div>
 
             <!--
                 Jangkauan media, pertanyaan kedua halaman ini.
 
                 Papan di atas menjawab siapa yang memberitakan, bagian ini
-                menjawab seberapa jauh beritanya keluar dari Kendari. Sebelumnya
-                tier hanya lencana berwarna di kolom tabel, tidak pernah dipakai
-                menghitung apa pun.
-            -->
-            <Card v-if="jangkauan.length" class="muncul overflow-hidden" style="animation-delay: 200ms">
-                <CardHeader class="flex-row items-center justify-between gap-3 bg-aksen-toska/[0.07] py-3.5">
-                    <CardTitle class="flex items-center gap-2.5 text-base">
-                        <span class="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-aksen-toska text-white shadow-sm dark:text-background">
-                            <Globe2 class="h-[18px] w-[18px]" aria-hidden="true" />
-                        </span>
-                        Jangkauan media
-                    </CardTitle>
-                </CardHeader>
+                menjawab seberapa jauh beritanya keluar dari Kendari.
 
-                <CardContent class="space-y-3 pt-4">
-                    <div v-for="(t, urut) in jangkauan" :key="t.tier" class="space-y-1.5">
+                Bentuknya sengaja bukan kartu keempat yang seragam, melainkan
+                tiga keping berjajar. Halaman ini kalau seluruhnya kartu
+                selebar layar akan terbaca sebagai satu kolom panjang tanpa
+                irama, dan pertanyaan yang dijawab di sini memang berbeda
+                jenisnya dari papan di atasnya. Warnanya token tier, satu-satunya
+                rona di panel eksekutif yang bukan nada maupun aksen.
+            -->
+            <section v-if="jangkauan.length" class="muncul space-y-3" style="animation-delay: 160ms">
+                <h2 class="flex items-center gap-2.5 text-base font-semibold text-primary dark:text-aksen-biru">
+                    <span class="grid size-7 shrink-0 place-items-center rounded-lg bg-aksen-toska/10">
+                        <Globe2 class="size-4 text-aksen-toska" aria-hidden="true" />
+                    </span>
+                    <span class="shrink-0">Jangkauan media</span>
+                    <span class="h-px flex-1 bg-gradient-to-r from-brand/30 to-transparent dark:from-aksen-biru/30" aria-hidden="true"></span>
+                </h2>
+
+                <div class="grid gap-3.5 md:grid-cols-3">
+                    <div
+                        v-for="(t, urut) in jangkauan"
+                        :key="t.tier"
+                        :class="t.kartu"
+                        class="angkat muncul relative space-y-2.5 overflow-hidden rounded-2xl border p-4"
+                        :style="{ animationDelay: `${220 + urut * 80}ms` }"
+                    >
+                        <span
+                            :class="t.pita"
+                            class="tumbuh absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r to-transparent"
+                            :style="{ animationDelay: `${280 + urut * 80}ms` }"
+                            aria-hidden="true"
+                        ></span>
+
                         <div class="flex items-baseline justify-between gap-3">
-                            <span class="text-sm font-semibold">
-                                {{ t.nama }}
-                                <span class="text-xs font-normal text-muted-foreground">{{ t.arti }}</span>
-                            </span>
-                            <span class="angka shrink-0 text-sm font-semibold">
+                            <span :class="t.teks" class="text-sm font-semibold">{{ t.nama }}</span>
+                            <span class="angka shrink-0 text-2xl font-semibold leading-none">
                                 {{ formatAngka(t.jumlahArtikel) }}
                                 <span class="text-xs font-normal text-muted-foreground">berita</span>
                             </span>
                         </div>
+
+                        <p class="text-xs text-muted-foreground">{{ t.arti }}</p>
 
                         <span class="block h-2 overflow-hidden rounded-full bg-muted">
                             <span
@@ -410,18 +461,18 @@ const jangkauan = computed(() =>
                                 class="tumbuh block h-full rounded-full"
                                 :style="{
                                     width: totalBerita === 0 ? '0%' : `${(t.jumlahArtikel / totalBerita) * 100}%`,
-                                    animationDelay: `${urut * 90}ms`,
+                                    animationDelay: `${300 + urut * 90}ms`,
                                 }"
                             ></span>
                         </span>
 
-                        <p class="angka text-xs text-muted-foreground">
+                        <p class="angka text-xs leading-relaxed text-muted-foreground">
                             {{ formatAngka(t.jumlahMedia) }} media, {{ dari100(t.jumlahArtikel, totalBerita) }} dari 100 berita,
                             {{ formatAngka(t.jumlahNegatif) }} di antaranya negatif
                         </p>
                     </div>
-                </CardContent>
-            </Card>
+                </div>
+            </section>
         </template>
 
         <Card v-else class="muncul">

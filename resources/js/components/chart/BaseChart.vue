@@ -3,9 +3,19 @@ import KeadaanKosong from '@/components/KeadaanKosong.vue';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useFormatAngka } from '@/composables/useFormatAngka';
+import { useElementVisibility } from '@vueuse/core';
 import { ChartLine, Download, Table as TableIcon } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
-import VChart from 'vue-echarts';
+import { computed, defineAsyncComponent, ref, watchEffect } from 'vue';
+
+/**
+ * Renderer grafik dimuat terpisah, setelah halaman tampil.
+ *
+ * ECharts plus vue-echarts sekitar 540 kB terminifikasi. Dulu modulnya
+ * diregistrasi di `app.ts`, jadi setiap halaman ikut membayarnya, termasuk
+ * login, arsip berita, dan peringkat media yang tidak punya satu grafik pun.
+ * Sekarang berkasnya hanya diunduh saat komponen ini benar benar dirender.
+ */
+const VChart = defineAsyncComponent(() => import('@/lib/echarts'));
 
 /**
  * Pembungkus tunggal seluruh grafik.
@@ -29,7 +39,24 @@ const props = defineProps<{
 const { formatAngka } = useFormatAngka();
 
 const modeTabel = ref(false);
-const grafik = ref<InstanceType<typeof VChart> | null>(null);
+const grafik = ref<{ getDataURL: (opsi: Record<string, unknown>) => string } | null>(null);
+
+/*
+ * Grafik di bawah lipatan layar tidak ikut diunduh sampai digulir ke sana.
+ *
+ * Di ponsel hampir semua grafik berada di bawah lipatan, dan mengunduh lalu
+ * menjalankan 540 kB ECharts saat muat awal menahan utas utama tepat ketika
+ * halaman sedang berusaha tampil. `sekaliTerlihat` sengaja tidak pernah kembali
+ * ke false: begitu grafik pernah dilihat, ia tetap hidup supaya menggulir naik
+ * turun tidak membongkar pasang kanvasnya.
+ */
+const bingkai = ref<HTMLElement | null>(null);
+const terlihat = useElementVisibility(bingkai);
+const sekaliTerlihat = ref(false);
+
+watchEffect(() => {
+    if (terlihat.value) sekaliTerlihat.value = true;
+});
 
 const kosong = computed(() => !props.barisTabel?.length);
 
@@ -107,6 +134,13 @@ function unduhPng() {
             </Table>
         </div>
 
-        <VChart v-else ref="grafik" :option="opsi" :style="{ height: `${tinggi ?? 240}px` }" autoresize class="w-full" />
+        <!--
+            Tingginya dipasang di pembungkus, bukan di grafiknya. Renderer datang
+            belakangan lewat impor dinamis, dan tanpa ruang yang sudah dipesan
+            di sini isi halaman di bawahnya akan melompat saat grafik muncul.
+        -->
+        <div v-else ref="bingkai" :style="{ height: `${tinggi ?? 240}px` }">
+            <VChart v-if="sekaliTerlihat" ref="grafik" :option="opsi" autoresize class="h-full w-full" />
+        </div>
     </figure>
 </template>

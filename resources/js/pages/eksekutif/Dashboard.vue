@@ -3,10 +3,13 @@ import ChartTrenSentimen from '@/components/chart/ChartTrenSentimen.vue';
 import Sparkline from '@/components/chart/Sparkline.vue';
 import BadgeSentimen from '@/components/domain/BadgeSentimen.vue';
 import KartuArtikel from '@/components/domain/KartuArtikel.vue';
+import KartuEksekutif from '@/components/domain/KartuEksekutif.vue';
+import KopEksekutif from '@/components/domain/KopEksekutif.vue';
 import PemilihRentangTanggal from '@/components/domain/PemilihRentangTanggal.vue';
+import PilKop from '@/components/domain/PilKop.vue';
 import SentimenBelumTersedia from '@/components/domain/SentimenBelumTersedia.vue';
-import KotaKendari from '@/components/ilustrasi/KotaKendari.vue';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import TautanTujuan from '@/components/domain/TautanTujuan.vue';
+import { Card, CardContent } from '@/components/ui/card';
 import { useFormatAngka } from '@/composables/useFormatAngka';
 import { useGerbangSentimen } from '@/composables/useGerbangSentimen';
 import { usePeriodeEksekutif } from '@/composables/usePeriodeEksekutif';
@@ -17,21 +20,46 @@ import { differenceInCalendarDays, format, formatDistanceToNow, isSameDay } from
 import { id } from 'date-fns/locale';
 import {
     ArrowRight,
+    CalendarRange,
     Check,
     CircleCheck,
     Clock,
     Flame,
+    Gauge,
     Globe2,
     Info,
-    LineChart,
+    Minus,
     Newspaper,
     Radio,
     Scale,
     Sparkles,
     ThumbsUp,
+    TrendingDown,
+    TrendingUp,
     TriangleAlert,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
+
+/*
+ * Arti warna di halaman ini, satu tabel yang mengikat seluruh berkas.
+ *
+ * | Warna            | Arti                                                  |
+ * |------------------|-------------------------------------------------------|
+ * | Navy merek       | Identitas halaman. Kop, dan tidak pernah data.        |
+ * | Hijau sentimen   | Nada positif                                          |
+ * | Abu sentimen     | Nada netral                                           |
+ * | Merah sentimen   | Nada negatif                                          |
+ * | Jingga review    | Perlu dicek ulang                                     |
+ * | Aksen biru       | Berita dan arsipnya, tanpa saringan nada              |
+ * | Aksen toska      | Media dan jangkauannya                                |
+ * | Aksen ungu       | Apa pun yang disusun model                            |
+ *
+ * Aturannya satu kalimat: warna nada hanya boleh dipakai untuk nada
+ * pemberitaan. Jumlah berita, jumlah media, dan rata-rata per hari bukan nada
+ * apa pun, dan memberinya hijau atau merah membuat pembaca menyimpulkan sesuatu
+ * yang tidak pernah dinyatakan datanya. Tabel yang sama dipakai
+ * `KartuEksekutif` dan `TautanTujuan`, jadi ketiganya harus diubah bersamaan.
+ */
 
 type Berita = {
     id: number;
@@ -132,34 +160,39 @@ function per100(bagian: number): number {
  * Tiga potong nada, satu barisan. Diberi nama sehari-hari, bukan istilah
  * analisis, karena halaman ini dibaca orang yang belum tentu pernah mendengar
  * kata sentimen.
+ *
+ * `kunci` sekaligus menjadi nilai saringan `sentimen` di arsip berita, jadi
+ * tidak ada bidang kedua yang harus dijaga tetap sama dengan yang pertama.
  */
 const komposisi = computed(() =>
-    [
-        {
-            kunci: 'positif',
-            nama: 'Positif',
-            arti: 'memberitakan hal baik',
-            jumlah: props.kpi.positif,
-            warna: 'bg-sentimen-positif',
-            tautan: 'positif',
-        },
-        {
-            kunci: 'netral',
-            nama: 'Netral',
-            arti: 'menyampaikan informasi',
-            jumlah: props.kpi.netral,
-            warna: 'bg-sentimen-netral',
-            tautan: 'netral',
-        },
-        {
-            kunci: 'negatif',
-            nama: 'Negatif',
-            arti: 'menyoroti masalah atau kritik',
-            jumlah: props.kpi.negatif,
-            warna: 'bg-sentimen-negatif',
-            tautan: 'negatif',
-        },
-    ].filter((p) => p.jumlah > 0),
+    (
+        [
+            {
+                kunci: 'positif',
+                nama: 'Positif',
+                arti: 'memberitakan hal baik',
+                jumlah: props.kpi.positif,
+                batang: 'bg-sentimen-positif',
+                teks: 'text-sentimen-positif',
+            },
+            {
+                kunci: 'netral',
+                nama: 'Netral',
+                arti: 'menyampaikan informasi',
+                jumlah: props.kpi.netral,
+                batang: 'bg-sentimen-netral',
+                teks: 'text-sentimen-netral',
+            },
+            {
+                kunci: 'negatif',
+                nama: 'Negatif',
+                arti: 'menyoroti masalah atau kritik',
+                jumlah: props.kpi.negatif,
+                batang: 'bg-sentimen-negatif',
+                teks: 'text-sentimen-negatif',
+            },
+        ] as const
+    ).filter((p) => p.jumlah > 0),
 );
 
 /**
@@ -168,42 +201,36 @@ const komposisi = computed(() =>
  * "Perlu dicek ulang" dikeluarkan dari barisan atas supaya kesimpulannya
  * ringkas. Angkanya tidak boleh ikut hilang: kalau ia tetap jadi penyebut
  * sementara potongnya tidak digambar, ketiga persentase tidak akan berjumlah
- * seratus dan selisihnya tidak ada penjelasannya di layar. Jumlahnya tetap
- * disebut satu baris di bawah batang.
+ * seratus dan selisihnya tidak ada penjelasannya di layar.
  */
 const totalKomposisi = computed(() => komposisi.value.reduce((jumlah, p) => jumlah + p.jumlah, 0));
 
 /**
  * Kesimpulan satu kata, dihitung dari angka dan bukan dari AI.
  *
- * Sengaja tidak memakai `narasi.nada`. Kalau chip di paling atas berasal dari
+ * Sengaja tidak memakai `narasi.nada`. Kalau pil di paling atas berasal dari
  * model sedangkan batang di bawahnya dari basis data, suatu hari keduanya akan
  * berbeda di layar yang sama, dan pembaca tidak punya cara tahu mana yang benar.
+ *
+ * Nada pilnya memakai kosakata `PilKop`, bukan token sentimen. Token sentimen
+ * dirancang untuk latar terang, dan hijau setua itu di atas navy kop hanya
+ * mencapai rasio 1,9. Pemetaannya tetap menjaga arti warna halaman: hijau untuk
+ * kesimpulan positif, merah untuk kesimpulan negatif.
  */
 const kondisi = computed(() => {
     if (props.kpi.berlabel === 0) {
-        return { teks: 'Belum ada data', ikon: Scale, kelas: 'bg-muted text-muted-foreground', sapuan: 'bg-muted' };
+        return { teks: 'Belum ada data', ikon: Scale, nada: 'netral' as const };
     }
 
     if (props.kpi.negatif_persen >= 25) {
-        return {
-            teks: 'Perlu perhatian',
-            ikon: TriangleAlert,
-            kelas: 'bg-sentimen-negatif-lembut text-sentimen-negatif',
-            sapuan: 'bg-sentimen-negatif-lembut',
-        };
+        return { teks: 'Perlu perhatian', ikon: TriangleAlert, nada: 'buruk' as const };
     }
 
     if (per100(props.kpi.positif) >= 50) {
-        return {
-            teks: 'Cenderung positif',
-            ikon: CircleCheck,
-            kelas: 'bg-sentimen-positif-lembut text-sentimen-positif',
-            sapuan: 'bg-sentimen-positif-lembut',
-        };
+        return { teks: 'Cenderung positif', ikon: CircleCheck, nada: 'baik' as const };
     }
 
-    return { teks: 'Beragam', ikon: Scale, kelas: 'bg-sentimen-netral-lembut text-sentimen-netral', sapuan: 'bg-sentimen-netral-lembut' };
+    return { teks: 'Beragam', ikon: Scale, nada: 'netral' as const };
 });
 
 /**
@@ -228,6 +255,20 @@ const rataPerHari = computed(() => (jumlahHari.value === 0 ? 0 : Math.round((pro
 
 /** Jumlah berita berlabel per titik, bahan garis mungil di kartu angka. */
 const deretVolume = computed(() => props.deret.baris.map((b) => b.jumlah_positif + b.jumlah_netral + b.jumlah_negatif + b.jumlah_perlu_review));
+
+/**
+ * Arah volume dibanding rentang sebelumnya, dan sengaja tidak berwarna.
+ *
+ * Berita yang bertambah bukan kabar baik maupun buruk, ia hanya lebih banyak.
+ * Panah hijau di sini akan terbaca sebagai pujian, dan halaman ini tidak pernah
+ * menilai kinerja siapa pun.
+ */
+const arahVolume = computed(() => {
+    if (props.kpi.berlabel_selisih > 0) return { ikon: TrendingUp, teks: `${formatAngka(props.kpi.berlabel_selisih)} lebih banyak` };
+    if (props.kpi.berlabel_selisih < 0) return { ikon: TrendingDown, teks: `${formatAngka(Math.abs(props.kpi.berlabel_selisih))} lebih sedikit` };
+
+    return { ikon: Minus, teks: 'Sama banyak' };
+});
 
 const namaSatuan = computed(() => ({ harian: 'per hari', mingguan: 'per pekan', bulanan: 'per bulan' })[props.deret.satuan]);
 
@@ -260,10 +301,9 @@ function tanggalTerbaca(iso: string): string {
 /**
  * Warna di halaman ini selalu berarti nada pemberitaan, tidak pernah hiasan.
  *
- * Itu sebabnya tiga kartu ini berlatar pastel sedangkan tiga kartu angka di
- * atasnya tidak. Angka total, jumlah media, dan rata-rata per hari bukan nada
- * apa pun, dan memberinya warna hijau atau kuning membuat pembaca menyimpulkan
- * sesuatu yang tidak pernah dinyatakan datanya.
+ * Itu sebabnya tiga kartu ini berlatar pastel sedangkan keping angka di kop
+ * tidak. Yang diambil dari rujukan bentuknya: tile ikon berwarna penuh, tepi
+ * tipis, latar kartu yang jauh lebih terang daripada tile-nya.
  */
 const NADA_DIJELASKAN = [
     {
@@ -273,6 +313,7 @@ const NADA_DIJELASKAN = [
         kartu: 'bg-sentimen-positif-lembut/60 border-sentimen-positif/25',
         tile: 'bg-sentimen-positif',
         aksen: 'text-sentimen-positif',
+        pita: 'from-sentimen-positif',
     },
     {
         kunci: 'netral',
@@ -281,6 +322,7 @@ const NADA_DIJELASKAN = [
         kartu: 'bg-sentimen-netral-lembut/70 border-sentimen-netral/25',
         tile: 'bg-sentimen-netral',
         aksen: 'text-sentimen-netral',
+        pita: 'from-sentimen-netral',
     },
     {
         kunci: 'negatif',
@@ -289,6 +331,7 @@ const NADA_DIJELASKAN = [
         kartu: 'bg-sentimen-negatif-lembut/60 border-sentimen-negatif/25',
         tile: 'bg-sentimen-negatif',
         aksen: 'text-sentimen-negatif',
+        pita: 'from-sentimen-negatif',
     },
 ] as const;
 
@@ -335,158 +378,212 @@ function rupaTopik(nada: LabelSentimen) {
     <Head title="Kondisi pemberitaan Kota Kendari" />
 
     <LayoutEksekutif>
-        <header class="flex flex-wrap items-end justify-between gap-3">
-            <div>
-                <h1 class="text-2xl font-semibold text-primary dark:text-aksen-biru">Kondisi pemberitaan Kota Kendari</h1>
-                <p class="text-sm text-muted-foreground">Apa yang ditulis media tentang Pemerintah Kota, {{ rentangTerbaca }}</p>
-            </div>
+        <KopEksekutif
+            judul="Kondisi pemberitaan Kota Kendari"
+            :keterangan="`Apa yang ditulis media tentang Pemerintah Kota, ${rentangTerbaca}`"
+            siluet
+        >
+            <template #kendali>
+                <PemilihRentangTanggal :dari="periode.dari" :sampai="periode.sampai" inline @ubah="(dari, sampai) => pindah({ dari, sampai })" />
+            </template>
 
-            <PemilihRentangTanggal :dari="periode.dari" :sampai="periode.sampai" inline @ubah="(dari, sampai) => pindah({ dari, sampai })" />
-        </header>
+            <!--
+                Pil kesimpulan dan kalimat angka ikut padam saat sentimen belum
+                tersedia. Keduanya dihitung dari kolom label yang memang belum
+                terisi dalam keadaan itu, dan "Belum ada data" di kop akan
+                dibaca sebagai "tidak ada berita", bukan sebagai "sistemnya
+                belum bisa menilai".
+            -->
+            <template #pil>
+                <PilKop v-if="sentimenTersedia" :nada="kondisi.nada" :ikon="kondisi.ikon">{{ kondisi.teks }}</PilKop>
+                <PilKop :ikon="CalendarRange">{{ formatAngka(jumlahHari) }} hari</PilKop>
+                <PilKop v-if="sentimenTersedia && narasi?.ringkasan" :ikon="Clock">Ulasan diperbarui {{ narasiUmur }}</PilKop>
+            </template>
+
+            <template v-if="sentimenTersedia">{{ kalimatAngka }}</template>
+
+            <template v-if="sentimenTersedia" #inti>
+                <template v-if="totalKomposisi > 0">
+                    <!--
+                        Batang komposisi menggantikan donat. Panjang yang
+                        dibandingkan berdampingan jauh lebih mudah dibaca
+                        daripada sudut lingkaran. Batangnya sendiri
+                        `aria-hidden`, karena ketiga keping di bawahnya sudah
+                        membawa angka yang sama sebagai teks.
+                    -->
+                    <div class="flex h-3.5 gap-1 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+                        <div
+                            v-for="(potong, urutan) in komposisi"
+                            :key="potong.kunci"
+                            :class="potong.batang"
+                            class="tumbuh h-full rounded-full"
+                            :style="{ width: `${(potong.jumlah / totalKomposisi) * 100}%`, animationDelay: `${320 + urutan * 120}ms` }"
+                        ></div>
+                    </div>
+
+                    <!--
+                        Tiga kolom, juga di layar 375 piksel. Ketiga nada hanya
+                        bisa dibandingkan kalau ketiganya terlihat bersamaan, dan
+                        menumpuknya ke bawah di ponsel justru menghapus
+                        perbandingan yang menjadi alasan blok ini ada.
+                    -->
+                    <ul class="grid grid-cols-3 gap-1.5">
+                        <li
+                            v-for="(potong, urutan) in komposisi"
+                            :key="potong.kunci"
+                            class="muncul"
+                            :style="{ animationDelay: `${420 + urutan * 90}ms` }"
+                        >
+                            <Link
+                                :href="`/eksekutif/berita?${kueri({ sentimen: potong.kunci })}`"
+                                class="tekan flex h-full flex-col gap-1 rounded-xl px-2 py-2 hover:bg-muted sm:px-3"
+                            >
+                                <span class="flex items-center gap-1.5">
+                                    <span :class="potong.batang" class="size-2.5 shrink-0 rounded-full" aria-hidden="true"></span>
+                                    <span class="truncate text-xs font-semibold sm:text-sm">{{ potong.nama }}</span>
+                                </span>
+                                <span :class="potong.teks" class="angka block text-2xl font-semibold leading-none sm:text-[2rem]">
+                                    {{ formatAngka(potong.jumlah) }}
+                                </span>
+                                <span class="angka block text-[11px] leading-tight text-muted-foreground sm:text-xs">
+                                    {{ per100(potong.jumlah) }} dari 100 berita
+                                </span>
+                                <span class="hidden text-[11px] leading-snug text-muted-foreground sm:block">{{ potong.arti }}</span>
+                            </Link>
+                        </li>
+                    </ul>
+                </template>
+
+                <!--
+                    Tiga fakta yang tidak diulang di tempat lain: seberapa
+                    banyak, seberapa luas, seberapa sering. Warnanya aksen, bukan
+                    nada, karena tidak satu pun dari ketiganya menyatakan nada
+                    pemberitaan.
+
+                    Digambar sebagai satu bidang bergaris pemisah, bukan tiga
+                    kartu terpisah. Tiga kartu di sini akan menjadi lapis kartu
+                    ketiga di dalam kartu yang sudah berdiri di dalam kop.
+                -->
+                <div class="grid grid-cols-3 divide-x divide-border overflow-hidden rounded-xl border bg-muted/40">
+                    <Link :href="`/eksekutif/berita?${kueri()}`" class="tekan group flex flex-col gap-1 p-3 hover:bg-background">
+                        <span class="flex items-center gap-1.5 text-aksen-biru">
+                            <Newspaper class="size-3.5 shrink-0" aria-hidden="true" />
+                            <span class="truncate text-[11px] font-semibold uppercase tracking-wide">Berita</span>
+                            <ArrowRight
+                                class="ease-[cubic-bezier(0.32,0.72,0,1)] ml-auto size-3 shrink-0 opacity-0 transition-all duration-300 group-hover:translate-x-0.5 group-hover:opacity-100"
+                                aria-hidden="true"
+                            />
+                        </span>
+                        <span class="flex items-end gap-2">
+                            <span class="angka text-2xl font-semibold leading-none">{{ formatAngka(kpi.berlabel) }}</span>
+                            <Sparkline :nilai="deretVolume" :lebar="64" :tinggi="22" class="hidden shrink-0 lg:block" />
+                        </span>
+                        <!-- Keterangannya dibiarkan melipat, bukan dipotong.
+                             "29 lebih se..." pada kolom selebar sepertiga layar
+                             ponsel adalah kalimat yang hilang artinya, dan dua
+                             baris pendek lebih murah daripada satu baris yang
+                             tidak bisa dibaca. -->
+                        <span class="flex items-start gap-1 text-[11px] leading-tight text-muted-foreground">
+                            <component :is="arahVolume.ikon" class="mt-px size-3 shrink-0" aria-hidden="true" />
+                            <span class="angka">{{ arahVolume.teks }}</span>
+                        </span>
+                    </Link>
+
+                    <Link :href="`/eksekutif/media?${kueri()}`" class="tekan group flex flex-col gap-1 p-3 hover:bg-background">
+                        <span class="flex items-center gap-1.5 text-aksen-toska">
+                            <Radio class="size-3.5 shrink-0" aria-hidden="true" />
+                            <span class="truncate text-[11px] font-semibold uppercase tracking-wide">Media</span>
+                            <ArrowRight
+                                class="ease-[cubic-bezier(0.32,0.72,0,1)] ml-auto size-3 shrink-0 opacity-0 transition-all duration-300 group-hover:translate-x-0.5 group-hover:opacity-100"
+                                aria-hidden="true"
+                            />
+                        </span>
+                        <span class="angka block text-2xl font-semibold leading-none">{{ formatAngka(kpi.media_aktif) }}</span>
+                        <span class="block text-[11px] leading-tight text-muted-foreground">Portal yang memberitakan</span>
+                    </Link>
+
+                    <div class="flex flex-col gap-1 p-3">
+                        <span class="flex items-center gap-1.5 text-aksen-ungu">
+                            <Gauge class="size-3.5 shrink-0" aria-hidden="true" />
+                            <span class="truncate text-[11px] font-semibold uppercase tracking-wide">Per hari</span>
+                        </span>
+                        <span class="angka block text-2xl font-semibold leading-none">{{ formatAngka(rataPerHari) }}</span>
+                        <span class="angka block text-[11px] leading-tight text-muted-foreground">
+                            Dari {{ formatAngka(kpi.artikel) }} berita dipantau
+                        </span>
+                    </div>
+                </div>
+            </template>
+        </KopEksekutif>
 
         <SentimenBelumTersedia v-if="!sentimenTersedia" :alasan="alasanSentimen" />
 
         <template v-else>
-            <!--
-                Satu blok yang menjawab "bagaimana keadaannya" sebelum pembaca
-                menemukan satu pun grafik. Kesimpulan, kalimat penjelas, lalu
-                batang komposisi yang bisa diklik. Angka mentah menyusul di
-                bawahnya, bukan sebaliknya.
-            -->
-            <Card class="muncul relative overflow-hidden" style="animation-delay: 60ms">
-                <!--
-                    Sapuan warna mengikuti nada kesimpulan, siluet kota di
-                    atasnya. Sapuannya yang membawa arti, siluetnya yang membuat
-                    blok ini terbaca sebagai halaman Kota Kendari dan bukan
-                    laporan mana pun.
+            <!-- Hanya dirender kalau ada isinya. Kartu kosong bertuliskan "tidak ada peringatan" menghabiskan ruang layar. -->
+            <Card
+                v-if="peringatan"
+                class="muncul relative overflow-hidden border-sentimen-negatif/30 bg-sentimen-negatif-lembut"
+                style="animation-delay: 120ms"
+            >
+                <span class="absolute inset-y-0 left-0 w-1 bg-sentimen-negatif" aria-hidden="true"></span>
 
-                    Disembunyikan di bawah lg. Di layar sempit ruangnya habis
-                    untuk kalimat, dan siluet yang terhimpit hanya menjadi noda.
-                -->
-                <div
-                    :class="kondisi.sapuan"
-                    class="pointer-events-none absolute -right-24 -top-32 h-72 w-72 rounded-full opacity-60 blur-3xl"
-                    aria-hidden="true"
-                ></div>
-                <KotaKendari class="pointer-events-none absolute right-2 top-0 hidden w-[32%] max-w-[380px] lg:block" />
+                <CardContent class="flex flex-wrap items-center gap-3 py-3.5 pl-5 pr-4">
+                    <span class="relative grid size-5 shrink-0 place-items-center">
+                        <span class="denyut absolute inset-0 rounded-full bg-sentimen-negatif/25" aria-hidden="true"></span>
+                        <TriangleAlert class="relative size-5 text-sentimen-negatif" aria-hidden="true" />
+                    </span>
 
-                <CardContent class="relative space-y-5 p-5 sm:p-6">
-                    <div class="flex flex-wrap items-center gap-2.5">
-                        <span :class="kondisi.kelas" class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium">
-                            <component :is="kondisi.ikon" class="h-4 w-4" aria-hidden="true" />
-                            {{ kondisi.teks }}
-                        </span>
-                        <span class="text-xs text-muted-foreground">Dihitung langsung dari jumlah berita pada rentang ini</span>
+                    <div class="min-w-0 flex-1">
+                        <p class="angka text-sm font-semibold text-sentimen-negatif">
+                            {{ formatAngka(peringatan.jumlah) }} peringatan belum dibaca dalam 24 jam terakhir
+                        </p>
+                        <p class="truncate text-xs text-muted-foreground">{{ peringatan.terbaru }}</p>
                     </div>
 
-                    <div class="space-y-2">
-                        <h2
-                            v-if="narasi?.judul"
-                            class="max-w-[46rem] text-xl font-semibold leading-snug text-primary dark:text-aksen-biru sm:text-2xl"
-                        >
-                            {{ narasi.judul }}
-                        </h2>
-                        <p class="max-w-[46rem] text-sm leading-relaxed text-muted-foreground">{{ kalimatAngka }}</p>
-                    </div>
-
-                    <!--
-                        Batang komposisi menggantikan donat. Panjang yang
-                        dibandingkan berdampingan jauh lebih mudah dibaca
-                        daripada sudut lingkaran, dan tiap potongnya membuka
-                        daftar beritanya sendiri.
-                    -->
-                    <div v-if="totalKomposisi > 0" class="space-y-3">
-                        <div class="flex h-3 gap-0.5 overflow-hidden rounded-full">
-                            <div
-                                v-for="(potong, urutan) in komposisi"
-                                :key="potong.kunci"
-                                :class="potong.warna"
-                                class="tumbuh h-full"
-                                :style="{ width: `${(potong.jumlah / totalKomposisi) * 100}%`, animationDelay: `${240 + urutan * 110}ms` }"
-                            ></div>
-                        </div>
-
-                        <ul class="grid gap-1 rounded-xl border bg-muted/40 p-2 sm:grid-cols-3">
-                            <li
-                                v-for="(potong, urutan) in komposisi"
-                                :key="potong.kunci"
-                                class="muncul"
-                                :style="{ animationDelay: `${300 + urutan * 90}ms` }"
-                            >
-                                <Link
-                                    :href="`/eksekutif/berita?${kueri({ sentimen: potong.tautan })}`"
-                                    class="tekan flex h-full gap-3 rounded-lg px-3 py-2.5 hover:bg-background"
-                                >
-                                    <span :class="potong.warna" class="mt-2 h-3 w-3 shrink-0 rounded-full" aria-hidden="true"></span>
-                                    <span class="min-w-0 flex-1">
-                                        <span class="angka block text-3xl font-semibold leading-none">
-                                            {{ formatAngka(potong.jumlah) }}
-                                            <span class="text-sm font-normal text-muted-foreground">berita</span>
-                                        </span>
-                                        <span class="mt-1.5 block text-sm font-semibold leading-tight">
-                                            {{ potong.nama }}
-                                            <span class="angka font-normal text-muted-foreground">{{ per100(potong.jumlah) }} dari 100</span>
-                                        </span>
-                                        <span class="block text-xs leading-snug text-muted-foreground">{{ potong.arti }}</span>
-                                    </span>
-                                </Link>
-                            </li>
-                        </ul>
-
-                        <!--
-                            Berita yang labelnya belum pasti tidak disebut di
-                            sini. Angka itu tidak berarti apa pun bagi pembaca
-                            halaman ini, dan tiga persentase di atas sudah
-                            berjumlah seratus karena dasarnya memang hanya
-                            berita berlabel.
-                        -->
-                    </div>
+                    <TautanTujuan :href="`/eksekutif/sentimen?${kueri()}`" rona="negatif">Buka rincian nada</TautanTujuan>
                 </CardContent>
             </Card>
 
             <!--
-                Penjelasan AI dikeluarkan jadi kartu sendiri, bukan lagi bagian
-                bawah kartu ilustrasi.
+                Penjelasan model berdiri sebagai kartunya sendiri, bukan bagian
+                bawah kop.
 
-                Satu kartu yang memuat kesimpulan, angka, batang, dan tiga blok
+                Satu blok yang memuat kesimpulan, angka, batang, dan tiga blok
                 tulisan model menjadi terlalu panjang untuk dibaca sebagai satu
-                unit, dan garis pemisah di dalamnya sudah menandakan bahwa
-                isinya memang dua hal berbeda. Yang di atas dihitung basis data,
-                yang di sini ditulis model, dan pemisahan kartu menyatakan itu
-                lebih jelas daripada garis.
+                unit. Yang di kop dihitung basis data, yang di sini ditulis
+                model, dan pemisahan kartu menyatakan itu lebih jelas daripada
+                garis mana pun. Judul tulisan model ikut pindah ke sini karena
+                alasan yang sama.
             -->
-            <Card class="muncul overflow-hidden" style="animation-delay: 100ms">
-                <CardHeader class="flex-row items-center justify-between gap-3 bg-aksen-ungu/[0.07] py-3.5">
-                    <CardTitle class="flex items-center gap-2.5 text-base">
-                        <span class="grid h-8 w-8 place-items-center rounded-xl bg-aksen-ungu text-white shadow-sm dark:text-background">
-                            <Sparkles class="h-[18px] w-[18px]" aria-hidden="true" />
-                        </span>
-                        Ulasan pemberitaan periode ini
-                    </CardTitle>
-                    <span v-if="narasi?.ringkasan" class="shrink-0 text-xs text-muted-foreground">Diperbarui {{ narasiUmur }}</span>
-                </CardHeader>
-
-                <CardContent class="space-y-4 pt-5">
+            <div class="muncul" style="animation-delay: 180ms">
+                <KartuEksekutif
+                    judul="Ulasan pemberitaan periode ini"
+                    catatan="Disusun otomatis oleh sistem dari angka yang sudah dihitung"
+                    :ikon="Sparkles"
+                    rona="ungu"
+                >
                     <template v-if="narasi?.ringkasan">
+                        <h2 v-if="narasi.judul" class="mb-2 max-w-[46rem] text-pretty text-lg font-semibold leading-snug text-aksen-ungu sm:text-xl">
+                            {{ narasi.judul }}
+                        </h2>
+
                         <p class="max-w-[46rem] whitespace-pre-line text-sm leading-relaxed">{{ narasi.ringkasan }}</p>
 
                         <!--
+                            Tiap poin membuka berita yang mendasarinya. Id-nya
+                            dikembalikan model bersama kalimatnya lalu divalidasi
+                            server, jadi tautan ini tidak pernah menebak. Poin
+                            tanpa id tetap dirender sebagai teks biasa, itu
+                            keadaan narasi lama yang dibuat sebelum skemanya
+                            berubah, dan poin tanpa tautan lebih baik daripada
+                            tautan yang membuka daftar kosong.
+
                             Centangnya bernada merek, bukan hijau. Poin di sini
                             hanya hal yang tercatat pada rentang ini, dan
                             sebagiannya bisa kabar buruk. Centang hijau akan
                             membacanya sebagai kabar baik semua.
                         -->
-                        <!--
-                            Tiap poin membuka berita yang mendasarinya. Id-nya
-                            dikembalikan model bersama kalimatnya lalu divalidasi
-                            server, jadi tautan ini tidak pernah menebak.
-
-                            Poin tanpa id tetap dirender sebagai teks biasa. Itu
-                            keadaan narasi lama yang dibuat sebelum skemanya
-                            berubah, dan poin tanpa tautan lebih baik daripada
-                            tautan yang membuka daftar kosong.
-                        -->
-                        <ul v-if="narasi.poin.length" class="grid gap-1 sm:grid-cols-2">
+                        <ul v-if="narasi.poin.length" class="mt-4 grid gap-1 sm:grid-cols-2">
                             <li v-for="poin in narasi.poin" :key="poin.teks">
                                 <component
                                     :is="poin.artikel_ids.length ? Link : 'div'"
@@ -496,14 +593,14 @@ function rupaTopik(nada: LabelSentimen) {
                                     class="tekan group flex h-full gap-2.5 rounded-lg px-2 py-1.5 text-sm text-muted-foreground"
                                     :class="poin.artikel_ids.length ? 'hover:bg-muted' : ''"
                                 >
-                                    <span class="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-brand/10">
-                                        <Check class="h-3 w-3 text-brand dark:text-aksen-biru" aria-hidden="true" />
+                                    <span class="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-brand/10">
+                                        <Check class="size-3 text-brand dark:text-aksen-biru" aria-hidden="true" />
                                     </span>
                                     <span class="min-w-0 flex-1">
                                         {{ poin.teks }}
                                         <span
                                             v-if="poin.artikel_ids.length"
-                                            class="angka ml-1 whitespace-nowrap text-xs font-medium text-aksen-biru group-hover:underline"
+                                            class="angka ml-1 whitespace-nowrap text-xs font-semibold text-aksen-ungu group-hover:underline"
                                         >
                                             {{ formatAngka(poin.artikel_ids.length) }} berita
                                         </span>
@@ -514,27 +611,25 @@ function rupaTopik(nada: LabelSentimen) {
 
                         <!--
                             Berita negatif terbaru, bukan kalimat tindak lanjut
-                            tulisan model.
+                            tulisan model. Kalimat model tidak membawa id
+                            artikel, sehingga pembaca yang ingin memeriksa
+                            sendiri harus mencari beritanya di arsip. Baris ini
+                            membuka portal aslinya langsung.
 
-                            Kalimat model tidak membawa id artikel, sehingga
-                            pembaca yang ingin memeriksa sendiri harus mencari
-                            beritanya di arsip. Daftar ini membuka portal
-                            aslinya langsung. Warnanya peringatan, bukan merah:
-                            ini pengingat untuk dibaca, bukan pernyataan bahwa
-                            keadaannya sudah buruk.
+                            Satu berita saja, yang paling baru. Daftar panjang di
+                            sini mengulang kartu berita negatif di bawah halaman,
+                            dan pengulangan itu membuat keduanya berhenti menarik
+                            perhatian.
                         -->
-                        <div v-if="beritaPerhatian.length" class="rounded-xl border border-sentimen-review/30 bg-sentimen-review-lembut px-4 py-3.5">
+                        <div
+                            v-if="beritaPerhatian.length"
+                            class="mt-4 rounded-xl border border-sentimen-review/30 bg-sentimen-review-lembut px-4 py-3"
+                        >
                             <p class="flex items-center gap-1.5 text-sm font-semibold text-sentimen-review">
-                                <TriangleAlert class="h-4 w-4 shrink-0" aria-hidden="true" />
+                                <TriangleAlert class="size-4 shrink-0" aria-hidden="true" />
                                 Berita bernada negatif terbaru
                             </p>
-                            <!--
-                                Satu berita saja, yang paling baru. Daftar
-                                panjang di sini mengulang kartu "Berita yang
-                                menyoroti masalah" di bawah halaman, dan
-                                pengulangan itu membuat keduanya berhenti
-                                menarik perhatian.
-                            -->
+
                             <KartuArtikel
                                 v-bind="{
                                     judul: beritaPerhatian[0].judul,
@@ -543,7 +638,6 @@ function rupaTopik(nada: LabelSentimen) {
                                     diambilAt: beritaPerhatian[0].diambil_at,
                                     label: beritaPerhatian[0].label,
                                     perluReview: beritaPerhatian[0].perlu_review,
-
                                     ringkasanAi: beritaPerhatian[0].ringkasan_ai,
                                 }"
                             />
@@ -553,186 +647,85 @@ function rupaTopik(nada: LabelSentimen) {
                             Tautan ke berita yang jadi bahan ulasan, bukan ke
                             seluruh arsip rentang ini. Kalimat yang dibaca
                             pimpinan harus bisa ditelusuri sampai ke berita
-                            aslinya, dan arsip menyimpan tautan portal tiap
-                            beritanya.
-
-                            Satu tautan untuk seluruh kartu, bukan per kalimat.
-                            Model tidak mengembalikan id artikel untuk tiap poin
-                            maupun tiap butir tindak lanjut, jadi tautan per
-                            kalimat hanya bisa dibuat dengan menebak, dan tautan
-                            yang menebak lebih buruk daripada tidak ada tautan.
+                            aslinya. Satu tautan untuk seluruh kartu, bukan per
+                            kalimat: model tidak mengembalikan id artikel untuk
+                            tiap butir, jadi tautan per kalimat hanya bisa dibuat
+                            dengan menebak.
                         -->
-                        <div class="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
-                            <p class="max-w-[46rem] text-xs text-muted-foreground">
-                                Ulasan di atas disusun otomatis oleh sistem, berdasarkan angka yang sudah dihitung.
+                        <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+                            <p class="max-w-[46rem] flex-1 text-xs leading-relaxed text-muted-foreground">
+                                Ulasan ini menyebut nada dan volume pemberitaan, bukan penilaian atas kinerja siapa pun.
                                 <template v-if="narasiBasi">
-                                    Ulasan itu menghitung rentang {{ tanggalTerbaca(narasi.dari) }} sampai {{ tanggalTerbaca(narasi.sampai) }},
-                                    sedikit berbeda dari rentang yang sedang dibuka. Seluruh angka di halaman ini tetap yang terbaru.
+                                    Ia menghitung rentang {{ tanggalTerbaca(narasi.dari) }} sampai {{ tanggalTerbaca(narasi.sampai) }}, sedikit
+                                    berbeda dari rentang yang sedang dibuka. Seluruh angka di halaman ini tetap yang terbaru.
                                 </template>
                             </p>
 
-                            <Link
+                            <TautanTujuan
                                 v-if="artikelUlasan.length"
                                 :href="`/eksekutif/berita?${kueri({ artikel: artikelUlasan.join(',') })}`"
-                                class="tekan group inline-flex shrink-0 items-center gap-1.5 rounded-full bg-aksen-ungu/10 px-3 py-1.5 text-xs font-semibold text-aksen-ungu hover:bg-aksen-ungu/20"
+                                rona="ungu"
+                                ukuran="sedang"
+                                :ikon="Newspaper"
                             >
-                                <Newspaper class="h-3.5 w-3.5" aria-hidden="true" />
                                 <span class="angka">Baca {{ formatAngka(artikelUlasan.length) }} berita aslinya</span>
-                                <ArrowRight
-                                    class="ease-[cubic-bezier(0.32,0.72,0,1)] h-3 w-3 transition-transform duration-300 group-hover:translate-x-1"
-                                    aria-hidden="true"
-                                />
-                            </Link>
+                            </TautanTujuan>
                         </div>
                     </template>
 
-                    <p v-else class="text-xs text-muted-foreground">
+                    <p v-else class="text-sm leading-relaxed text-muted-foreground">
                         Ulasan sedang disusun dari berita terbaru, dan tersedia untuk rentang Hari ini, 7 hari, 30 hari, dan 90 hari. Seluruh angka di
                         halaman ini sudah bisa dibaca sekarang.
                     </p>
-                </CardContent>
-            </Card>
-
-            <!--
-                Tiga fakta yang tidak diulang di tempat lain: seberapa banyak,
-                seberapa luas, seberapa sering. Komposisi nada tidak diulang di
-                sini karena sudah dijawab batang di atas.
-            -->
-            <div class="muncul grid gap-4 sm:grid-cols-3" style="animation-delay: 140ms">
-                <Link :href="`/eksekutif/berita?${kueri()}`" class="tekan group rounded-xl">
-                    <Card class="angkat relative h-full overflow-hidden group-hover:border-aksen-biru/40">
-                        <!--
-                            Ikon besar tembus pandang di sudut, bukan bagan
-                            palsu. Bentuknya mengulang ikon di tile supaya kartu
-                            ini bisa dikenali sekilas tanpa membaca labelnya.
-                        -->
-                        <Newspaper
-                            class="ease-[cubic-bezier(0.32,0.72,0,1)] pointer-events-none absolute -right-3 -top-3 h-24 w-24 text-aksen-biru/[0.08] transition-transform duration-500 group-hover:scale-110"
-                            aria-hidden="true"
-                        />
-
-                        <CardContent class="relative flex h-full flex-col p-5">
-                            <div class="flex items-start justify-between gap-3">
-                                <div>
-                                    <span class="grid h-10 w-10 place-items-center rounded-xl bg-aksen-biru/10">
-                                        <Newspaper class="h-5 w-5 text-aksen-biru" aria-hidden="true" />
-                                    </span>
-                                    <p class="mt-3 text-[13px] font-medium text-muted-foreground">Berita tentang Pemkot</p>
-                                    <p class="angka mt-0.5 text-4xl font-semibold leading-none">{{ formatAngka(kpi.berlabel) }}</p>
-                                </div>
-
-                                <!--
-                                    Bentuk deretnya, dari data yang sama dengan
-                                    grafik besar di bawah. Angka tunggal tidak
-                                    bisa membedakan arus merata dari satu hari
-                                    yang meledak, garis ini bisa.
-                                -->
-                                <Sparkline :nilai="deretVolume" class="mt-1 shrink-0" />
-                            </div>
-
-                            <p v-if="kpi.berlabel_selisih !== 0" class="mt-3 text-xs text-muted-foreground">
-                                {{ kpi.berlabel_selisih > 0 ? 'Lebih banyak' : 'Lebih sedikit' }}
-                                {{ formatAngka(Math.abs(kpi.berlabel_selisih)) }} dibanding rentang sebelumnya
-                            </p>
-                            <p v-else class="mt-3 text-xs text-muted-foreground">Sama banyak dengan rentang sebelumnya</p>
-
-                            <span class="mt-auto inline-flex items-center gap-1 pt-3 text-xs font-medium text-aksen-biru group-hover:underline">
-                                Lihat daftarnya <ArrowRight class="h-3 w-3" aria-hidden="true" />
-                            </span>
-                        </CardContent>
-                    </Card>
-                </Link>
-
-                <Link :href="`/eksekutif/media?${kueri()}`" class="tekan group rounded-xl">
-                    <Card class="angkat relative h-full overflow-hidden group-hover:border-aksen-toska/40">
-                        <Globe2
-                            class="ease-[cubic-bezier(0.32,0.72,0,1)] pointer-events-none absolute -right-3 -top-3 h-24 w-24 text-aksen-toska/[0.09] transition-transform duration-500 group-hover:scale-110"
-                            aria-hidden="true"
-                        />
-
-                        <CardContent class="relative flex h-full flex-col p-5">
-                            <span class="grid h-10 w-10 place-items-center rounded-xl bg-aksen-toska/10">
-                                <Radio class="h-5 w-5 text-aksen-toska" aria-hidden="true" />
-                            </span>
-                            <p class="mt-3 text-[13px] font-medium text-muted-foreground">Media yang memberitakan</p>
-                            <p class="angka mt-0.5 text-4xl font-semibold leading-none">{{ formatAngka(kpi.media_aktif) }}</p>
-                            <p class="mt-3 text-xs text-muted-foreground">Portal berita yang menulis tentang Pemkot pada rentang ini</p>
-                            <span class="mt-auto inline-flex items-center gap-1 pt-3 text-xs font-medium text-aksen-toska group-hover:underline">
-                                Lihat peringkatnya <ArrowRight class="h-3 w-3" aria-hidden="true" />
-                            </span>
-                        </CardContent>
-                    </Card>
-                </Link>
-
-                <Card class="relative h-full overflow-hidden">
-                    <LineChart class="pointer-events-none absolute -right-3 -top-3 h-24 w-24 text-aksen-ungu/[0.09]" aria-hidden="true" />
-
-                    <CardContent class="relative flex h-full flex-col p-5">
-                        <span class="grid h-10 w-10 place-items-center rounded-xl bg-aksen-ungu/10">
-                            <Scale class="h-5 w-5 text-aksen-ungu" aria-hidden="true" />
-                        </span>
-                        <p class="mt-3 text-[13px] font-medium text-muted-foreground">Rata-rata per hari</p>
-                        <p class="angka mt-0.5 text-4xl font-semibold leading-none">{{ formatAngka(rataPerHari) }}</p>
-                        <p class="mt-3 text-xs text-muted-foreground">
-                            Berita per hari selama {{ formatAngka(jumlahHari) }} hari, dari total {{ formatAngka(kpi.artikel) }} berita yang dipantau
-                        </p>
-                    </CardContent>
-                </Card>
+                </KartuEksekutif>
             </div>
 
-            <!-- Hanya dirender kalau ada isinya. Kartu kosong bertuliskan "tidak ada peringatan" menghabiskan ruang layar. -->
-            <Card v-if="peringatan" class="muncul border-sentimen-negatif/30 bg-sentimen-negatif-lembut" style="animation-delay: 200ms">
-                <CardContent class="flex items-start gap-3 p-4">
-                    <span class="relative mt-0.5 grid h-5 w-5 shrink-0 place-items-center">
-                        <span class="denyut absolute inset-0 rounded-full bg-sentimen-negatif/25" aria-hidden="true"></span>
-                        <TriangleAlert class="relative h-5 w-5 text-sentimen-negatif" aria-hidden="true" />
-                    </span>
-                    <div class="min-w-0 flex-1">
-                        <p class="text-sm font-medium text-sentimen-negatif">
-                            {{ formatAngka(peringatan.jumlah) }} peringatan belum dibaca dalam 24 jam terakhir
-                        </p>
-                        <p class="truncate text-xs text-muted-foreground">{{ peringatan.terbaru }}</p>
-                        <Link :href="`/eksekutif/sentimen?${kueri()}`" class="text-xs underline">Buka rincian nada pemberitaan</Link>
-                    </div>
-                </CardContent>
-            </Card>
-
             <!--
-                Penjelasan Gemini ditempel tepat di sebelah angka yang
-                dijelaskannya. Batang di atas menjawab "berapa", tiga kolom ini
+                Penjelasan model ditempel tepat di sebelah angka yang
+                dijelaskannya. Batang di kop menjawab "berapa", tiga kolom ini
                 menjawab "kenapa", dan itu pertanyaan berikutnya yang pasti
                 muncul di kepala pembaca.
             -->
-            <section v-if="narasi?.nada_ringkas.positif" class="muncul space-y-3" style="animation-delay: 260ms">
-                <h2 class="flex items-center gap-2 text-base font-semibold text-primary dark:text-aksen-biru">
-                    <span class="grid h-7 w-7 place-items-center rounded-lg bg-primary/10 dark:bg-aksen-biru/15">
-                        <Info class="h-4 w-4" aria-hidden="true" />
+            <section v-if="narasi?.nada_ringkas.positif" class="muncul space-y-3" style="animation-delay: 240ms">
+                <h2 class="flex items-center gap-2.5 text-base font-semibold text-primary dark:text-aksen-biru">
+                    <span class="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 dark:bg-aksen-biru/15">
+                        <Info class="size-4" aria-hidden="true" />
                     </span>
-                    Apa isi beritanya
+                    <span class="shrink-0">Apa isi beritanya</span>
+                    <!-- Rel judul seksi, warnanya navy merek dan bukan
+                         `--border`. Token tepi bernilai 92,8 persen terang dan
+                         di atas latar bertinta panel ini ia benar-benar tidak
+                         terlihat, jadi garisnya hanya menambah simpul kosong. -->
+                    <span class="h-px flex-1 bg-gradient-to-r from-brand/30 to-transparent dark:from-aksen-biru/30" aria-hidden="true"></span>
                 </h2>
 
                 <!--
                     Warnanya tetap warna sentimen, bukan biru dan jingga seperti
                     gambar rujukan. Ketiga kartu ini menjelaskan tiga potong
-                    batang yang persis di atasnya, dan hubungan itu hanya
-                    terbaca kalau warnanya sama. Yang diambil dari rujukan
-                    bentuknya: tile ikon berwarna penuh, tepi tipis, latar kartu
-                    yang jauh lebih terang daripada tile-nya.
+                    batang di kop, dan hubungan itu hanya terbaca kalau warnanya
+                    sama.
                 -->
                 <div class="grid gap-4 md:grid-cols-3">
                     <div
                         v-for="(bagian, urutan) in NADA_DIJELASKAN"
                         :key="bagian.kunci"
                         :class="bagian.kartu"
-                        class="angkat muncul space-y-3 rounded-2xl border p-5"
-                        :style="{ animationDelay: `${320 + urutan * 90}ms` }"
+                        class="angkat muncul relative space-y-3 overflow-hidden rounded-2xl border p-5"
+                        :style="{ animationDelay: `${300 + urutan * 90}ms` }"
                     >
+                        <span
+                            :class="bagian.pita"
+                            class="tumbuh absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r to-transparent"
+                            :style="{ animationDelay: `${360 + urutan * 90}ms` }"
+                            aria-hidden="true"
+                        ></span>
+
                         <p :class="bagian.aksen" class="flex items-center gap-3 text-sm font-semibold leading-snug">
                             <span
                                 :class="bagian.tile"
-                                class="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white shadow-sm dark:text-background"
+                                class="grid size-9 shrink-0 place-items-center rounded-xl text-white shadow-sm dark:text-background"
                             >
-                                <component :is="bagian.ikon" class="h-[18px] w-[18px]" aria-hidden="true" />
+                                <component :is="bagian.ikon" class="size-[18px]" aria-hidden="true" />
                             </span>
                             {{ bagian.judul }}
                         </p>
@@ -741,20 +734,27 @@ function rupaTopik(nada: LabelSentimen) {
                 </div>
             </section>
 
-            <!-- Grafik selalu ditemani satu kalimat. Grafik garis bertumpuk adalah bagian halaman yang paling sering salah dibaca. -->
-            <Card class="muncul" style="animation-delay: 320ms">
-                <CardHeader class="pb-2">
-                    <CardTitle class="sr-only">Perubahan dari waktu ke waktu</CardTitle>
-                </CardHeader>
-                <CardContent class="space-y-3 p-4 pt-0">
-                    <!--
-                        Judulnya diserahkan ke BaseChart, bukan dicetak dua kali.
-                        BaseChart menaruh judul sebaris dengan tombol tabel dan
-                        unduh, jadi menambah CardTitle di atasnya menghasilkan
-                        dua judul untuk satu grafik yang sama.
-                    -->
+            <!--
+                Grafik selalu ditemani satu kalimat. Grafik garis bertumpuk
+                adalah bagian halaman yang paling sering salah dibaca.
+
+                Kepala kartunya diserahkan ke BaseChart, bukan dicetak dua kali.
+                BaseChart menaruh judul sebaris dengan tombol tabel dan unduh,
+                dan tombol "Lihat sebagai tabel" itu satu-satunya cara pembaca
+                layar membaca grafik ini, jadi ia tidak boleh dipindah ke tempat
+                lain. Garis rona di tepi atas tetap dipasang di sini supaya kartu
+                ini tidak menjadi satu-satunya yang keluar dari keluarga bentuk
+                halaman.
+            -->
+            <Card class="muncul relative overflow-hidden" style="animation-delay: 300ms">
+                <div
+                    class="tumbuh pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-aksen-biru to-transparent"
+                    aria-hidden="true"
+                ></div>
+
+                <CardContent class="space-y-3 p-4 pt-5 sm:p-5">
                     <ChartTrenSentimen judul="Perubahan dari waktu ke waktu" :data="deret.baris as never" :satuan="deret.satuan" :tinggi="280" />
-                    <p class="text-xs text-muted-foreground">
+                    <p class="text-xs leading-relaxed text-muted-foreground">
                         Tiap titik menghitung berita {{ namaSatuan }}. Warnanya ditumpuk, jadi tinggi seluruh tumpukan berarti jumlah berita hari itu.
                     </p>
                     <p v-if="narasi?.penjelasan_tren" class="max-w-[46rem] text-sm leading-relaxed">{{ narasi.penjelasan_tren }}</p>
@@ -766,26 +766,33 @@ function rupaTopik(nada: LabelSentimen) {
                 isunya, dan seluruh angka di kartu dihitung Postgres setelah
                 pengelompokan dari Gemini divalidasi.
             -->
-            <div v-if="narasi?.topik.length" class="muncul space-y-3" style="animation-delay: 380ms">
-                <div class="flex items-start gap-2">
-                    <span class="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-aksen-ungu/10">
-                        <Flame class="h-4 w-4 text-aksen-ungu" aria-hidden="true" />
+            <section v-if="narasi?.topik.length" class="muncul space-y-3" style="animation-delay: 360ms">
+                <h2 class="flex items-center gap-2.5 text-base font-semibold text-primary dark:text-aksen-biru">
+                    <span class="grid size-7 shrink-0 place-items-center rounded-lg bg-aksen-ungu/10">
+                        <Flame class="size-4 text-aksen-ungu" aria-hidden="true" />
                     </span>
-                    <div>
-                        <h2 class="text-base font-semibold leading-7 text-primary dark:text-aksen-biru">Yang paling banyak diberitakan</h2>
-                        <p class="text-sm text-muted-foreground">Ketuk salah satu untuk membaca berita yang membahasnya.</p>
-                    </div>
-                </div>
+                    <span class="shrink-0">Yang paling banyak diberitakan</span>
+                    <!-- Rel judul seksi, warnanya navy merek dan bukan
+                         `--border`. Token tepi bernilai 92,8 persen terang dan
+                         di atas latar bertinta panel ini ia benar-benar tidak
+                         terlihat, jadi garisnya hanya menambah simpul kosong. -->
+                    <span class="h-px flex-1 bg-gradient-to-r from-brand/30 to-transparent dark:from-aksen-biru/30" aria-hidden="true"></span>
+                </h2>
+                <p class="text-sm text-muted-foreground">Ketuk salah satu untuk membaca berita yang membahasnya.</p>
 
                 <!--
-                    Ketiga nada berwarna sekarang, tidak lagi hanya yang negatif.
-                    Latar menyatakan nada, pita di tepi kiri menegaskannya, dan
-                    ikon lambang raksasa di sudut mengulang bentuk yang sama.
+                    Ketiga nada berwarna, tidak lagi hanya yang negatif. Latar
+                    menyatakan nada, pita di tepi kiri menegaskannya, dan ikon
+                    lambang raksasa di sudut mengulang bentuk yang sama.
 
-                    Angka di kaki kartu dipecah jadi keping berjajar, bukan satu
-                    kalimat panjang. Tiga fakta yang berbeda jenis, jumlah
-                    berita, luas media, dan lamanya bertahan, terbaca sekilas
-                    kalau masing-masing punya kotaknya sendiri.
+                    Satu lambang raksasa saja per kartu. Percobaan dengan nomor
+                    urut sebagai angka raksasa di sudut kanan atas dibatalkan
+                    setelah dilihat di layar: angkanya jatuh persis di belakang
+                    lencana sentimen dan bertabrakan dengan lambang nada di
+                    sudut seberangnya, sehingga sudut kanan kartu berisi tiga
+                    hal yang saling menutupi. Urutan topik sudah dinyatakan
+                    posisinya di dalam petak, dan jumlah beritanya tertulis di
+                    kaki kartu.
                 -->
                 <div class="grid gap-3.5 md:grid-cols-2">
                     <Card
@@ -795,14 +802,12 @@ function rupaTopik(nada: LabelSentimen) {
                         class="angkat muncul tekan relative overflow-hidden"
                         :style="{ animationDelay: `${420 + urutan * 70}ms` }"
                     >
-                        <!-- Pita nada. Tetap terbaca di layar rapat yang warnanya melenceng. -->
                         <span :class="rupaTopik(topik.sentimen_dominan).pita" class="absolute inset-y-0 left-0 w-1" aria-hidden="true"></span>
 
-                        <!-- Lambang nada raksasa, mengulang idiom kartu angka di atas halaman. -->
                         <component
                             :is="rupaTopik(topik.sentimen_dominan).ikon"
                             :class="rupaTopik(topik.sentimen_dominan).aksen"
-                            class="pointer-events-none absolute -bottom-5 -right-4 h-28 w-28 opacity-[0.07]"
+                            class="pointer-events-none absolute -bottom-5 -right-4 size-28 opacity-[0.07]"
                             aria-hidden="true"
                         />
 
@@ -820,24 +825,24 @@ function rupaTopik(nada: LabelSentimen) {
 
                                 <div class="mt-auto flex flex-wrap items-center gap-1.5 pt-1.5">
                                     <span class="angka inline-flex items-center gap-1.5 rounded-lg bg-background/70 px-2 py-1 text-xs font-medium">
-                                        <Newspaper :class="rupaTopik(topik.sentimen_dominan).aksen" class="h-3.5 w-3.5" aria-hidden="true" />
+                                        <Newspaper :class="rupaTopik(topik.sentimen_dominan).aksen" class="size-3.5" aria-hidden="true" />
                                         {{ formatAngka(topik.jumlah_artikel) }} berita
                                     </span>
                                     <span class="angka inline-flex items-center gap-1.5 rounded-lg bg-background/70 px-2 py-1 text-xs font-medium">
-                                        <Globe2 :class="rupaTopik(topik.sentimen_dominan).aksen" class="h-3.5 w-3.5" aria-hidden="true" />
+                                        <Globe2 :class="rupaTopik(topik.sentimen_dominan).aksen" class="size-3.5" aria-hidden="true" />
                                         {{ formatAngka(topik.jumlah_media) }} media
                                     </span>
                                     <span
                                         v-if="topik.hari_beruntun >= 2"
                                         class="angka inline-flex items-center gap-1.5 rounded-lg bg-background/70 px-2 py-1 text-xs font-medium"
                                     >
-                                        <Clock :class="rupaTopik(topik.sentimen_dominan).aksen" class="h-3.5 w-3.5" aria-hidden="true" />
+                                        <Clock :class="rupaTopik(topik.sentimen_dominan).aksen" class="size-3.5" aria-hidden="true" />
                                         {{ formatAngka(topik.hari_beruntun) }} hari beruntun
                                     </span>
 
                                     <ArrowRight
                                         :class="rupaTopik(topik.sentimen_dominan).aksen"
-                                        class="ease-[cubic-bezier(0.32,0.72,0,1)] ml-auto h-4 w-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1"
+                                        class="ease-[cubic-bezier(0.32,0.72,0,1)] ml-auto size-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1"
                                         aria-hidden="true"
                                     />
                                 </div>
@@ -845,28 +850,14 @@ function rupaTopik(nada: LabelSentimen) {
                         </CardContent>
                     </Card>
                 </div>
-            </div>
+            </section>
 
-            <Card class="muncul overflow-hidden" style="animation-delay: 500ms">
-                <CardHeader class="flex-row items-center justify-between bg-aksen-toska/[0.08] py-3.5">
-                    <CardTitle class="flex items-center gap-2.5 text-base">
-                        <span class="grid h-8 w-8 place-items-center rounded-xl bg-aksen-toska text-white shadow-sm dark:text-background">
-                            <Globe2 class="h-[18px] w-[18px]" aria-hidden="true" />
-                        </span>
-                        Media yang paling banyak memberitakan
-                    </CardTitle>
-                    <Link
-                        :href="`/eksekutif/media?${kueri()}`"
-                        class="group inline-flex items-center gap-1 text-xs font-medium text-aksen-toska hover:underline"
-                    >
-                        Peringkat lengkap
-                        <ArrowRight
-                            class="ease-[cubic-bezier(0.32,0.72,0,1)] h-3 w-3 transition-transform duration-300 group-hover:translate-x-1"
-                            aria-hidden="true"
-                        />
-                    </Link>
-                </CardHeader>
-                <CardContent class="pt-5">
+            <div class="muncul" style="animation-delay: 440ms">
+                <KartuEksekutif judul="Media yang paling banyak memberitakan" :ikon="Globe2" rona="toska">
+                    <template #aksi>
+                        <TautanTujuan :href="`/eksekutif/media?${kueri()}`" rona="toska">Peringkat lengkap</TautanTujuan>
+                    </template>
+
                     <ul v-if="peringkatMedia.length" class="grid gap-2 sm:grid-cols-2">
                         <li v-for="(m, urutan) in peringkatMedia" :key="m.id">
                             <Link
@@ -874,7 +865,7 @@ function rupaTopik(nada: LabelSentimen) {
                                 class="tekan flex items-center gap-3 rounded-xl px-2.5 py-2 hover:bg-muted"
                             >
                                 <span
-                                    class="angka grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-aksen-toska/10 text-xs font-semibold text-aksen-toska"
+                                    class="angka grid size-7 shrink-0 place-items-center rounded-lg bg-aksen-toska/10 text-xs font-semibold text-aksen-toska"
                                 >
                                     {{ urutan + 1 }}
                                 </span>
@@ -884,20 +875,21 @@ function rupaTopik(nada: LabelSentimen) {
                                         <span class="min-w-0 flex-1 truncate text-sm font-medium">{{ m.nama }}</span>
                                         <span class="angka shrink-0 text-xs text-muted-foreground">{{ formatAngka(m.jumlah_artikel) }} berita</span>
                                     </span>
+
                                     <!--
                                         Satu batang, panjangnya total berita
                                         media itu dibanding media teratas.
                                         Pembagian nada dilepas atas permintaan:
-                                        daftar ini menjawab "siapa yang paling
-                                        banyak menulis", dan nada pemberitaannya
-                                        sudah punya tempatnya sendiri di atas.
+                                        daftar ini menjawab siapa yang paling
+                                        banyak menulis, dan nada pemberitaannya
+                                        sudah punya tempatnya sendiri di kop.
                                     -->
                                     <span class="mt-1.5 block h-2 overflow-hidden rounded-full bg-muted">
                                         <span
                                             class="tumbuh block h-full rounded-full bg-aksen-toska/70"
                                             :style="{
                                                 width: `${(m.jumlah_artikel / puncakMedia) * 100}%`,
-                                                animationDelay: `${560 + urutan * 60}ms`,
+                                                animationDelay: `${500 + urutan * 60}ms`,
                                             }"
                                         ></span>
                                     </span>
@@ -906,142 +898,96 @@ function rupaTopik(nada: LabelSentimen) {
                         </li>
                     </ul>
                     <p v-else class="py-4 text-sm text-muted-foreground">Belum ada media yang memberitakan Pemkot pada rentang ini.</p>
-                </CardContent>
-            </Card>
-
-            <!--
-                Tiga kelompok, bukan satu daftar kronologis. Pada rentang yang
-                penuh kegiatan seremonial, satu-satunya berita negatif rentang
-                itu terdorong keluar dari enam baris teratas justru pada hari
-                pimpinan paling perlu melihatnya.
-            -->
-            <div class="muncul grid gap-4 lg:grid-cols-2" style="animation-delay: 560ms">
-                <!--
-                    Seluruh kartu diberi warna nada isinya, bukan hanya
-                    kepalanya. Dua daftar berdampingan dengan badan putih yang
-                    sama terbaca seperti satu daftar yang terpotong dua, dan
-                    pembaca kehilangan bahwa keduanya menjawab pertanyaan yang
-                    berlawanan.
-                -->
-                <Card v-if="beritaPerhatian.length" class="overflow-hidden border-sentimen-negatif/25 bg-sentimen-negatif-lembut/50">
-                    <CardHeader class="flex-row items-center justify-between pb-3">
-                        <CardTitle class="flex items-center gap-2.5 text-base text-sentimen-negatif">
-                            <span class="grid h-8 w-8 place-items-center rounded-xl bg-sentimen-negatif text-white shadow-sm dark:text-background">
-                                <TriangleAlert class="h-[18px] w-[18px]" aria-hidden="true" />
-                            </span>
-                            Berita yang bernada negatif
-                        </CardTitle>
-                        <Link
-                            :href="`/eksekutif/berita?${kueri({ sentimen: 'negatif' })}`"
-                            class="group inline-flex items-center gap-1 text-xs font-medium text-sentimen-negatif hover:underline"
-                        >
-                            Semua
-                            <ArrowRight
-                                class="ease-[cubic-bezier(0.32,0.72,0,1)] h-3 w-3 transition-transform duration-300 group-hover:translate-x-1"
-                                aria-hidden="true"
-                            />
-                        </Link>
-                    </CardHeader>
-                    <CardContent>
-                        <div class="divide-y divide-sentimen-negatif/15">
-                            <KartuArtikel
-                                v-for="berita in beritaPerhatian"
-                                :key="berita.id"
-                                v-bind="{
-                                    judul: berita.judul,
-                                    url: berita.url,
-                                    media: berita.media,
-                                    diambilAt: berita.diambil_at,
-                                    label: berita.label,
-                                    perluReview: berita.perlu_review,
-
-                                    ringkasanAi: berita.ringkasan_ai,
-                                }"
-                                tampilkan-sentimen
-                            />
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card v-if="beritaPositif.length" class="overflow-hidden border-sentimen-positif/25 bg-sentimen-positif-lembut/40">
-                    <CardHeader class="flex-row items-center justify-between pb-3">
-                        <CardTitle class="flex items-center gap-2.5 text-base text-sentimen-positif">
-                            <span class="grid h-8 w-8 place-items-center rounded-xl bg-sentimen-positif text-white shadow-sm dark:text-background">
-                                <ThumbsUp class="h-[18px] w-[18px]" aria-hidden="true" />
-                            </span>
-                            Berita bernada positif
-                        </CardTitle>
-                        <Link
-                            :href="`/eksekutif/berita?${kueri({ sentimen: 'positif' })}`"
-                            class="group inline-flex items-center gap-1 text-xs font-medium text-sentimen-positif hover:underline"
-                        >
-                            Semua
-                            <ArrowRight
-                                class="ease-[cubic-bezier(0.32,0.72,0,1)] h-3 w-3 transition-transform duration-300 group-hover:translate-x-1"
-                                aria-hidden="true"
-                            />
-                        </Link>
-                    </CardHeader>
-                    <CardContent>
-                        <div class="divide-y divide-sentimen-positif/15">
-                            <KartuArtikel
-                                v-for="berita in beritaPositif"
-                                :key="berita.id"
-                                v-bind="{
-                                    judul: berita.judul,
-                                    url: berita.url,
-                                    media: berita.media,
-                                    diambilAt: berita.diambil_at,
-                                    label: berita.label,
-                                    perluReview: berita.perlu_review,
-
-                                    ringkasanAi: berita.ringkasan_ai,
-                                }"
-                                tampilkan-sentimen
-                            />
-                        </div>
-                    </CardContent>
-                </Card>
+                </KartuEksekutif>
             </div>
 
-            <Card class="muncul overflow-hidden" style="animation-delay: 620ms">
-                <CardHeader class="flex-row items-center justify-between bg-aksen-biru/[0.07] py-3.5">
-                    <CardTitle class="flex items-center gap-2.5 text-base">
-                        <span class="grid h-8 w-8 place-items-center rounded-xl bg-aksen-biru text-white shadow-sm dark:text-background">
-                            <Clock class="h-[18px] w-[18px]" aria-hidden="true" />
-                        </span>
-                        Berita terbaru
-                    </CardTitle>
-                    <Link
-                        :href="`/eksekutif/berita?${kueri()}`"
-                        class="group inline-flex items-center gap-1 text-xs font-medium text-aksen-biru hover:underline"
-                    >
-                        Arsip berita
-                        <ArrowRight
-                            class="ease-[cubic-bezier(0.32,0.72,0,1)] h-3 w-3 transition-transform duration-300 group-hover:translate-x-1"
-                            aria-hidden="true"
+            <!--
+                Dua kelompok berdampingan, bukan satu daftar kronologis. Pada
+                rentang yang penuh kegiatan seremonial, satu-satunya berita
+                negatif rentang itu terdorong keluar dari enam baris teratas
+                justru pada hari pimpinan paling perlu melihatnya.
+
+                Seluruh kartu diberi warna nada isinya, bukan hanya kepalanya.
+                Dua daftar berdampingan dengan badan putih yang sama terbaca
+                seperti satu daftar yang terpotong dua, dan pembaca kehilangan
+                bahwa keduanya menjawab pertanyaan yang berlawanan.
+            -->
+            <div class="muncul grid gap-4 lg:grid-cols-2" style="animation-delay: 500ms">
+                <KartuEksekutif v-if="beritaPerhatian.length" judul="Berita yang bernada negatif" :ikon="TriangleAlert" rona="negatif" bertinta>
+                    <template #aksi>
+                        <TautanTujuan :href="`/eksekutif/berita?${kueri({ sentimen: 'negatif' })}`" rona="negatif">Semua</TautanTujuan>
+                    </template>
+
+                    <div class="divide-y divide-sentimen-negatif/15">
+                        <KartuArtikel
+                            v-for="berita in beritaPerhatian"
+                            :key="berita.id"
+                            v-bind="{
+                                judul: berita.judul,
+                                url: berita.url,
+                                media: berita.media,
+                                diambilAt: berita.diambil_at,
+                                label: berita.label,
+                                perluReview: berita.perlu_review,
+                                ringkasanAi: berita.ringkasan_ai,
+                            }"
+                            tampilkan-sentimen
                         />
-                    </Link>
-                </CardHeader>
-                <CardContent class="pt-5">
+                    </div>
+                </KartuEksekutif>
+
+                <KartuEksekutif v-if="beritaPositif.length" judul="Berita bernada positif" :ikon="ThumbsUp" rona="positif" bertinta>
+                    <template #aksi>
+                        <TautanTujuan :href="`/eksekutif/berita?${kueri({ sentimen: 'positif' })}`" rona="positif">Semua</TautanTujuan>
+                    </template>
+
+                    <div class="divide-y divide-sentimen-positif/15">
+                        <KartuArtikel
+                            v-for="berita in beritaPositif"
+                            :key="berita.id"
+                            v-bind="{
+                                judul: berita.judul,
+                                url: berita.url,
+                                media: berita.media,
+                                diambilAt: berita.diambil_at,
+                                label: berita.label,
+                                perluReview: berita.perlu_review,
+                                ringkasanAi: berita.ringkasan_ai,
+                            }"
+                            tampilkan-sentimen
+                        />
+                    </div>
+                </KartuEksekutif>
+            </div>
+
+            <div class="muncul" style="animation-delay: 560ms">
+                <KartuEksekutif judul="Berita terbaru" :ikon="Clock" rona="biru">
+                    <template #aksi>
+                        <TautanTujuan :href="`/eksekutif/berita?${kueri()}`" rona="biru">Arsip berita</TautanTujuan>
+                    </template>
+
                     <!--
                         Lini masa, bukan daftar bergaris. Kartu ini satu-satunya
-                        di halaman yang isinya berurut menurut waktu, dan garis
+                        di halaman yang isinya berurut menurut waktu, dan rel
                         menurun dengan titik menyatakan urutan itu sebelum satu
-                        keterangan waktu pun dibaca.
+                        keterangan waktu pun dibaca. Relnya turun dari kepala
+                        daftar saat halaman terbuka, arah baca barisnya.
 
                         Titiknya berwarna nada beritanya, sehingga sebaran nada
-                        sepanjang hari terbaca dari bentuk garisnya saja. Warna
+                        sepanjang hari terbaca dari bentuk relnya saja. Warna
                         bukan satu-satunya penanda: lencana sentimen di kanan
                         tiap baris tetap membawa ikon dan teksnya.
                     -->
                     <ol v-if="beritaTerbaru.length" class="relative">
-                        <span class="absolute bottom-4 left-[5px] top-4 w-px bg-border" aria-hidden="true"></span>
+                        <span
+                            class="tumbuh-turun absolute bottom-4 left-[5px] top-4 w-px bg-gradient-to-b from-aksen-biru/40 via-border to-transparent"
+                            aria-hidden="true"
+                        ></span>
 
                         <li v-for="berita in beritaTerbaru" :key="berita.id" class="tekan relative rounded-lg py-1 pl-7 pr-2 hover:bg-muted/60">
                             <span
                                 :class="rupaTopik(berita.label ?? 'netral').pita"
-                                class="absolute left-0 top-[18px] h-2.5 w-2.5 rounded-full ring-4 ring-card"
+                                class="absolute left-0 top-[18px] size-2.5 rounded-full ring-4 ring-card"
                                 aria-hidden="true"
                             ></span>
 
@@ -1060,14 +1006,8 @@ function rupaTopik(nada: LabelSentimen) {
                         </li>
                     </ol>
                     <p v-else class="py-4 text-sm text-muted-foreground">Belum ada berita tentang Pemkot yang selesai diperiksa pada rentang ini.</p>
-                </CardContent>
-            </Card>
-
-            <!--
-                Catatan cakupan dan keterbatasan data pindah ke kaki halaman.
-                Isinya sama untuk seluruh panel eksekutif, dan mengulangnya di
-                ujung dashboard berarti dua paragraf bernada sama berdempetan.
-            -->
+                </KartuEksekutif>
+            </div>
         </template>
     </LayoutEksekutif>
 </template>

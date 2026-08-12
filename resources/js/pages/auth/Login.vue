@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import InputError from '@/components/InputError.vue';
+import JembatanTeluk from '@/components/ilustrasi/JembatanTeluk.vue';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,11 +11,12 @@ import {
     ArrowRight,
     Eye,
     EyeOff,
+    Filter,
+    Headset,
     LayoutDashboard,
     LoaderCircle,
     Lock,
     Rss,
-    ScanSearch,
     ShieldCheck,
     TriangleAlert,
     UserRound,
@@ -55,39 +56,47 @@ const periksaCapsLock = (event: KeyboardEvent) => {
  * Isinya bukan hiasan. Sebagian besar pengguna halaman ini membuka SIMEDIA
  * beberapa kali sebulan saja, dan urutan ini yang menjelaskan angka apa yang
  * akan mereka lihat begitu masuk.
+ *
+ * Keempat ikonnya kini satu warna, yaitu biru langit merek, bukan tiga rona
+ * aksen yang berbeda. Warna berbeda per baris membuat pembaca mencari arti di
+ * balik perbedaan itu, padahal tidak ada. Di halaman ini hanya satu blok yang
+ * warnanya benar benar berarti, yaitu ketiga nada di bawah, dan blok itu jauh
+ * lebih mudah terbaca kalau tidak ada warna lain yang bersaing.
  */
 const tahap = [
     {
         ikon: Rss,
-        warna: 'text-aksen-toska',
         judul: 'Kumpulkan',
         detail: 'Berita dari 30 media partner.',
     },
     {
-        ikon: ScanSearch,
-        warna: 'text-aksen-biru',
+        ikon: Filter,
         judul: 'Saring relevansi',
         detail: 'Hanya yang menyangkut Pemerintah Kota Kendari.',
     },
     {
         ikon: Activity,
-        warna: 'text-sentimen-positif',
         judul: 'Nilai nada',
         detail: 'Negatif, netral, atau positif terhadap Pemkot.',
     },
     {
         ikon: LayoutDashboard,
-        warna: 'text-aksen-ungu',
         judul: 'Ringkas',
         detail: 'Satu halaman, terbaca di bawah dua menit.',
     },
 ];
 
-/** Tiga nada yang dipakai seluruh sistem. Warna selalu berpasangan dengan label. */
+/**
+ * Tiga nada yang dipakai seluruh sistem.
+ *
+ * Ini satu satunya tempat di halaman ini yang memakai warna sentimen, dan
+ * ketiganya selalu berpasangan dengan labelnya. Warna tidak pernah menjadi
+ * penanda tunggal.
+ */
 const nada = [
-    { label: 'Negatif', kelas: 'bg-sentimen-negatif' },
-    { label: 'Netral', kelas: 'bg-sentimen-netral' },
-    { label: 'Positif', kelas: 'bg-sentimen-positif' },
+    { label: 'Negatif', teks: 'text-sentimen-negatif', isi: 'bg-sentimen-negatif' },
+    { label: 'Netral', teks: 'text-sentimen-netral', isi: 'bg-sentimen-netral' },
+    { label: 'Positif', teks: 'text-sentimen-positif', isi: 'bg-sentimen-positif' },
 ];
 
 const submit = () => {
@@ -100,7 +109,7 @@ const submit = () => {
 <template>
     <Head title="Masuk" />
 
-    <div class="flex h-svh flex-col overflow-hidden bg-background lg:grid lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+    <div class="flex h-svh flex-col overflow-hidden bg-brand lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
         <!--
             Panel merek. Hanya muncul mulai lebar 1024 piksel. Di bawah itu
             layarnya tidak cukup tinggi untuk memuat panel ini dan form
@@ -111,28 +120,77 @@ const submit = () => {
             pengguna menyalakan mode gelap.
 
             Kelas `dark` dipasang di sini bukan untuk mengikuti preferensi
-            pengguna, melainkan karena permukaan ini memang gelap. Token aksen
-            punya varian yang dicerahkan di konteks gelap, dan tanpa kelas ini
-            ikon tahapnya tenggelam di atas navy.
+            pengguna, melainkan karena permukaan ini memang gelap. Token
+            sentimen punya varian yang dicerahkan di konteks gelap, dan tanpa
+            kelas ini ketiga label nada tenggelam di atas navy.
         -->
-        <aside class="dark relative isolate hidden h-full flex-col overflow-y-auto bg-brand px-14 py-10 lg:flex xl:px-20">
+        <aside class="panel-merek dark relative isolate hidden h-full flex-col overflow-y-auto px-14 py-12 lg:flex xl:px-20">
             <!--
-                Sapuan warna merek. `overflow-hidden` wajib ada di sini.
+                Lapisan ornamen. `overflow-hidden` wajib ada di sini.
 
-                Ketiga sapuan sengaja melebihi tepi panel supaya lengkungannya
-                tidak terlihat sebagai lingkaran, dan tanpa pengapit ini bagian
-                yang menonjol ke bawah ikut terhitung sebagai tinggi isi panel.
-                Itu yang membuat panel bisa digulir walaupun isinya sudah muat.
+                Ornamennya sengaja melebihi tepi panel supaya tidak ada satu pun
+                yang terbaca sebagai bentuk utuh yang berdiri sendiri, dan tanpa
+                pengapit ini bagian yang menonjol ke bawah ikut terhitung sebagai
+                tinggi isi panel. Itu yang membuat panel bisa digulir walaupun
+                isinya sudah muat.
             -->
             <div class="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
+                <!--
+                    Ladang titik di sudut kanan atas.
+
+                    Bidangnya dibatasi dan ditopeng miring, jadi ia ornamen yang
+                    menempati satu sudut, bukan pola yang menutupi seluruh latar.
+                    Bedanya penting: pola selatar penuh menjadi unsur kedua yang
+                    bersaing dengan isi panel, dan itu yang sudah dicatat
+                    `app.css` sebagai hal yang dihindari.
+                -->
+                <div class="titik absolute right-4 top-16 h-72 w-80"></div>
+
+                <!-- Batang ukur. Empat batang setinggi berbeda, tanpa sumbu dan
+                     tanpa angka, karena ia memang tidak mewakili data apa pun. -->
+                <svg class="absolute right-32 top-32 h-9 w-14 text-white/20" viewBox="0 0 56 40" fill="currentColor">
+                    <rect x="0" y="22" width="8" height="18" rx="2" />
+                    <rect x="14" y="12" width="8" height="28" rx="2" />
+                    <rect x="28" y="18" width="8" height="22" rx="2" />
+                    <rect x="42" y="4" width="8" height="36" rx="2" />
+                </svg>
+
+                <!--
+                    Cincin nada. Busur luarnya digambar sekali saat halaman
+                    terbuka, mengikuti kurva yang sama dengan seluruh gerak lain
+                    di halaman ini.
+                -->
+                <svg class="absolute -right-10 top-1/2 size-40 -translate-y-24" viewBox="0 0 120 120" fill="none">
+                    <circle cx="60" cy="60" r="52" stroke="currentColor" stroke-width="1" class="text-white/10" />
+                    <circle cx="60" cy="60" r="34" stroke="currentColor" stroke-width="9" class="text-white/[0.05]" />
+                    <circle
+                        cx="60"
+                        cy="60"
+                        r="34"
+                        stroke="currentColor"
+                        stroke-width="9"
+                        stroke-linecap="round"
+                        transform="rotate(-108 60 60)"
+                        class="gambar text-brand-langit/40"
+                        style="--panjang: 128; animation-delay: 420ms"
+                    />
+                </svg>
+
+                <!--
+                    Siluet Jembatan Teluk Kendari di kaki panel.
+
+                    Satu satunya ornamen di halaman ini yang menyebut tempat.
+                    Halaman ini dibuka pegawai Pemerintah Kota Kendari, dan
+                    jembatan itu penanda yang mereka kenali tanpa perlu dibaca.
+                -->
+                <JembatanTeluk class="absolute -bottom-6 -right-10 w-[22rem] text-white/25" />
+
+                <!-- Cahaya latar. Dua saja, dan keduanya sangat lambat. -->
                 <div
-                    class="hanyut absolute -left-24 -top-32 h-[34rem] w-[34rem] rounded-full bg-[radial-gradient(closest-side,oklch(0.62_0.11_200/0.42),transparent)] blur-2xl"
+                    class="hanyut absolute -left-40 -top-40 h-[36rem] w-[36rem] rounded-full bg-[radial-gradient(closest-side,oklch(0.62_0.10_235/0.30),transparent)] blur-2xl"
                 ></div>
                 <div
-                    class="hanyut hanyut-lambat absolute -right-32 top-1/3 h-[30rem] w-[30rem] rounded-full bg-[radial-gradient(closest-side,oklch(0.55_0.14_285/0.38),transparent)] blur-2xl"
-                ></div>
-                <div
-                    class="absolute -bottom-40 left-1/4 h-[28rem] w-[28rem] rounded-full bg-[radial-gradient(closest-side,oklch(0.60_0.13_250/0.34),transparent)] blur-2xl"
+                    class="hanyut hanyut-lambat absolute -bottom-56 right-0 h-[34rem] w-[34rem] rounded-full bg-[radial-gradient(closest-side,oklch(0.58_0.12_250/0.26),transparent)] blur-2xl"
                 ></div>
             </div>
 
@@ -142,13 +200,13 @@ const submit = () => {
                 dengan `justify-center` akan terpotong di bagian atas, dan
                 potongan itu tidak bisa dijangkau dengan menggulir.
             -->
-            <div class="m-auto flex w-full flex-col gap-8">
+            <div class="m-auto flex w-full flex-col gap-9">
                 <!-- Kop instansi. -->
                 <div class="muncul flex items-center gap-4">
                     <img
                         src="/img/Lambang_Kota_Kendari.webp"
                         alt="Lambang Pemerintah Kota Kendari"
-                        class="kop-lambang h-16 w-auto shrink-0 drop-shadow-[0_4px_12px_oklch(0_0_0/0.45)]"
+                        class="kop-lambang h-14 w-auto shrink-0 drop-shadow-[0_4px_12px_oklch(0_0_0/0.45)]"
                         width="112"
                         height="128"
                     />
@@ -158,53 +216,97 @@ const submit = () => {
                     </div>
                 </div>
 
-                <!-- Pesan utama dan diagram alur. -->
-                <div class="flex flex-col gap-8">
-                    <div class="muncul max-w-xl" style="animation-delay: 90ms">
-                        <h2 class="judul-panel text-balance text-[2rem] font-semibold leading-[1.15] tracking-tight text-white xl:text-4xl">
-                            Nada pemberitaan Kota Kendari, terbaca dalam satu layar.
-                        </h2>
-                        <p class="penjelas-panel mt-4 max-w-md text-pretty text-base leading-relaxed text-white/75">
-                            SIMEDIA mengumpulkan berita tentang Kendari, menyaring yang menyangkut Pemerintah Kota, lalu menilai nadanya.
-                        </p>
-                    </div>
+                <!-- Pesan utama. -->
+                <div class="muncul max-w-[34rem]" style="animation-delay: 90ms">
+                    <!-- Guratan pembuka. Bukan label, tidak ada teks di dalamnya, dan
+                         itu memang tujuannya: ia hanya menandai tempat judul dimulai. -->
+                    <span class="mb-6 block h-1 w-11 rounded-full bg-brand-langit" aria-hidden="true"></span>
 
-                    <ol class="muncul relative max-w-lg" style="animation-delay: 180ms">
-                        <!-- Tulang punggung alur. Komet putih menuruninya sekali tiap putaran. -->
-                        <span class="absolute bottom-5 left-[1.375rem] top-5 w-px overflow-hidden bg-white/15" aria-hidden="true">
-                            <span class="komet absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-transparent via-white to-transparent"></span>
+                    <h2 class="judul-panel text-balance text-[1.875rem] font-semibold leading-[1.2] tracking-tight text-white xl:text-[2.125rem]">
+                        Nada pemberitaan Kota Kendari, terbaca dalam
+                        <span class="text-brand-langit">satu layar.</span>
+                    </h2>
+                    <p class="penjelas-panel mt-5 max-w-md text-pretty text-[0.9375rem] leading-relaxed text-white/70">
+                        SIMEDIA mengumpulkan berita tentang Kendari, menyaring yang menyangkut Pemerintah Kota, lalu menilai nadanya.
+                    </p>
+                </div>
+
+                <!--
+                    Diagram alur dan cabang nada, satu blok tanpa jarak di antaranya.
+
+                    Keduanya sengaja tidak dipisah `gap`. Tulang punggung alur
+                    turun melewati empat tahap lalu bercabang menjadi tiga nada,
+                    dan garis itu harus tersambung utuh supaya terbaca sebagai
+                    satu jalur, bukan sebagai dua daftar yang kebetulan bertumpuk.
+                -->
+                <div class="flex max-w-lg flex-col">
+                    <ol class="muncul relative" style="animation-delay: 180ms">
+                        <!-- Tulang punggung alur. Komet terang menuruninya sekali tiap putaran. -->
+                        <span class="rel-alur absolute bottom-0 left-[1.375rem] top-6 w-px overflow-hidden bg-white/[0.12]" aria-hidden="true">
+                            <span
+                                class="komet absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-transparent via-brand-langit to-transparent"
+                            ></span>
                         </span>
 
                         <li
                             v-for="(langkah, urutan) in tahap"
                             :key="langkah.judul"
-                            class="relative flex gap-5 pb-5 last:pb-0"
+                            class="relative flex gap-5 pb-6 last:pb-4"
                             :style="{ '--urutan': urutan }"
                         >
                             <span
-                                class="simpul relative z-10 flex size-11 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/10 backdrop-blur-sm"
-                                :class="langkah.warna"
+                                class="simpul relative z-10 flex size-11 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.07] text-brand-langit"
                             >
                                 <component :is="langkah.ikon" class="size-5" :stroke-width="1.75" />
                             </span>
                             <div class="mt-1.5">
-                                <p class="text-sm font-semibold text-white">{{ langkah.judul }}</p>
-                                <p class="mt-1 text-sm leading-relaxed text-white/65">{{ langkah.detail }}</p>
+                                <p class="text-[0.9375rem] font-semibold leading-tight text-white">{{ langkah.judul }}</p>
+                                <p class="mt-1.5 text-[0.8125rem] leading-relaxed text-white/60">{{ langkah.detail }}</p>
                             </div>
                         </li>
                     </ol>
-                </div>
 
-                <!-- Tiga nada yang dipakai seluruh sistem. -->
-                <div class="keping-nada muncul flex flex-wrap items-center gap-2" style="animation-delay: 270ms">
-                    <span
-                        v-for="item in nada"
-                        :key="item.label"
-                        class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/85"
-                    >
-                        <span class="size-2 rounded-full" :class="item.kelas" aria-hidden="true"></span>
-                        {{ item.label }}
-                    </span>
+                    <!--
+                        Percabangan nada.
+
+                        Ini ornamen yang paling banyak bekerja di halaman ini,
+                        dan satu satunya yang membawa arti. Batang yang sama
+                        turun dari empat tahap di atas, lalu memecah menjadi tiga
+                        untai berwarna yang berakhir tepat di label nadanya.
+                        Bentuknya adalah pekerjaan sistem itu sendiri: satu
+                        aliran berita masuk, tiga nada keluar.
+
+                        Tinggi SVG dan tinggi tumpukan label sengaja dikunci sama
+                        pada 100 piksel, dan ketiga ujung kurvanya berada di 17,
+                        50, dan 83. Itu titik tengah ketiga baris label kalau
+                        tingginya dibagi rata, jadi untainya benar benar mendarat
+                        di labelnya, bukan sekadar mendekat.
+                    -->
+                    <div class="keping-nada muncul flex items-stretch" style="animation-delay: 300ms">
+                        <svg class="h-[6.25rem] w-[3.75rem] shrink-0" viewBox="0 0 60 100" fill="none" aria-hidden="true">
+                            <g fill="none" stroke-linecap="round" stroke-width="1.5">
+                                <path class="gambar stroke-white/12" d="M22 0V50" style="--panjang: 60" />
+                                <path
+                                    class="gambar stroke-sentimen-negatif/70"
+                                    d="M22 50C34 50 40 17 60 17"
+                                    style="--panjang: 70; animation-delay: 340ms"
+                                />
+                                <path class="gambar stroke-sentimen-netral/70" d="M22 50H60" style="--panjang: 45; animation-delay: 440ms" />
+                                <path
+                                    class="gambar stroke-sentimen-positif/70"
+                                    d="M22 50C34 50 40 83 60 83"
+                                    style="--panjang: 70; animation-delay: 540ms"
+                                />
+                            </g>
+                        </svg>
+
+                        <ul class="flex h-[6.25rem] flex-1 flex-col">
+                            <li v-for="item in nada" :key="item.label" class="flex flex-1 items-center gap-2.5">
+                                <span class="size-2 shrink-0 rounded-full" :class="item.isi" aria-hidden="true"></span>
+                                <span class="text-sm font-medium" :class="item.teks">{{ item.label }}</span>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </aside>
@@ -213,28 +315,18 @@ const submit = () => {
             Panel masuk.
 
             Di bawah 1024 piksel panel ini sendirian mengisi layar, jadi latarnya
-            memakai navy merek beserta sapuan gradiennya. Mulai 1024 piksel panel
+            memakai navy merek beserta kedua cahayanya. Mulai 1024 piksel panel
             merek di sebelahnya yang membawa warna itu, dan di sini latarnya
-            berganti menjadi abu lembut supaya kartunya punya tepi.
+            berganti menjadi bidang terang bertinta biru yang sangat samar.
         -->
-        <main
-            class="relative isolate flex min-h-0 flex-1 flex-col overflow-y-auto bg-brand px-4 py-5 sm:px-10 sm:py-12 lg:h-full lg:bg-muted/60 lg:px-14 lg:py-12 xl:px-20"
-        >
-            <!--
-                Sapuan gradien tetap dipasang di layar besar, hanya diredam.
-                Kartu masuk memakai efek kaca, dan kaca hanya terbaca kalau ada
-                warna yang bisa tembus di belakangnya. Di atas abu datar, kaca
-                terlihat sama saja dengan bidang buram biasa.
-            -->
-            <div class="latar-masuk pointer-events-none absolute inset-0 -z-10 lg:opacity-40" aria-hidden="true"></div>
-
+        <main class="panel-masuk relative isolate flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-5 sm:px-10 sm:py-12 lg:h-full lg:px-12 lg:py-12 xl:px-16">
             <!--
                 Isi dipusatkan lewat margin auto, bukan `justify-center` di
                 induknya. Kalau isinya tumbuh, misalnya pesan galat validasi
                 muncul bersamaan dengan peringatan Caps Lock, `justify-center`
                 memotong bagian atas kartu dan potongan itu tidak bisa digulir.
             -->
-            <div class="m-auto w-full max-w-[26rem]">
+            <div class="m-auto w-full max-w-[27.5rem]">
                 <!--
                     Kop instansi versi ringkas. Panel merek tidak ada di layar
                     kecil, dan lambang Pemerintah Kota tidak boleh ikut hilang
@@ -255,40 +347,59 @@ const submit = () => {
                 </div>
 
                 <!--
-                    Form dibungkus kartu kaca. Bidangnya tembus pandang sebagian
-                    dan mengaburkan sapuan gradien di belakangnya, jadi warna
-                    merek tetap terasa tanpa ikut mengotori teks form.
-                    `backdrop-blur` yang mengerjakan pengaburannya, bukan gambar
-                    latar, sehingga isinya tetap tajam.
+                    Kartu masuk. Satu bidang putih, satu lengkung, satu bayangan.
 
-                    Tepi terangnya bukan hiasan. Tanpa garis itu, bidang kaca di
-                    atas gradien terang kehilangan batas dan kartunya tidak
-                    terbaca lagi sebagai satu bidang utuh.
+                    Tidak ada baki pembungkus di luarnya dan tidak ada kartu di
+                    dalamnya. Bidang bertumpuk membuat form terasa terkurung, dan
+                    di halaman yang isinya hanya dua kolom isian, satu bidang
+                    sudah cukup untuk memisahkannya dari latar.
+
+                    Bayangannya bertinta navy, bukan hitam. Bayangan hitam di
+                    atas latar kebiruan terbaca kotor.
                 -->
-                <Card
-                    class="muncul w-full border-white/50 bg-white/[0.82] p-5 shadow-[0_18px_40px_-24px_oklch(0.20_0.06_252/0.65)] backdrop-blur-xl backdrop-saturate-150 dark:border-white/[0.12] dark:bg-white/[0.08] sm:p-7"
-                >
-                    <div>
-                        <h1 class="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">Masuk ke SIMEDIA</h1>
-                        <p class="mt-1.5 hidden text-sm leading-relaxed text-muted-foreground sm:block">
-                            Gunakan akun yang diberikan Diskominfo Kota Kendari.
-                        </p>
+                <div class="muncul rounded-3xl bg-card p-6 shadow-[0_28px_64px_-32px_oklch(0.36_0.09_252/0.45)] ring-1 ring-brand/[0.07] dark:ring-white/10 sm:p-8">
+                    <!--
+                        Lambang SIMEDIA dan namanya berdiri berdampingan di dalam
+                        kartu, bukan di kop instansi di atasnya.
+
+                        Kop itu sudah membawa lambang Pemerintah Kota, dan dua
+                        lambang berjajar di sana membuat pembaca menimbang mana
+                        yang pemilik halaman. Di sini artinya lugas: inilah
+                        sistem yang sedang dimasuki. Ia juga satu satunya
+                        penempatan yang terlihat di semua lebar layar, karena
+                        panel merek di kiri hilang di bawah 1024 piksel.
+                    -->
+                    <div class="flex items-center gap-3">
+                        <span
+                            class="grid size-12 shrink-0 place-items-center rounded-2xl bg-brand/[0.06] ring-1 ring-brand/10 dark:bg-white/10 dark:ring-white/15"
+                        >
+                            <img src="/img/logo-simedia.webp" alt="Lambang SIMEDIA" class="size-8 object-contain" width="32" height="32" />
+                        </span>
+                        <span class="text-[1.375rem] font-semibold tracking-tight text-brand dark:text-white">SIMEDIA</span>
                     </div>
 
+                    <h1 class="mt-6 text-xl font-semibold tracking-tight text-foreground sm:text-[1.375rem]">Masuk ke SIMEDIA</h1>
+                    <p class="mt-1.5 text-sm leading-relaxed text-muted-foreground">Gunakan akun yang diberikan Diskominfo Kota Kendari.</p>
+
+                    <!-- Pesan berhasil, misalnya setelah kata sandi disetel ulang.
+                         Hijau di sini bukan pilihan rasa. Ia token sentimen positif
+                         yang sama dengan yang dipakai seluruh aplikasi, dan ikon
+                         perisai menjadi penanda keduanya supaya warna tidak berdiri
+                         sendiri. -->
                     <div
                         v-if="status"
-                        class="mt-5 flex items-start gap-3 rounded-md border border-sentimen-positif/30 bg-sentimen-positif-lembut px-4 py-3 text-sm text-foreground"
+                        class="mt-5 flex items-start gap-3 rounded-xl border border-sentimen-positif/30 bg-sentimen-positif-lembut px-4 py-3 text-sm text-foreground"
                     >
                         <ShieldCheck class="mt-0.5 size-4 shrink-0 text-sentimen-positif" :stroke-width="1.75" />
                         <span>{{ status }}</span>
                     </div>
 
-                    <form @submit.prevent="submit" class="mt-5 flex flex-col gap-4 sm:mt-6">
+                    <form @submit.prevent="submit" class="mt-6 flex flex-col gap-4">
                         <div class="grid gap-2">
                             <Label for="username">Nama pengguna</Label>
                             <div class="group relative">
                                 <UserRound
-                                    class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition-colors duration-200 group-focus-within:text-brand dark:group-focus-within:text-brand-terang"
+                                    class="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition-colors duration-200 group-focus-within:text-brand dark:group-focus-within:text-brand-langit"
                                     :stroke-width="1.75"
                                 />
                                 <Input
@@ -300,7 +411,7 @@ const submit = () => {
                                     autocomplete="username"
                                     v-model="form.username"
                                     placeholder="nama pengguna Anda"
-                                    class="h-11 border-brand/15 bg-brand/[0.04] pl-10 transition-shadow duration-200 focus-visible:ring-brand/70 dark:border-white/[0.12] dark:bg-white/[0.05] dark:focus-visible:ring-brand-terang"
+                                    class="h-12 rounded-xl border-transparent bg-brand/[0.045] pl-11 transition-shadow duration-200 focus-visible:ring-brand/60 dark:bg-white/[0.06] dark:focus-visible:ring-brand-langit"
                                 />
                             </div>
                             <InputError :message="form.errors.username" />
@@ -310,7 +421,7 @@ const submit = () => {
                             <Label for="password">Kata sandi</Label>
                             <div class="group relative">
                                 <Lock
-                                    class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition-colors duration-200 group-focus-within:text-brand dark:group-focus-within:text-brand-terang"
+                                    class="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition-colors duration-200 group-focus-within:text-brand dark:group-focus-within:text-brand-langit"
                                     :stroke-width="1.75"
                                 />
                                 <Input
@@ -321,15 +432,19 @@ const submit = () => {
                                     autocomplete="current-password"
                                     v-model="form.password"
                                     placeholder="Masukkan kata sandi"
-                                    class="h-11 border-brand/15 bg-brand/[0.04] pl-10 pr-11 transition-shadow duration-200 focus-visible:ring-brand/70 dark:border-white/[0.12] dark:bg-white/[0.05] dark:focus-visible:ring-brand-terang"
+                                    class="h-12 rounded-xl border-transparent bg-brand/[0.045] pl-11 pr-12 transition-shadow duration-200 focus-visible:ring-brand/60 dark:bg-white/[0.06] dark:focus-visible:ring-brand-langit"
                                     @keyup="periksaCapsLock"
                                     @keydown="periksaCapsLock"
                                     @blur="capsLockAktif = false"
                                 />
+                                <!-- Tombol mata memakai warna dasar, bukan warna merek.
+                                     Ia hanya mengubah cara isi kolom ditampilkan, tidak
+                                     mengubah apa pun di sistem, jadi ia tidak berhak
+                                     atas warna yang dipakai aksi utama. -->
                                 <button
                                     type="button"
                                     tabindex="3"
-                                    class="absolute right-1.5 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                                    class="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/70 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
                                     :aria-label="sandiTerlihat ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'"
                                     :aria-pressed="sandiTerlihat"
                                     @click="sandiTerlihat = !sandiTerlihat"
@@ -338,14 +453,16 @@ const submit = () => {
                                     <Eye v-else class="size-4" :stroke-width="1.75" />
                                 </button>
                             </div>
-                            <!-- Teksnya memakai warna dasar, bukan kuning peringatan. Kuning pada
-                             tingkat terang itu gagal kontras di atas latar terang. Nada
-                             peringatannya dibawa bidang latarnya. -->
+                            <!-- Peringatan Caps Lock memakai token sentimen review, warna
+                                 yang di seluruh aplikasi berarti perlu diperiksa dulu.
+                                 Teksnya memakai warna dasar, bukan kuning: kuning pada
+                                 tingkat terang gagal kontras di atas latar terang. Nada
+                                 peringatannya dibawa bidang latar dan ikon segitiga. -->
                             <p
                                 v-if="capsLockAktif"
-                                class="flex items-center gap-2 rounded-lg bg-sentimen-review-lembut px-3 py-2 text-sm text-foreground"
+                                class="flex items-center gap-2 rounded-xl bg-sentimen-review-lembut px-3 py-2 text-sm text-foreground"
                             >
-                                <TriangleAlert class="size-4 shrink-0" :stroke-width="1.75" />
+                                <TriangleAlert class="size-4 shrink-0 text-sentimen-review" :stroke-width="1.75" />
                                 Caps Lock sedang aktif.
                             </p>
                             <InputError :message="form.errors.password" />
@@ -357,28 +474,71 @@ const submit = () => {
                         </Label>
 
                         <!--
-                        Tombol utama. Label dan panahnya duduk berdampingan di tengah,
-                        dan panahnya bergeser saat disorot sehingga arah aksinya terasa
-                        sebelum tombolnya ditekan.
-                    -->
+                            Tombol utama. Satu satunya bidang berwarna penuh di seluruh
+                            form, karena ia satu satunya kendali yang mengubah keadaan
+                            sistem.
+
+                            Gradiennya berjalan dari biru terang di kiri menuju navy
+                            merek persis di kanan, jadi ia terasa lebih hidup daripada
+                            bidang datar tanpa pernah lepas dari warna merek. Ujung
+                            paling terangnya masih mencapai 5,4:1 terhadap teks putih.
+
+                            Kelas `aliran` hanya menempel selama pemeriksaan akun
+                            berjalan. Cahaya yang menyusuri tombol saat tidak ada yang
+                            diproses berbohong lebih keras daripada teks apa pun yang
+                            bisa ditulis di sebelahnya.
+                        -->
                         <Button
                             type="submit"
                             tabindex="6"
                             :disabled="form.processing"
-                            class="tekan group mt-1 h-11 w-full gap-2.5 rounded-md bg-brand text-base shadow-[0_10px_24px_-14px_oklch(0.36_0.09_252/0.85)] transition-colors duration-200 hover:bg-brand-terang dark:bg-brand-terang dark:hover:bg-brand"
+                            class="tombol-utama tekan group relative mt-2 h-12 w-full gap-2.5 overflow-hidden rounded-xl text-base shadow-[0_14px_28px_-16px_oklch(0.36_0.09_252/0.9)]"
+                            :class="form.processing ? 'aliran' : ''"
                         >
                             <span>{{ form.processing ? 'Memeriksa akun' : 'Masuk' }}</span>
-                            <span class="panah flex size-7 items-center justify-center rounded bg-white/15 group-hover:translate-x-0.5">
+                            <span class="panah flex size-7 items-center justify-center rounded-full bg-white/20 group-hover:translate-x-0.5">
                                 <LoaderCircle v-if="form.processing" class="size-4 animate-spin" />
                                 <ArrowRight v-else class="size-4" :stroke-width="2" />
                             </span>
                         </Button>
                     </form>
 
-                    <p class="mt-5 border-t border-brand/10 pt-4 text-sm text-muted-foreground dark:border-white/[0.12]">
-                        Belum punya akun? Hubungi admin Diskominfo Kota Kendari.
-                    </p>
-                </Card>
+                    <!--
+                        Pemisah dengan lencana perisai di tengahnya.
+
+                        Perisainya bukan klaim keamanan yang dikarang. Seluruh akses
+                        SIMEDIA berjalan di atas HTTPS dan itu syarat yang tercatat di
+                        spesifikasi produk, jadi lencana ini menyebut hal yang memang
+                        berlaku. Ia juga memberi jeda antara aksi masuk dan blok
+                        bantuan di bawahnya, sehingga keduanya tidak terbaca sebagai
+                        satu kelompok.
+                    -->
+                    <div class="mt-7 flex items-center gap-3" aria-hidden="true">
+                        <span class="h-px flex-1 bg-brand/10 dark:bg-white/10"></span>
+                        <span class="grid size-7 place-items-center rounded-full bg-brand/[0.06] text-brand/70 dark:bg-white/10 dark:text-white/60">
+                            <ShieldCheck class="size-3.5" :stroke-width="1.75" />
+                        </span>
+                        <span class="h-px flex-1 bg-brand/10 dark:bg-white/10"></span>
+                    </div>
+
+                    <!--
+                        Blok bantuan. Nama instansinya ditebalkan, bukan dijadikan
+                        tautan, karena tidak ada satu pun alamat kontak yang tercatat
+                        sebagai kebenaran produk. Tautan yang tidak menuju ke mana mana
+                        lebih buruk daripada teks biasa.
+                    -->
+                    <div class="mt-5 flex items-center gap-3">
+                        <span
+                            class="grid size-10 shrink-0 place-items-center rounded-xl bg-brand/[0.06] text-brand dark:bg-white/10 dark:text-white/80"
+                        >
+                            <Headset class="size-[1.125rem]" :stroke-width="1.75" />
+                        </span>
+                        <p class="text-sm leading-relaxed text-muted-foreground">
+                            Belum punya akun? Hubungi admin
+                            <span class="font-medium text-foreground">Diskominfo Kota Kendari.</span>
+                        </p>
+                    </div>
+                </div>
             </div>
         </main>
     </div>
@@ -394,8 +554,8 @@ const submit = () => {
  * lebar tidak pernah tahu panel merek sudah tidak muat.
  *
  * Yang dikorbankan diurutkan dari yang paling murah: kalimat penjelas dan
- * keping nada hilang lebih dulu, judul dan lambang hanya mengecil. Empat tahap
- * alur tidak pernah disentuh, itu isi utama panelnya.
+ * percabangan nada hilang lebih dulu, judul dan lambang hanya mengecil. Empat
+ * tahap alur tidak pernah disentuh, itu isi utama panelnya.
  */
 @media (min-width: 1024px) and (max-height: 740px) {
     .kop-lambang {
@@ -411,24 +571,127 @@ const submit = () => {
     .keping-nada {
         display: none;
     }
+
+    /*
+     * Tulang punggung alur ikut dipendekkan begitu percabangan nada disembunyikan.
+     *
+     * Panjangnya disetel sampai tepi bawah daftar karena di layar tinggi ia harus
+     * menyambung ke batang percabangan. Tanpa aturan ini, di layar pendek garis
+     * itu menjuntai beberapa puluh piksel di bawah simpul terakhir menuju sesuatu
+     * yang sudah tidak ada.
+     */
+    .rel-alur {
+        bottom: 1.5rem;
+    }
 }
 
 /*
- * Sapuan gradien di belakang kartu masuk, khusus layar kecil.
+ * Bidang panel merek.
  *
- * Tiga sapuan dengan rona yang sama persis dengan panel merek: toska di kiri
- * atas, ungu di kanan, biru di kaki halaman. Jadi ponsel dan desktop terasa
- * satu halaman, bukan dua rancangan berbeda.
+ * Tiga lapis, dan urutannya menentukan hasilnya. Paling bawah gradien diagonal
+ * dari navy pekat di sudut kiri atas menuju biru yang lebih terbuka di kanan
+ * bawah. Di atasnya satu pusat cahaya di sisi kanan, tempat seluruh ornamen
+ * berdiri, sehingga garis garisnya punya bidang yang cukup terang untuk
+ * terbaca. Paling atas guratan terang tipis di tepi kanan, yang memisahkan
+ * panel ini dari panel masuk tanpa perlu garis pembatas.
  *
- * Sengaja diam, tidak seperti sapuan di panel merek yang bergeser pelan.
+ * Sisi kiri sengaja dibiarkan paling gelap. Di situ judul dan seluruh teks
+ * berdiri, dan teks putih butuh bidang tergelap yang bisa diberikan panel ini.
+ */
+.panel-merek {
+    background-color: var(--color-brand);
+    background-image:
+        linear-gradient(to right, transparent 64%, oklch(0.55 0.13 248 / 0.5) 100%),
+        radial-gradient(76% 60% at 86% 48%, oklch(0.5 0.13 250 / 0.85), transparent 70%),
+        linear-gradient(148deg, oklch(0.21 0.055 253) 0%, oklch(0.27 0.075 252) 46%, oklch(0.32 0.09 250) 100%);
+}
+
+/*
+ * Ladang titik.
+ *
+ * Warnanya dari `currentColor` supaya satu kelas teks mengatur seluruh
+ * kepekatannya. Topeng miringnya memastikan titik terpadat berada di sudut
+ * kanan atas dan hilang sepenuhnya sebelum menyentuh kolom teks.
+ */
+.titik {
+    color: rgb(255 255 255 / 0.26);
+    background-image: radial-gradient(currentColor 1.2px, transparent 1.2px);
+    background-size: 22px 22px;
+    -webkit-mask-image: linear-gradient(212deg, #000 6%, transparent 72%);
+    mask-image: linear-gradient(212deg, #000 6%, transparent 72%);
+}
+
+/*
+ * Latar panel masuk.
+ *
+ * Di bawah 1024 piksel bidangnya navy merek, dengan dua cahaya yang posisi dan
+ * rononya sama persis dengan panel merek. Jadi ponsel dan desktop terasa satu
+ * halaman, bukan dua rancangan berbeda.
+ *
+ * Sengaja diam, tidak seperti cahaya di panel merek yang bergeser pelan.
  * Menganimasikan bidang seluas layar penuh di ponsel kelas menengah membakar
  * baterai tanpa ada yang menonton, dan di sini bidangnya adalah seluruh layar.
  */
-.latar-masuk {
+.panel-masuk {
+    background-color: var(--color-brand);
     background-image:
-        radial-gradient(38rem 26rem at 14% -8%, oklch(0.66 0.12 200 / 0.55), transparent 62%),
-        radial-gradient(32rem 24rem at 104% 20%, oklch(0.58 0.15 285 / 0.5), transparent 62%),
-        radial-gradient(36rem 28rem at 44% 106%, oklch(0.62 0.14 250 / 0.52), transparent 62%);
+        radial-gradient(36rem 26rem at 12% -10%, oklch(0.62 0.095 235 / 0.34), transparent 64%),
+        radial-gradient(34rem 26rem at 92% 104%, oklch(0.54 0.105 255 / 0.3), transparent 64%);
+}
+
+/*
+ * Mulai 1024 piksel panel merek di sebelah kiri yang memegang navy, dan panel
+ * ini berganti menjadi bidang terang bertinta biru. Cahayanya dikumpulkan di
+ * sudut kanan atas, arah yang sama dengan cahaya di panel merek, sehingga kedua
+ * bidang terbaca disinari satu sumber yang sama.
+ */
+@media (min-width: 1024px) {
+    /*
+     * Ditulis `:global(.dark .panel-masuk)`, bukan `:global(.dark) .panel-masuk`.
+     *
+     * Bentuk kedua terlihat wajar dan justru itu jebakannya. Kompilator gaya
+     * scoped Vue menerjemahkannya menjadi `.dark { ... }` polos, tanpa
+     * `.panel-masuk` sama sekali. Akibatnya aturan ini menempel di elemen mana
+     * pun yang berkelas `dark`, termasuk panel merek di sebelah kiri, dan
+     * seluruh bidang navy merek berubah menjadi hampir hitam mulai lebar 1024
+     * piksel. Jangan pisah lagi.
+     */
+    .panel-masuk {
+        background-color: oklch(0.958 0.012 240);
+        background-image:
+            radial-gradient(44rem 32rem at 92% -10%, oklch(0.62 0.11 245 / 0.2), transparent 68%),
+            radial-gradient(38rem 28rem at 4% 106%, oklch(0.6 0.09 220 / 0.12), transparent 68%);
+    }
+
+    :global(.dark .panel-masuk) {
+        background-color: oklch(0.145 0.008 250);
+        background-image:
+            radial-gradient(44rem 32rem at 92% -10%, oklch(0.72 0.11 245 / 0.14), transparent 68%),
+            radial-gradient(38rem 28rem at 4% 106%, oklch(0.7 0.09 220 / 0.12), transparent 68%);
+    }
+}
+
+/*
+ * Bidang tombol utama.
+ *
+ * Ditulis di sini, bukan sebagai kelas gradien Tailwind, karena kedua ujungnya
+ * harus terkunci ke token merek. Ujung kirinya nilai tetap, satu satunya
+ * heksadesimal di berkas ini, dan angkanya hasil hitungan kontras: pada
+ * `#2a6cae` teks putih di atasnya mencapai 5,4:1, sedangkan biru yang lebih
+ * terang sedikit saja sudah jatuh di bawah 4,5:1 yang diwajibkan.
+ *
+ * Tidak dijadikan token merek karena hanya dipakai di satu tempat. Prinsip
+ * produk nomor 6 menyebut ambang sebuah abstraksi adalah dua kali pakai.
+ */
+.tombol-utama {
+    background-image: linear-gradient(100deg, #2a6cae 0%, var(--color-brand) 100%);
+    transition:
+        filter 200ms cubic-bezier(0.32, 0.72, 0, 1),
+        transform 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.tombol-utama:hover {
+    filter: brightness(1.12);
 }
 
 /*
@@ -440,7 +703,7 @@ const submit = () => {
 }
 
 /*
- * Sapuan warna latar bergeser sangat lambat.
+ * Cahaya latar bergeser sangat lambat.
  *
  * Bidang navy datar terlihat mati di layar lebar, sedangkan pergeseran selambat
  * ini tidak pernah menarik mata menjauh dari form di sebelahnya. Hanya transform
@@ -471,7 +734,7 @@ const submit = () => {
  * Komet yang menuruni tulang punggung alur.
  *
  * Satu putaran memakan 7,2 detik dan menyentuh keempat simpul berurutan. Ini
- * satu-satunya gerak yang berulang di panel, dan tugasnya menjelaskan bahwa
+ * satu satunya gerak yang berulang di panel, dan tugasnya menjelaskan bahwa
  * keempat tahap itu satu jalur, bukan empat daftar terpisah.
  *
  * Persentase translateY dihitung dari tinggi komet sendiri, sehingga nilainya
@@ -513,13 +776,13 @@ const submit = () => {
     14%,
     100% {
         border-color: rgb(255 255 255 / 0.15);
-        background-color: rgb(255 255 255 / 0.1);
+        background-color: rgb(255 255 255 / 0.07);
         transform: scale(1);
     }
 
     6% {
-        border-color: rgb(255 255 255 / 0.5);
-        background-color: rgb(255 255 255 / 0.22);
+        border-color: rgb(255 255 255 / 0.45);
+        background-color: rgb(255 255 255 / 0.18);
         transform: scale(1.06);
     }
 }
@@ -532,6 +795,9 @@ const submit = () => {
 /*
  * Gerak berulang dimatikan sama sekali, bukan dipercepat. Panel ini terbaca
  * penuh tanpa satu pun animasi berjalan.
+ *
+ * Animasi `gambar` sudah dimatikan di app.css beserta `stroke-dasharray` nya,
+ * jadi cincin nada dan percabangan nada tetap tergambar utuh.
  */
 @media (prefers-reduced-motion: reduce) {
     .hanyut,
@@ -544,7 +810,8 @@ const submit = () => {
         opacity: 0;
     }
 
-    .panah {
+    .panah,
+    .tombol-utama {
         transition: none;
     }
 }

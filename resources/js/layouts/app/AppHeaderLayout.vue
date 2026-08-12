@@ -24,7 +24,9 @@ import AppShell from '@/components/AppShell.vue';
             Latar halaman harus rata sampai tepi. Yang dibatasi lebarnya isi,
             bukan latarnya, dan itu dikerjakan LayoutEksekutif di dalam sini.
         -->
-        <main class="latar-eksekutif flex w-full flex-1 flex-col">
+        <!-- `id` menjadi sasaran tautan "Lompat ke isi halaman" di AppHeader.
+             Menghapusnya membuat tautan itu diam tanpa pesan galat apa pun. -->
+        <main id="isi" class="latar-eksekutif flex w-full flex-1 flex-col">
             <slot />
         </main>
 

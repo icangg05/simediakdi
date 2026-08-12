@@ -13,6 +13,25 @@
 #    Laravel tetap bisa menembak Redis dan Postgres yang belum mengangkat
 #    soketnya. Itu yang membuat permintaan pertama setelah setiap `up` gagal.
 services:
+  # Caddy memegang port 8000, bukan Laravel.
+  #
+  # Ia yang mengompresi seluruh jawaban dan melayani berkas statis, alasannya
+  # ditulis lengkap di docker/caddy/Caddyfile. Yang perlu diingat di sini cuma
+  # satu: alamat aplikasi tetap http://localhost:8000, yang berpindah adalah
+  # siapa yang mengangkat teleponnya.
+  web:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./public:/srv/public:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    ports:
+      - "8000:8000"
+    depends_on:
+      - app
+
   app:
     build: ./docker/php
     working_dir: /app
@@ -22,8 +41,10 @@ services:
       HOME: /tmp
     volumes:
       - .:/app
-    ports:
-      - "8000:8000"
+    # Tidak lagi menerbitkan port ke host. Satu-satunya jalan masuk adalah
+    # Caddy, supaya tidak ada pintu kedua yang melewatkan kompresi diam-diam.
+    expose:
+      - "8000"
     depends_on:
       db:
         condition: service_healthy
@@ -243,3 +264,5 @@ volumes:
   dbdata:
   modeldata:
   redisdata:
+  caddydata:
+  caddyconfig:

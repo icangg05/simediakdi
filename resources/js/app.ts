@@ -7,8 +7,6 @@ import type { DefineComponent } from 'vue';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 import { initializeTheme } from './composables/useAppearance';
-// Registrasi modul ECharts. Diimpor sekali di sini, bukan di tiap komponen.
-import './lib/echarts';
 
 // Extend ImportMeta interface for Vite...
 declare module 'vite/client' {

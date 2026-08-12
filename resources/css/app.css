@@ -26,6 +26,23 @@ html {
     --color-brand-lembut: oklch(0.95 0.025 250);
 
     /*
+     * Biru langit merek. Dipakai hanya di atas bidang navy, tidak pernah di
+     * atas bidang terang.
+     *
+     * Navy merek terlalu pekat untuk menjadi aksen di atas dirinya sendiri, dan
+     * `--color-brand-terang` hanya berjarak 0,08 lightness darinya sehingga
+     * juga tenggelam. Warna ini yang menjadi sorotan di panel merek halaman
+     * masuk: penggal judul yang ditekankan, ikon tahapan, dan seluruh ornamen
+     * garis.
+     *
+     * Nilainya ditentukan syarat kontras, bukan selera. Di atas navy merek ia
+     * mencapai 4,67:1, jadi aman untuk teks berukuran besar maupun ikon. Ia
+     * tidak boleh dipakai sebagai teks biasa di atas latar terang: di atas
+     * putih rasionya hanya 2,3:1.
+     */
+    --color-brand-langit: #5cb4f5;
+
+    /*
      * Aksen dekoratif untuk tile ikon dan ilustrasi.
      *
      * Rona ketiganya sengaja dijauhkan dari palet sentimen (hijau 155, merah
@@ -258,6 +275,77 @@ html {
     animation: muncul 620ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
+/*
+ * Masuk yang menajam: naik sambil melepas kabur.
+ *
+ * Dipakai hanya untuk satu blok di seluruh aplikasi, yaitu kartu ringkas di
+ * puncak dashboard eksekutif. Itu disengaja. Kalau setiap blok masuk dengan
+ * gerakan yang sama, tidak ada satu pun yang terbaca sebagai pembuka, dan
+ * halaman hanya terasa seperti daftar yang berkedip. `.muncul` tetap menjadi
+ * gerakan bawaan seluruh blok lain, dan gerakan ini yang menandai bahwa blok
+ * itulah jawaban halaman.
+ *
+ * `filter` memang bukan properti yang paling murah dianimasikan, tetapi ini
+ * satu elemen yang berjalan sekali saat halaman dibuka, bukan gerakan yang
+ * berulang, jadi biayanya berhenti sebelum pengguna sempat menggulir.
+ */
+@keyframes tajam {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+        filter: blur(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+        filter: blur(0);
+    }
+}
+
+.tajam {
+    animation: tajam 760ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+/*
+ * Garis yang menggambar dirinya sendiri.
+ *
+ * Untuk ornamen SVG bergaris, misalnya busur sepusat di kop. Pemanggil wajib
+ * menyetel `--panjang` sepanjang garisnya (getTotalLength dibulatkan ke atas),
+ * karena `stroke-dasharray` tidak bisa menghitung sendiri panjang lintasan
+ * lewat CSS. Nilai yang kebesaran aman, garisnya hanya mulai lebih jauh.
+ */
+@keyframes gambar {
+    from {
+        stroke-dashoffset: var(--panjang, 600);
+    }
+
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+.gambar {
+    stroke-dasharray: var(--panjang, 600);
+    animation: gambar 1600ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+/* Rel lini masa yang turun dari kepala daftar, arah baca barisnya. */
+@keyframes tumbuh-turun {
+    from {
+        transform: scaleY(0);
+    }
+
+    to {
+        transform: scaleY(1);
+    }
+}
+
+.tumbuh-turun {
+    transform-origin: top;
+    animation: tumbuh-turun 1100ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
 /* Batang komposisi tumbuh dari kiri, arah baca angkanya. */
 @keyframes tumbuh {
     from {
@@ -354,10 +442,19 @@ html {
     }
 
     .muncul,
+    .tajam,
     .tumbuh,
+    .tumbuh-turun,
+    .gambar,
     .denyut,
     .aliran::after {
         animation: none;
+    }
+
+    /* Tanpa animasi, garis putus-putusnya akan berhenti di keadaan awal, yaitu
+       tidak tergambar sama sekali. Ornamen ini harus tetap terlihat utuh. */
+    .gambar {
+        stroke-dasharray: none;
     }
 }
 

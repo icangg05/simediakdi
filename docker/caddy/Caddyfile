@@ -1,0 +1,61 @@
+# Pintu masuk SIMEDIA Kendari.
+#
+# Dua alasan Caddy berdiri di depan Laravel, dan keduanya soal ukuran kiriman.
+#
+# Pertama, kompresi. `php artisan serve` memakai server bawaan PHP, dan server
+# itu tidak pernah mengirim gzip. Bundel JavaScript 314 kB, CSS 145 kB, dan
+# HTML 34 kB berangkat mentah ke peramban. Lighthouse mencatat 436 kB dan 2,3
+# detik hilang karenanya di jaringan seluler tertahan. Ketiganya teks, dan teks
+# menyusut tiga sampai enam kali lipat begitu dikompresi.
+#
+# Kedua, berkas statis tidak lagi menyentuh PHP sama sekali. `artisan serve`
+# berproses tunggal: satu permintaan gambar yang lambat menahan seluruh
+# permintaan halaman di belakangnya. Sekarang `/build` dan `/img` berhenti di
+# Caddy.
+:8000 {
+	# zstd lebih dulu, gzip untuk peramban yang belum mendukungnya. Caddy
+	# memilih sendiri lewat header Accept-Encoding, dan ini berlaku juga untuk
+	# jawaban yang datang dari Laravel, bukan cuma berkas di disk.
+	encode zstd gzip
+
+	# Nama berkas hasil build Vite mengandung hash isinya, misalnya
+	# `app-CMXduL-x.js`. Isi berubah berarti nama berubah, jadi berkas dengan
+	# nama ini tidak pernah perlu diperiksa ulang seumur hidup cache peramban.
+	# Itulah yang dinyatakan `immutable`, dan itu sebabnya kunjungan kedua ke
+	# panel eksekutif nyaris tidak mengunduh apa pun.
+	handle /build/* {
+		root * /srv/public
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
+	# Lambang dan logo tidak berhash, jadi umurnya dibatasi seminggu. Cukup
+	# lama untuk menolong pemakaian harian, cukup pendek supaya penggantian
+	# berkas tidak tertahan berbulan-bulan di peramban pengguna.
+	handle /img/* {
+		root * /srv/public
+		header Cache-Control "public, max-age=604800"
+		file_server
+	}
+
+	handle /favicon.ico {
+		root * /srv/public
+		header Cache-Control "public, max-age=604800"
+		file_server
+	}
+
+	handle /robots.txt {
+		root * /srv/public
+		file_server
+	}
+
+	# Sisanya milik Laravel.
+	#
+	# Sengaja tidak memakai matcher `file` yang melayani apa pun yang kebetulan
+	# ada di `public/`. Di sana ada `index.php`, dan matcher itu akan
+	# menyerahkan kode sumbernya sebagai teks biasa kepada siapa pun yang
+	# memintanya. Daftar putih di atas lebih panjang, tapi tidak bisa bocor.
+	handle {
+		reverse_proxy app:8000
+	}
+}

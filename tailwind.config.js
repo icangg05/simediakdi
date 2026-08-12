@@ -40,6 +40,7 @@ export default {
                 brand: {
                     DEFAULT: warna('--color-brand'),
                     terang: warna('--color-brand-terang'),
+                    langit: warna('--color-brand-langit'),
                     lembut: warna('--color-brand-lembut'),
                 },
                 aksen: {

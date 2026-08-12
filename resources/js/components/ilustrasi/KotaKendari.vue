@@ -73,7 +73,7 @@
         <!-- Blok terdepan, warnanya paling pekat supaya kedalamannya terbaca. -->
         <g>
             <rect x="52" y="142" width="40" height="38" rx="2" class="fill-brand/30" />
-            <g class="fill-white/40">
+            <g class="jendela fill-white/40">
                 <rect x="59" y="150" width="7" height="8" rx="1" />
                 <rect x="70" y="150" width="7" height="8" rx="1" />
                 <rect x="81" y="150" width="7" height="8" rx="1" />
@@ -109,5 +109,35 @@
  */
 .dark .ilustrasi-kota {
     --color-brand: oklch(0.72 0.07 250);
+}
+
+/*
+ * Siluet di atas bidang navy, misalnya kop dashboard eksekutif.
+ *
+ * Seluruh isi berkas ini digambar dengan `fill-brand/…`, jadi satu penimpaan
+ * variabel cukup untuk membalik ilustrasinya menjadi putih tembus pandang.
+ * Tidak ada satu pun bentuk yang perlu digambar dua kali, dan kepekatan
+ * relatif antar lapisnya, yang menjadi kedalaman gambar ini, tetap utuh.
+ *
+ * Berlaku sama di kedua mode. Kop tetap navy saat mode gelap dinyalakan, jadi
+ * penimpaan `.dark` di atas justru salah untuk pemakaian ini dan sengaja
+ * ditulis ulang di sini.
+ */
+.ilustrasi-kota-navy,
+.dark .ilustrasi-kota-navy {
+    --color-brand: oklch(0.99 0.005 250);
+    --color-aksen-toska: oklch(0.9 0.06 200);
+}
+
+/*
+ * Jendela blok terdepan dibalik menjadi gelap.
+ *
+ * Di atas kartu terang jendelanya putih supaya terbaca sebagai lubang cahaya
+ * pada blok navy. Begitu bloknya sendiri menjadi putih tembus pandang,
+ * jendela putih hilang ke dalamnya, dan yang terbaca sebagai lubang justru
+ * warna navy kopnya sendiri.
+ */
+.ilustrasi-kota-navy .jendela {
+    fill: oklch(0.364 0.09 253.3 / 0.5);
 }
 </style>
