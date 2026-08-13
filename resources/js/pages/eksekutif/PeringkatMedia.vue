@@ -179,10 +179,26 @@ const batangTier: Record<string, string> = {
     lokal: 'bg-tier-lokal',
 };
 
+/*
+ * Bidangnya putih, tier dinyatakan tepi dan pita saja.
+ *
+ * Sebelumnya tiap kartu berisian rona tiernya pada enam persen. Tiga isian yang
+ * berbeda rona pada kepekatan serendah itu tidak cukup kuat untuk menyatakan
+ * apa pun, tetapi cukup untuk membuat ketiganya terbaca sebagai tiga bahan yang
+ * berlainan, padahal ketiganya menjawab satu pertanyaan yang sama. Di atas
+ * latar eksekutif yang sendirinya bertinta, isian setipis itu juga menjadi
+ * lapis transparan kedua yang harus dibaca mata sebelum sampai ke angkanya.
+ *
+ * Putih memberi ketiganya bidang yang sama, sehingga yang berbeda tinggal
+ * angkanya, dan itu memang satu satunya yang dibandingkan pembaca di sini.
+ * Identitas tier tidak hilang: pita di tepi atas, warna judul, dan warna batang
+ * semuanya tetap rona tiernya, dan ketiganya penanda yang lebih tegas daripada
+ * isian enam persen yang digantikannya.
+ */
 const kartuTier: Record<string, string> = {
-    nasional: 'border-tier-nasional/25 bg-tier-nasional/[0.06]',
-    regional: 'border-tier-regional/25 bg-tier-regional/[0.06]',
-    lokal: 'border-tier-lokal/25 bg-tier-lokal/[0.06]',
+    nasional: 'border-tier-nasional/25 bg-card',
+    regional: 'border-tier-regional/25 bg-card',
+    lokal: 'border-tier-lokal/25 bg-card',
 };
 
 const teksTier: Record<string, string> = {
@@ -305,7 +321,13 @@ function rupaNomor(urut: number): string {
                             Positif
                         </span>
                         <span class="inline-flex items-center gap-1.5">
-                            <span class="size-2 rounded-full bg-sentimen-netral" aria-hidden="true"></span>
+                            <!-- Titik legenda wajib memakai token batang yang
+                                 sama, bukan nada kuatnya. Legenda ini satu
+                                 satunya penerjemah potongan batang di bawahnya,
+                                 dan titik yang lebih pekat daripada potongan
+                                 yang diterjemahkannya membuat pembaca mencari
+                                 warna yang tidak ada di sana. -->
+                            <span class="size-2 rounded-full bg-sentimen-netral-batang" aria-hidden="true"></span>
                             Netral
                         </span>
                         <span class="inline-flex items-center gap-1.5">
@@ -365,7 +387,7 @@ function rupaNomor(urut: number): string {
                                                 :title="`${formatAngka(m.jumlah_positif)} berita positif`"
                                             ></span>
                                             <span
-                                                class="h-full bg-sentimen-netral"
+                                                class="h-full bg-sentimen-netral-batang"
                                                 :style="{ width: lebarPotong(m.jumlah_netral, m) }"
                                                 :title="`${formatAngka(m.jumlah_netral)} berita netral`"
                                             ></span>

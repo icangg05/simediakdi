@@ -332,7 +332,7 @@ const submit = () => {
                     kecil, dan lambang Pemerintah Kota tidak boleh ikut hilang
                     bersamanya.
                 -->
-                <div class="muncul mb-5 flex items-center justify-center gap-3 lg:hidden">
+                <div class="kop-ringkas muncul mb-5 flex items-center justify-center gap-3 lg:hidden">
                     <img
                         src="/img/Lambang_Kota_Kendari.webp"
                         alt="Lambang Pemerintah Kota Kendari"
@@ -357,7 +357,7 @@ const submit = () => {
                     Bayangannya bertinta navy, bukan hitam. Bayangan hitam di
                     atas latar kebiruan terbaca kotor.
                 -->
-                <div class="muncul rounded-3xl bg-card p-6 shadow-[0_28px_64px_-32px_oklch(0.36_0.09_252/0.45)] ring-1 ring-brand/[0.07] dark:ring-white/10 sm:p-8">
+                <div class="kartu-masuk muncul rounded-3xl bg-card p-6 shadow-[0_28px_64px_-32px_oklch(0.36_0.09_252/0.45)] ring-1 ring-brand/[0.07] dark:ring-white/10 sm:p-8">
                     <!--
                         Lambang SIMEDIA dan namanya berdiri berdampingan di dalam
                         kartu, bukan di kop instansi di atasnya.
@@ -369,17 +369,17 @@ const submit = () => {
                         penempatan yang terlihat di semua lebar layar, karena
                         panel merek di kiri hilang di bawah 1024 piksel.
                     -->
-                    <div class="flex items-center gap-3">
+                    <div class="kop-kartu flex items-center gap-3">
                         <span
-                            class="grid size-12 shrink-0 place-items-center rounded-2xl bg-brand/[0.06] ring-1 ring-brand/10 dark:bg-white/10 dark:ring-white/15"
+                            class="lencana-simedia grid size-12 shrink-0 place-items-center rounded-2xl bg-brand/[0.06] ring-1 ring-brand/10 dark:bg-white/10 dark:ring-white/15"
                         >
                             <img src="/img/logo-simedia.webp" alt="Lambang SIMEDIA" class="size-8 object-contain" width="32" height="32" />
                         </span>
                         <span class="text-[1.375rem] font-semibold tracking-tight text-brand dark:text-white">SIMEDIA</span>
                     </div>
 
-                    <h1 class="mt-6 text-xl font-semibold tracking-tight text-foreground sm:text-[1.375rem]">Masuk ke SIMEDIA</h1>
-                    <p class="mt-1.5 text-sm leading-relaxed text-muted-foreground">Gunakan akun yang diberikan Diskominfo Kota Kendari.</p>
+                    <h1 class="judul-masuk mt-6 text-xl font-semibold tracking-tight text-foreground sm:text-[1.375rem]">Masuk ke SIMEDIA</h1>
+                    <p class="penjelas-masuk mt-1.5 text-sm leading-relaxed text-muted-foreground">Gunakan akun yang diberikan Diskominfo Kota Kendari.</p>
 
                     <!-- Pesan berhasil, misalnya setelah kata sandi disetel ulang.
                          Hijau di sini bukan pilihan rasa. Ia token sentimen positif
@@ -394,7 +394,7 @@ const submit = () => {
                         <span>{{ status }}</span>
                     </div>
 
-                    <form @submit.prevent="submit" class="mt-6 flex flex-col gap-4">
+                    <form @submit.prevent="submit" class="form-masuk mt-6 flex flex-col gap-4">
                         <div class="grid gap-2">
                             <Label for="username">Nama pengguna</Label>
                             <div class="group relative">
@@ -411,7 +411,7 @@ const submit = () => {
                                     autocomplete="username"
                                     v-model="form.username"
                                     placeholder="nama pengguna Anda"
-                                    class="h-12 rounded-xl border-transparent bg-brand/[0.045] pl-11 transition-shadow duration-200 focus-visible:ring-brand/60 dark:bg-white/[0.06] dark:focus-visible:ring-brand-langit"
+                                    class="kolom-isian h-12 rounded-xl border-transparent bg-brand/[0.045] pl-11 transition-shadow duration-200 focus-visible:ring-brand/60 dark:bg-white/[0.06] dark:focus-visible:ring-brand-langit"
                                 />
                             </div>
                             <InputError :message="form.errors.username" />
@@ -432,7 +432,7 @@ const submit = () => {
                                     autocomplete="current-password"
                                     v-model="form.password"
                                     placeholder="Masukkan kata sandi"
-                                    class="h-12 rounded-xl border-transparent bg-brand/[0.045] pl-11 pr-12 transition-shadow duration-200 focus-visible:ring-brand/60 dark:bg-white/[0.06] dark:focus-visible:ring-brand-langit"
+                                    class="kolom-isian h-12 rounded-xl border-transparent bg-brand/[0.045] pl-11 pr-12 transition-shadow duration-200 focus-visible:ring-brand/60 dark:bg-white/[0.06] dark:focus-visible:ring-brand-langit"
                                     @keyup="periksaCapsLock"
                                     @keydown="periksaCapsLock"
                                     @blur="capsLockAktif = false"
@@ -513,7 +513,7 @@ const submit = () => {
                         bantuan di bawahnya, sehingga keduanya tidak terbaca sebagai
                         satu kelompok.
                     -->
-                    <div class="mt-7 flex items-center gap-3" aria-hidden="true">
+                    <div class="pemisah-masuk mt-7 flex items-center gap-3" aria-hidden="true">
                         <span class="h-px flex-1 bg-brand/10 dark:bg-white/10"></span>
                         <span class="grid size-7 place-items-center rounded-full bg-brand/[0.06] text-brand/70 dark:bg-white/10 dark:text-white/60">
                             <ShieldCheck class="size-3.5" :stroke-width="1.75" />
@@ -527,7 +527,7 @@ const submit = () => {
                         sebagai kebenaran produk. Tautan yang tidak menuju ke mana mana
                         lebih buruk daripada teks biasa.
                     -->
-                    <div class="mt-5 flex items-center gap-3">
+                    <div class="blok-bantuan mt-5 flex items-center gap-3">
                         <span
                             class="grid size-10 shrink-0 place-items-center rounded-xl bg-brand/[0.06] text-brand dark:bg-white/10 dark:text-white/80"
                         >
@@ -582,6 +582,79 @@ const submit = () => {
      */
     .rel-alur {
         bottom: 1.5rem;
+    }
+}
+
+/*
+ * Kartu masuk pada layar pendek.
+ *
+ * Sama seperti aturan panel merek di atas, ini membaca tinggi layar, bukan
+ * lebarnya. Penyebabnya bukan hanya laptop pendek: begitu pengguna memperbesar
+ * halaman lewat zoom peramban, tinggi layar dalam piksel CSS ikut menyusut dan
+ * kartu yang tadinya muat mulai bisa digulir.
+ *
+ * `overflow-y-auto` di panel tetap dipertahankan sebagai jaring pengaman. Yang
+ * dikerjakan aturan di bawah adalah membuat isinya benar benar muat, sehingga
+ * jaring itu tidak pernah terpakai pada ukuran yang wajar. Menghapus
+ * `overflow-y-auto` hanya akan memotong isi kartu, dan itu lebih buruk daripada
+ * digulir.
+ *
+ * Tinggi kolom isian dan tombol tidak pernah turun di bawah 2,75rem, yaitu 44
+ * piksel, ambang sasaran sentuh yang wajib dipenuhi.
+ */
+@media (max-height: 820px) {
+    .panel-masuk {
+        padding-top: 1.25rem;
+        padding-bottom: 1.25rem;
+    }
+
+    .kartu-masuk {
+        padding: 1.5rem;
+    }
+
+    .judul-masuk,
+    .form-masuk,
+    .pemisah-masuk {
+        margin-top: 1.25rem;
+    }
+
+    .form-masuk {
+        gap: 0.75rem;
+    }
+
+    .kolom-isian,
+    .tombol-utama {
+        height: 2.75rem;
+    }
+
+    .blok-bantuan {
+        margin-top: 1rem;
+    }
+}
+
+/*
+ * Layar sangat pendek, misalnya zoom 150 persen di laptop 768 piksel atau ponsel
+ * dalam posisi mendatar.
+ *
+ * Perapatan jarak sudah habis di titik ini, jadi yang tersisa adalah membuang
+ * isi. Urutannya dari yang paling murah: kop instansi ringkas hilang lebih dulu
+ * karena lambang SIMEDIA di dalam kartu sudah menjelaskan sistem apa yang sedang
+ * dimasuki, lalu kalimat penjelas, lalu pemisah berlencana yang memang hiasan.
+ * Blok bantuan bertahan paling lama karena ia satu satunya jalan keluar bagi
+ * pengguna yang belum punya akun.
+ */
+@media (max-height: 640px) {
+    .kop-ringkas,
+    .pemisah-masuk {
+        display: none;
+    }
+
+    .judul-masuk {
+        margin-top: 0.75rem;
+    }
+
+    .blok-bantuan {
+        margin-top: 1.25rem;
     }
 }
 

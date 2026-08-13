@@ -180,7 +180,13 @@ const komposisi = computed(() =>
                 nama: 'Netral',
                 arti: 'menyampaikan informasi',
                 jumlah: props.kpi.netral,
-                batang: 'bg-sentimen-netral',
+                /*
+                 * `batang` mewarnai potongan batang komposisi sekaligus titik
+                 * di daftar bawahnya, jadi keduanya tidak pernah bisa berbeda.
+                 * `teks` tetap nada kuatnya, karena itu angka yang harus
+                 * terbaca, bukan bidang yang harus mundur.
+                 */
+                batang: 'bg-sentimen-netral-batang',
                 teks: 'text-sentimen-netral',
             },
             {
@@ -319,7 +325,7 @@ const NADA_DIJELASKAN = [
         kunci: 'netral',
         judul: 'Informasi yang disampaikan',
         ikon: Info,
-        kartu: 'bg-sentimen-netral-lembut/70 border-sentimen-netral/25',
+        kartu: 'bg-sentimen-netral-bidang border-sentimen-netral/25',
         tile: 'bg-sentimen-netral',
         aksen: 'text-sentimen-netral',
         pita: 'from-sentimen-netral',
@@ -347,6 +353,13 @@ const NADA_DIJELASKAN = [
  * Kepekatan latar sengaja tidak sama. Kartu negatif paling pekat, netral paling
  * samar. Halaman ini dibuka untuk menemukan yang menonjol, dan tiga warna
  * dengan bobot yang persis sama membuat tidak ada satu pun yang menonjol.
+ *
+ * Paling samar tetap harus terlihat, dan sebelumnya tidak. Diukur sebagai jarak
+ * persepsi di bidang oklab terhadap latar halaman, ketiganya berbunyi 0,0342
+ * untuk negatif, 0,0193 untuk positif, dan hanya 0,0076 untuk netral. Angka
+ * terakhir itu bukan samar, melainkan tidak ada. Netral sekarang memakai
+ * `netral-bidang` pada 55 persen dan mencapai 0,0184, tepat di bawah positif,
+ * sehingga urutan di atas tetap berlaku sambil kartunya benar benar punya tepi.
  */
 const RUPA_TOPIK = {
     negatif: {
@@ -356,7 +369,7 @@ const RUPA_TOPIK = {
         ikon: TriangleAlert,
     },
     netral: {
-        kartu: 'bg-sentimen-netral-lembut/45 border-sentimen-netral/25 hover:border-sentimen-netral/45',
+        kartu: 'bg-sentimen-netral-bidang/55 border-sentimen-netral/25 hover:border-sentimen-netral/45',
         pita: 'bg-sentimen-netral',
         aksen: 'text-sentimen-netral',
         ikon: Info,
@@ -384,7 +397,20 @@ function rupaTopik(nada: LabelSentimen) {
             siluet
         >
             <template #kendali>
-                <PemilihRentangTanggal :dari="periode.dari" :sampai="periode.sampai" inline @ubah="(dari, sampai) => pindah({ dari, sampai })" />
+                <!--
+                    Rentangnya tampil, tetapi tidak bisa dipilih sendiri.
+                    Halaman ini menjawab keadaan hari ini, pekan ini, bulan ini,
+                    dan tiga bulan ini, dan keempat pintasan sudah memuat
+                    seluruhnya. Rentang khusus dilayani halaman Arsip berita,
+                    tempat penyaring memang jadi pekerjaan utamanya.
+                -->
+                <PemilihRentangTanggal
+                    :dari="periode.dari"
+                    :sampai="periode.sampai"
+                    inline
+                    tanpa-pilih
+                    @ubah="(dari, sampai) => pindah({ dari, sampai })"
+                />
             </template>
 
             <!--

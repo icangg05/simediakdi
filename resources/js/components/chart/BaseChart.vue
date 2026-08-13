@@ -139,8 +139,18 @@ function unduhPng() {
             belakangan lewat impor dinamis, dan tanpa ruang yang sudah dipesan
             di sini isi halaman di bawahnya akan melompat saat grafik muncul.
         -->
-        <div v-else ref="bingkai" :style="{ height: `${tinggi ?? 240}px` }">
-            <VChart v-if="sekaliTerlihat" ref="grafik" :option="opsi" autoresize class="h-full w-full" />
+        <!--
+            `contain: paint` mengurung gambar ulang kanvas di dalam kotaknya,
+            sehingga perubahan di dalam grafik tidak pernah membatalkan tata
+            letak halaman di sekitarnya.
+
+            `autoresize` diberi throttle karena di ponsel bilah URL menyusut dan
+            membesar sepanjang gulir. Setiap perubahan tinggi viewport memicu
+            `resize()` ECharts, dan tanpa jeda itu berarti tata letak penuh
+            berkali-kali dalam satu gulir.
+        -->
+        <div v-else ref="bingkai" :style="{ height: `${tinggi ?? 240}px`, contain: 'paint' }">
+            <VChart v-if="sekaliTerlihat" ref="grafik" :option="opsi" :autoresize="{ throttle: 200 }" class="h-full w-full" />
         </div>
     </figure>
 </template>

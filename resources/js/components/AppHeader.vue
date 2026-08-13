@@ -9,6 +9,7 @@ import { getInitials } from '@/composables/useInitials';
 import { hrefAktif, navPerPeran } from '@/nav';
 import type { SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
+import { useElementVisibility } from '@vueuse/core';
 import { ChevronDown, Menu } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
@@ -38,6 +39,21 @@ const auth = computed(() => page.props.auth);
 
 const menuTerbuka = ref(false);
 
+/**
+ * Bilah tidak lagi melekat di puncak layar, rel mengambang yang menggantikannya.
+ *
+ * `useElementVisibility` memakai IntersectionObserver, bukan pendengar peristiwa
+ * gulir. Bedanya penting di ponsel: pendengar gulir dipanggil tiap frame dan
+ * tiap panggilannya membaca posisi elemen, yang memaksa browser menghitung
+ * ulang tata letak di tengah gulir. Observer hanya berbunyi dua kali, saat
+ * bilahnya keluar layar dan saat masuk lagi.
+ *
+ * Kelasnya sudah terpasang di proyek dan dipakai `BaseChart` untuk menunda muat
+ * grafik, jadi tidak ada kebergantungan baru yang ditambahkan.
+ */
+const bilah = ref<HTMLElement | null>(null);
+const bilahTerlihat = useElementVisibility(bilah);
+
 const mainNavItems = computed(() => navPerPeran[auth.value.user?.peran] ?? []);
 const beranda = computed(() => mainNavItems.value[0]?.href ?? '/dashboard');
 const aktif = computed(() => hrefAktif(mainNavItems.value, page.url));
@@ -64,18 +80,22 @@ const KETERANGAN: Record<string, string> = {
 
 <template>
     <!--
-        Melekat di puncak layar saat digulir.
+        Bilah ini ikut tergulir dan tidak melekat di puncak layar.
 
-        Dashboard eksekutif panjangnya lebih dari empat ribu piksel, dan tanpa
-        ini pindah dari kaki halaman ke halaman lain berarti menggulir naik
-        sampai atas lebih dulu. Kepekatannya sedikit dikurangi dan diberi
-        `backdrop-blur` supaya isi yang lewat di belakangnya terbaca sebagai
-        gerakan, bukan sebagai potongan yang hilang mendadak. Blur hanya
-        dipasang di elemen melekat seperti ini, tidak pernah di bidang yang ikut
-        bergulir, karena blur pada bidang bergulir memaksa kartu grafis
-        menggambar ulang terus menerus dan panel ini dibuka dari ponsel.
+        Bilah melekat berarti satu bidang yang harus digambar ulang di atas
+        seluruh isi yang lewat di belakangnya sepanjang gulir, dan di ponsel itu
+        biaya yang dibayar terus menerus demi empat menu yang jarang ditekan
+        selagi membaca. Yang menggantikannya rel mengambang di bawah, yang baru
+        dipasang setelah bilahnya benar benar keluar layar.
+
+        Latarnya tetap pekat penuh, tanpa `backdrop-blur`. Blur memaksa
+        kompositor merasterisasi ulang seluruh bidang di belakangnya, dan
+        biayanya melonjak saat yang lewat di belakang adalah kanvas grafik,
+        karena kanvas berada di lapisan terpisah yang membatalkan cache blur
+        terus menerus. Di atas latar 95 persen pekat efek blurnya sendiri hampir
+        tidak terlihat, jadi yang hilang nyaris nol.
     -->
-    <div class="sticky top-0 z-40 bg-brand/95 text-white backdrop-blur supports-[backdrop-filter]:bg-brand/85">
+    <div ref="bilah" class="relative z-40 bg-brand text-white">
         <!-- Sapuan cahaya di sudut kanan, senada dengan kop halaman di bawahnya. -->
         <div
             class="pointer-events-none absolute inset-0"
@@ -223,4 +243,95 @@ const KETERANGAN: Record<string, string> = {
         -->
         <div class="tumbuh h-px w-full bg-gradient-to-r from-white/50 via-white/15 to-transparent" aria-hidden="true"></div>
     </div>
+
+    <!--
+        Rel menu mengambang, pengganti bilah melekat.
+
+        Muncul hanya setelah bilah di atas keluar layar, jadi selama pembaca
+        masih di kepala halaman tidak ada satu pun perabot yang menutupi isi.
+        Tempatnya di tepi kanan, di tengah tinggi layar, karena itu titik yang
+        paling dekat dengan ibu jari pada genggaman satu tangan dan yang paling
+        jauh dari arah baca teks di kiri.
+
+        Isinya ikon saja, judulnya baru keluar saat disorot. Empat judul yang
+        selalu tercetak akan menjadi pita teks setinggi layar yang menutupi tepi
+        kartu di belakangnya, sedangkan yang dibutuhkan pembaca yang sedang
+        membaca hanya jalan keluar, bukan daftar yang terbaca terus menerus.
+
+        Judulnya tetap ada di dalam DOM, hanya `opacity` yang nol, jadi pembaca
+        layar tetap membacakan nama menunya dan tautannya tidak pernah menjadi
+        tombol tanpa nama. Ia juga ikut muncul saat disinggahi papan ketik lewat
+        `group-focus-visible`, sebab `hover` tidak pernah terjadi di sana.
+
+        Yang dianimasikan hanya `transform` dan `opacity`, keduanya ditangani
+        kompositor. Judulnya diletakkan `absolute` di luar alur, sehingga
+        munculnya tidak pernah menggeser lebar rel dan tidak memicu penataan
+        ulang di tengah gulir.
+
+        Bidangnya navy pekat, bukan kaca. `brand-terang` dipakai, bukan `brand`
+        yang dipakai bilah di puncak, dan perbedaan satu tingkat itu disengaja:
+        rel ini menumpang di atas isi yang sedang dibaca, dan navy sepekat kop
+        pada benda sekecil ini terbaca sebagai lubang gelap di tepi layar.
+
+        Kaca sempat dipakai di sini lalu dilepas. Ia menuntut `backdrop-filter`,
+        yang memaksa kompositor merasterisasi ulang bidang di belakangnya
+        sepanjang gulir, dan itu berlawanan arah dengan seluruh pekerjaan yang
+        membuat panel ini ringan. Bidang pekat tidak menuntut apa pun.
+
+        Ikon putih menahan rasio 7,69 di atasnya dan ikon yang belum terpilih
+        pada `text-white/85` menahan 6,07, keduanya jauh di atas ambang. Nilai
+        ini tidak bergantung pada apa yang lewat di belakang, dan itu keuntungan
+        kedua dari melepas kaca: kasus terburuknya hilang sama sekali.
+
+        Di ponsel seluruh ukurannya diturunkan satu tingkat. Rel ini menumpang di
+        atas isi yang sedang dibaca, dan ukuran layar lebarnya memakan 52 kali 184
+        piksel, cukup untuk menutupi tepi kanan setiap kartu yang lewat di layar
+        375 piksel. Ukuran ringkasnya 44 kali 158 piksel, dan bersama jarak tepi
+        yang ikut turun dari 12 ke 8 piksel, seluruh jejaknya dari tepi layar
+        menyempit dari 64 menjadi 52 piksel. Luasnya berkurang sekitar 27 persen.
+
+        Kepingnya berhenti di 36 piksel, tidak lebih kecil. Di bawah itu ia mulai
+        berada jauh di bawah ambang sasaran sentuh, dan menu yang meleset
+        ketukannya lebih mengganggu daripada menu yang lebarnya beberapa piksel
+        berlebih.
+
+        Tingginya dipaku `.tengah-layar`, bukan `top-1/2`. Alasannya ada di
+        app.css, ringkasnya: persen pada elemen `fixed` diukur terhadap viewport
+        yang tingginya berubah sepanjang gulir di ponsel, dan menu ini ikut
+        bergeser setiap kali bilah alamat peramban menyusut lalu muncul lagi.
+    -->
+    <Transition
+        enter-active-class="ease-[cubic-bezier(0.32,0.72,0,1)] transition duration-300"
+        enter-from-class="translate-x-6 opacity-0"
+        leave-active-class="ease-[cubic-bezier(0.32,0.72,0,1)] transition duration-200"
+        leave-to-class="translate-x-6 opacity-0"
+    >
+        <nav
+            v-show="!bilahTerlihat"
+            class="tengah-layar fixed right-2 z-40 flex -translate-y-1/2 flex-col gap-0.5 rounded-xl bg-brand-terang p-1 shadow-[inset_0_1px_0_0_rgb(255_255_255/0.18),0_12px_32px_-12px_rgb(22_63_108/0.55)] ring-1 ring-white/20 sm:right-3 sm:gap-1 sm:rounded-2xl sm:p-1.5"
+            aria-label="Menu utama mengambang"
+        >
+            <Link
+                v-for="item in mainNavItems"
+                :key="item.title"
+                :href="item.href"
+                :aria-current="item.href === aktif ? 'page' : undefined"
+                class="tekan group relative grid size-9 place-items-center rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:size-10 sm:rounded-xl"
+                :class="item.href === aktif ? 'bg-white text-brand shadow-sm' : 'text-white/85 hover:bg-white/15 hover:text-white'"
+            >
+                <component :is="item.icon" v-if="item.icon" class="size-4 sm:size-[18px]" aria-hidden="true" />
+
+                <!-- Judulnya memakai `brand` yang lebih pekat, bukan
+                     `brand-terang` milik relnya. Teks 12 piksel butuh kontras
+                     lebih besar daripada ikon yang bentuknya tebal, dan warna
+                     yang berbeda satu tingkat sekaligus memisahkan label dari
+                     bidang yang memunculkannya. -->
+                <span
+                    class="ease-[cubic-bezier(0.32,0.72,0,1)] pointer-events-none absolute right-full mr-2 translate-x-1 whitespace-nowrap rounded-lg bg-brand px-2.5 py-1.5 text-xs font-semibold text-white opacity-0 shadow-[0_8px_24px_-8px_rgb(22_63_108/0.55)] ring-1 ring-white/20 transition duration-200 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100"
+                >
+                    {{ item.title }}
+                </span>
+            </Link>
+        </nav>
+    </Transition>
 </template>

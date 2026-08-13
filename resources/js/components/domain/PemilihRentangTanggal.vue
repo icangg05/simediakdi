@@ -24,8 +24,17 @@ import { computed, ref, watch } from 'vue';
  * satu penyaring di balik lapisan yang menutupi hasilnya membuat pengguna
  * menutup dan membuka lapisan itu berulang kali hanya untuk melihat akibat
  * pilihannya.
+ *
+ * `tanpaPilih` menurunkan rentangnya menjadi keterangan, bukan kendali. Keempat
+ * pintasan tetap bisa ditekan, dan tanggal di sebelahnya melaporkan rentang yang
+ * dihasilkan pintasan itu. Dipakai di halaman ringkasan, tempat pertanyaannya
+ * selalu salah satu dari empat periode baku dan tidak pernah rentang khusus.
+ * Sebelumnya rentang khusus tersedia di sana lewat sheet, dan itu membuka
+ * seluruh permukaan tanggal untuk kebutuhan yang tidak pernah muncul, sementara
+ * kotak tanggalnya sendiri adalah satu satunya benda di kop yang bisa
+ * mengembalikan halaman dalam keadaan tidak cocok dengan pintasan mana pun.
  */
-const props = defineProps<{ dari: string; sampai: string; inline?: boolean; tanpaSheet?: boolean }>();
+const props = defineProps<{ dari: string; sampai: string; inline?: boolean; tanpaSheet?: boolean; tanpaPilih?: boolean }>();
 const emit = defineEmits<{ ubah: [dari: string, sampai: string] }>();
 
 const terbuka = ref(false);
@@ -134,6 +143,31 @@ const ringkas = computed(() => {
             <Label for="rentang-sampai" class="text-xs text-muted-foreground">sampai</Label>
             <Input id="rentang-sampai" v-model="sampaiLokal" type="date" :min="dariLokal" class="h-8 w-[9.5rem] text-sm" @change="terapkan" />
         </div>
+
+        <!--
+            Rentang sebagai keterangan, bukan tombol.
+
+            Bentuknya sengaja tidak meniru tombol di sebelahnya. Tinggi dan
+            radiusnya sama supaya barisnya tetap rapi, tetapi tepinya dilepas dan
+            alasnya memakai `secondary` yang sama dengan talam pintasan, sehingga
+            keduanya terbaca sebagai satu bilah: yang kiri memilih, yang kanan
+            melaporkan. Tepi bergaris pada benda yang tidak bisa ditekan adalah
+            janji yang tidak ditepati, dan pengguna akan menekannya sekali
+            sebelum menyimpulkan halamannya rusak.
+
+            `aria-live` supaya perubahan rentang terbacakan. Yang menekan
+            pintasan lewat pembaca layar tidak melihat tanggal di sebelahnya
+            berganti, dan tanpa ini satu satunya umpan balik atas ketukannya
+            adalah seluruh halaman yang diam diam berganti isi.
+        -->
+        <p
+            v-else-if="tanpaPilih"
+            class="inline-flex h-10 items-center gap-2 rounded-lg bg-secondary px-3 font-semibold text-foreground"
+            aria-live="polite"
+        >
+            <CalendarDays class="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <span class="angka text-sm">{{ ringkas }}</span>
+        </p>
 
         <Sheet v-else v-model:open="terbuka">
             <!--

@@ -33,7 +33,7 @@ import {
     TrendingUp,
     UserPen,
 } from 'lucide-vue-next';
-import { computed, ref, watch, type Component } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch, type Component } from 'vue';
 
 type LabelSentimen = 'negatif' | 'netral' | 'positif';
 type JalurKlasifikasi = 'gemini' | 'indobert';
@@ -292,9 +292,26 @@ const sedangJalur = ref<JalurKlasifikasi | null>(null);
  */
 const jeda = ref(0);
 
-setInterval(() => {
-    if (jeda.value > 0) jeda.value--;
-}, 1000);
+/*
+ * Dipasang dan dilepas mengikuti umur komponen.
+ *
+ * Dulu `setInterval` dipanggil langsung di badan setup. Di peramban itu lolos
+ * karena halamannya dibongkar bersama seluruh dokumen. Sejak halaman ini ikut
+ * dirender di server, badan setup dijalankan sekali per permintaan di proses
+ * Node yang hidup terus, dan timer yang tidak pernah dihentikan menumpuk satu
+ * per kunjungan sampai prosesnya kehabisan memori.
+ */
+let pencacah: ReturnType<typeof setInterval> | null = null;
+
+onMounted(() => {
+    pencacah = setInterval(() => {
+        if (jeda.value > 0) jeda.value--;
+    }, 1000);
+});
+
+onUnmounted(() => {
+    if (pencacah) clearInterval(pencacah);
+});
 
 /** Terkunci selama satu penilaian berjalan, dan selama jeda setelahnya. */
 const terkunci = computed(() => sedangJalan.value !== null || jeda.value > 0);

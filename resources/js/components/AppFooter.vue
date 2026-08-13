@@ -60,18 +60,34 @@ function keAtas() {
             Sapuan cahaya sangat samar di dua sudut, senada dengan hiasan latar
             halaman. Bidang navy polos selebar layar terbaca berat, sapuan ini
             memberinya kedalaman tanpa menambah satu pun elemen yang dibaca.
+
+            Cahaya toska di sudut kanan bawah dulunya lingkaran tersendiri dengan
+            `blur-3xl`. Bentuk itu dilepas: bidang 320 piksel dengan radius kabur
+            64 piksel yang terklip `overflow-hidden` memaksa browser menyiapkan
+            buffer di luar layar lalu mengaburkannya, dan itu operasi raster yang
+            mahal di GPU ponsel. Kaki halaman ini dipakai keempat halaman panel
+            eksekutif, jadi biayanya dibayar di mana-mana. Sebagai gradien
+            biayanya nol, rupanya nyaris tidak bisa dibedakan pada kepekatan
+            serendah ini, dan satu simpul DOM ikut hilang.
+
+            Toska ditulis paling depan karena lapisan pertama yang tergambar
+            paling atas, sama seperti urutan elemennya dulu.
         -->
         <div
             class="pointer-events-none absolute inset-0"
             aria-hidden="true"
             style="
                 background:
+                    radial-gradient(
+                        15rem 15rem at right 6rem bottom 2rem,
+                        rgb(from var(--color-aksen-toska) r g b / 0.22),
+                        rgb(from var(--color-aksen-toska) r g b / 0.1) 45%,
+                        transparent 72%
+                    ),
                     radial-gradient(40rem 22rem at 6% 130%, rgb(255 255 255 / 0.12), transparent 70%),
                     radial-gradient(34rem 20rem at 96% -20%, rgb(255 255 255 / 0.08), transparent 70%);
             "
         ></div>
-
-        <div class="pointer-events-none absolute -bottom-32 -right-16 size-80 rounded-full bg-aksen-toska/20 blur-3xl" aria-hidden="true"></div>
 
         <!-- Busur sepusat, cerminan ornamen kop. Di kop ia membuka dari sudut
              kanan atas, di sini menutup dari sudut kiri bawah. -->

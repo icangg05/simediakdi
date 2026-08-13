@@ -152,17 +152,6 @@ class PengaturanController extends Controller
                         ['label' => 'Jaring pengaman WordPress REST', 'nilai' => config('crawler.wordpress.aktif') ? 'aktif' : 'mati', 'env' => 'CRAWL_WORDPRESS_API', 'diukur' => 'HTML 147 ms dari page cache, /wp-json/ 422 ms. API dipakai hanya saat Readability gagal.'],
                     ],
                 ],
-                [
-                    'judul' => 'Alert',
-                    // Token dan chat ID Telegram tidak lagi di sini. Keduanya
-                    // pindah ke kartu Telegram di atas yang punya form
-                    // sendiri, dan menampilkannya dua kali akan membuat kolom
-                    // "diubah lewat .env" berbohong tentang salah satunya.
-                    'catatan' => 'Kredensial Telegram disetel di kartu Notifikasi Telegram di atas. Yang tersisa di sini hanya ambang yang menentukan kapan sebuah feed dianggap mati.',
-                    'nilai' => [
-                        ['label' => 'Feed dianggap mati setelah', 'nilai' => config('alert.sumber_mati_jam').' jam', 'env' => 'ALERT_SUMBER_MATI_JAM', 'diukur' => 'Media daerah wajar diam semalaman, jadi ambangnya jam, bukan menit.'],
-                    ],
-                ],
             ],
             'layanan' => [
                 [

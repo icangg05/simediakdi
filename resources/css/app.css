@@ -73,6 +73,68 @@ html {
     --color-sentimen-review: oklch(0.53 0.14 75);
     --color-sentimen-review-lembut: oklch(0.96 0.05 75);
 
+    /*
+     * Bidang kartu bernada netral di panel eksekutif, dan sengaja bukan
+     * `netral-lembut`.
+     *
+     * Kartu netral menghilang ke dalam latar halaman. Sebabnya bukan gelap
+     * terang melainkan chroma. Latar eksekutif berada di hue 235 dengan chroma
+     * 0,005 sampai 0,019, sedangkan `netral-lembut` berada di hue 250 dengan
+     * chroma 0,010. Ditumpuk pada opasitas 45 persen chromanya jatuh ke 0,004,
+     * yaitu lebih pucat daripada latar yang ditempatinya, pada hue yang hanya
+     * berjarak lima belas derajat. Kartu itu bukan kurang terlihat, ia memang
+     * tidak punya tepi untuk dilihat.
+     *
+     * Diukur sebagai jarak persepsi di bidang oklab terhadap ketiga hentian
+     * gradien latar. Kartu positif terbaca pada 0,019 dan negatif pada 0,031.
+     * Netral sebelumnya hanya 0,0076, kurang dari separuh yang terendah.
+     *
+     * Pemisahnya suhu, bukan kegelapan, dan itu keputusan yang dipaksa dua
+     * syarat. Menggelapkan sampai terbaca menurunkan kontras teks lencana ke
+     * bawah 4,5, karena `--color-sentimen-netral` di L 0,53 hanya menyisakan
+     * 4,56 di atas nilai lamanya. Menaikkan chroma pada hue biru yang sama
+     * membuatnya terbaca sebagai kartu terpilih, bukan kartu tanpa penilaian.
+     * Batu hangat di hue 80 mencapai 0,031, setara kartu negatif, sambil
+     * menahan L di 0,975 sehingga tidak satu pun kontras teks bergeser.
+     *
+     * `netral-lembut` sengaja dibiarkan apa adanya. Ia melayani lencana yang
+     * berdiri di atas kartu putih, bukan di atas latar bertinta, dan di sana
+     * nilai lamanya sudah benar.
+     */
+    --color-sentimen-netral-bidang: oklch(0.975 0.025 80);
+
+    /*
+     * Potongan netral di dalam batang bertumpuk, dan lagi lagi bukan
+     * `--color-sentimen-netral`.
+     *
+     * Nada kuat netral berada di L 0,53 dengan chroma 0,02, sedangkan positif di
+     * L 0,51 dan negatif di L 0,53, keduanya dengan chroma 0,15 sampai 0,19.
+     * Akibatnya potongan netral membawa bobot visual yang persis sama dengan
+     * potongan hijau di sebelahnya: rasio keduanya terhadap putih 5,27 melawan
+     * 5,22, yaitu 1,01 satu sama lain. Ia berteriak sekeras saudaranya tanpa
+     * membawa satu keterangan warna pun, dan abu sepekat itu di tengah batang
+     * terbaca sebagai lubang, bukan sebagai bagian.
+     *
+     * Dua hal digeser sekaligus. Terangnya naik ke 0,64 supaya potongan ini
+     * mundur satu langkah, 1,56 terhadap positif dan 1,74 terhadap negatif, yang
+     * cukup untuk menyatakan "ini yang tenang" tanpa membuatnya hilang.
+     * Chromanya naik ke 0,045 supaya ia berhenti menjadi abu mati dan menjadi
+     * baja biru yang masih satu keluarga dengan saudaranya. Chroma tidak
+     * mengubah rasio kontras sama sekali di sini, jadi kenaikannya murni soal
+     * kekerabatan warna, bukan keterbacaan.
+     *
+     * Batasnya jalur belakang batang, yang bernilai `--muted` di L 0,961.
+     * Potongan ini menahan 3,07 terhadapnya, tepat di atas ambang 3,0 untuk
+     * unsur bukan teks, sehingga bagian yang terisi tetap terbaca sebagai
+     * terisi. Menaikkan terangnya ke 0,66 sudah menjatuhkannya ke 2,85.
+     *
+     * Bukan menggeser `--color-sentimen-netral` sendiri, dan itu wajib. Token
+     * itu memikul teks di atas latar terang serta isian pekat yang teksnya
+     * putih. Pada L 0,64 keduanya jatuh ke sekitar 2,6 dan 2,4, jauh di bawah
+     * ambang.
+     */
+    --color-sentimen-netral-batang: oklch(0.64 0.045 250);
+
     --color-tier-nasional: oklch(0.5 0.14 265);
     --color-tier-regional: oklch(0.6 0.1 220);
     --color-tier-lokal: oklch(0.65 0.05 200);
@@ -135,6 +197,23 @@ html {
     --color-sentimen-review-lembut: oklch(0.3 0.06 75);
 
     /*
+     * Tabrakan yang sama terjadi di mode gelap, dan di sana lebih parah. Latar
+     * gelap berada di hue 250, hue yang sama persis dengan netral, sehingga
+     * jarak persepsinya hanya 0,0122 melawan 0,0318 milik kartu positif.
+     * Batu hangat yang sama dipakai, digelapkan ke L 0,235, dan mencapai
+     * 0,0544. Kontras teks netral di atasnya 6,74.
+     */
+    --color-sentimen-netral-bidang: oklch(0.235 0.02 85);
+
+    /*
+     * Arahnya membalik di mode gelap. Di sana jalur belakang batang yang gelap
+     * dan ketiga potongannya yang terang, jadi potongan yang mundur adalah yang
+     * lebih redup, bukan yang lebih terang. Saudaranya berdiri di 8,64 dan 6,58
+     * terhadap jalur, potongan ini di 4,78, masih jauh di atas ambang 3,0.
+     */
+    --color-sentimen-netral-batang: oklch(0.6 0.045 250);
+
+    /*
      * Warna nada ikut dicerahkan, bukan hanya varian lembutnya.
      *
      * Membalik latar saja tidak cukup. Sebelumnya latar lembut turun ke 0,28
@@ -154,6 +233,31 @@ html {
 /* Angka tidak boleh bergeser saat nilainya berubah. */
 .angka {
     font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Dipaku ke tengah tinggi layar yang tidak ikut menyusut.
+ *
+ * `top: 50%` pada elemen `fixed` diukur terhadap viewport, dan di ponsel tinggi
+ * viewport itu berubah sepanjang gulir. Menggulir ke bawah menyembunyikan bilah
+ * alamat sehingga viewport memanjang, menggulir ke atas memunculkannya lagi
+ * sehingga viewport memendek. Elemen yang dipaku ke setengahnya ikut bergeser
+ * setiap kali, dan pergeserannya sebesar separuh tinggi bilah alamat, cukup
+ * untuk terbaca sebagai menu yang tidak bisa diam.
+ *
+ * `svh` adalah tinggi viewport pada keadaan bilah peramban sedang tampil, dan
+ * nilainya tetap. Ia tidak ikut berubah saat bilahnya menyusut, jadi elemen
+ * yang memakainya berhenti bergerak. Konsekuensinya saat bilah alamat sedang
+ * tersembunyi elemen ini duduk sekitar tiga puluh piksel di atas titik tengah
+ * yang sebenarnya. Diam di tempat yang meleset sedikit jauh lebih baik daripada
+ * tepat di tengah tetapi berpindah setiap kali jari bergerak.
+ *
+ * `top: 50%` ditulis lebih dulu sebagai cadangan. Peramban yang belum mengenal
+ * `svh` membuang baris kedua dan tetap memakai yang pertama.
+ */
+.tengah-layar {
+    top: 50%;
+    top: 50svh;
 }
 
 /*
@@ -184,21 +288,43 @@ html {
  * yang bersaing dengan tepi kartu, dan pada proyektor ruang rapat pola halus
  * justru pecah menjadi bintik.
  *
- * `fixed` dipakai supaya sapuan tidak ikut bergulir. Latar yang bergerak
- * bersama isi membuat halaman panjang terasa ramai, dan itu yang dihindari.
+ * Sapuannya tidak ikut bergulir. Latar yang bergerak bersama isi membuat
+ * halaman panjang terasa ramai, dan itu yang dihindari.
+ *
+ * Digambar sebagai pseudo elemen `position: fixed`, bukan
+ * `background-attachment: fixed` pada bidangnya sendiri. Keduanya terlihat
+ * sama persis, biayanya jauh berbeda. Latar ber-attachment fixed tidak bisa
+ * dinaikkan browser ke lapisan compositor: ia harus digambar ulang seukuran
+ * layar pada setiap frame gulir, dan yang digambar ulang di sini bukan satu
+ * warna melainkan empat lapis gradien. Di ponsel biaya itu jatuh ke CPU dan
+ * gulirnya patah-patah, paling terasa di kartu bertinta yang menumpuk dua lapis
+ * transparan lagi di atasnya. Pseudo elemen yang benar-benar `fixed` digambar
+ * sekali lalu ikut digeser compositor tanpa satu piksel pun digambar ulang.
+ *
+ * `z-index: -1` menaruhnya di belakang seluruh isi. Aman terhadap kepala dan
+ * kaki halaman: keduanya berlatar navy pekat dan berposisi, jadi keduanya tetap
+ * tergambar di atas lapisan ini.
  */
 .latar-eksekutif {
+    position: relative;
+}
+
+.latar-eksekutif::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
     background-color: oklch(0.955 0.012 235);
     background-image:
         radial-gradient(70rem 40rem at 6% -12%, oklch(0.58 0.12 250 / 0.16), transparent 68%),
         radial-gradient(55rem 34rem at 97% -4%, oklch(0.62 0.09 200 / 0.15), transparent 68%),
         radial-gradient(64rem 38rem at 52% 112%, oklch(0.58 0.1 290 / 0.12), transparent 68%),
         linear-gradient(180deg, oklch(0.935 0.019 235) 0%, oklch(0.985 0.005 235) 48%, oklch(0.951 0.014 235) 100%);
-    background-attachment: fixed;
     background-repeat: no-repeat;
 }
 
-.dark .latar-eksekutif {
+.dark .latar-eksekutif::before {
     background-color: oklch(0.16 0.01 250);
     background-image:
         radial-gradient(70rem 40rem at 6% -12%, oklch(0.72 0.11 250 / 0.14), transparent 68%),
@@ -243,9 +369,20 @@ html {
         border-color 260ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-.angkat:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 28px -12px oklch(0.36 0.09 252 / 0.28);
+/*
+ * Hanya untuk perangkat yang benar-benar punya kursor.
+ *
+ * Di layar sentuh `:hover` menyala saat jari menyentuh dan menempel di sana
+ * sampai ada sentuhan berikutnya. Akibatnya kartu topik yang tersenggol saat
+ * mulai menggulir tertinggal dalam keadaan tersorot, dan bayangan sebesar ini
+ * digambar ulang mengikuti gulirnya. Kartunya bisa banyak dalam satu petak,
+ * jadi biayanya menumpuk persis ketika halaman sedang bergerak.
+ */
+@media (hover: hover) {
+    .angkat:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 28px -12px oklch(0.36 0.09 252 / 0.28);
+    }
 }
 
 /*

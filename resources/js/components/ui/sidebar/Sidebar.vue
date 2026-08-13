@@ -35,12 +35,20 @@ const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
         <slot />
     </div>
 
+    <!--
+        `border-sidebar-border` bukan hiasan. Varian sheet memberi sisi kiri
+        `border-r` tanpa warna, jadi warnanya jatuh ke `--border` yang bernilai
+        nyaris putih. Di layar lebar garis itu tidak terlihat karena berdiri di
+        antara navy dan kartu isi yang juga terang. Di ponsel sheet ini
+        mengambang di atas lapisan gelap, dan garis putih setinggi layar muncul
+        menempel di tepi kanannya.
+    -->
     <Sheet v-else-if="isMobile" :open="openMobile" v-bind="$attrs" @update:open="setOpenMobile">
         <SheetContent
             data-sidebar="sidebar"
             data-mobile="true"
             :side="side"
-            class="w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+            class="w-[--sidebar-width] border-sidebar-border bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
             :style="{
                 '--sidebar-width': SIDEBAR_WIDTH_MOBILE,
             }"

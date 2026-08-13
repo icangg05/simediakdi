@@ -11,7 +11,22 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 export function useTemaChart() {
     const gelap = ref(false);
 
+    /**
+     * Kosong saat tidak ada dokumen, yaitu waktu halaman dirender di server.
+     *
+     * Guard `onMounted` tidak menolong di sini. Fungsi ini dipanggil dari
+     * computed `warna`, yang dirantai ke `dasar`, `sumbuNilai`, dan
+     * `sumbuKategori`, lalu ikut dievaluasi begitu halaman menyusun prop
+     * `opsi` untuk `BaseChart`. Itu terjadi saat render, bukan saat pasang.
+     *
+     * Nilai kosongnya tidak pernah sampai ke layar. Renderer grafiknya sendiri
+     * dimuat lewat impor dinamis yang tidak pernah selesai di server, jadi
+     * tidak ada kanvas yang menerimanya, dan seluruh computed ini dihitung
+     * ulang di peramban saat hidrasi dengan token yang sebenarnya.
+     */
     function bacaToken(nama: string): string {
+        if (typeof document === 'undefined') return '';
+
         return getComputedStyle(document.documentElement).getPropertyValue(nama).trim();
     }
 
@@ -43,7 +58,23 @@ export function useTemaChart() {
 
         return {
             negatif: bacaToken('--color-sentimen-negatif'),
-            netral: bacaToken('--color-sentimen-netral'),
+            /*
+             * Potongan netral memakai token batang, bukan nada kuatnya.
+             *
+             * Sama persis dengan alasan di batang bertumpuk, dan di sini
+             * akibatnya lebih terlihat karena potongan donat bersentuhan
+             * langsung tanpa jarak. Nada kuat netral berada pada bobot visual
+             * yang sama dengan potongan hijau di sebelahnya, rasio 1,01, padahal
+             * chromanya tujuh kali lebih rendah. Hasilnya potongan abu pekat
+             * yang terbaca sebagai potongan yang hilang, bukan potongan yang
+             * tenang. Uraian lengkapnya ada di app.css.
+             *
+             * Aman dipakai sebagai warna grafik: `warnaSentimen` hanya mengisi
+             * `itemStyle.color`, tidak pernah menjadi warna teks. Terhadap
+             * kartu putih ia menahan 3,35 dan terhadap kartu gelap 5,03,
+             * keduanya di atas ambang 3,0 untuk unsur bukan teks.
+             */
+            netral: bacaToken('--color-sentimen-netral-batang'),
             positif: bacaToken('--color-sentimen-positif'),
             review: bacaToken('--color-sentimen-review'),
             teks: gelap.value ? '#e5e5e5' : '#404040',

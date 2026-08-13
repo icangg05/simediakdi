@@ -4,7 +4,7 @@ import PilKop from '@/components/domain/PilKop.vue';
 import LayoutAdmin from '@/layouts/LayoutAdmin.vue';
 import { Head, usePoll } from '@inertiajs/vue3';
 import { Check, CircleAlert, Database, FlaskConical, Loader2, Play, Star } from 'lucide-vue-next';
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import TabPelatihan from './TabPelatihan.vue';
 import TabPengujian from './TabPengujian.vue';
 import TabSnapshot from './TabSnapshot.vue';
@@ -35,9 +35,19 @@ type IdTab = (typeof TAB)[number]['id'];
  * seluruh prop. Tanpa hash, membuat snapshot lalu kembali akan melempar
  * pengguna ke tab pertama, dan membatalkan pelatihan melemparnya keluar dari
  * daftar yang barusan ia tatap.
+ *
+ * Dibaca setelah dipasang, bukan saat setup. Halaman ini ikut dirender di
+ * server, tempat `window` tidak ada. Hash juga memang tidak pernah dikirim ke
+ * server dalam permintaan HTTP, jadi tidak ada nilai yang bisa dirender lebih
+ * awal: tab pertama selalu jadi tebakan server, lalu peramban membetulkannya.
  */
-const awal = window.location.hash.replace('#', '') as IdTab;
-const tab = ref<IdTab>(TAB.some((t) => t.id === awal) ? awal : 'snapshot');
+const tab = ref<IdTab>('snapshot');
+
+onMounted(() => {
+    const awal = window.location.hash.replace('#', '') as IdTab;
+
+    if (TAB.some((t) => t.id === awal)) tab.value = awal;
+});
 
 /**
  * Hash ditukar tanpa menyentuh isi history state.

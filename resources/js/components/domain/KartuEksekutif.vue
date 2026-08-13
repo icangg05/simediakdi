@@ -92,7 +92,7 @@ const VARIAN = {
     netral: {
         tile: 'bg-sentimen-netral text-white dark:text-background',
         teks: 'text-sentimen-netral',
-        tinta: 'border-sentimen-netral/25 bg-sentimen-netral-lembut/45',
+        tinta: 'border-sentimen-netral/25 bg-sentimen-netral-bidang/85',
         warna: 'var(--color-sentimen-netral)',
     },
     negatif: {

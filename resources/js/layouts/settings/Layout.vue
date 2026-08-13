@@ -63,7 +63,19 @@ const menu: { judul: string; href: string; ikon: Component }[] = [
     { judul: 'Tampilan', href: '/settings/appearance', ikon: Palette },
 ];
 
-const jalurSekarang = window.location.pathname;
+/**
+ * Jalur diambil dari Inertia, bukan dari `window.location`.
+ *
+ * Dua alasan. Pertama, `window` tidak ada saat halaman dirender di server, dan
+ * membacanya di sini menjatuhkan seluruh halaman `settings`. Kedua, nilai dari
+ * `window.location` dibaca sekali saat setup lalu membeku, sedangkan `page.url`
+ * ikut berubah pada setiap kunjungan Inertia, jadi penanda menu yang sedang
+ * terbuka tidak pernah tertinggal.
+ *
+ * Tanya jawabnya dibuang: `page.url` membawa query string, sedangkan menu di
+ * atas dibandingkan dengan jalur polos.
+ */
+const jalurSekarang = computed(() => page.url.split('?')[0]);
 </script>
 
 <template>

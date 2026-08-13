@@ -14,7 +14,7 @@ import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { Activity, CircleCheck, Cpu, Gauge, Info, KeyRound, Loader2, Lock, Send, Server, Sparkles, Target, TriangleAlert } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 interface Nilai {
     label: string;
@@ -226,12 +226,26 @@ const JEDA_UJI = 15;
 
 const jedaUji = ref<Record<number, number>>({});
 
-setInterval(() => {
-    for (const [id, sisa] of Object.entries(jedaUji.value)) {
-        if (sisa <= 1) delete jedaUji.value[Number(id)];
-        else jedaUji.value[Number(id)] = sisa - 1;
-    }
-}, 1000);
+/*
+ * Dipasang dan dilepas mengikuti umur komponen. Alasannya sama dengan pencacah
+ * di halaman Artikel: badan setup ikut dijalankan di server pada setiap
+ * permintaan, dan timer yang tidak pernah dihentikan menumpuk di proses Node
+ * yang hidup terus.
+ */
+let pencacah: ReturnType<typeof setInterval> | null = null;
+
+onMounted(() => {
+    pencacah = setInterval(() => {
+        for (const [id, sisa] of Object.entries(jedaUji.value)) {
+            if (sisa <= 1) delete jedaUji.value[Number(id)];
+            else jedaUji.value[Number(id)] = sisa - 1;
+        }
+    }, 1000);
+});
+
+onUnmounted(() => {
+    if (pencacah) clearInterval(pencacah);
+});
 
 /**
  * Hasil uji dibaca dari flash session, bukan disimpan di komponen.
@@ -325,6 +339,20 @@ function titikKunci(k: Kunci): string {
  * database dan hanya bisa diisi dari form ini, jadi yang tersisa cuma terisi
  * atau belum.
  */
+/**
+ * Kunci, model, dan prompt Gemini terpisah dari kanal Telegram.
+ *
+ * Keduanya tidak pernah disunting dalam satu duduk: mengganti prompt tidak ada
+ * hubungannya dengan mengganti chat ID. Menumpuknya dalam satu kolom hanya
+ * membuat form Telegram harus dilewati dengan menggulir dua textarea panjang.
+ */
+const tab = ref<'gemini' | 'telegram'>('gemini');
+
+const tabs = [
+    { nilai: 'gemini' as const, label: 'Gemini', ikon: Sparkles },
+    { nilai: 'telegram' as const, label: 'Telegram', ikon: Send },
+];
+
 const asalTelegram = computed(() =>
     props.telegram.siap
         ? 'Kedua nilai tersimpan di database dan dipakai apa adanya oleh pengirim alert.'
@@ -458,80 +486,105 @@ const asalTelegram = computed(() =>
             </KartuSeksi>
         </div>
 
-        <KartuSeksi
-            class="muncul"
-            style="animation-delay: 180ms"
-            judul="Kunci API Gemini"
-            catatan="Satu kunci berarti satu kuota harian. Kunci yang kena limit ditandai beserta waktu pulihnya dan dilewati sampai waktu itu, jadi kuota tidak habis untuk permintaan yang sudah pasti ditolak."
-            rona="ungu"
-            :ikon="KeyRound"
-            :bekerja="sedangUji !== null"
-        >
-            <template #aksi>
-                <span class="hidden rounded-full bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground sm:inline-flex">
-                    <span class="angka">{{ jumlahAktif }}</span>
-                    <span class="px-1">dari</span>
-                    <span class="angka">{{ kunci.length }}</span>
-                    <span class="pl-1">menyala</span>
-                </span>
-            </template>
+        <!--
+            Sakelar tab. Bukan komponen baru: dua tombol dan satu ref sudah
+            cukup, dan menambah pembungkus Tabs berarti empat berkas yang tidak
+            pernah dipakai halaman lain.
+        -->
+        <div role="tablist" aria-label="Kelompok pengaturan" class="muncul inline-flex gap-1 rounded-lg bg-muted p-1" style="animation-delay: 160ms">
+            <button
+                v-for="t in tabs"
+                :key="t.nilai"
+                type="button"
+                role="tab"
+                :aria-selected="tab === t.nilai"
+                :aria-controls="`panel-${t.nilai}`"
+                class="tekan inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                :class="tab === t.nilai ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+                @click="tab = t.nilai"
+            >
+                <component :is="t.ikon" class="size-4" aria-hidden="true" />
+                {{ t.label }}
+            </button>
+        </div>
 
-            <div class="space-y-4">
-                <!-- Waktu reset ditulis sekali di sini, bukan diulang di tiap
+        <div v-show="tab === 'gemini'" id="panel-gemini" role="tabpanel" class="space-y-4">
+            <KartuSeksi
+                class="muncul"
+                style="animation-delay: 180ms"
+                judul="Kunci API Gemini"
+                catatan="Satu kunci berarti satu kuota harian. Kunci yang kena limit ditandai beserta waktu pulihnya dan dilewati sampai waktu itu, jadi kuota tidak habis untuk permintaan yang sudah pasti ditolak."
+                rona="ungu"
+                :ikon="KeyRound"
+                :bekerja="sedangUji !== null"
+            >
+                <template #aksi>
+                    <span class="hidden rounded-full bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground sm:inline-flex">
+                        <span class="angka">{{ jumlahAktif }}</span>
+                        <span class="px-1">dari</span>
+                        <span class="angka">{{ kunci.length }}</span>
+                        <span class="pl-1">menyala</span>
+                    </span>
+                </template>
+
+                <div class="space-y-4">
+                    <!-- Waktu reset ditulis sekali di sini, bukan diulang di tiap
                      kunci. Google memulangkan jatah harian pada pergantian hari
                      kalender waktu Pasifik, jadi seluruh kunci pulih pada detik
                      yang sama betapapun berbedanya jam mereka kehabisan. Yang
                      memang berbeda per kunci adalah limit per menit, dan itu
                      ditempelkan pada kuncinya masing-masing di bawah. -->
-                <div v-if="props.kunci.length > 0" class="flex items-start gap-2.5 rounded-lg bg-muted/50 px-3 py-2.5 text-xs">
-                    <Gauge class="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                    <div class="min-w-0">
-                        <p>
-                            <span class="text-muted-foreground">Kuota harian seluruh kunci reset bersamaan:</span>
-                            <span class="angka font-medium">{{ waktu(props.resetHarian) }}</span>
-                        </p>
-                        <p class="mt-0.5 text-muted-foreground">
-                            Tengah malam waktu Pasifik, jam kalender Google, bukan 24 jam setelah kunci mulai dipakai. Limit per menit pulih sendiri
-                            jauh lebih cepat dan waktunya berbeda tiap kunci, jadi ditampilkan pada kuncinya masing-masing.
-                        </p>
+                    <div v-if="props.kunci.length > 0" class="flex items-start gap-2.5 rounded-lg bg-muted/50 px-3 py-2.5 text-xs">
+                        <Gauge class="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                        <div class="min-w-0">
+                            <p>
+                                <span class="text-muted-foreground">Kuota harian seluruh kunci reset bersamaan:</span>
+                                <span class="angka font-medium">{{ waktu(props.resetHarian) }}</span>
+                            </p>
+                            <p class="mt-0.5 text-muted-foreground">
+                                Tengah malam waktu Pasifik, jam kalender Google, bukan 24 jam setelah kunci mulai dipakai. Limit per menit pulih
+                                sendiri jauh lebih cepat dan waktunya berbeda tiap kunci, jadi ditampilkan pada kuncinya masing-masing.
+                            </p>
+                        </div>
                     </div>
-                </div>
 
-                <div
-                    v-if="props.kunci.length === 0"
-                    class="flex items-start gap-2 rounded-lg bg-sentimen-negatif-lembut p-3 text-sm text-sentimen-negatif ring-1 ring-inset ring-sentimen-negatif/25"
-                >
-                    <TriangleAlert class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                    <p>Belum ada kunci di database, jadi klasifikasi tidak bisa dijalankan sampai ada satu kunci.</p>
-                </div>
+                    <div
+                        v-if="props.kunci.length === 0"
+                        class="flex items-start gap-2 rounded-lg bg-sentimen-negatif-lembut p-3 text-sm text-sentimen-negatif ring-1 ring-inset ring-sentimen-negatif/25"
+                    >
+                        <TriangleAlert class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                        <p>Belum ada kunci di database, jadi klasifikasi tidak bisa dijalankan sampai ada satu kunci.</p>
+                    </div>
 
-                <!-- Rel bertitik. Titiknya menjawab keadaan kunci sebelum
+                    <!-- Rel bertitik. Titiknya menjawab keadaan kunci sebelum
                      kalimat statusnya dibaca, dan itu yang dicari saat halaman
                      ini dibuka karena klasifikasi mendadak berhenti. Relnya
                      menyambungkan titik satu ke titik berikutnya, sehingga
                      daftar tiga kunci terbaca sebagai satu rangkaian giliran,
                      bukan tiga kotak yang kebetulan bertumpuk. -->
-                <ul v-else class="overflow-hidden rounded-lg border">
-                    <li
-                        v-for="(k, i) in props.kunci"
-                        :key="k.id"
-                        class="relative space-y-2 py-3.5 pl-9 pr-3 transition-colors hover:bg-muted/30"
-                        :class="[i > 0 ? 'border-t' : '', i < props.kunci.length - 1 ? 'rel-kunci' : '']"
-                    >
-                        <span
-                            class="absolute left-[0.9375rem] top-[1.15rem] size-2.5 rounded-full ring-2 ring-card"
-                            :class="titikKunci(k)"
-                            aria-hidden="true"
-                        />
+                    <ul v-else class="overflow-hidden rounded-lg border">
+                        <li
+                            v-for="(k, i) in props.kunci"
+                            :key="k.id"
+                            class="relative space-y-2 py-3.5 pl-9 pr-3 transition-colors hover:bg-muted/30"
+                            :class="[i > 0 ? 'border-t' : '', i < props.kunci.length - 1 ? 'rel-kunci' : '']"
+                        >
+                            <span
+                                class="absolute left-[0.9375rem] top-[1.15rem] size-2.5 rounded-full ring-2 ring-card"
+                                :class="titikKunci(k)"
+                                aria-hidden="true"
+                            />
 
-                        <div class="flex flex-wrap items-start justify-between gap-2">
-                            <div class="min-w-0 space-y-0.5">
-                                <p class="text-sm font-medium">{{ k.label }}</p>
-                                <p class="text-xs text-muted-foreground">
-                                    {{ status(k) }}
-                                    <template v-if="k.terakhir_dipakai_at"> &middot; terakhir dipakai {{ waktu(k.terakhir_dipakai_at) }} </template>
-                                </p>
-                                <!-- Sisa kuota sengaja tidak ada di sini.
+                            <div class="flex flex-wrap items-start justify-between gap-2">
+                                <div class="min-w-0 space-y-0.5">
+                                    <p class="text-sm font-medium">{{ k.label }}</p>
+                                    <p class="text-xs text-muted-foreground">
+                                        {{ status(k) }}
+                                        <template v-if="k.terakhir_dipakai_at">
+                                            &middot; terakhir dipakai {{ waktu(k.terakhir_dipakai_at) }}
+                                        </template>
+                                    </p>
+                                    <!-- Sisa kuota sengaja tidak ada di sini.
                                      Menghitungnya menuntut batas yang benar,
                                      dan batas yang benar hanya diketahui untuk
                                      kunci yang pernah kehabisan sampai Google
@@ -547,7 +600,7 @@ const asalTelegram = computed(() =>
                                      penyebut, dan menggambar tebakan sebagai
                                      penyebut adalah cara paling meyakinkan
                                      untuk menulis tebakan sebagai fakta. -->
-                                <!-- Batasnya selalu disebut beserta asalnya.
+                                    <!-- Batasnya selalu disebut beserta asalnya.
                                      Tiga sumber yang mungkin punya derajat yang
                                      berbeda jauh: angka Google adalah fakta,
                                      angka admin adalah keterangan yang bisa
@@ -556,26 +609,26 @@ const asalTelegram = computed(() =>
                                      untuk kunci berbayar. Menuliskan ketiganya
                                      dengan kalimat yang sama membuat yang
                                      terakhir terbaca sepasti yang pertama. -->
-                                <p class="text-xs text-muted-foreground">
-                                    <span class="angka text-foreground">{{ formatAngka(k.rpd_terpakai) }}</span>
-                                    permintaan terkirim hari ini &middot; batas
-                                    <span class="angka text-foreground">{{ formatAngka(k.rpd_berlaku) }}</span>
-                                    <template v-if="k.rpd_google !== null">
-                                        dari Google<template v-if="k.rpd_google_at">, {{ waktu(k.rpd_google_at) }}</template>
-                                    </template>
-                                    <template v-else-if="k.rpd_manual !== null"> yang Anda isi sendiri </template>
-                                    <template v-else> bawaan free tier, Google belum pernah menyebut batas kunci ini </template>
-                                </p>
-                            </div>
+                                    <p class="text-xs text-muted-foreground">
+                                        <span class="angka text-foreground">{{ formatAngka(k.rpd_terpakai) }}</span>
+                                        permintaan terkirim hari ini &middot; batas
+                                        <span class="angka text-foreground">{{ formatAngka(k.rpd_berlaku) }}</span>
+                                        <template v-if="k.rpd_google !== null">
+                                            dari Google<template v-if="k.rpd_google_at">, {{ waktu(k.rpd_google_at) }}</template>
+                                        </template>
+                                        <template v-else-if="k.rpd_manual !== null"> yang Anda isi sendiri </template>
+                                        <template v-else> bawaan free tier, Google belum pernah menyebut batas kunci ini </template>
+                                    </p>
+                                </div>
 
-                            <!-- Satu kunci harus selalu tersisa menyala. Tombol yang akan mematikan
+                                <!-- Satu kunci harus selalu tersisa menyala. Tombol yang akan mematikan
                                  kunci terakhir tidak ditampilkan, karena menghentikan klasifikasi
                                  seluruh sistem bukan yang dimaksud siapa pun yang menekannya. -->
-                            <div class="flex shrink-0 gap-2">
-                                <!-- Menguji memakai kuota sungguhan, jadi tombolnya
+                                <div class="flex shrink-0 gap-2">
+                                    <!-- Menguji memakai kuota sungguhan, jadi tombolnya
                                      terkunci selama permintaannya berjalan supaya
                                      klik kedua tidak mengirim ketukan kedua. -->
-                                <!-- Ketiganya diwarnai berbeda karena akibatnya
+                                    <!-- Ketiganya diwarnai berbeda karena akibatnya
                                      berbeda jauh. Uji hanya memakai satu
                                      permintaan, Matikan menghentikan kunci ini
                                      dipakai, dan Hapus tidak bisa dibatalkan
@@ -589,54 +642,58 @@ const asalTelegram = computed(() =>
                                      memeriksa, kuning berarti menghentikan
                                      sementara, hijau berarti memberlakukan,
                                      merah berarti tidak bisa dibatalkan. -->
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    class="tekan h-8 border-aksen-biru/40 text-xs text-aksen-biru hover:bg-aksen-biru/10 hover:text-aksen-biru"
-                                    :disabled="!bisaDiuji(k)"
-                                    @click="ujiKunci(k)"
-                                >
-                                    <Loader2 v-if="sedangUji === k.id" class="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-                                    <Activity v-else class="size-3.5" aria-hidden="true" />
-                                    <template v-if="sedangUji === k.id">Menguji</template>
-                                    <template v-else-if="jedaUji[k.id]"
-                                        >Tunggu <span class="angka">{{ jedaUji[k.id] }}</span
-                                        >s</template
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        class="tekan h-8 border-aksen-biru/40 text-xs text-aksen-biru hover:bg-aksen-biru/10 hover:text-aksen-biru"
+                                        :disabled="!bisaDiuji(k)"
+                                        @click="ujiKunci(k)"
                                     >
-                                    <template v-else>Uji</template>
-                                </Button>
+                                        <Loader2
+                                            v-if="sedangUji === k.id"
+                                            class="size-3.5 animate-spin motion-reduce:animate-none"
+                                            aria-hidden="true"
+                                        />
+                                        <Activity v-else class="size-3.5" aria-hidden="true" />
+                                        <template v-if="sedangUji === k.id">Menguji</template>
+                                        <template v-else-if="jedaUji[k.id]"
+                                            >Tunggu <span class="angka">{{ jedaUji[k.id] }}</span
+                                            >s</template
+                                        >
+                                        <template v-else>Uji</template>
+                                    </Button>
 
-                                <Button
-                                    v-if="bisaDimatikan(k)"
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    class="tekan h-8 text-xs"
-                                    :class="
-                                        k.aktif
-                                            ? 'border-sentimen-review/40 text-sentimen-review hover:bg-sentimen-review-lembut hover:text-sentimen-review'
-                                            : 'border-sentimen-positif/40 text-sentimen-positif hover:bg-sentimen-positif-lembut hover:text-sentimen-positif'
-                                    "
-                                    @click="ubahAktif(k)"
-                                >
-                                    {{ k.aktif ? 'Matikan' : 'Nyalakan' }}
-                                </Button>
+                                    <Button
+                                        v-if="bisaDimatikan(k)"
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        class="tekan h-8 text-xs"
+                                        :class="
+                                            k.aktif
+                                                ? 'border-sentimen-review/40 text-sentimen-review hover:bg-sentimen-review-lembut hover:text-sentimen-review'
+                                                : 'border-sentimen-positif/40 text-sentimen-positif hover:bg-sentimen-positif-lembut hover:text-sentimen-positif'
+                                        "
+                                        @click="ubahAktif(k)"
+                                    >
+                                        {{ k.aktif ? 'Matikan' : 'Nyalakan' }}
+                                    </Button>
 
-                                <Button
-                                    v-if="bisaDihapus(k)"
-                                    type="button"
-                                    variant="destructive"
-                                    size="sm"
-                                    class="tekan h-8 text-xs"
-                                    @click="hapusKunci(k)"
-                                >
-                                    Hapus
-                                </Button>
+                                    <Button
+                                        v-if="bisaDihapus(k)"
+                                        type="button"
+                                        variant="destructive"
+                                        size="sm"
+                                        class="tekan h-8 text-xs"
+                                        @click="hapusKunci(k)"
+                                    >
+                                        Hapus
+                                    </Button>
+                                </div>
                             </div>
-                        </div>
 
-                        <!-- Kotak batas harian.
+                            <!-- Kotak batas harian.
                              Hanya ditampilkan selama Google belum menyebut
                              angkanya sendiri. Begitu 429 harian pernah terjadi,
                              angka resminya masuk dan mengambil alih, dan kotak
@@ -649,26 +706,26 @@ const asalTelegram = computed(() =>
                              memberitahukan jatahnya, dan tanpa kotak ini ia
                              terkunci selamanya di 500 dengan satu-satunya
                              gejala berupa antrean yang berjalan pelan. -->
-                        <form v-if="k.rpd_google === null" class="flex flex-wrap items-center gap-2" @submit.prevent="simpanBatas(k)">
-                            <Label :for="`rpd-${k.id}`" class="text-xs font-normal text-muted-foreground">Batas harian kunci ini</Label>
-                            <Input
-                                :id="`rpd-${k.id}`"
-                                :model-value="batasHarian(k)"
-                                type="number"
-                                min="1"
-                                max="100000"
-                                inputmode="numeric"
-                                class="angka h-8 w-28 text-sm"
-                                placeholder="500"
-                                @update:model-value="batasKetikan[k.id] = String($event)"
-                            />
-                            <Button type="submit" variant="outline" size="sm" class="tekan h-8 text-xs">Simpan</Button>
-                            <span class="text-xs text-muted-foreground">
-                                Isi kalau tier kunci ini bukan free. Kosongkan untuk memakai angka bawaan.
-                            </span>
-                        </form>
+                            <form v-if="k.rpd_google === null" class="flex flex-wrap items-center gap-2" @submit.prevent="simpanBatas(k)">
+                                <Label :for="`rpd-${k.id}`" class="text-xs font-normal text-muted-foreground">Batas harian kunci ini</Label>
+                                <Input
+                                    :id="`rpd-${k.id}`"
+                                    :model-value="batasHarian(k)"
+                                    type="number"
+                                    min="1"
+                                    max="100000"
+                                    inputmode="numeric"
+                                    class="angka h-8 w-28 text-sm"
+                                    placeholder="500"
+                                    @update:model-value="batasKetikan[k.id] = String($event)"
+                                />
+                                <Button type="submit" variant="outline" size="sm" class="tekan h-8 text-xs">Simpan</Button>
+                                <span class="text-xs text-muted-foreground">
+                                    Isi kalau tier kunci ini bukan free. Kosongkan untuk memakai angka bawaan.
+                                </span>
+                            </form>
 
-                        <!-- Galat terakhir yang belum tercabut oleh pemakaian
+                            <!-- Galat terakhir yang belum tercabut oleh pemakaian
                              yang berhasil. Menempel pada kuncinya sendiri, bukan
                              di log: dengan tiga kunci, satu kunci yang salah
                              ketik hanya terbaca sebagai "klasifikasi kadang
@@ -681,230 +738,232 @@ const asalTelegram = computed(() =>
                              sama. Tanpa penjaga itu kalimat galat yang sama
                              muncul dua kali bertumpuk persis setelah tombol Uji
                              ditekan. -->
-                        <div
-                            v-if="k.galat_terakhir && !adaHasilUji(k)"
-                            class="rounded-md bg-sentimen-negatif-lembut p-2 text-xs ring-1 ring-inset ring-sentimen-negatif/25"
-                        >
-                            <p class="font-medium text-sentimen-negatif">
-                                Galat terakhir
-                                <span v-if="k.galat_at" class="font-normal opacity-70">&middot; {{ waktu(k.galat_at) }}</span>
-                            </p>
-                            <p class="mt-1 break-words text-sentimen-negatif">{{ k.galat_terakhir }}</p>
-                            <p class="mt-1 text-muted-foreground">Peringatan ini hilang sendiri begitu kunci berhasil dipakai lagi.</p>
-                        </div>
+                            <div
+                                v-if="k.galat_terakhir && !adaHasilUji(k)"
+                                class="rounded-md bg-sentimen-negatif-lembut p-2 text-xs ring-1 ring-inset ring-sentimen-negatif/25"
+                            >
+                                <p class="font-medium text-sentimen-negatif">
+                                    Galat terakhir
+                                    <span v-if="k.galat_at" class="font-normal opacity-70">&middot; {{ waktu(k.galat_at) }}</span>
+                                </p>
+                                <p class="mt-1 break-words text-sentimen-negatif">{{ k.galat_terakhir }}</p>
+                                <p class="mt-1 text-muted-foreground">Peringatan ini hilang sendiri begitu kunci berhasil dipakai lagi.</p>
+                            </div>
 
-                        <!-- Hasil uji ditempel di bawah kuncinya sendiri, bukan di
+                            <!-- Hasil uji ditempel di bawah kuncinya sendiri, bukan di
                              toast. Jawaban model dan kalimat galat dari Google
                              adalah isi yang ingin dibaca dan dibandingkan, bukan
                              pemberitahuan yang lewat lalu hilang. -->
-                        <div
-                            v-if="uji && uji.id === k.id"
-                            class="rounded-md p-2 text-xs ring-1 ring-inset"
-                            :class="
-                                uji.berhasil
-                                    ? 'bg-sentimen-positif-lembut ring-sentimen-positif/25'
-                                    : 'bg-sentimen-negatif-lembut ring-sentimen-negatif/25'
-                            "
-                        >
-                            <p class="font-medium" :class="uji.berhasil ? 'text-sentimen-positif' : 'text-sentimen-negatif'">
-                                <!-- Jawaban yang kembali tetapi tidak memuat label
+                            <div
+                                v-if="uji && uji.id === k.id"
+                                class="rounded-md p-2 text-xs ring-1 ring-inset"
+                                :class="
+                                    uji.berhasil
+                                        ? 'bg-sentimen-positif-lembut ring-sentimen-positif/25'
+                                        : 'bg-sentimen-negatif-lembut ring-sentimen-negatif/25'
+                                "
+                            >
+                                <p class="font-medium" :class="uji.berhasil ? 'text-sentimen-positif' : 'text-sentimen-negatif'">
+                                    <!-- Jawaban yang kembali tetapi tidak memuat label
                                      kunci bukan kegagalan kunci. Paketnya sampai,
                                      yang meleset instruksinya, dan menyebutnya
                                      "gagal dipakai" akan membuat admin mengganti
                                      kunci yang sebenarnya baik. -->
-                                {{ uji.berhasil ? 'Kunci berfungsi' : uji.jawaban ? 'Jawaban tidak sesuai' : 'Kunci gagal dipakai' }}
-                                <span class="angka font-normal opacity-70">({{ formatAngka(uji.ms) }} ms)</span>
-                            </p>
-                            <p v-if="uji.jawaban" class="mt-1 text-muted-foreground">
-                                Jawaban Gemini: <span class="text-foreground">{{ uji.jawaban }}</span>
-                            </p>
-                            <p v-if="uji.galat" class="mt-1 break-words text-sentimen-negatif">
-                                {{ uji.galat }}
-                            </p>
+                                    {{ uji.berhasil ? 'Kunci berfungsi' : uji.jawaban ? 'Jawaban tidak sesuai' : 'Kunci gagal dipakai' }}
+                                    <span class="angka font-normal opacity-70">({{ formatAngka(uji.ms) }} ms)</span>
+                                </p>
+                                <p v-if="uji.jawaban" class="mt-1 text-muted-foreground">
+                                    Jawaban Gemini: <span class="text-foreground">{{ uji.jawaban }}</span>
+                                </p>
+                                <p v-if="uji.galat" class="mt-1 break-words text-sentimen-negatif">
+                                    {{ uji.galat }}
+                                </p>
+                            </div>
+                        </li>
+                    </ul>
+
+                    <form class="flex flex-wrap items-end gap-2 border-t pt-4" @submit.prevent="tambahKunci">
+                        <div class="grid flex-1 gap-1.5">
+                            <Label for="label-kunci">Label</Label>
+                            <Input id="label-kunci" v-model="formKunci.label" placeholder="Akun cadangan 1" />
+                            <InputError :message="formKunci.errors.label" />
                         </div>
-                    </li>
-                </ul>
+                        <div class="grid flex-[2] gap-1.5">
+                            <Label for="isi-kunci">Kunci API</Label>
+                            <Input id="isi-kunci" v-model="formKunci.kunci" type="password" autocomplete="off" placeholder="AIza..." />
+                            <InputError :message="formKunci.errors.kunci" />
+                        </div>
+                        <Button type="submit" class="tekan" :disabled="formKunci.processing">
+                            <Loader2 v-if="formKunci.processing" class="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                            Tambah kunci
+                        </Button>
+                    </form>
 
-                <form class="flex flex-wrap items-end gap-2 border-t pt-4" @submit.prevent="tambahKunci">
-                    <div class="grid flex-1 gap-1.5">
-                        <Label for="label-kunci">Label</Label>
-                        <Input id="label-kunci" v-model="formKunci.label" placeholder="Akun cadangan 1" />
-                        <InputError :message="formKunci.errors.label" />
-                    </div>
-                    <div class="grid flex-[2] gap-1.5">
-                        <Label for="isi-kunci">Kunci API</Label>
-                        <Input id="isi-kunci" v-model="formKunci.kunci" type="password" autocomplete="off" placeholder="AIza..." />
-                        <InputError :message="formKunci.errors.kunci" />
-                    </div>
-                    <Button type="submit" class="tekan" :disabled="formKunci.processing">
-                        <Loader2 v-if="formKunci.processing" class="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-                        Tambah kunci
-                    </Button>
-                </form>
+                    <p class="flex items-start gap-1.5 text-xs text-muted-foreground">
+                        <Lock class="mt-0.5 size-3 shrink-0" aria-hidden="true" />
+                        Kunci disimpan terenkripsi dan tidak pernah ditampilkan kembali. Kunci yang salah tempel harus dihapus lalu ditambahkan ulang.
+                    </p>
+                </div>
+            </KartuSeksi>
 
-                <p class="flex items-start gap-1.5 text-xs text-muted-foreground">
-                    <Lock class="mt-0.5 size-3 shrink-0" aria-hidden="true" />
-                    Kunci disimpan terenkripsi dan tidak pernah ditampilkan kembali. Kunci yang salah tempel harus dihapus lalu ditambahkan ulang.
-                </p>
-            </div>
-        </KartuSeksi>
-
-        <KartuSeksi
-            class="muncul"
-            style="animation-delay: 220ms"
-            judul="Klasifikasi"
-            catatan="Menyimpan pengaturan di sini tidak mengubah artikel yang sudah dinilai. Setiap hasil menyimpan nama penilai dan versinya sendiri, jadi hasil lama dan hasil baru tetap bisa dibedakan di halaman Berita."
-            rona="toska"
-            :ikon="Sparkles"
-        >
-            <form class="space-y-5" @submit.prevent="simpanAi">
-                <div class="grid gap-2">
-                    <Label>Penilai relevansi</Label>
-                    <div role="radiogroup" aria-label="Penilai relevansi" class="grid gap-2 sm:grid-cols-2">
-                        <button
-                            v-for="p in penyediaRelevansi"
-                            :key="p.nilai"
-                            type="button"
-                            role="radio"
-                            :aria-checked="formAi.penyedia_relevansi === p.nilai"
-                            :disabled="p.nilai === 'indobert' && !bisaIndoBert"
-                            class="tekan relative flex flex-col gap-1.5 rounded-lg border p-3 pr-9 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            :class="formAi.penyedia_relevansi === p.nilai ? p.kelas : 'hover:bg-muted/50'"
-                            @click="formAi.penyedia_relevansi = p.nilai"
-                        >
-                            <!-- Penanda kedua di sudut, supaya pilihan yang
+            <KartuSeksi
+                class="muncul"
+                style="animation-delay: 220ms"
+                judul="Klasifikasi"
+                catatan="Menyimpan pengaturan di sini tidak mengubah artikel yang sudah dinilai. Setiap hasil menyimpan nama penilai dan versinya sendiri, jadi hasil lama dan hasil baru tetap bisa dibedakan di halaman Berita."
+                rona="toska"
+                :ikon="Sparkles"
+            >
+                <form class="space-y-5" @submit.prevent="simpanAi">
+                    <div class="grid gap-2">
+                        <Label>Penilai relevansi</Label>
+                        <div role="radiogroup" aria-label="Penilai relevansi" class="grid gap-2 sm:grid-cols-2">
+                            <button
+                                v-for="p in penyediaRelevansi"
+                                :key="p.nilai"
+                                type="button"
+                                role="radio"
+                                :aria-checked="formAi.penyedia_relevansi === p.nilai"
+                                :disabled="p.nilai === 'indobert' && !bisaIndoBert"
+                                class="tekan relative flex flex-col gap-1.5 rounded-lg border p-3 pr-9 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                :class="formAi.penyedia_relevansi === p.nilai ? p.kelas : 'hover:bg-muted/50'"
+                                @click="formAi.penyedia_relevansi = p.nilai"
+                            >
+                                <!-- Penanda kedua di sudut, supaya pilihan yang
                                  sedang berlaku tidak hanya dinyatakan oleh
                                  rona latarnya. Warna saja tidak terbaca semua
                                  orang, dan pada proyektor ruang rapat selisih
                                  lima persen latar hilang sama sekali. -->
-                            <CircleCheck
-                                v-if="formAi.penyedia_relevansi === p.nilai"
-                                class="absolute right-3 top-3 size-4"
-                                :class="p.ikonKelas"
-                                aria-hidden="true"
-                            />
+                                <CircleCheck
+                                    v-if="formAi.penyedia_relevansi === p.nilai"
+                                    class="absolute right-3 top-3 size-4"
+                                    :class="p.ikonKelas"
+                                    aria-hidden="true"
+                                />
 
-                            <span class="grid size-7 place-items-center rounded-md ring-1 ring-inset" :class="p.tileKelas">
-                                <component :is="p.ikon" class="size-4 shrink-0" aria-hidden="true" />
-                            </span>
-                            <span class="text-sm font-medium">{{ p.label }}</span>
-                            <span class="text-pretty text-xs leading-relaxed text-muted-foreground">{{ p.keterangan }}</span>
-                        </button>
-                    </div>
+                                <span class="grid size-7 place-items-center rounded-md ring-1 ring-inset" :class="p.tileKelas">
+                                    <component :is="p.ikon" class="size-4 shrink-0" aria-hidden="true" />
+                                </span>
+                                <span class="text-sm font-medium">{{ p.label }}</span>
+                                <span class="text-pretty text-xs leading-relaxed text-muted-foreground">{{ p.keterangan }}</span>
+                            </button>
+                        </div>
 
-                    <!-- Nama modelnya disebut, bukan sekadar "aktif".
+                        <!-- Nama modelnya disebut, bukan sekadar "aktif".
                          Halaman Model Relevansi bisa berisi belasan
                          pelatihan dengan metrik yang berbeda jauh, dan yang
                          perlu diketahui sebelum menyerahkan keputusan buang
                          atau simpan adalah yang mana di antara mereka. -->
-                    <p v-if="props.modelRelevansiAktif" class="text-xs text-muted-foreground">
-                        Model yang akan bekerja: <span class="font-medium text-foreground">{{ props.modelRelevansiAktif }}</span
-                        >. Ganti lewat halaman Model Relevansi. Sentimen tetap dinilai Gemini.
-                    </p>
-                    <p v-else class="text-xs text-muted-foreground">
-                        IndoBERT belum bisa dipilih. Latih lalu aktifkan satu model di halaman Model Relevansi terlebih dahulu.
-                    </p>
+                        <p v-if="props.modelRelevansiAktif" class="text-xs text-muted-foreground">
+                            Model yang akan bekerja: <span class="font-medium text-foreground">{{ props.modelRelevansiAktif }}</span
+                            >. Ganti lewat halaman Model Relevansi. Sentimen tetap dinilai Gemini.
+                        </p>
+                        <p v-else class="text-xs text-muted-foreground">
+                            IndoBERT belum bisa dipilih. Latih lalu aktifkan satu model di halaman Model Relevansi terlebih dahulu.
+                        </p>
 
-                    <!-- Antrean tidak perlu dihentikan saat opsi ini
+                        <!-- Antrean tidak perlu dihentikan saat opsi ini
                          diganti. Job hanya membawa id barisnya, dan
                          penyedianya dibaca ulang saat job benar-benar
                          dieksekusi. Ditulis di layar karena inilah
                          pertanyaan pertama yang muncul sebelum menekan
                          tombol simpan. -->
-                    <p class="text-xs text-muted-foreground">
-                        Pergantian berlaku untuk artikel yang belum dinilai, termasuk yang sedang mengantre. Artikel yang sudah dinilai tidak berubah
-                        dan tetap bertanda penilai lamanya.
-                    </p>
-                    <InputError :message="formAi.errors.penyedia_relevansi" />
-                </div>
-
-                <div class="grid gap-1.5">
-                    <Label for="model">Model Gemini</Label>
-                    <Input id="model" v-model="formAi.model" placeholder="gemini-3.5-flash-lite" />
-                    <InputError :message="formAi.errors.model" />
-                </div>
-
-                <section class="space-y-3">
-                    <div class="flex items-center gap-2">
-                        <h3 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Prompt relevansi</h3>
-                        <span class="tumbuh h-px flex-1 bg-gradient-to-r from-border to-transparent" aria-hidden="true"></span>
-                    </div>
-
-                    <div class="grid gap-1.5">
-                        <Label for="versi-relevansi">Label versi</Label>
-                        <Input id="versi-relevansi" v-model="formAi.versi_prompt_relevansi" placeholder="relevance-v2" />
                         <p class="text-xs text-muted-foreground">
-                            Sidik isi prompt ditambahkan otomatis, jadi lupa menaikkan label tidak membuat dua prompt berbeda tercatat dengan versi
-                            yang sama.
+                            Pergantian berlaku untuk artikel yang belum dinilai, termasuk yang sedang mengantre. Artikel yang sudah dinilai tidak
+                            berubah dan tetap bertanda penilai lamanya.
                         </p>
-                        <InputError :message="formAi.errors.versi_prompt_relevansi" />
+                        <InputError :message="formAi.errors.penyedia_relevansi" />
                     </div>
 
                     <div class="grid gap-1.5">
-                        <Label for="prompt-relevansi" class="sr-only">Isi prompt relevansi</Label>
-                        <!-- Monospace di sini bukan kostum. Prompt dibaca
+                        <Label for="model">Model Gemini</Label>
+                        <Input id="model" v-model="formAi.model" placeholder="gemini-3.5-flash-lite" />
+                        <InputError :message="formAi.errors.model" />
+                    </div>
+
+                    <section class="space-y-3">
+                        <div class="flex items-center gap-2">
+                            <h3 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Prompt relevansi</h3>
+                            <span class="tumbuh h-px flex-1 bg-gradient-to-r from-border to-transparent" aria-hidden="true"></span>
+                        </div>
+
+                        <div class="grid gap-1.5">
+                            <Label for="versi-relevansi">Label versi</Label>
+                            <Input id="versi-relevansi" v-model="formAi.versi_prompt_relevansi" placeholder="relevance-v2" />
+                            <p class="text-xs text-muted-foreground">
+                                Sidik isi prompt ditambahkan otomatis, jadi lupa menaikkan label tidak membuat dua prompt berbeda tercatat dengan
+                                versi yang sama.
+                            </p>
+                            <InputError :message="formAi.errors.versi_prompt_relevansi" />
+                        </div>
+
+                        <div class="grid gap-1.5">
+                            <Label for="prompt-relevansi" class="sr-only">Isi prompt relevansi</Label>
+                            <!-- Monospace di sini bukan kostum. Prompt dibaca
                              dan disunting sebagai kode: barisnya bernomor
                              dalam kepala penulisnya, dan spasi di dalam
                              contoh keluaran JSON-nya berarti. -->
-                        <textarea
-                            id="prompt-relevansi"
-                            v-model="formAi.prompt_relevansi"
-                            rows="16"
-                            class="rounded-md border border-input bg-muted/30 px-3 py-2 font-mono text-xs leading-relaxed outline-none transition-colors focus-visible:border-ring focus-visible:bg-background focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                        />
-                        <InputError :message="formAi.errors.prompt_relevansi" />
-                    </div>
-                </section>
+                            <textarea
+                                id="prompt-relevansi"
+                                v-model="formAi.prompt_relevansi"
+                                rows="16"
+                                class="rounded-md border border-input bg-muted/30 px-3 py-2 font-mono text-xs leading-relaxed outline-none transition-colors focus-visible:border-ring focus-visible:bg-background focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                            />
+                            <InputError :message="formAi.errors.prompt_relevansi" />
+                        </div>
+                    </section>
 
-                <section class="space-y-3">
-                    <div class="flex items-center gap-2">
-                        <h3 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Prompt sentimen</h3>
-                        <span class="tumbuh h-px flex-1 bg-gradient-to-r from-border to-transparent" aria-hidden="true"></span>
-                    </div>
+                    <section class="space-y-3">
+                        <div class="flex items-center gap-2">
+                            <h3 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Prompt sentimen</h3>
+                            <span class="tumbuh h-px flex-1 bg-gradient-to-r from-border to-transparent" aria-hidden="true"></span>
+                        </div>
 
-                    <div class="grid gap-1.5">
-                        <Label for="versi-sentimen">Label versi</Label>
-                        <Input id="versi-sentimen" v-model="formAi.versi_prompt_sentimen" placeholder="sentiment-v2" />
-                        <InputError :message="formAi.errors.versi_prompt_sentimen" />
-                    </div>
+                        <div class="grid gap-1.5">
+                            <Label for="versi-sentimen">Label versi</Label>
+                            <Input id="versi-sentimen" v-model="formAi.versi_prompt_sentimen" placeholder="sentiment-v2" />
+                            <InputError :message="formAi.errors.versi_prompt_sentimen" />
+                        </div>
 
-                    <div class="grid gap-1.5">
-                        <Label for="prompt-sentimen" class="sr-only">Isi prompt sentimen</Label>
-                        <textarea
-                            id="prompt-sentimen"
-                            v-model="formAi.prompt_sentimen"
-                            rows="16"
-                            class="rounded-md border border-input bg-muted/30 px-3 py-2 font-mono text-xs leading-relaxed outline-none transition-colors focus-visible:border-ring focus-visible:bg-background focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                        />
-                        <InputError :message="formAi.errors.prompt_sentimen" />
-                    </div>
-                </section>
+                        <div class="grid gap-1.5">
+                            <Label for="prompt-sentimen" class="sr-only">Isi prompt sentimen</Label>
+                            <textarea
+                                id="prompt-sentimen"
+                                v-model="formAi.prompt_sentimen"
+                                rows="16"
+                                class="rounded-md border border-input bg-muted/30 px-3 py-2 font-mono text-xs leading-relaxed outline-none transition-colors focus-visible:border-ring focus-visible:bg-background focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                            />
+                            <InputError :message="formAi.errors.prompt_sentimen" />
+                        </div>
+                    </section>
 
-                <div class="border-t pt-4">
-                    <Button type="submit" class="tekan" :disabled="formAi.processing">
-                        <Loader2 v-if="formAi.processing" class="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-                        Simpan pengaturan
-                    </Button>
-                </div>
-            </form>
-        </KartuSeksi>
+                    <div class="border-t pt-4">
+                        <Button type="submit" class="tekan" :disabled="formAi.processing">
+                            <Loader2 v-if="formAi.processing" class="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                            Simpan pengaturan
+                        </Button>
+                    </div>
+                </form>
+            </KartuSeksi>
+        </div>
 
         <!--
             Kanal alert. Navy merek karena inilah satu-satunya kartu di halaman
             ini yang mengirim sesuatu keluar atas nama Pemkot, bukan menyetel
             sesuatu di dalam sistem.
         -->
-        <KartuSeksi
-            class="muncul"
-            style="animation-delay: 260ms"
-            judul="Notifikasi Telegram"
-            catatan="Telegram satu-satunya kanal alert. Aturan yang terpicu dikirim ke grup ini, dan selama kredensialnya belum lengkap aturan tetap berjalan tanpa satu pun pesan yang sampai."
-            rona="brand"
-            :ikon="Send"
-            :bekerja="sedangUjiTelegram"
-        >
-            <div class="space-y-5">
-                <!--
+        <div v-show="tab === 'telegram'" id="panel-telegram" role="tabpanel" class="space-y-4">
+            <KartuSeksi
+                class="muncul"
+                style="animation-delay: 260ms"
+                judul="Notifikasi Telegram"
+                catatan="Telegram satu-satunya kanal alert. Aturan yang terpicu dikirim ke grup ini, dan selama kredensialnya belum lengkap aturan tetap berjalan tanpa satu pun pesan yang sampai."
+                rona="brand"
+                :ikon="Send"
+                :bekerja="sedangUjiTelegram"
+            >
+                <div class="space-y-5">
+                    <!--
                     Keadaan kanal, lengkap dengan asal nilainya.
 
                     Ditaruh di atas formnya, bukan di bawah, karena inilah yang
@@ -912,117 +971,122 @@ const asalTelegram = computed(() =>
                     terkirim atau tidak. Formnya baru dibaca setelah jawabannya
                     ternyata tidak.
                 -->
-                <div
-                    class="flex items-start gap-3 rounded-lg p-3 text-sm ring-1 ring-inset"
-                    :class="
-                        telegram.siap ? 'bg-sentimen-positif-lembut ring-sentimen-positif/25' : 'bg-sentimen-negatif-lembut ring-sentimen-negatif/25'
-                    "
-                >
-                    <span class="relative mt-0.5 shrink-0">
-                        <component
-                            :is="telegram.siap ? CircleCheck : TriangleAlert"
-                            class="size-4"
-                            :class="telegram.siap ? 'text-sentimen-positif' : 'text-sentimen-negatif'"
-                            aria-hidden="true"
-                        />
-                        <!-- Denyut hanya untuk keadaan yang benar-benar rusak,
+                    <div
+                        class="flex items-start gap-3 rounded-lg p-3 text-sm ring-1 ring-inset"
+                        :class="
+                            telegram.siap
+                                ? 'bg-sentimen-positif-lembut ring-sentimen-positif/25'
+                                : 'bg-sentimen-negatif-lembut ring-sentimen-negatif/25'
+                        "
+                    >
+                        <span class="relative mt-0.5 shrink-0">
+                            <component
+                                :is="telegram.siap ? CircleCheck : TriangleAlert"
+                                class="size-4"
+                                :class="telegram.siap ? 'text-sentimen-positif' : 'text-sentimen-negatif'"
+                                aria-hidden="true"
+                            />
+                            <!-- Denyut hanya untuk keadaan yang benar-benar rusak,
                              sama dengan aturan di IndikatorKesehatan. Kanal
                              yang siap tidak berdenyut, karena gerak yang
                              berjalan pada keadaan normal akan dipelajari mata
                              sebagai latar lalu berhenti berfungsi saat
                              keadaannya benar-benar berubah. -->
-                        <span
-                            v-if="!telegram.siap"
-                            class="denyut absolute -right-1 -top-1 size-2 rounded-full bg-sentimen-negatif"
-                            aria-hidden="true"
-                        ></span>
-                    </span>
+                            <span
+                                v-if="!telegram.siap"
+                                class="denyut absolute -right-1 -top-1 size-2 rounded-full bg-sentimen-negatif"
+                                aria-hidden="true"
+                            ></span>
+                        </span>
 
-                    <div class="min-w-0 space-y-1">
-                        <p class="font-medium" :class="telegram.siap ? 'text-sentimen-positif' : 'text-sentimen-negatif'">
-                            {{ telegram.siap ? 'Kanal siap dipakai' : 'Kanal belum terkonfigurasi' }}
-                        </p>
-                        <p class="text-pretty text-xs leading-relaxed text-muted-foreground">{{ asalTelegram }}</p>
-                        <p class="text-xs text-muted-foreground">
-                            Token bot:
-                            <span class="font-medium text-foreground">{{ telegram.token_terisi ? 'terisi' : 'belum diisi' }}</span>
-                            &middot; Chat ID:
-                            <span class="angka font-medium text-foreground">{{ telegram.chat_id || 'belum diisi' }}</span>
-                        </p>
-                    </div>
-                </div>
-
-                <form class="space-y-4" @submit.prevent="simpanTelegram">
-                    <div class="grid gap-4 sm:grid-cols-2">
-                        <div class="grid gap-1.5">
-                            <Label for="telegram-token">Token bot</Label>
-                            <Input
-                                id="telegram-token"
-                                v-model="formTelegram.telegram_token"
-                                type="password"
-                                autocomplete="off"
-                                placeholder="123456789:AAH..."
-                            />
-                            <p class="text-xs leading-relaxed text-muted-foreground">
-                                Dibuat lewat @BotFather di Telegram. Disimpan terenkripsi dan tidak pernah ditampilkan kembali, jadi
-                                <template v-if="telegram.token_terisi">
-                                    biarkan kosong kalau Anda hanya ingin mengganti chat ID. Token yang tersimpan tetap dipakai.
-                                </template>
-                                <template v-else> token yang salah tempel harus diisi ulang, bukan disunting. </template>
+                        <div class="min-w-0 space-y-1">
+                            <p class="font-medium" :class="telegram.siap ? 'text-sentimen-positif' : 'text-sentimen-negatif'">
+                                {{ telegram.siap ? 'Kanal siap dipakai' : 'Kanal belum terkonfigurasi' }}
                             </p>
-                            <InputError :message="formTelegram.errors.telegram_token" />
-                        </div>
-
-                        <div class="grid gap-1.5">
-                            <Label for="telegram-chat-id">Chat ID tujuan</Label>
-                            <Input id="telegram-chat-id" v-model="formTelegram.telegram_chat_id" class="angka" placeholder="-1001234567890" />
-                            <p class="text-xs leading-relaxed text-muted-foreground">
-                                Undang bot ke grup Diskominfo lebih dulu, lalu ambil chat ID-nya. Grup memakai angka negatif panjang, kanal publik
-                                memakai @namakanal. Mengosongkannya menghentikan alert sampai diisi lagi.
+                            <p class="text-pretty text-xs leading-relaxed text-muted-foreground">{{ asalTelegram }}</p>
+                            <p class="text-xs text-muted-foreground">
+                                Token bot:
+                                <span class="font-medium text-foreground">{{ telegram.token_terisi ? 'terisi' : 'belum diisi' }}</span>
+                                &middot; Chat ID:
+                                <span class="angka font-medium text-foreground">{{ telegram.chat_id || 'belum diisi' }}</span>
                             </p>
-                            <InputError :message="formTelegram.errors.telegram_chat_id" />
                         </div>
                     </div>
 
-                    <div class="flex flex-wrap items-center gap-2 border-t pt-4">
-                        <Button type="submit" class="tekan" :disabled="formTelegram.processing">
-                            <Loader2 v-if="formTelegram.processing" class="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-                            Simpan pengaturan Telegram
-                        </Button>
+                    <form class="space-y-4" @submit.prevent="simpanTelegram">
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div class="grid gap-1.5">
+                                <Label for="telegram-token">Token bot</Label>
+                                <Input
+                                    id="telegram-token"
+                                    v-model="formTelegram.telegram_token"
+                                    type="password"
+                                    autocomplete="off"
+                                    placeholder="123456789:AAH..."
+                                />
+                                <p class="text-xs leading-relaxed text-muted-foreground">
+                                    Dibuat lewat @BotFather di Telegram. Disimpan terenkripsi dan tidak pernah ditampilkan kembali, jadi
+                                    <template v-if="telegram.token_terisi">
+                                        biarkan kosong kalau Anda hanya ingin mengganti chat ID. Token yang tersimpan tetap dipakai.
+                                    </template>
+                                    <template v-else> token yang salah tempel harus diisi ulang, bukan disunting. </template>
+                                </p>
+                                <InputError :message="formTelegram.errors.telegram_token" />
+                            </div>
 
-                        <!-- Mengirim notifikasi sungguhan ke grup, berisi
+                            <div class="grid gap-1.5">
+                                <Label for="telegram-chat-id">Chat ID tujuan</Label>
+                                <Input id="telegram-chat-id" v-model="formTelegram.telegram_chat_id" class="angka" placeholder="-1001234567890" />
+                                <p class="text-xs leading-relaxed text-muted-foreground">
+                                    Undang bot ke grup Diskominfo lebih dulu, lalu ambil chat ID-nya. Grup memakai angka negatif panjang, kanal publik
+                                    memakai @namakanal. Mengosongkannya menghentikan alert sampai diisi lagi.
+                                </p>
+                                <InputError :message="formTelegram.errors.telegram_chat_id" />
+                            </div>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2 border-t pt-4">
+                            <Button type="submit" class="tekan" :disabled="formTelegram.processing">
+                                <Loader2 v-if="formTelegram.processing" class="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                                Simpan pengaturan Telegram
+                            </Button>
+
+                            <!-- Mengirim notifikasi sungguhan ke grup, berisi
                              berita negatif terakhir di arsip. Kalimat tetap
                              hanya membuktikan token dan chat ID benar, sedangkan
                              yang perlu dilihat sebelum alert menyala adalah
                              bentuk pesannya di layar ponsel. Karena itu ia tidak
                              mendapat bidang penuh yang berarti aksi utama. -->
-                        <!-- Navy penuh sebagai teks di atas kartu gelap
+                            <!-- Navy penuh sebagai teks di atas kartu gelap
                              tenggelam sama sekali, jadi mode gelap memakai
                              putih. Keadaan hover ikut disebut sendiri: urutan
                              varian Tailwind tidak menjamin `dark` mengalahkan
                              `hover`, dan tanpa baris itu tombolnya berbalik
                              jadi navy di atas navy tepat saat kursor
                              menyentuhnya. -->
-                        <Button
-                            type="button"
-                            variant="outline"
-                            class="tekan border-brand/40 text-brand hover:bg-brand-lembut hover:text-brand dark:text-white dark:hover:text-white"
-                            :disabled="!telegram.siap || sedangUjiTelegram"
-                            @click="ujiTelegram"
-                        >
-                            <Loader2 v-if="sedangUjiTelegram" class="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-                            <Send v-else class="size-4" aria-hidden="true" />
-                            Kirim uji ke grup
-                        </Button>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                class="tekan border-brand/40 text-brand hover:bg-brand-lembut hover:text-brand dark:text-white dark:hover:text-white"
+                                :disabled="!telegram.siap || sedangUjiTelegram"
+                                @click="ujiTelegram"
+                            >
+                                <Loader2 v-if="sedangUjiTelegram" class="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                                <Send v-else class="size-4" aria-hidden="true" />
+                                Kirim uji ke grup
+                            </Button>
 
-                        <p class="text-xs text-muted-foreground">
-                            <template v-if="telegram.siap">Uji memakai pengiriman sungguhan, jadi grup akan benar-benar menerima pesannya.</template>
-                            <template v-else>Uji baru bisa ditekan setelah token dan chat ID keduanya terisi.</template>
-                        </p>
-                    </div>
-                </form>
-            </div>
-        </KartuSeksi>
+                            <p class="text-xs text-muted-foreground">
+                                <template v-if="telegram.siap"
+                                    >Uji memakai pengiriman sungguhan, jadi grup akan benar-benar menerima pesannya.</template
+                                >
+                                <template v-else>Uji baru bisa ditekan setelah token dan chat ID keduanya terisi.</template>
+                            </p>
+                        </div>
+                    </form>
+                </div>
+            </KartuSeksi>
+        </div>
 
         <!--
             Nilai yang hanya ditampilkan. Gemboknya bukan hiasan: ia yang

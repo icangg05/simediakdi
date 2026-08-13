@@ -342,12 +342,23 @@ const daftarNada = computed(() => [
                         Lencana sentimen per baris juga dilepas karena alasan
                         yang sama.
 
-                        Tingginya dibatasi dan sisanya digulir. Tiga daftar berisi
-                        sepuluh berita yang ditumpuk penuh membuat halaman ini
-                        panjang sekali, sedangkan yang dicari pembaca biasanya
-                        beberapa baris teratas tiap nada.
+                        Tingginya dibatasi dan sisanya digulir, tetapi hanya mulai
+                        lebar sm. Tiga daftar berisi sepuluh berita yang ditumpuk
+                        penuh membuat halaman ini panjang sekali di layar lebar,
+                        sedangkan yang dicari pembaca biasanya beberapa baris
+                        teratas tiap nada.
+
+                        Di ponsel batas itu justru merugikan. Ia menghasilkan tiga
+                        wadah gulir di dalam halaman yang juga digulir, dan
+                        kartunya selebar layar sehingga ibu jari hampir selalu
+                        mendarat di dalam salah satunya. Yang tergulir jadi daftar
+                        dalam, bukan halaman, lalu gulirnya berhenti dulu di ujung
+                        daftar sebelum diserahkan ke halaman. Jeda serah terima
+                        itu yang terbaca sebagai gulir patah-patah. Di ponsel
+                        halamannya memang sudah satu kolom panjang, jadi tidak ada
+                        yang benar-benar dihemat wadah gulir ini.
                     -->
-                    <div v-if="d.berita.length" class="max-h-[22rem] overflow-y-auto pr-1">
+                    <div v-if="d.berita.length" class="sm:max-h-[22rem] sm:overflow-y-auto sm:pr-1">
                         <ol class="relative">
                             <span
                                 :class="d.rel"

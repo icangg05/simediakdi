@@ -1,10 +1,9 @@
 import '../css/app.css';
 
-import NotifikasiFlash from '@/components/NotifikasiFlash.vue';
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import type { DefineComponent } from 'vue';
-import { createApp, h } from 'vue';
+import { createApp, defineAsyncComponent, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 import { initializeTheme } from './composables/useAppearance';
 
@@ -22,6 +21,21 @@ declare module 'vite/client' {
 }
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+
+/**
+ * Toast dimuat terpisah, setelah halaman tampil.
+ *
+ * `vue-sonner` beserta pembungkus gayanya sekitar 66 kB sumber, dan dulu ia
+ * ikut bundel utama yang menentukan kapan seluruh aplikasi mulai tergambar.
+ * Halaman tidak pernah butuh toast untuk tampil: yang membutuhkannya hanya
+ * halaman yang baru saja dikirimi pesan flash, dan pesan itu dibaca lagi di
+ * `onMounted` komponennya, jadi yang datang bersama muat penuh tetap terbit
+ * walau komponennya menyusul beberapa saat kemudian.
+ *
+ * Tetap disandingkan dengan App, bukan dipindah ke dalam layout. Alasannya
+ * tidak berubah dan ada di berkas komponennya.
+ */
+const NotifikasiFlash = defineAsyncComponent(() => import('@/components/NotifikasiFlash.vue'));
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,

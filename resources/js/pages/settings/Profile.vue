@@ -83,7 +83,7 @@ const submit = () => {
                         <div class="min-w-0 space-y-1">
                             <p class="font-medium">Alamat email ini belum diverifikasi.</p>
                             <Link
-                                :href="route('verification.send')"
+                                href="/email/verification-notification"
                                 method="post"
                                 as="button"
                                 class="rounded font-medium underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"

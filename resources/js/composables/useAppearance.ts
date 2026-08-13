@@ -22,7 +22,19 @@ export function updateTheme(value: Appearance) {
     }
 }
 
-const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+/**
+ * Dibuat saat dibutuhkan, bukan saat berkas ini diimpor.
+ *
+ * Sebelumnya `window.matchMedia` dipanggil langsung di badan modul. Di
+ * peramban itu tidak pernah bermasalah, tetapi render sisi server memuat modul
+ * yang sama di Node, tempat `window` tidak ada, sehingga berkas ini meledak
+ * saat diimpor dan menjatuhkan seluruh render sebelum satu komponen pun
+ * digambar. Halaman Appearance mengimpornya, jadi bukan kasus jauh.
+ *
+ * Disimpan supaya pendengarnya tidak didaftarkan dua kali kalau
+ * `initializeTheme` dipanggil lebih dari sekali.
+ */
+let mediaQuery: MediaQueryList | null = null;
 
 const handleSystemThemeChange = () => {
     const currentAppearance = localStorage.getItem('appearance') as Appearance | null;
@@ -34,7 +46,10 @@ export function initializeTheme() {
     const savedAppearance = localStorage.getItem('appearance') as Appearance | null;
     updateTheme(savedAppearance || TEMA_BAWAAN);
 
+    if (mediaQuery) return;
+
     // Set up system theme change listener...
+    mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     mediaQuery.addEventListener('change', handleSystemThemeChange);
 }
 

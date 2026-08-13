@@ -6,6 +6,22 @@ const warna = (nama) => `rgb(from var(${nama}) r g b / <alpha-value>)`;
 /** @type {import('tailwindcss').Config} */
 export default {
     darkMode: ['class'],
+    /*
+     * `hover:` hanya berlaku di perangkat yang benar-benar punya kursor.
+     *
+     * Di layar sentuh `:hover` menyala saat jari menyentuh dan menempel di sana
+     * sampai ada sentuhan berikutnya. Baris daftar yang tersenggol saat mulai
+     * menggulir tertinggal dalam keadaan tersorot, dan transisi warnanya berjalan
+     * persis ketika halaman sedang bergerak. Panel eksekutif memakai `hover:` di
+     * belasan tempat pada satu halaman, jadi biayanya menumpuk.
+     *
+     * Aturan yang sama sudah ditulis tangan untuk `.angkat` di app.css lewat
+     * `@media (hover: hover)`. Flag ini yang mengurusi seluruh utilitas `hover:`
+     * bawaan, sehingga tidak ada lagi yang perlu dijaga satu per satu.
+     */
+    future: {
+        hoverOnlyWhenSupported: true,
+    },
     content: [
         './vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php',
         './storage/framework/views/*.php',
@@ -53,6 +69,12 @@ export default {
                     'positif-lembut': warna('--color-sentimen-positif-lembut'),
                     netral: warna('--color-sentimen-netral'),
                     'netral-lembut': warna('--color-sentimen-netral-lembut'),
+                    /* Bidang kartu netral di panel eksekutif. Alasan ia berdiri
+                       terpisah dari `netral-lembut` ada di app.css. */
+                    'netral-bidang': warna('--color-sentimen-netral-bidang'),
+                    /* Potongan netral di dalam batang bertumpuk, beserta titik
+                       legenda yang menerjemahkannya. Alasannya ada di app.css. */
+                    'netral-batang': warna('--color-sentimen-netral-batang'),
                     negatif: warna('--color-sentimen-negatif'),
                     'negatif-lembut': warna('--color-sentimen-negatif-lembut'),
                     review: warna('--color-sentimen-review'),
