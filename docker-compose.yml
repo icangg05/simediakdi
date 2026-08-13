@@ -27,8 +27,16 @@ services:
       - ./public:/srv/public:ro
       - caddydata:/data
       - caddyconfig:/config
+    # Terkunci di loopback, bukan 0.0.0.0.
+    #
+    # Di laptop tidak ada bedanya, http://localhost:8000 tetap terbuka. Di
+    # server bedanya besar: bentuk `8000:8000` menerbitkan port itu ke seluruh
+    # antarmuka jaringan, dan aturan UFW tidak menutupinya karena Docker
+    # menulis rule-nya sendiri di chain DOCKER yang dievaluasi lebih dulu.
+    # Di produksi, reverse proxy milik host yang memegang 80 dan 443 lalu
+    # meneruskannya ke sini.
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       - app
 
@@ -180,8 +188,13 @@ services:
       POSTGRES_USER: simedia
       POSTGRES_PASSWORD: simedia
       TZ: UTC
-    ports:
-      - "5432:5432"
+    # Tidak menerbitkan port ke host sama sekali.
+    #
+    # Seluruh pemakainya ada di dalam jaringan compose dan memanggilnya lewat
+    # nama `db`, jadi publikasi ke host tidak dipakai siapa pun. Yang
+    # ditinggalkannya di server adalah Postgres yang bisa dicoba paksa dari
+    # internet. Butuh DBeaver dari laptop? Pakai terowongan SSH:
+    # `ssh -L 5432:localhost:5432 user@server`.
     volumes:
       - dbdata:/var/lib/postgresql/data
     healthcheck:
@@ -203,8 +216,11 @@ services:
     command: redis-server --appendonly yes
     volumes:
       - redisdata:/data
-    ports:
-      - "6379:6379"
+    # Tidak menerbitkan port ke host, alasannya sama dengan `db` dan di sini
+    # lebih tajam lagi: Redis berjalan tanpa kata sandi. Selama portnya
+    # terbuka ke internet, siapa pun bisa membaca dan menghapus seluruh
+    # antrean tanpa perlu menebak apa pun.
+    #
     # Inilah yang membuat `condition: service_healthy` di atas ada artinya.
     # Tanpa healthcheck, Compose menganggap Redis siap pada detik container
     # dibuat, jauh sebelum ia mengangkat soketnya.
