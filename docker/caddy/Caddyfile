@@ -12,6 +12,29 @@
 # berproses tunggal: satu permintaan gambar yang lambat menahan seluruh
 # permintaan halaman di belakangnya. Sekarang `/build` dan `/img` berhenti di
 # Caddy.
+# Caddy bukan lapisan terluar di produksi. Di depannya ada nginx milik host
+# yang memutus TLS lalu meneruskan permintaan sebagai http biasa ke sini.
+#
+# Tanpa blok ini, Caddy memperlakukan nginx sebagai klien sembarangan dan
+# menimpa seluruh header X-Forwarded-* yang dibawanya. Dua hal rusak sekaligus,
+# dan keduanya sudah terlihat di server:
+#
+# 1. X-Forwarded-Proto berubah dari "https" menjadi "http", jadi Laravel
+#    menuliskan seluruh URL aset sebagai http:// di halaman yang dibuka lewat
+#    https. Peramban memblokirnya sebagai konten campuran.
+# 2. X-Forwarded-For ditimpa alamat gerbang jaringan Docker, jadi setiap baris
+#    activity_log dan setiap penghitung throttle mencatat satu alamat yang sama
+#    untuk semua pengunjung.
+#
+# `private_ranges` mencakup 127.0.0.0/8 dan 172.16.0.0/12, tempat nginx muncul
+# dari sudut pandang container ini. Aman karena tidak ada jalan masuk lain:
+# port 8000 terkunci di loopback host.
+{
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
 :8000 {
 	# zstd lebih dulu, gzip untuk peramban yang belum mendukungnya. Caddy
 	# memilih sendiri lewat header Accept-Encoding, dan ini berlaku juga untuk
