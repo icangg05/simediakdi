@@ -29,6 +29,14 @@ jobs:
             git fetch --prune origin main
             git reset --hard origin/main
 
+            # git di sini berjalan sebagai root, sedangkan app, worker, dan
+            # scheduler berjalan sebagai uid 1000. Setiap berkas yang baru
+            # ditulis git jadi milik root, dan langkah composer serta npm di
+            # bawah ini yang berjalan sebagai 1000 lalu kehilangan izin tulis.
+            # Gejalanya menyesatkan: yang gagal adalah build, padahal sebabnya
+            # kepemilikan berkas, bukan kodenya.
+            chown -R 1000:1000 "$PWD"
+
             # Seluruh layanan me-mount repositori ini apa adanya (`.:/app`), jadi
             # kode baru sudah terlihat di dalam container begitu git selesai.
             # Yang tidak ikut git justru yang harus dibangun ulang di sini:
