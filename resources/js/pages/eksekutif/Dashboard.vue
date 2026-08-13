@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ChartPorsiSentimen from '@/components/chart/ChartPorsiSentimen.vue';
 import ChartTrenSentimen from '@/components/chart/ChartTrenSentimen.vue';
 import Sparkline from '@/components/chart/Sparkline.vue';
 import BadgeSentimen from '@/components/domain/BadgeSentimen.vue';
@@ -468,7 +469,7 @@ function rupaTopik(nada: LabelSentimen) {
                                     <span :class="potong.batang" class="size-2.5 shrink-0 rounded-full" aria-hidden="true"></span>
                                     <span class="truncate text-xs font-semibold sm:text-sm">{{ potong.nama }}</span>
                                 </span>
-                                <span :class="potong.teks" class="angka block text-2xl font-semibold leading-none sm:text-[2rem]">
+                                <span :class="potong.teks" class="angka block text-2xl leading-none font-semibold sm:text-[2rem]">
                                     {{ formatAngka(potong.jumlah) }}
                                 </span>
                                 <span class="angka block text-[11px] leading-tight text-muted-foreground sm:text-xs">
@@ -494,14 +495,14 @@ function rupaTopik(nada: LabelSentimen) {
                     <Link :href="`/eksekutif/berita?${kueri()}`" class="tekan group flex flex-col gap-1 p-3 hover:bg-background">
                         <span class="flex items-center gap-1.5 text-aksen-biru">
                             <Newspaper class="size-3.5 shrink-0" aria-hidden="true" />
-                            <span class="truncate text-[11px] font-semibold uppercase tracking-wide">Berita</span>
+                            <span class="truncate text-[11px] font-semibold tracking-wide uppercase">Berita</span>
                             <ArrowRight
-                                class="ease-[cubic-bezier(0.32,0.72,0,1)] ml-auto size-3 shrink-0 opacity-0 transition-all duration-300 group-hover:translate-x-0.5 group-hover:opacity-100"
+                                class="ml-auto size-3 shrink-0 opacity-0 transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-0.5 group-hover:opacity-100"
                                 aria-hidden="true"
                             />
                         </span>
                         <span class="flex items-end gap-2">
-                            <span class="angka text-2xl font-semibold leading-none">{{ formatAngka(kpi.berlabel) }}</span>
+                            <span class="angka text-2xl leading-none font-semibold">{{ formatAngka(kpi.berlabel) }}</span>
                             <Sparkline :nilai="deretVolume" :lebar="64" :tinggi="22" class="hidden shrink-0 lg:block" />
                         </span>
                         <!-- Keterangannya dibiarkan melipat, bukan dipotong.
@@ -518,22 +519,22 @@ function rupaTopik(nada: LabelSentimen) {
                     <Link :href="`/eksekutif/media?${kueri()}`" class="tekan group flex flex-col gap-1 p-3 hover:bg-background">
                         <span class="flex items-center gap-1.5 text-aksen-toska">
                             <Radio class="size-3.5 shrink-0" aria-hidden="true" />
-                            <span class="truncate text-[11px] font-semibold uppercase tracking-wide">Media</span>
+                            <span class="truncate text-[11px] font-semibold tracking-wide uppercase">Media</span>
                             <ArrowRight
-                                class="ease-[cubic-bezier(0.32,0.72,0,1)] ml-auto size-3 shrink-0 opacity-0 transition-all duration-300 group-hover:translate-x-0.5 group-hover:opacity-100"
+                                class="ml-auto size-3 shrink-0 opacity-0 transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-0.5 group-hover:opacity-100"
                                 aria-hidden="true"
                             />
                         </span>
-                        <span class="angka block text-2xl font-semibold leading-none">{{ formatAngka(kpi.media_aktif) }}</span>
+                        <span class="angka block text-2xl leading-none font-semibold">{{ formatAngka(kpi.media_aktif) }}</span>
                         <span class="block text-[11px] leading-tight text-muted-foreground">Portal yang memberitakan</span>
                     </Link>
 
                     <div class="flex flex-col gap-1 p-3">
                         <span class="flex items-center gap-1.5 text-aksen-ungu">
                             <Gauge class="size-3.5 shrink-0" aria-hidden="true" />
-                            <span class="truncate text-[11px] font-semibold uppercase tracking-wide">Per hari</span>
+                            <span class="truncate text-[11px] font-semibold tracking-wide uppercase">Per hari</span>
                         </span>
-                        <span class="angka block text-2xl font-semibold leading-none">{{ formatAngka(rataPerHari) }}</span>
+                        <span class="angka block text-2xl leading-none font-semibold">{{ formatAngka(rataPerHari) }}</span>
                         <span class="angka block text-[11px] leading-tight text-muted-foreground">
                             Dari {{ formatAngka(kpi.artikel) }} berita dipantau
                         </span>
@@ -553,7 +554,7 @@ function rupaTopik(nada: LabelSentimen) {
             >
                 <span class="absolute inset-y-0 left-0 w-1 bg-sentimen-negatif" aria-hidden="true"></span>
 
-                <CardContent class="flex flex-wrap items-center gap-3 py-3.5 pl-5 pr-4">
+                <CardContent class="flex flex-wrap items-center gap-3 py-3.5 pr-4 pl-5">
                     <span class="relative grid size-5 shrink-0 place-items-center">
                         <span class="denyut absolute inset-0 rounded-full bg-sentimen-negatif/25" aria-hidden="true"></span>
                         <TriangleAlert class="relative size-5 text-sentimen-negatif" aria-hidden="true" />
@@ -589,11 +590,11 @@ function rupaTopik(nada: LabelSentimen) {
                     rona="ungu"
                 >
                     <template v-if="narasi?.ringkasan">
-                        <h2 v-if="narasi.judul" class="mb-2 max-w-[46rem] text-pretty text-lg font-semibold leading-snug text-aksen-ungu sm:text-xl">
+                        <h2 v-if="narasi.judul" class="mb-2 max-w-184 text-lg leading-snug font-semibold text-pretty text-aksen-ungu sm:text-xl">
                             {{ narasi.judul }}
                         </h2>
 
-                        <p class="max-w-[46rem] whitespace-pre-line text-sm leading-relaxed">{{ narasi.ringkasan }}</p>
+                        <p class="max-w-184 text-sm leading-relaxed whitespace-pre-line">{{ narasi.ringkasan }}</p>
 
                         <!--
                             Tiap poin membuka berita yang mendasarinya. Id-nya
@@ -626,7 +627,7 @@ function rupaTopik(nada: LabelSentimen) {
                                         {{ poin.teks }}
                                         <span
                                             v-if="poin.artikel_ids.length"
-                                            class="angka ml-1 whitespace-nowrap text-xs font-semibold text-aksen-ungu group-hover:underline"
+                                            class="angka ml-1 text-xs font-semibold whitespace-nowrap text-aksen-ungu group-hover:underline"
                                         >
                                             {{ formatAngka(poin.artikel_ids.length) }} berita
                                         </span>
@@ -679,7 +680,7 @@ function rupaTopik(nada: LabelSentimen) {
                             dengan menebak.
                         -->
                         <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
-                            <p class="max-w-[46rem] flex-1 text-xs leading-relaxed text-muted-foreground">
+                            <p class="max-w-184 flex-1 text-xs leading-relaxed text-muted-foreground">
                                 Ulasan ini menyebut nada dan volume pemberitaan, bukan penilaian atas kinerja siapa pun.
                                 <template v-if="narasiBasi">
                                     Ia menghitung rentang {{ tanggalTerbaca(narasi.dari) }} sampai {{ tanggalTerbaca(narasi.sampai) }}, sedikit
@@ -722,7 +723,7 @@ function rupaTopik(nada: LabelSentimen) {
                          `--border`. Token tepi bernilai 92,8 persen terang dan
                          di atas latar bertinta panel ini ia benar-benar tidak
                          terlihat, jadi garisnya hanya menambah simpul kosong. -->
-                    <span class="h-px flex-1 bg-gradient-to-r from-brand/30 to-transparent dark:from-aksen-biru/30" aria-hidden="true"></span>
+                    <span class="h-px flex-1 bg-linear-to-r from-brand/30 to-transparent dark:from-aksen-biru/30" aria-hidden="true"></span>
                 </h2>
 
                 <!--
@@ -741,15 +742,15 @@ function rupaTopik(nada: LabelSentimen) {
                     >
                         <span
                             :class="bagian.pita"
-                            class="tumbuh absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r to-transparent"
+                            class="tumbuh absolute inset-x-0 top-0 h-[3px] bg-linear-to-r to-transparent"
                             :style="{ animationDelay: `${360 + urutan * 90}ms` }"
                             aria-hidden="true"
                         ></span>
 
-                        <p :class="bagian.aksen" class="flex items-center gap-3 text-sm font-semibold leading-snug">
+                        <p :class="bagian.aksen" class="flex items-center gap-3 text-sm leading-snug font-semibold">
                             <span
                                 :class="bagian.tile"
-                                class="grid size-9 shrink-0 place-items-center rounded-xl text-white shadow-sm dark:text-background"
+                                class="grid size-9 shrink-0 place-items-center rounded-xl text-white shadow-xs dark:text-background"
                             >
                                 <component :is="bagian.ikon" class="size-[18px]" aria-hidden="true" />
                             </span>
@@ -761,8 +762,8 @@ function rupaTopik(nada: LabelSentimen) {
             </section>
 
             <!--
-                Grafik selalu ditemani satu kalimat. Grafik garis bertumpuk
-                adalah bagian halaman yang paling sering salah dibaca.
+                Grafik selalu ditemani satu kalimat. Grafik deret waktu adalah
+                bagian halaman yang paling sering salah dibaca.
 
                 Kepala kartunya diserahkan ke BaseChart, bukan dicetak dua kali.
                 BaseChart menaruh judul sebaris dengan tombol tabel dan unduh,
@@ -774,16 +775,41 @@ function rupaTopik(nada: LabelSentimen) {
             -->
             <Card class="muncul relative overflow-hidden" style="animation-delay: 300ms">
                 <div
-                    class="tumbuh pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-aksen-biru to-transparent"
+                    class="tumbuh pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-linear-to-r from-aksen-biru to-transparent"
                     aria-hidden="true"
                 ></div>
 
                 <CardContent class="space-y-3 p-4 pt-5 sm:p-5">
                     <ChartTrenSentimen judul="Perubahan dari waktu ke waktu" :data="deret.baris as never" :satuan="deret.satuan" :tinggi="280" />
                     <p class="text-xs leading-relaxed text-muted-foreground">
-                        Tiap titik menghitung berita {{ namaSatuan }}. Warnanya ditumpuk, jadi tinggi seluruh tumpukan berarti jumlah berita hari itu.
+                        Tiap titik menghitung berita {{ namaSatuan }}. Tiap garis berdiri sendiri, jadi tinggi garis pada sumbu kiri adalah jumlah
+                        berita nada itu.
                     </p>
-                    <p v-if="narasi?.penjelasan_tren" class="max-w-[46rem] text-sm leading-relaxed">{{ narasi.penjelasan_tren }}</p>
+                    <p v-if="narasi?.penjelasan_tren" class="max-w-184 text-sm leading-relaxed">{{ narasi.penjelasan_tren }}</p>
+                </CardContent>
+            </Card>
+
+            <!--
+                Pasangan grafik di atasnya, bukan pengulangannya.
+
+                Grafik garis menjawab berapa banyak, grafik ini menjawab
+                seberapa besar porsinya. Keduanya perlu, karena rentang yang
+                penuh kegiatan seremonial menaikkan ketiga garis sekaligus dan
+                pimpinan menyimpulkan keadaan memburuk, padahal pembagian
+                nadanya tidak bergerak sama sekali.
+            -->
+            <Card class="muncul relative overflow-hidden" style="animation-delay: 340ms">
+                <div
+                    class="tumbuh pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-linear-to-r from-aksen-toska to-transparent"
+                    aria-hidden="true"
+                ></div>
+
+                <CardContent class="space-y-3 p-4 pt-5 sm:p-5">
+                    <ChartPorsiSentimen judul="Porsi tiap nada" :data="deret.baris as never" :satuan="deret.satuan" :tinggi="380" />
+                    <p class="text-xs leading-relaxed text-muted-foreground">
+                        Tiap batang selalu penuh seratus persen, jadi yang dibandingkan hanya pembagian warnanya. Batang yang kosong berarti tidak ada
+                        berita berlabel pada titik itu.
+                    </p>
                 </CardContent>
             </Card>
 
@@ -802,7 +828,7 @@ function rupaTopik(nada: LabelSentimen) {
                          `--border`. Token tepi bernilai 92,8 persen terang dan
                          di atas latar bertinta panel ini ia benar-benar tidak
                          terlihat, jadi garisnya hanya menambah simpul kosong. -->
-                    <span class="h-px flex-1 bg-gradient-to-r from-brand/30 to-transparent dark:from-aksen-biru/30" aria-hidden="true"></span>
+                    <span class="h-px flex-1 bg-linear-to-r from-brand/30 to-transparent dark:from-aksen-biru/30" aria-hidden="true"></span>
                 </h2>
                 <p class="text-sm text-muted-foreground">Ketuk salah satu untuk membaca berita yang membahasnya.</p>
 
@@ -833,17 +859,17 @@ function rupaTopik(nada: LabelSentimen) {
                         <component
                             :is="rupaTopik(topik.sentimen_dominan).ikon"
                             :class="rupaTopik(topik.sentimen_dominan).aksen"
-                            class="pointer-events-none absolute -bottom-5 -right-4 size-28 opacity-[0.07]"
+                            class="pointer-events-none absolute -right-4 -bottom-5 size-28 opacity-[0.07]"
                             aria-hidden="true"
                         />
 
                         <CardContent class="relative p-0">
                             <Link
                                 :href="`/eksekutif/berita?${kueri({ artikel: topik.artikel_ids.join(',') })}`"
-                                class="group flex h-full flex-col gap-2.5 py-4 pl-5 pr-4"
+                                class="group flex h-full flex-col gap-2.5 py-4 pr-4 pl-5"
                             >
                                 <div class="flex items-start justify-between gap-3">
-                                    <p class="text-sm font-semibold leading-snug">{{ topik.judul }}</p>
+                                    <p class="text-sm leading-snug font-semibold">{{ topik.judul }}</p>
                                     <BadgeSentimen :label="topik.sentimen_dominan" ringkas class="mt-0.5 shrink-0" />
                                 </div>
 
@@ -868,7 +894,7 @@ function rupaTopik(nada: LabelSentimen) {
 
                                     <ArrowRight
                                         :class="rupaTopik(topik.sentimen_dominan).aksen"
-                                        class="ease-[cubic-bezier(0.32,0.72,0,1)] ml-auto size-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1"
+                                        class="ml-auto size-4 shrink-0 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-1"
                                         aria-hidden="true"
                                     />
                                 </div>
@@ -1006,14 +1032,14 @@ function rupaTopik(nada: LabelSentimen) {
                     -->
                     <ol v-if="beritaTerbaru.length" class="relative">
                         <span
-                            class="tumbuh-turun absolute bottom-4 left-[5px] top-4 w-px bg-gradient-to-b from-aksen-biru/40 via-border to-transparent"
+                            class="tumbuh-turun absolute top-4 bottom-4 left-[5px] w-px bg-linear-to-b from-aksen-biru/40 via-border to-transparent"
                             aria-hidden="true"
                         ></span>
 
-                        <li v-for="berita in beritaTerbaru" :key="berita.id" class="tekan relative rounded-lg py-1 pl-7 pr-2 hover:bg-muted/60">
+                        <li v-for="berita in beritaTerbaru" :key="berita.id" class="tekan relative rounded-lg py-1 pr-2 pl-7 hover:bg-muted/60">
                             <span
                                 :class="rupaTopik(berita.label ?? 'netral').pita"
-                                class="absolute left-0 top-[18px] size-2.5 rounded-full ring-4 ring-card"
+                                class="absolute top-[18px] left-0 size-2.5 rounded-full ring-4 ring-card"
                                 aria-hidden="true"
                             ></span>
 

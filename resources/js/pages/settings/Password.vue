@@ -83,7 +83,7 @@ const updatePassword = () => {
             <CardContent class="space-y-5 p-5 sm:p-6">
                 <div class="flex items-center gap-2">
                     <KeyRound class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                    <h2 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ganti kata sandi</h2>
+                    <h2 class="shrink-0 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Ganti kata sandi</h2>
                     <span class="h-px flex-1 bg-border" aria-hidden="true"></span>
                 </div>
 

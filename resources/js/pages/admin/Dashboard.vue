@@ -339,7 +339,7 @@ const titikNada = (artikel: { label: Label | null; perlu_review: boolean }) => {
  * melihat, dan aksi tulis punya halamannya sendiri yang membawa konteks lengkap
  * untuk memutuskan.
  */
-const TOMBOL_UTAMA = cn(buttonVariants({ size: 'sm' }), 'gap-1.5 bg-brand text-white shadow-sm shadow-brand/25 hover:bg-brand-terang');
+const TOMBOL_UTAMA = cn(buttonVariants({ size: 'sm' }), 'gap-1.5 bg-brand text-white shadow-xs shadow-brand/25 hover:bg-brand-terang');
 
 const TOMBOL_NETRAL = cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'gap-1.5');
 
@@ -425,7 +425,7 @@ onUnmounted(() => clearInterval(pewaktu));
             -->
             <template #aksi>
                 <div
-                    class="flex max-w-sm items-center gap-2.5 rounded-lg border px-3 py-2 backdrop-blur-sm"
+                    class="flex max-w-sm items-center gap-2.5 rounded-lg border px-3 py-2 backdrop-blur-xs"
                     :class="statusSistem.bingkai"
                     role="status"
                     aria-live="polite"
@@ -509,12 +509,12 @@ onUnmounted(() => clearInterval(pewaktu));
 
                     <ol v-else class="space-y-4">
                         <li v-for="(tahap, i) in aliranHariIni" :key="tahap.kunci" class="relative pl-11">
-                            <span class="absolute left-0 top-0 grid size-8 place-items-center rounded-lg" :class="tahap.tile">
+                            <span class="absolute top-0 left-0 grid size-8 place-items-center rounded-lg" :class="tahap.tile">
                                 <component :is="tahap.ikon" class="size-4" aria-hidden="true" />
                             </span>
 
                             <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-                                <p class="text-sm font-medium leading-tight">{{ tahap.label }}</p>
+                                <p class="text-sm leading-tight font-medium">{{ tahap.label }}</p>
                                 <p class="angka text-xl font-semibold tracking-tight" :class="tahap.angka">
                                     {{ formatAngka(tahap.jumlah) }}
                                     <span v-if="i > 0" class="angka ml-1 text-xs font-normal text-muted-foreground">
@@ -730,7 +730,7 @@ onUnmounted(() => clearInterval(pewaktu));
                         <li v-for="artikel in artikelTerbaru" :key="artikel.id">
                             <Link
                                 :href="`/admin/artikel/${artikel.id}`"
-                                class="tekan group flex items-center gap-3 rounded-md px-2 py-2.5 transition-colors duration-150 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                class="tekan group flex items-center gap-3 rounded-md px-2 py-2.5 transition-colors duration-150 hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden"
                             >
                                 <span class="size-1.5 shrink-0 rounded-full ring-4" :class="titikNada(artikel)" aria-hidden="true"></span>
 
@@ -744,7 +744,7 @@ onUnmounted(() => clearInterval(pewaktu));
                                 <BadgeSentimen class="hidden shrink-0 sm:inline-flex" :label="artikel.label" :perlu-review="artikel.perlu_review" />
 
                                 <ArrowUpRight
-                                    class="size-4 shrink-0 text-muted-foreground transition-transform duration-150 group-hover:-translate-y-px group-hover:translate-x-px group-hover:text-brand dark:group-hover:text-brand-terang"
+                                    class="size-4 shrink-0 text-muted-foreground transition-transform duration-150 group-hover:translate-x-px group-hover:-translate-y-px group-hover:text-brand dark:group-hover:text-brand-terang"
                                     aria-hidden="true"
                                 />
                             </Link>

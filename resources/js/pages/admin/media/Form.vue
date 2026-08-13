@@ -84,7 +84,7 @@ function simpan() {
                     <section class="space-y-3">
                         <div class="flex items-center gap-2">
                             <Link2 class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                            <h2 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Identitas dan pencocokan</h2>
+                            <h2 class="shrink-0 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Identitas dan pencocokan</h2>
                             <span class="h-px flex-1 bg-border" aria-hidden="true"></span>
                         </div>
 
@@ -150,7 +150,7 @@ function simpan() {
                     <section class="space-y-3">
                         <div class="flex items-center gap-2">
                             <MapPin class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                            <h2 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Lokasi dan kontak</h2>
+                            <h2 class="shrink-0 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Lokasi dan kontak</h2>
                             <span class="h-px flex-1 bg-border" aria-hidden="true"></span>
                         </div>
 
@@ -181,7 +181,7 @@ function simpan() {
                                     id="catatan"
                                     v-model="form.catatan"
                                     rows="3"
-                                    class="rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed shadow-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                                    class="rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed shadow-xs outline-hidden transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                                     placeholder="Jenis situs dan jalur pengambilannya, misalnya: SPA tanpa feed, andalkan portal pelaporan."
                                 />
                             </div>
@@ -191,7 +191,7 @@ function simpan() {
                     <section class="space-y-3">
                         <div class="flex items-center gap-2">
                             <Power class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                            <h2 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Saklar</h2>
+                            <h2 class="shrink-0 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Saklar</h2>
                             <span class="h-px flex-1 bg-border" aria-hidden="true"></span>
                         </div>
 

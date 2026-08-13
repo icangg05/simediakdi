@@ -145,10 +145,10 @@ const titikTahap: Record<Tahap, string> = {
  */
 const TOMBOL_KOP = cn(
     buttonVariants({ size: 'sm' }),
-    'gap-1.5 bg-white text-brand shadow-sm shadow-black/10 hover:bg-white/90 focus-visible:ring-offset-brand',
+    'gap-1.5 bg-white text-brand shadow-xs shadow-black/10 hover:bg-white/90 focus-visible:ring-offset-brand',
 );
 
-const TOMBOL_UTAMA = cn(buttonVariants({ size: 'sm' }), 'gap-1.5 bg-brand text-white shadow-sm shadow-brand/25 hover:bg-brand-terang');
+const TOMBOL_UTAMA = cn(buttonVariants({ size: 'sm' }), 'gap-1.5 bg-brand text-white shadow-xs shadow-brand/25 hover:bg-brand-terang');
 
 const TOMBOL_NETRAL = cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'gap-1.5');
 
@@ -232,7 +232,7 @@ const kabut = (token: string, opasitas = 0.09) => ({
                             <span class="truncate">{{ s.label }}</span>
                         </dt>
                         <dd>
-                            <span class="angka mt-1.5 block text-2xl font-semibold leading-none sm:text-3xl" :class="s.angka">
+                            <span class="angka mt-1.5 block text-2xl leading-none font-semibold sm:text-3xl" :class="s.angka">
                                 {{ formatAngka(s.nilai) }}
                             </span>
                             <span class="mt-1.5 block text-[11px] leading-tight text-white/65">{{ s.keterangan }}</span>
@@ -300,7 +300,7 @@ const kabut = (token: string, opasitas = 0.09) => ({
                     <li v-for="b in props.beritaTerbaru" :key="b.id" class="transition-colors hover:bg-muted/60">
                         <div class="flex items-start gap-3 px-2">
                             <span
-                                class="mt-4 size-1.5 shrink-0 rounded-full ring-4 ring-inset ring-transparent"
+                                class="mt-4 size-1.5 shrink-0 rounded-full ring-4 ring-transparent ring-inset"
                                 :class="titikTahap[b.tahap]"
                                 aria-hidden="true"
                             ></span>

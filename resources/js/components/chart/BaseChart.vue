@@ -34,6 +34,17 @@ const props = defineProps<{
     kolomTabel?: string[];
     barisTabel?: Array<Array<string | number>>;
     keteranganKosong?: string;
+    /**
+     * Diteruskan ke `setOption` ECharts. Default gabung, dan itu benar untuk
+     * hampir semua grafik: nilai lama bertahan sampai ditimpa, jadi ganti tema
+     * tidak menyetel ulang grafiknya.
+     *
+     * Grafik bergaris waktu perlu `{ notMerge: true }`. Opsinya berisi larik
+     * bingkai per periode, dan penggabungan hanya menimpa bingkai menurut
+     * indeks. Rentang tanggal yang dipersempit menyisakan bingkai lama di ekor
+     * larik, lengkap dengan periode yang sudah tidak ada di datanya.
+     */
+    opsiPerbarui?: Record<string, unknown>;
 }>();
 
 const { formatAngka } = useFormatAngka();
@@ -88,7 +99,7 @@ function unduhPng() {
                 <button
                     v-if="kolomTabel?.length"
                     type="button"
-                    class="tekan inline-flex items-center gap-1.5 rounded-full bg-aksen-biru/10 px-3 py-1 text-xs font-semibold text-aksen-biru hover:bg-aksen-biru/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-aksen-biru/50"
+                    class="tekan inline-flex items-center gap-1.5 rounded-full bg-aksen-biru/10 px-3 py-1 text-xs font-semibold text-aksen-biru hover:bg-aksen-biru/20 focus-visible:ring-2 focus-visible:ring-aksen-biru/50 focus-visible:outline-hidden"
                     :aria-pressed="modeTabel"
                     @click="modeTabel = !modeTabel"
                 >
@@ -98,7 +109,7 @@ function unduhPng() {
                 <button
                     v-if="!modeTabel"
                     type="button"
-                    class="tekan inline-flex items-center gap-1.5 rounded-full bg-aksen-toska/10 px-3 py-1 text-xs font-semibold text-aksen-toska hover:bg-aksen-toska/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-aksen-toska/50"
+                    class="tekan inline-flex items-center gap-1.5 rounded-full bg-aksen-toska/10 px-3 py-1 text-xs font-semibold text-aksen-toska hover:bg-aksen-toska/20 focus-visible:ring-2 focus-visible:ring-aksen-toska/50 focus-visible:outline-hidden"
                     @click="unduhPng"
                 >
                     <Download class="h-3.5 w-3.5" aria-hidden="true" />
@@ -150,7 +161,14 @@ function unduhPng() {
             berkali-kali dalam satu gulir.
         -->
         <div v-else ref="bingkai" :style="{ height: `${tinggi ?? 240}px`, contain: 'paint' }">
-            <VChart v-if="sekaliTerlihat" ref="grafik" :option="opsi" :autoresize="{ throttle: 200 }" class="h-full w-full" />
+            <VChart
+                v-if="sekaliTerlihat"
+                ref="grafik"
+                :option="opsi"
+                :update-options="opsiPerbarui"
+                :autoresize="{ throttle: 200 }"
+                class="h-full w-full"
+            />
         </div>
     </figure>
 </template>

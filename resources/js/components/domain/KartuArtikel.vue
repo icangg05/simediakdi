@@ -53,7 +53,7 @@ defineProps<{
                 :href="url"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="inline-flex items-start gap-1 text-sm font-medium leading-snug hover:underline"
+                class="inline-flex items-start gap-1 text-sm leading-snug font-medium hover:underline"
             >
                 <span class="line-clamp-2">{{ judul }}</span>
                 <ExternalLink class="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />

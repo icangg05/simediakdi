@@ -21,7 +21,7 @@ defineProps<{
 </script>
 
 <template>
-    <header class="muncul relative overflow-hidden rounded-xl bg-brand text-white shadow-lg shadow-brand/20 ring-1 ring-brand-terang/40">
+    <header class="muncul relative overflow-hidden rounded-xl bg-brand text-white shadow-lg ring-1 shadow-brand/20 ring-brand-terang/40">
         <!--
             Ornamen kop: sapuan cahaya dan busur sepusat.
 
@@ -41,7 +41,7 @@ defineProps<{
             "
         ></div>
 
-        <svg class="pointer-events-none absolute -right-16 -top-24 size-80 opacity-[0.18]" viewBox="0 0 200 200" fill="none" aria-hidden="true">
+        <svg class="pointer-events-none absolute -top-24 -right-16 size-80 opacity-[0.18]" viewBox="0 0 200 200" fill="none" aria-hidden="true">
             <circle cx="150" cy="60" r="38" stroke="currentColor" stroke-width="1" />
             <circle cx="150" cy="60" r="62" stroke="currentColor" stroke-width="1" />
             <circle cx="150" cy="60" r="88" stroke="currentColor" stroke-width="1" />
@@ -51,7 +51,7 @@ defineProps<{
         <div class="relative space-y-4 p-5 sm:p-6">
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div class="min-w-0 space-y-1">
-                    <h1 class="max-w-[46ch] text-balance text-2xl font-semibold leading-tight tracking-tight">{{ judul }}</h1>
+                    <h1 class="max-w-[46ch] text-2xl leading-tight font-semibold tracking-tight text-balance">{{ judul }}</h1>
                     <p v-if="keterangan" class="max-w-[62ch] text-sm text-white/70">{{ keterangan }}</p>
                 </div>
 
@@ -63,7 +63,7 @@ defineProps<{
             <!-- Garis merek, tumbuh dari kiri saat halaman terbuka. Ia
                  memisahkan judul dari keterangan tanpa menambah satu baris teks
                  pun. -->
-            <div class="tumbuh h-px w-24 bg-gradient-to-r from-white/70 to-transparent" aria-hidden="true"></div>
+            <div class="tumbuh h-px w-24 bg-linear-to-r from-white/70 to-transparent" aria-hidden="true"></div>
 
             <div v-if="$slots.default" class="flex flex-wrap items-center gap-2">
                 <slot />

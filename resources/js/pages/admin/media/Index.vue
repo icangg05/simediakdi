@@ -133,7 +133,7 @@ const partner = computed(() => props.media.data.filter((m) => m.partner).length)
                 <!-- Putih penuh: satu-satunya aksi utama halaman ini. -->
                 <Link
                     href="/admin/media/create"
-                    class="tekan inline-flex items-center gap-2 rounded-lg bg-white px-3.5 py-2 text-xs font-semibold text-brand transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand"
+                    class="tekan inline-flex items-center gap-2 rounded-lg bg-white px-3.5 py-2 text-xs font-semibold text-brand transition-colors hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand focus-visible:outline-hidden"
                 >
                     <Plus class="size-3.5" aria-hidden="true" />
                     Tambah media
@@ -167,7 +167,7 @@ const partner = computed(() => props.media.data.filter((m) => m.partner).length)
                 <div class="flex items-center gap-2">
                     <Link
                         :href="`/admin/media/${baris.id}`"
-                        class="rounded font-medium decoration-brand/40 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        class="rounded font-medium decoration-brand/40 underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-hidden"
                     >
                         {{ baris.nama }}
                     </Link>

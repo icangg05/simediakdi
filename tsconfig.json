@@ -39,10 +39,22 @@
         },
         // "rootDirs": [],                                   /* Allow multiple folders to be treated as one when resolving modules. */
         // "typeRoots": [],                                  /* Specify multiple folders that act like './node_modules/@types'. */
+        /*
+         * Hanya paket tipe sungguhan yang boleh berdiri di sini.
+         *
+         * Sebelumnya daftar ini memuat "vue/tsx" dan "./resources/js/types",
+         * dan keduanya membuat vue-tsc gagal dengan TS2688. "vue/tsx" tidak
+         * pernah ada, paket vue mengekspor "./jsx". Sedangkan
+         * "./resources/js/types" adalah folder berisi .ts biasa, bukan paket
+         * tipe, jadi TypeScript tidak punya berkas deklarasi untuk dimuat.
+         *
+         * Keduanya dibuang, bukan dibetulkan namanya. Proyek ini tidak memakai
+         * satu pun berkas .tsx sehingga entri jsx tidak diperlukan, dan isi
+         * resources/js/types sudah masuk program lewat "include" di bawah.
+         * Augmentasi global di ziggy.ts tetap berlaku dari sana.
+         */
         "types": [
-            "vite/client",
-            "vue/tsx",
-            "./resources/js/types"
+            "vite/client"
         ] /* Specify type package names to be included without being referenced in a source file. */,
         // "allowUmdGlobalAccess": true,                     /* Allow accessing UMD globals from modules. */
         // "moduleSuffixes": [],                             /* List of file name suffixes to search when resolving a module. */

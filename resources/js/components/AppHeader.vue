@@ -88,7 +88,7 @@ const KETERANGAN: Record<string, string> = {
         selagi membaca. Yang menggantikannya rel mengambang di bawah, yang baru
         dipasang setelah bilahnya benar benar keluar layar.
 
-        Latarnya tetap pekat penuh, tanpa `backdrop-blur`. Blur memaksa
+        Latarnya tetap pekat penuh, tanpa `backdrop-blur-sm`. Blur memaksa
         kompositor merasterisasi ulang seluruh bidang di belakangnya, dan
         biayanya melonjak saat yang lewat di belakang adalah kanvas grafik,
         karena kanvas berada di lapisan terpisah yang membatalkan cache blur
@@ -110,7 +110,7 @@ const KETERANGAN: Record<string, string> = {
         -->
         <a
             href="#isi"
-            class="sr-only left-4 top-3 z-50 rounded-full bg-white px-4 py-2 text-sm font-semibold text-brand shadow-lg focus:not-sr-only focus:absolute"
+            class="sr-only top-3 left-4 z-50 rounded-full bg-white px-4 py-2 text-sm font-semibold text-brand shadow-lg focus:not-sr-only focus:absolute"
         >
             Lompat ke isi halaman
         </a>
@@ -187,7 +187,7 @@ const KETERANGAN: Record<string, string> = {
                     :key="item.title"
                     :href="item.href"
                     :aria-current="item.href === aktif ? 'page' : undefined"
-                    class="tekan ease-[cubic-bezier(0.32,0.72,0,1)] flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-medium transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                    class="tekan flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-medium transition-colors duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white focus-visible:outline-solid"
                     :class="
                         item.href === aktif ? 'bg-white text-brand shadow-lg shadow-brand/40' : 'text-white/75 hover:bg-white/10 hover:text-white'
                     "
@@ -202,7 +202,7 @@ const KETERANGAN: Record<string, string> = {
                     <DropdownMenuTrigger :as-child="true">
                         <Button
                             variant="ghost"
-                            class="tekan h-auto gap-2 rounded-full py-1 pl-1 pr-2 text-white hover:bg-white/15 hover:text-white focus-visible:ring-white"
+                            class="tekan h-auto gap-2 rounded-full py-1 pr-2 pl-1 text-white hover:bg-white/15 hover:text-white focus-visible:ring-white"
                         >
                             <!--
                                 Lambang SIMEDIA, bukan foto pengguna.
@@ -241,7 +241,7 @@ const KETERANGAN: Record<string, string> = {
             memberi bilah ini tepi saat melekat di atas kartu putih yang lewat di
             belakangnya.
         -->
-        <div class="tumbuh h-px w-full bg-gradient-to-r from-white/50 via-white/15 to-transparent" aria-hidden="true"></div>
+        <div class="tumbuh h-px w-full bg-linear-to-r from-white/50 via-white/15 to-transparent" aria-hidden="true"></div>
     </div>
 
     <!--
@@ -283,17 +283,17 @@ const KETERANGAN: Record<string, string> = {
         ini tidak bergantung pada apa yang lewat di belakang, dan itu keuntungan
         kedua dari melepas kaca: kasus terburuknya hilang sama sekali.
 
-        Di ponsel seluruh ukurannya diturunkan satu tingkat. Rel ini menumpang di
-        atas isi yang sedang dibaca, dan ukuran layar lebarnya memakan 52 kali 184
-        piksel, cukup untuk menutupi tepi kanan setiap kartu yang lewat di layar
-        375 piksel. Ukuran ringkasnya 44 kali 158 piksel, dan bersama jarak tepi
-        yang ikut turun dari 12 ke 8 piksel, seluruh jejaknya dari tepi layar
-        menyempit dari 64 menjadi 52 piksel. Luasnya berkurang sekitar 27 persen.
+        Di ponsel seluruh ukurannya diturunkan. Rel ini menumpang di atas isi yang
+        sedang dibaca, dan ukuran layar lebarnya memakan 52 kali 184 piksel, cukup
+        untuk menutupi tepi kanan setiap kartu yang lewat di layar 375 piksel.
+        Ukuran ringkasnya 36 kali 138 piksel, dan bersama jarak tepi yang ikut
+        turun dari 12 ke 6 piksel, seluruh jejaknya dari tepi layar menyempit dari
+        64 menjadi 42 piksel. Luasnya berkurang sekitar separuh.
 
-        Kepingnya berhenti di 36 piksel, tidak lebih kecil. Di bawah itu ia mulai
-        berada jauh di bawah ambang sasaran sentuh, dan menu yang meleset
-        ketukannya lebih mengganggu daripada menu yang lebarnya beberapa piksel
-        berlebih.
+        Kepingnya 32 piksel di ponsel, di bawah ambang sasaran sentuh 44 piksel.
+        Ini pilihan sadar: relnya menumpang di atas bacaan dan yang dipilih adalah
+        jejak sekecil mungkin. Kalau ketukan meleset mulai dikeluhkan, naikkan
+        kembali `size-8` menjadi `size-9`.
 
         Tingginya dipaku `.tengah-layar`, bukan `top-1/2`. Alasannya ada di
         app.css, ringkasnya: persen pada elemen `fixed` diukur terhadap viewport
@@ -308,7 +308,7 @@ const KETERANGAN: Record<string, string> = {
     >
         <nav
             v-show="!bilahTerlihat"
-            class="tengah-layar fixed right-2 z-40 flex -translate-y-1/2 flex-col gap-0.5 rounded-xl bg-brand-terang p-1 shadow-[inset_0_1px_0_0_rgb(255_255_255/0.18),0_12px_32px_-12px_rgb(22_63_108/0.55)] ring-1 ring-white/20 sm:right-3 sm:gap-1 sm:rounded-2xl sm:p-1.5"
+            class="tengah-layar fixed right-1.5 z-40 flex -translate-y-1/2 flex-col gap-0.5 rounded-lg bg-brand-terang p-0.5 shadow-[inset_0_1px_0_0_rgb(255_255_255/0.18),0_12px_32px_-12px_rgb(22_63_108/0.55)] ring-1 ring-white/20 sm:right-3 sm:gap-1 sm:rounded-2xl sm:p-1.5"
             aria-label="Menu utama mengambang"
         >
             <Link
@@ -316,10 +316,10 @@ const KETERANGAN: Record<string, string> = {
                 :key="item.title"
                 :href="item.href"
                 :aria-current="item.href === aktif ? 'page' : undefined"
-                class="tekan group relative grid size-9 place-items-center rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:size-10 sm:rounded-xl"
-                :class="item.href === aktif ? 'bg-white text-brand shadow-sm' : 'text-white/85 hover:bg-white/15 hover:text-white'"
+                class="tekan group relative grid size-8 place-items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white focus-visible:outline-solid sm:size-10 sm:rounded-xl"
+                :class="item.href === aktif ? 'bg-white text-brand shadow-xs' : 'text-white/85 hover:bg-white/15 hover:text-white'"
             >
-                <component :is="item.icon" v-if="item.icon" class="size-4 sm:size-[18px]" aria-hidden="true" />
+                <component :is="item.icon" v-if="item.icon" class="size-3.75 sm:size-4.5" aria-hidden="true" />
 
                 <!-- Judulnya memakai `brand` yang lebih pekat, bukan
                      `brand-terang` milik relnya. Teks 12 piksel butuh kontras
@@ -327,7 +327,7 @@ const KETERANGAN: Record<string, string> = {
                      yang berbeda satu tingkat sekaligus memisahkan label dari
                      bidang yang memunculkannya. -->
                 <span
-                    class="ease-[cubic-bezier(0.32,0.72,0,1)] pointer-events-none absolute right-full mr-2 translate-x-1 whitespace-nowrap rounded-lg bg-brand px-2.5 py-1.5 text-xs font-semibold text-white opacity-0 shadow-[0_8px_24px_-8px_rgb(22_63_108/0.55)] ring-1 ring-white/20 transition duration-200 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100"
+                    class="pointer-events-none absolute right-full mr-2 translate-x-1 rounded-lg bg-brand px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap text-white opacity-0 shadow-[0_8px_24px_-8px_rgb(22_63_108/0.55)] ring-1 ring-white/20 transition duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100"
                 >
                     {{ item.title }}
                 </span>

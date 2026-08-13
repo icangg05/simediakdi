@@ -72,7 +72,7 @@ const berdenyut = computed(() => props.status === 'merah');
             yang dipantau, dan rona bidangnya menyebut keadaannya, sehingga satu
             bentuk memikul dua keterangan tanpa menambah satu baris teks pun.
         -->
-        <span class="absolute left-0 top-0 grid size-8 place-items-center rounded-lg ring-1 ring-inset" :class="varian.tile">
+        <span class="absolute top-0 left-0 grid size-8 place-items-center rounded-lg ring-1 ring-inset" :class="varian.tile">
             <component :is="ikon ?? varian.ikon" class="size-4" aria-hidden="true" />
 
             <!-- Penanda merah menempel di sudut tile, cukup kecil untuk tidak
@@ -80,14 +80,14 @@ const berdenyut = computed(() => props.status === 'merah');
                  sudut mata. -->
             <span
                 v-if="berdenyut"
-                class="denyut absolute -right-0.5 -top-0.5 size-2 rounded-full bg-sentimen-negatif ring-2 ring-card"
+                class="denyut absolute -top-0.5 -right-0.5 size-2 rounded-full bg-sentimen-negatif ring-2 ring-card"
                 aria-hidden="true"
             ></span>
         </span>
 
         <div class="min-w-0 space-y-0.5">
             <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                <p class="text-sm font-medium leading-tight">{{ label }}</p>
+                <p class="text-sm leading-tight font-medium">{{ label }}</p>
 
                 <span class="inline-flex items-center gap-1 text-xs font-medium" :class="varian.nada">
                     <component :is="varian.ikon" class="size-3.5 shrink-0" aria-hidden="true" />
@@ -95,7 +95,7 @@ const berdenyut = computed(() => props.status === 'merah');
                 </span>
             </div>
 
-            <p class="text-pretty text-xs leading-relaxed text-muted-foreground">{{ keterangan }}</p>
+            <p class="text-xs leading-relaxed text-pretty text-muted-foreground">{{ keterangan }}</p>
         </div>
     </div>
 </template>

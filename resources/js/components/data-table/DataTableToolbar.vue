@@ -38,7 +38,7 @@ watch(
 <template>
     <div class="flex flex-wrap items-center gap-2">
         <div v-if="pencarian" class="relative">
-            <Search class="pointer-events-none absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search class="pointer-events-none absolute top-2.5 left-2 h-4 w-4 text-muted-foreground" />
             <!-- Pencarian aktif ikut menyala, sama seperti filter di sebelahnya. -->
             <Input
                 v-model="kata"

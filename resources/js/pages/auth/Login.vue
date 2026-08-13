@@ -144,11 +144,11 @@ const submit = () => {
                     bersaing dengan isi panel, dan itu yang sudah dicatat
                     `app.css` sebagai hal yang dihindari.
                 -->
-                <div class="titik absolute right-4 top-16 h-72 w-80"></div>
+                <div class="titik absolute top-16 right-4 h-72 w-80"></div>
 
                 <!-- Batang ukur. Empat batang setinggi berbeda, tanpa sumbu dan
                      tanpa angka, karena ia memang tidak mewakili data apa pun. -->
-                <svg class="absolute right-32 top-32 h-9 w-14 text-white/20" viewBox="0 0 56 40" fill="currentColor">
+                <svg class="absolute top-32 right-32 h-9 w-14 text-white/20" viewBox="0 0 56 40" fill="currentColor">
                     <rect x="0" y="22" width="8" height="18" rx="2" />
                     <rect x="14" y="12" width="8" height="28" rx="2" />
                     <rect x="28" y="18" width="8" height="22" rx="2" />
@@ -160,9 +160,9 @@ const submit = () => {
                     terbuka, mengikuti kurva yang sama dengan seluruh gerak lain
                     di halaman ini.
                 -->
-                <svg class="absolute -right-10 top-1/2 size-40 -translate-y-24" viewBox="0 0 120 120" fill="none">
+                <svg class="absolute top-1/2 -right-10 size-40 -translate-y-24" viewBox="0 0 120 120" fill="none">
                     <circle cx="60" cy="60" r="52" stroke="currentColor" stroke-width="1" class="text-white/10" />
-                    <circle cx="60" cy="60" r="34" stroke="currentColor" stroke-width="9" class="text-white/[0.05]" />
+                    <circle cx="60" cy="60" r="34" stroke="currentColor" stroke-width="9" class="text-white/5" />
                     <circle
                         cx="60"
                         cy="60"
@@ -183,14 +183,14 @@ const submit = () => {
                     Halaman ini dibuka pegawai Pemerintah Kota Kendari, dan
                     jembatan itu penanda yang mereka kenali tanpa perlu dibaca.
                 -->
-                <JembatanTeluk class="absolute -bottom-6 -right-10 w-[22rem] text-white/25" />
+                <JembatanTeluk class="absolute -right-10 -bottom-6 w-88 text-white/25" />
 
                 <!-- Cahaya latar. Dua saja, dan keduanya sangat lambat. -->
                 <div
-                    class="hanyut absolute -left-40 -top-40 h-[36rem] w-[36rem] rounded-full bg-[radial-gradient(closest-side,oklch(0.62_0.10_235/0.30),transparent)] blur-2xl"
+                    class="hanyut absolute -top-40 -left-40 h-144 w-xl rounded-full bg-[radial-gradient(closest-side,oklch(0.62_0.10_235/0.30),transparent)] blur-2xl"
                 ></div>
                 <div
-                    class="hanyut hanyut-lambat absolute -bottom-56 right-0 h-[34rem] w-[34rem] rounded-full bg-[radial-gradient(closest-side,oklch(0.58_0.12_250/0.26),transparent)] blur-2xl"
+                    class="hanyut hanyut-lambat absolute right-0 -bottom-56 h-136 w-136 rounded-full bg-[radial-gradient(closest-side,oklch(0.58_0.12_250/0.26),transparent)] blur-2xl"
                 ></div>
             </div>
 
@@ -211,22 +211,22 @@ const submit = () => {
                         height="128"
                     />
                     <div class="min-w-0">
-                        <p class="text-lg font-semibold leading-tight text-white">Pemerintah Kota Kendari</p>
+                        <p class="text-lg leading-tight font-semibold text-white">Pemerintah Kota Kendari</p>
                         <p class="text-sm leading-tight text-white/70">Dinas Komunikasi dan Informatika</p>
                     </div>
                 </div>
 
                 <!-- Pesan utama. -->
-                <div class="muncul max-w-[34rem]" style="animation-delay: 90ms">
+                <div class="muncul max-w-136" style="animation-delay: 90ms">
                     <!-- Guratan pembuka. Bukan label, tidak ada teks di dalamnya, dan
                          itu memang tujuannya: ia hanya menandai tempat judul dimulai. -->
                     <span class="mb-6 block h-1 w-11 rounded-full bg-brand-langit" aria-hidden="true"></span>
 
-                    <h2 class="judul-panel text-balance text-[1.875rem] font-semibold leading-[1.2] tracking-tight text-white xl:text-[2.125rem]">
+                    <h2 class="judul-panel text-[1.875rem] leading-[1.2] font-semibold tracking-tight text-balance text-white xl:text-[2.125rem]">
                         Nada pemberitaan Kota Kendari, terbaca dalam
                         <span class="text-brand-langit">satu layar.</span>
                     </h2>
-                    <p class="penjelas-panel mt-5 max-w-md text-pretty text-[0.9375rem] leading-relaxed text-white/70">
+                    <p class="penjelas-panel mt-5 max-w-md text-[0.9375rem] leading-relaxed text-pretty text-white/70">
                         SIMEDIA mengumpulkan berita tentang Kendari, menyaring yang menyangkut Pemerintah Kota, lalu menilai nadanya.
                     </p>
                 </div>
@@ -242,10 +242,8 @@ const submit = () => {
                 <div class="flex max-w-lg flex-col">
                     <ol class="muncul relative" style="animation-delay: 180ms">
                         <!-- Tulang punggung alur. Komet terang menuruninya sekali tiap putaran. -->
-                        <span class="rel-alur absolute bottom-0 left-[1.375rem] top-6 w-px overflow-hidden bg-white/[0.12]" aria-hidden="true">
-                            <span
-                                class="komet absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-transparent via-brand-langit to-transparent"
-                            ></span>
+                        <span class="rel-alur absolute top-6 bottom-0 left-5.5 w-px overflow-hidden bg-white/12" aria-hidden="true">
+                            <span class="komet absolute inset-x-0 top-0 h-1/3 bg-linear-to-b from-transparent via-brand-langit to-transparent"></span>
                         </span>
 
                         <li
@@ -260,7 +258,7 @@ const submit = () => {
                                 <component :is="langkah.ikon" class="size-5" :stroke-width="1.75" />
                             </span>
                             <div class="mt-1.5">
-                                <p class="text-[0.9375rem] font-semibold leading-tight text-white">{{ langkah.judul }}</p>
+                                <p class="text-[0.9375rem] leading-tight font-semibold text-white">{{ langkah.judul }}</p>
                                 <p class="mt-1.5 text-[0.8125rem] leading-relaxed text-white/60">{{ langkah.detail }}</p>
                             </div>
                         </li>
@@ -283,7 +281,7 @@ const submit = () => {
                         di labelnya, bukan sekadar mendekat.
                     -->
                     <div class="keping-nada muncul flex items-stretch" style="animation-delay: 300ms">
-                        <svg class="h-[6.25rem] w-[3.75rem] shrink-0" viewBox="0 0 60 100" fill="none" aria-hidden="true">
+                        <svg class="h-25 w-15 shrink-0" viewBox="0 0 60 100" fill="none" aria-hidden="true">
                             <g fill="none" stroke-linecap="round" stroke-width="1.5">
                                 <path class="gambar stroke-white/12" d="M22 0V50" style="--panjang: 60" />
                                 <path
@@ -300,7 +298,7 @@ const submit = () => {
                             </g>
                         </svg>
 
-                        <ul class="flex h-[6.25rem] flex-1 flex-col">
+                        <ul class="flex h-25 flex-1 flex-col">
                             <li v-for="item in nada" :key="item.label" class="flex flex-1 items-center gap-2.5">
                                 <span class="size-2 shrink-0 rounded-full" :class="item.isi" aria-hidden="true"></span>
                                 <span class="text-sm font-medium" :class="item.teks">{{ item.label }}</span>
@@ -319,14 +317,16 @@ const submit = () => {
             merek di sebelahnya yang membawa warna itu, dan di sini latarnya
             berganti menjadi bidang terang bertinta biru yang sangat samar.
         -->
-        <main class="panel-masuk relative isolate flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-5 sm:px-10 sm:py-12 lg:h-full lg:px-12 lg:py-12 xl:px-16">
+        <main
+            class="panel-masuk relative isolate flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-5 sm:px-10 sm:py-12 lg:h-full lg:px-12 lg:py-12 xl:px-16"
+        >
             <!--
                 Isi dipusatkan lewat margin auto, bukan `justify-center` di
                 induknya. Kalau isinya tumbuh, misalnya pesan galat validasi
                 muncul bersamaan dengan peringatan Caps Lock, `justify-center`
                 memotong bagian atas kartu dan potongan itu tidak bisa digulir.
             -->
-            <div class="m-auto w-full max-w-[27.5rem]">
+            <div class="m-auto w-full max-w-110">
                 <!--
                     Kop instansi versi ringkas. Panel merek tidak ada di layar
                     kecil, dan lambang Pemerintah Kota tidak boleh ikut hilang
@@ -341,7 +341,7 @@ const submit = () => {
                         height="128"
                     />
                     <div class="min-w-0">
-                        <p class="text-sm font-semibold leading-tight text-white">Pemerintah Kota Kendari</p>
+                        <p class="text-sm leading-tight font-semibold text-white">Pemerintah Kota Kendari</p>
                         <p class="text-xs leading-tight text-white/70">Dinas Komunikasi dan Informatika</p>
                     </div>
                 </div>
@@ -357,7 +357,9 @@ const submit = () => {
                     Bayangannya bertinta navy, bukan hitam. Bayangan hitam di
                     atas latar kebiruan terbaca kotor.
                 -->
-                <div class="kartu-masuk muncul rounded-3xl bg-card p-6 shadow-[0_28px_64px_-32px_oklch(0.36_0.09_252/0.45)] ring-1 ring-brand/[0.07] dark:ring-white/10 sm:p-8">
+                <div
+                    class="kartu-masuk muncul rounded-3xl bg-card p-6 shadow-[0_28px_64px_-32px_oklch(0.36_0.09_252/0.45)] ring-1 ring-brand/[0.07] sm:p-8 dark:ring-white/10"
+                >
                     <!--
                         Lambang SIMEDIA dan namanya berdiri berdampingan di dalam
                         kartu, bukan di kop instansi di atasnya.
@@ -371,7 +373,7 @@ const submit = () => {
                     -->
                     <div class="kop-kartu flex items-center gap-3">
                         <span
-                            class="lencana-simedia grid size-12 shrink-0 place-items-center rounded-2xl bg-brand/[0.06] ring-1 ring-brand/10 dark:bg-white/10 dark:ring-white/15"
+                            class="lencana-simedia grid size-12 shrink-0 place-items-center rounded-2xl bg-brand/6 ring-1 ring-brand/10 dark:bg-white/10 dark:ring-white/15"
                         >
                             <img src="/img/logo-simedia.webp" alt="Lambang SIMEDIA" class="size-8 object-contain" width="32" height="32" />
                         </span>
@@ -379,7 +381,9 @@ const submit = () => {
                     </div>
 
                     <h1 class="judul-masuk mt-6 text-xl font-semibold tracking-tight text-foreground sm:text-[1.375rem]">Masuk ke SIMEDIA</h1>
-                    <p class="penjelas-masuk mt-1.5 text-sm leading-relaxed text-muted-foreground">Gunakan akun yang diberikan Diskominfo Kota Kendari.</p>
+                    <p class="penjelas-masuk mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                        Gunakan akun yang diberikan Diskominfo Kota Kendari.
+                    </p>
 
                     <!-- Pesan berhasil, misalnya setelah kata sandi disetel ulang.
                          Hijau di sini bukan pilihan rasa. Ia token sentimen positif
@@ -399,7 +403,7 @@ const submit = () => {
                             <Label for="username">Nama pengguna</Label>
                             <div class="group relative">
                                 <UserRound
-                                    class="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition-colors duration-200 group-focus-within:text-brand dark:group-focus-within:text-brand-langit"
+                                    class="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground transition-colors duration-200 group-focus-within:text-brand dark:group-focus-within:text-brand-langit"
                                     :stroke-width="1.75"
                                 />
                                 <Input
@@ -411,7 +415,7 @@ const submit = () => {
                                     autocomplete="username"
                                     v-model="form.username"
                                     placeholder="nama pengguna Anda"
-                                    class="kolom-isian h-12 rounded-xl border-transparent bg-brand/[0.045] pl-11 transition-shadow duration-200 focus-visible:ring-brand/60 dark:bg-white/[0.06] dark:focus-visible:ring-brand-langit"
+                                    class="kolom-isian h-12 rounded-xl border-transparent bg-brand/4.5 pl-11 transition-shadow duration-200 focus-visible:ring-brand/60 dark:bg-white/6 dark:focus-visible:ring-brand-langit"
                                 />
                             </div>
                             <InputError :message="form.errors.username" />
@@ -421,7 +425,7 @@ const submit = () => {
                             <Label for="password">Kata sandi</Label>
                             <div class="group relative">
                                 <Lock
-                                    class="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition-colors duration-200 group-focus-within:text-brand dark:group-focus-within:text-brand-langit"
+                                    class="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground transition-colors duration-200 group-focus-within:text-brand dark:group-focus-within:text-brand-langit"
                                     :stroke-width="1.75"
                                 />
                                 <Input
@@ -432,7 +436,7 @@ const submit = () => {
                                     autocomplete="current-password"
                                     v-model="form.password"
                                     placeholder="Masukkan kata sandi"
-                                    class="kolom-isian h-12 rounded-xl border-transparent bg-brand/[0.045] pl-11 pr-12 transition-shadow duration-200 focus-visible:ring-brand/60 dark:bg-white/[0.06] dark:focus-visible:ring-brand-langit"
+                                    class="kolom-isian h-12 rounded-xl border-transparent bg-brand/4.5 pr-12 pl-11 transition-shadow duration-200 focus-visible:ring-brand/60 dark:bg-white/6 dark:focus-visible:ring-brand-langit"
                                     @keyup="periksaCapsLock"
                                     @keydown="periksaCapsLock"
                                     @blur="capsLockAktif = false"
@@ -444,7 +448,7 @@ const submit = () => {
                                 <button
                                     type="button"
                                     tabindex="3"
-                                    class="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/70 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+                                    class="absolute top-1/2 right-2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-brand/70 focus-visible:ring-offset-2 focus-visible:ring-offset-card focus-visible:outline-hidden"
                                     :aria-label="sandiTerlihat ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'"
                                     :aria-pressed="sandiTerlihat"
                                     @click="sandiTerlihat = !sandiTerlihat"
@@ -515,7 +519,7 @@ const submit = () => {
                     -->
                     <div class="pemisah-masuk mt-7 flex items-center gap-3" aria-hidden="true">
                         <span class="h-px flex-1 bg-brand/10 dark:bg-white/10"></span>
-                        <span class="grid size-7 place-items-center rounded-full bg-brand/[0.06] text-brand/70 dark:bg-white/10 dark:text-white/60">
+                        <span class="grid size-7 place-items-center rounded-full bg-brand/6 text-brand/70 dark:bg-white/10 dark:text-white/60">
                             <ShieldCheck class="size-3.5" :stroke-width="1.75" />
                         </span>
                         <span class="h-px flex-1 bg-brand/10 dark:bg-white/10"></span>
@@ -528,10 +532,8 @@ const submit = () => {
                         lebih buruk daripada teks biasa.
                     -->
                     <div class="blok-bantuan mt-5 flex items-center gap-3">
-                        <span
-                            class="grid size-10 shrink-0 place-items-center rounded-xl bg-brand/[0.06] text-brand dark:bg-white/10 dark:text-white/80"
-                        >
-                            <Headset class="size-[1.125rem]" :stroke-width="1.75" />
+                        <span class="grid size-10 shrink-0 place-items-center rounded-xl bg-brand/6 text-brand dark:bg-white/10 dark:text-white/80">
+                            <Headset class="size-4.5" :stroke-width="1.75" />
                         </span>
                         <p class="text-sm leading-relaxed text-muted-foreground">
                             Belum punya akun? Hubungi admin

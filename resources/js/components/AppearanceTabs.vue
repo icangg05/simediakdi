@@ -36,8 +36,8 @@ const tabs = [
             role="radio"
             :aria-checked="appearance === value"
             :class="[
-                'tekan flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-                appearance === value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                'tekan flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-hidden',
+                appearance === value ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground',
             ]"
             @click="updateAppearance(value)"
         >

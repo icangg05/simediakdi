@@ -125,8 +125,8 @@ const daftar = computed(() => {
  * label tombolnya.
  */
 const opsiUrutan = [
-    { nilai: 'volume' as const, label: 'Terbanyak memberitakan', aktif: 'bg-aksen-toska text-white shadow-sm dark:text-background' },
-    { nilai: 'negatif' as const, label: 'Porsi negatif tertinggi', aktif: 'bg-sentimen-negatif text-white shadow-sm dark:text-background' },
+    { nilai: 'volume' as const, label: 'Terbanyak memberitakan', aktif: 'bg-aksen-toska text-white shadow-xs dark:text-background' },
+    { nilai: 'negatif' as const, label: 'Porsi negatif tertinggi', aktif: 'bg-sentimen-negatif text-white shadow-xs dark:text-background' },
 ];
 
 /** Lebar batang satu baris terhadap media teratas, dalam persen. */
@@ -249,7 +249,7 @@ const jangkauan = computed(() =>
  * dengan bobot yang sama membuat puncaknya harus dicari baris demi baris.
  */
 function rupaNomor(urut: number): string {
-    return urut < 3 ? 'bg-brand text-white shadow-sm dark:bg-aksen-biru dark:text-background' : 'bg-muted text-muted-foreground';
+    return urut < 3 ? 'bg-brand text-white shadow-xs dark:bg-aksen-biru dark:text-background' : 'bg-muted text-muted-foreground';
 }
 </script>
 
@@ -294,13 +294,17 @@ function rupaNomor(urut: number): string {
                         sini hanya dua.
                     -->
                     <template #aksi>
-                        <div class="flex w-full items-center gap-1 rounded-full bg-muted p-1 sm:w-auto" role="group" aria-label="Urutan papan peringkat">
+                        <div
+                            class="flex w-full items-center gap-1 rounded-full bg-muted p-1 sm:w-auto"
+                            role="group"
+                            aria-label="Urutan papan peringkat"
+                        >
                             <button
                                 v-for="opsi in opsiUrutan"
                                 :key="opsi.nilai"
                                 type="button"
                                 :aria-pressed="urutan === opsi.nilai"
-                                class="tekan ease-[cubic-bezier(0.32,0.72,0,1)] flex-1 rounded-full px-3 py-1.5 text-xs font-semibold leading-tight transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 sm:flex-none"
+                                class="tekan flex-1 rounded-full px-3 py-1.5 text-xs leading-tight font-semibold transition-colors duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:outline-hidden sm:flex-none"
                                 :class="urutan === opsi.nilai ? opsi.aktif : 'text-muted-foreground hover:text-foreground'"
                                 @click="urutan = opsi.nilai"
                             >
@@ -341,7 +345,7 @@ function rupaNomor(urut: number): string {
                         <li v-for="(m, urut) in daftar" :key="m.id">
                             <Link
                                 :href="`/eksekutif/berita?${kueri({ media: m.id })}`"
-                                class="tekan group block rounded-lg px-2 py-3 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                class="tekan group block rounded-lg px-2 py-3 hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden"
                             >
                                 <div class="flex items-center gap-3">
                                     <!--
@@ -363,7 +367,7 @@ function rupaNomor(urut: number): string {
                                     </span>
 
                                     <span class="shrink-0 text-right">
-                                        <span class="angka block text-sm font-semibold leading-tight">
+                                        <span class="angka block text-sm leading-tight font-semibold">
                                             {{ formatAngka(m.jumlah_artikel) }}
                                             <span class="text-xs font-normal text-muted-foreground">berita</span>
                                         </span>
@@ -373,7 +377,7 @@ function rupaNomor(urut: number): string {
                                     </span>
 
                                     <ArrowRight
-                                        class="ease-[cubic-bezier(0.32,0.72,0,1)] size-4 shrink-0 text-muted-foreground transition-transform duration-300 group-hover:translate-x-1"
+                                        class="size-4 shrink-0 text-muted-foreground transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-1"
                                         aria-hidden="true"
                                     />
                                 </div>
@@ -449,7 +453,7 @@ function rupaNomor(urut: number): string {
                         <Globe2 class="size-4 text-aksen-toska" aria-hidden="true" />
                     </span>
                     <span class="shrink-0">Jangkauan media</span>
-                    <span class="h-px flex-1 bg-gradient-to-r from-brand/30 to-transparent dark:from-aksen-biru/30" aria-hidden="true"></span>
+                    <span class="h-px flex-1 bg-linear-to-r from-brand/30 to-transparent dark:from-aksen-biru/30" aria-hidden="true"></span>
                 </h2>
 
                 <div class="grid gap-3.5 md:grid-cols-3">
@@ -462,14 +466,14 @@ function rupaNomor(urut: number): string {
                     >
                         <span
                             :class="t.pita"
-                            class="tumbuh absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r to-transparent"
+                            class="tumbuh absolute inset-x-0 top-0 h-[3px] bg-linear-to-r to-transparent"
                             :style="{ animationDelay: `${280 + urut * 80}ms` }"
                             aria-hidden="true"
                         ></span>
 
                         <div class="flex items-baseline justify-between gap-3">
                             <span :class="t.teks" class="text-sm font-semibold">{{ t.nama }}</span>
-                            <span class="angka shrink-0 text-2xl font-semibold leading-none">
+                            <span class="angka shrink-0 text-2xl leading-none font-semibold">
                                 {{ formatAngka(t.jumlahArtikel) }}
                                 <span class="text-xs font-normal text-muted-foreground">berita</span>
                             </span>

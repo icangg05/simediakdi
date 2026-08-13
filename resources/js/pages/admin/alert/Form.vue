@@ -129,7 +129,7 @@ function simpan() {
                     <section class="space-y-3">
                         <div class="flex items-center gap-2">
                             <Siren class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                            <h2 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Yang diawasi</h2>
+                            <h2 class="shrink-0 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Yang diawasi</h2>
                             <span class="h-px flex-1 bg-border" aria-hidden="true"></span>
                         </div>
 
@@ -140,7 +140,7 @@ function simpan() {
                                 type="button"
                                 role="radio"
                                 :aria-checked="form.jenis === j.nilai"
-                                class="tekan flex flex-col gap-1.5 rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                class="tekan flex flex-col gap-1.5 rounded-lg border p-3 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-hidden"
                                 :class="form.jenis === j.nilai ? j.kelas : 'hover:bg-muted/50'"
                                 @click="form.jenis = j.nilai"
                             >
@@ -217,7 +217,7 @@ function simpan() {
                                 id="istilah"
                                 v-model="form.kondisi.istilah"
                                 rows="4"
-                                class="rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                                class="rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed outline-hidden transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                                 placeholder="demo&#10;unjuk rasa&#10;pungli"
                             />
                             <InputError :message="form.errors['kondisi.istilah']" />
@@ -233,7 +233,7 @@ function simpan() {
                     <section v-if="form.jenis !== 'berita_negatif'" class="space-y-3">
                         <div class="flex items-center gap-2">
                             <SlidersHorizontal class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                            <h2 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Waktu dan pengiriman</h2>
+                            <h2 class="shrink-0 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Waktu dan pengiriman</h2>
                             <span class="h-px flex-1 bg-border" aria-hidden="true"></span>
                         </div>
 
@@ -264,7 +264,7 @@ function simpan() {
                     <section class="space-y-3">
                         <div class="flex items-center gap-2">
                             <Power class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                            <h2 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Saklar</h2>
+                            <h2 class="shrink-0 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Saklar</h2>
                             <span class="h-px flex-1 bg-border" aria-hidden="true"></span>
                         </div>
 

@@ -95,7 +95,7 @@ const jumlahGagal = computed(() => props.riwayat.filter((r) => r.status_kirim !=
             <template #aksi>
                 <Link
                     href="/admin/alert/create"
-                    class="tekan inline-flex items-center gap-2 rounded-lg bg-white px-3.5 py-2 text-xs font-semibold text-brand transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand"
+                    class="tekan inline-flex items-center gap-2 rounded-lg bg-white px-3.5 py-2 text-xs font-semibold text-brand transition-colors hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand focus-visible:outline-hidden"
                 >
                     <Plus class="size-3.5" aria-hidden="true" />
                     Tambah aturan
@@ -106,7 +106,7 @@ const jumlahGagal = computed(() => props.riwayat.filter((r) => r.status_kirim !=
                      bidang putih penuh yang berarti aksi utama. -->
                 <button
                     type="button"
-                    class="tekan inline-flex items-center gap-2 rounded-lg bg-white/10 px-3.5 py-2 text-xs font-medium text-white ring-1 ring-inset ring-white/25 transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand"
+                    class="tekan inline-flex items-center gap-2 rounded-lg bg-white/10 px-3.5 py-2 text-xs font-medium text-white ring-1 ring-white/25 transition-colors ring-inset hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand focus-visible:outline-hidden"
                     @click="router.post('/admin/alert/uji-telegram', {}, { preserveScroll: true })"
                 >
                     <Send class="size-3.5" aria-hidden="true" />
@@ -130,7 +130,7 @@ const jumlahGagal = computed(() => props.riwayat.filter((r) => r.status_kirim !=
              merah: tidak ada yang rusak, hanya belum diisi. -->
         <div
             v-if="!props.telegramSiap"
-            class="muncul flex items-start gap-3 rounded-xl bg-sentimen-review-lembut p-4 text-sm text-sentimen-review ring-1 ring-inset ring-sentimen-review/25"
+            class="muncul flex items-start gap-3 rounded-xl bg-sentimen-review-lembut p-4 text-sm text-sentimen-review ring-1 ring-sentimen-review/25 ring-inset"
             style="animation-delay: 60ms"
         >
             <TriangleAlert class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
@@ -287,7 +287,7 @@ const jumlahGagal = computed(() => props.riwayat.filter((r) => r.status_kirim !=
                                 </span>
                             </div>
                             <p class="text-xs text-muted-foreground">{{ r.aturan }} &middot; {{ sejak(r.dipicu_at) }}</p>
-                            <p v-if="r.pesan_error" class="break-words text-xs text-sentimen-negatif">{{ r.pesan_error }}</p>
+                            <p v-if="r.pesan_error" class="text-xs wrap-break-word text-sentimen-negatif">{{ r.pesan_error }}</p>
                         </div>
                     </li>
                 </ul>

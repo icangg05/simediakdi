@@ -88,7 +88,7 @@ const ukur = computed(() =>
     -->
     <Link
         :href="href"
-        class="tekan group inline-flex max-w-full shrink-0 items-center rounded-full font-semibold ring-1 ring-inset focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+        class="tekan group inline-flex max-w-full shrink-0 items-center rounded-full font-semibold ring-1 ring-inset focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid"
         :class="[varian, ukur.pil]"
     >
         <component :is="ikon" v-if="ikon" :class="ukur.ikon" class="shrink-0" aria-hidden="true" />
@@ -99,7 +99,7 @@ const ukur = computed(() =>
         <span :class="ukur.lingkar" class="grid shrink-0 place-items-center rounded-full bg-black/[0.07] dark:bg-white/10" aria-hidden="true">
             <ArrowRight
                 :class="ukur.panah"
-                class="ease-[cubic-bezier(0.32,0.72,0,1)] transition-transform duration-300 group-hover:translate-x-0.5"
+                class="transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-0.5"
             />
         </span>
     </Link>

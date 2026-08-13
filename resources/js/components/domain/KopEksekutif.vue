@@ -66,7 +66,7 @@ const BUSUR = [38, 62, 88, 116].map((jari, urutan) => ({
         talamnya, supaya kedua lengkungnya sepusat dan tidak terlihat seperti
         dua kotak yang kebetulan bertumpuk.
     -->
-    <header class="muncul relative overflow-hidden rounded-2xl bg-brand p-1.5 text-white shadow-xl shadow-brand/25 ring-1 ring-brand-terang/40">
+    <header class="muncul relative overflow-hidden rounded-2xl bg-brand p-1.5 text-white shadow-xl ring-1 shadow-brand/25 ring-brand-terang/40">
         <!--
             Ornamen kop, dan tidak satu pun berupa pola berulang. Pola yang
             mengulang di belakang teks putih menjadi unsur kedua yang harus
@@ -92,7 +92,7 @@ const BUSUR = [38, 62, 88, 116].map((jari, urutan) => ({
             sebagai cacat cetak daripada ornamen.
         -->
         <svg
-            class="pointer-events-none absolute -right-32 -top-40 size-[22rem] text-white/25 sm:-right-24 sm:-top-32 sm:size-[26rem]"
+            class="pointer-events-none absolute -top-40 -right-32 size-88 text-white/25 sm:-top-32 sm:-right-24 sm:size-104"
             viewBox="0 0 200 200"
             fill="none"
             aria-hidden="true"
@@ -110,12 +110,12 @@ const BUSUR = [38, 62, 88, 116].map((jari, urutan) => ({
             />
         </svg>
 
-        <KotaKendari v-if="siluet" class="ilustrasi-kota-navy pointer-events-none absolute right-3 top-1 hidden w-[34%] max-w-[360px] md:block" />
+        <KotaKendari v-if="siluet" class="ilustrasi-kota-navy pointer-events-none absolute top-1 right-3 hidden w-[34%] max-w-[360px] md:block" />
 
         <div class="relative space-y-4 p-4 pb-5 sm:p-5 sm:pb-6">
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div class="min-w-0 space-y-1">
-                    <h1 class="max-w-[24ch] text-balance text-2xl font-semibold leading-tight tracking-tight sm:text-[1.75rem]">{{ judul }}</h1>
+                    <h1 class="max-w-[24ch] text-2xl leading-tight font-semibold tracking-tight text-balance sm:text-[1.75rem]">{{ judul }}</h1>
                     <p v-if="keterangan" class="max-w-[62ch] text-sm text-white/75">{{ keterangan }}</p>
                 </div>
 
@@ -132,7 +132,7 @@ const BUSUR = [38, 62, 88, 116].map((jari, urutan) => ({
                 -->
                 <div
                     v-if="$slots.kendali"
-                    class="w-full min-w-0 rounded-xl bg-background p-1 text-foreground shadow-lg shadow-brand/30 ring-1 ring-white/25 sm:w-auto sm:shrink-0"
+                    class="w-full min-w-0 rounded-xl bg-background p-1 text-foreground shadow-lg ring-1 shadow-brand/30 ring-white/25 sm:w-auto sm:shrink-0"
                 >
                     <slot name="kendali" />
                 </div>
@@ -141,13 +141,13 @@ const BUSUR = [38, 62, 88, 116].map((jari, urutan) => ({
             <!-- Garis merek, tumbuh dari kiri saat halaman terbuka. Ia
                  memisahkan judul dari keterangan tanpa menambah satu baris teks
                  pun. -->
-            <div class="tumbuh h-px w-28 bg-gradient-to-r from-white/70 to-transparent" aria-hidden="true"></div>
+            <div class="tumbuh h-px w-28 bg-linear-to-r from-white/70 to-transparent" aria-hidden="true"></div>
 
             <div v-if="$slots.pil" class="flex flex-wrap items-center gap-2">
                 <slot name="pil" />
             </div>
 
-            <div v-if="$slots.default" class="max-w-[60ch] text-pretty text-sm leading-relaxed text-white/85">
+            <div v-if="$slots.default" class="max-w-[60ch] text-sm leading-relaxed text-pretty text-white/85">
                 <slot />
             </div>
         </div>
@@ -159,7 +159,7 @@ const BUSUR = [38, 62, 88, 116].map((jari, urutan) => ({
         -->
         <div
             v-if="$slots.inti"
-            class="tajam relative space-y-4 rounded-[calc(1rem_-_0.375rem)] bg-card p-4 text-card-foreground sm:p-5"
+            class="tajam relative space-y-4 rounded-[0.625rem] bg-card p-4 text-card-foreground sm:p-5"
             style="animation-delay: 160ms"
         >
             <slot name="inti" />

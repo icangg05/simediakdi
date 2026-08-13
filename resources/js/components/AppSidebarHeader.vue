@@ -36,7 +36,7 @@ defineProps<{
         breadcrumb tetap abu gelap dan nyaris hilang di atas navy.
     -->
     <header
-        class="flex h-16 shrink-0 items-center gap-2 border-b border-border px-6 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12 max-md:border-sidebar-border max-md:bg-sidebar max-md:text-sidebar-foreground md:px-4"
+        class="flex h-16 shrink-0 items-center gap-2 border-b border-border px-6 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 max-md:border-sidebar-border max-md:bg-sidebar max-md:text-sidebar-foreground md:px-4"
     >
         <div class="flex items-center gap-2">
             <SidebarTrigger class="-ml-1 max-md:hover:bg-sidebar-accent max-md:hover:text-sidebar-accent-foreground" />

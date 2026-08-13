@@ -50,7 +50,7 @@ const submit = () => {
             <CardContent class="space-y-5 p-5 sm:p-6">
                 <div class="flex items-center gap-2">
                     <UserRound class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                    <h2 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Identitas</h2>
+                    <h2 class="shrink-0 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Identitas</h2>
                     <span class="h-px flex-1 bg-border" aria-hidden="true"></span>
                 </div>
 
@@ -77,7 +77,7 @@ const submit = () => {
                          "menunggu" di panel admin. -->
                     <div
                         v-if="mustVerifyEmail && !user.email_verified_at"
-                        class="flex items-start gap-2.5 rounded-lg bg-sentimen-review-lembut p-3 text-sm text-sentimen-review ring-1 ring-inset ring-sentimen-review/25"
+                        class="flex items-start gap-2.5 rounded-lg bg-sentimen-review-lembut p-3 text-sm text-sentimen-review ring-1 ring-sentimen-review/25 ring-inset"
                     >
                         <MailWarning class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                         <div class="min-w-0 space-y-1">
@@ -86,7 +86,7 @@ const submit = () => {
                                 href="/email/verification-notification"
                                 method="post"
                                 as="button"
-                                class="rounded font-medium underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                class="rounded font-medium underline underline-offset-2 hover:no-underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-hidden"
                             >
                                 Kirim ulang tautan verifikasi
                             </Link>
@@ -95,7 +95,7 @@ const submit = () => {
 
                     <div
                         v-if="status === 'verification-link-sent'"
-                        class="flex items-start gap-2.5 rounded-lg bg-sentimen-positif-lembut p-3 text-sm text-sentimen-positif ring-1 ring-inset ring-sentimen-positif/25"
+                        class="flex items-start gap-2.5 rounded-lg bg-sentimen-positif-lembut p-3 text-sm text-sentimen-positif ring-1 ring-sentimen-positif/25 ring-inset"
                     >
                         <CircleCheck class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                         <p>Tautan verifikasi baru sudah dikirim ke alamat email Anda.</p>

@@ -223,7 +223,7 @@ async function salin() {
              yang jelas. -->
         <Link
             href="/admin/artikel"
-            class="group inline-flex items-center gap-1.5 rounded-md text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            class="group inline-flex items-center gap-1.5 rounded-md text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-hidden"
         >
             <ArrowLeft class="size-4 transition-transform duration-200 group-hover:-translate-x-0.5 motion-reduce:transition-none" />
             Kembali ke daftar artikel
@@ -247,18 +247,18 @@ async function salin() {
                     :href="artikel.url"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="tekan group inline-flex items-center gap-2 rounded-lg bg-white px-3.5 py-2 text-xs font-semibold text-brand transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand"
+                    class="tekan group inline-flex items-center gap-2 rounded-lg bg-white px-3.5 py-2 text-xs font-semibold text-brand transition-colors hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand focus-visible:outline-hidden"
                 >
                     Buka halaman aslinya
                     <ExternalLink
-                        class="size-3.5 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 motion-reduce:transition-none"
+                        class="size-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 motion-reduce:transition-none"
                         aria-hidden="true"
                     />
                 </a>
 
                 <button
                     type="button"
-                    class="tekan inline-flex items-center gap-2 rounded-lg bg-white/10 px-3.5 py-2 text-xs font-medium text-white ring-1 ring-inset ring-white/25 transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand"
+                    class="tekan inline-flex items-center gap-2 rounded-lg bg-white/10 px-3.5 py-2 text-xs font-medium text-white ring-1 ring-white/25 transition-colors ring-inset hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand focus-visible:outline-hidden"
                     @click="salin"
                 >
                     <component :is="tersalin ? Check : Copy" class="size-3.5" aria-hidden="true" />
@@ -289,7 +289,7 @@ async function salin() {
                 <Card v-if="artikel.isi" class="muncul overflow-hidden" style="animation-delay: 90ms">
                     <CardHeader class="flex-row items-center justify-between gap-3 space-y-0 border-b bg-muted/30 py-3">
                         <CardTitle class="text-sm font-semibold">Isi hasil ekstraksi</CardTitle>
-                        <span class="angka rounded-full bg-background px-2 py-0.5 text-[11px] text-muted-foreground ring-1 ring-inset ring-border">
+                        <span class="angka rounded-full bg-background px-2 py-0.5 text-[11px] text-muted-foreground ring-1 ring-border ring-inset">
                             {{ formatAngka(artikel.jumlah_kata) }} kata
                         </span>
                     </CardHeader>
@@ -300,11 +300,11 @@ async function salin() {
                         berhenti menggulir padahal artikelnya masih separuh.
                     -->
                     <CardContent class="relative p-0">
-                        <p class="max-h-[28rem] overflow-y-auto whitespace-pre-line px-5 py-4 text-sm leading-[1.75] [text-wrap:pretty]">
+                        <p class="max-h-112 overflow-y-auto px-5 py-4 text-sm leading-[1.75] text-pretty whitespace-pre-line">
                             {{ artikel.isi }}
                         </p>
                         <div
-                            class="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-card to-transparent"
+                            class="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-linear-to-t from-card to-transparent"
                             aria-hidden="true"
                         ></div>
                     </CardContent>
@@ -356,13 +356,13 @@ async function salin() {
                         <ol v-for="analisis in artikel.analisis_sentimen" :key="analisis.id" class="space-y-0">
                             <li class="rel relative pb-5 pl-9">
                                 <span
-                                    class="absolute left-0 top-0 grid size-7 place-items-center rounded-full"
+                                    class="absolute top-0 left-0 grid size-7 place-items-center rounded-full"
                                     :class="tileRelevansi(analisis.relevan)"
                                 >
                                     <component :is="analisis.relevan ? Check : Minus" class="size-4" aria-hidden="true" />
                                 </span>
 
-                                <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Relevansi</p>
+                                <p class="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Relevansi</p>
                                 <p class="mt-0.5 text-sm font-semibold">
                                     {{ analisis.relevan ? 'Relevan dengan Pemkot Kendari' : 'Di luar cakupan Pemkot Kendari' }}
                                 </p>
@@ -371,13 +371,13 @@ async function salin() {
 
                             <li class="rel relative pb-5 pl-9">
                                 <span
-                                    class="absolute left-0 top-0 grid size-7 place-items-center rounded-full"
+                                    class="absolute top-0 left-0 grid size-7 place-items-center rounded-full"
                                     :class="analisis.relevan ? 'bg-brand-lembut text-brand dark:text-white' : 'bg-muted text-muted-foreground'"
                                 >
                                     <TrendingUp class="size-4" aria-hidden="true" />
                                 </span>
 
-                                <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Sentimen</p>
+                                <p class="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Sentimen</p>
 
                                 <template v-if="analisis.relevan">
                                     <div class="mt-1 flex flex-wrap items-center gap-1.5">
@@ -407,16 +407,16 @@ async function salin() {
                                 yang tidak lolos verifikasi tidak pernah menjadi label.
                             -->
                             <li v-if="analisis.reason_summary" class="rel relative pb-5 pl-9">
-                                <span class="absolute left-0 top-0 grid size-7 place-items-center rounded-full bg-aksen-biru/10 text-aksen-biru">
+                                <span class="absolute top-0 left-0 grid size-7 place-items-center rounded-full bg-aksen-biru/10 text-aksen-biru">
                                     <Quote class="size-4" aria-hidden="true" />
                                 </span>
 
-                                <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Alasan</p>
+                                <p class="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Alasan</p>
                                 <p class="mt-0.5 text-xs leading-relaxed">{{ analisis.reason_summary }}</p>
 
                                 <details v-if="analisis.evidence?.length" class="group mt-2">
                                     <summary
-                                        class="inline-flex cursor-pointer list-none items-center gap-1 rounded text-xs font-medium text-aksen-biru transition-colors hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                        class="inline-flex cursor-pointer list-none items-center gap-1 rounded text-xs font-medium text-aksen-biru transition-colors hover:text-brand focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-hidden"
                                     >
                                         <ChevronRight
                                             class="size-3.5 transition-transform duration-200 group-open:rotate-90 motion-reduce:transition-none"
@@ -429,7 +429,7 @@ async function salin() {
                                         <li
                                             v-for="(kutipan, i) in analisis.evidence"
                                             :key="i"
-                                            class="text-xs italic leading-relaxed text-muted-foreground"
+                                            class="text-xs leading-relaxed text-muted-foreground italic"
                                         >
                                             &ldquo;{{ kutipan }}&rdquo;
                                         </li>
@@ -439,13 +439,13 @@ async function salin() {
 
                             <li class="rel rel-akhir relative pl-9">
                                 <span
-                                    class="absolute left-0 top-0 grid size-7 place-items-center rounded-full"
+                                    class="absolute top-0 left-0 grid size-7 place-items-center rounded-full"
                                     :class="adaKoreksi(analisis) ? 'bg-aksen-ungu text-white dark:text-background' : 'bg-muted text-muted-foreground'"
                                 >
                                     <UserRoundCheck class="size-4" aria-hidden="true" />
                                 </span>
 
-                                <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Koreksi manusia</p>
+                                <p class="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Koreksi manusia</p>
 
                                 <p v-if="analisis.label_manual" class="mt-0.5 text-xs leading-relaxed">
                                     Diubah menjadi <strong class="capitalize">{{ analisis.label_manual }}</strong> oleh
@@ -468,7 +468,7 @@ async function salin() {
                                                 v-for="pilihan in pilihanLabel"
                                                 :key="pilihan.nilai"
                                                 type="button"
-                                                class="tekan inline-flex items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-xs font-medium capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                                class="tekan inline-flex items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-xs font-medium capitalize transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-hidden"
                                                 :class="form.label_manual === pilihan.nilai ? pilihan.aktif : pilihan.diam"
                                                 :aria-pressed="form.label_manual === pilihan.nilai"
                                                 @click="form.label_manual = pilihan.nilai"
@@ -505,7 +505,7 @@ async function salin() {
                                     <div v-else class="mt-3 flex flex-wrap items-center gap-1.5">
                                         <button
                                             type="button"
-                                            class="tekan inline-flex items-center gap-1.5 rounded-md border border-brand/30 px-2.5 py-1.5 text-xs font-medium text-brand transition-colors hover:bg-brand-lembut focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:border-white/25 dark:text-white dark:hover:bg-white/10"
+                                            class="tekan inline-flex items-center gap-1.5 rounded-md border border-brand/30 px-2.5 py-1.5 text-xs font-medium text-brand transition-colors hover:bg-brand-lembut focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-hidden dark:border-white/25 dark:text-white dark:hover:bg-white/10"
                                             @click="mulaiKoreksi(analisis)"
                                         >
                                             <PenLine class="size-3.5" aria-hidden="true" />
@@ -522,7 +522,7 @@ async function salin() {
                                         <button
                                             v-if="adaKoreksi(analisis)"
                                             type="button"
-                                            class="tekan inline-flex items-center gap-1.5 rounded-md border border-aksen-ungu/40 px-2.5 py-1.5 text-xs font-medium text-aksen-ungu transition-colors hover:bg-aksen-ungu/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
+                                            class="tekan inline-flex items-center gap-1.5 rounded-md border border-aksen-ungu/40 px-2.5 py-1.5 text-xs font-medium text-aksen-ungu transition-colors hover:bg-aksen-ungu/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:opacity-50"
                                             :disabled="sedangReset"
                                             @click="konfirmasiReset = true"
                                         >

@@ -43,14 +43,19 @@ const judulKolom = computed(() => ({ harian: 'Tanggal', mingguan: 'Pekan mulai',
 const tanggal = computed(() => props.data.map((b) => format(new Date(b.tanggal), polaLabel[props.satuan], { locale: id })));
 
 /**
- * Urutan tetap dari bawah: positif, netral, negatif. Urutan yang berubah antar
- * halaman membuat pembaca salah baca.
+ * Urutan tetap: positif, netral, negatif. Urutan yang berubah antar halaman
+ * membuat pembaca salah baca legendanya.
+ *
+ * Deretnya tidak ditumpuk. Tumpukan memaksa pembaca mengurangi garis atas dari
+ * garis bawah untuk tahu nilai satu nada, dan itu terbukti membingungkan.
+ * Sekarang tinggi tiap garis langsung dibaca dari sumbu kiri. Jumlah total per
+ * titik hilang dari grafik, tapi angka itu sudah ada di kartu ringkasan dan di
+ * tampilan tabel.
  *
  * "Perlu review" tidak digambar. Deret keempat itu tidak menyatakan nada
- * pemberitaan, hanya keyakinan model, dan menumpuknya di grafik yang sama
- * membuat tinggi tumpukan berhenti berarti jumlah berita per nada. Angkanya
- * tetap disebut satu baris di bawah batang komposisi pada halaman eksekutif,
- * jadi tidak ada yang hilang diam-diam.
+ * pemberitaan, hanya keyakinan model. Angkanya tetap disebut satu baris di
+ * bawah batang komposisi pada halaman eksekutif, jadi tidak ada yang hilang
+ * diam-diam.
  */
 const deret = [
     { kunci: 'jumlah_positif', nama: 'Positif', warna: 'positif' },
@@ -65,7 +70,6 @@ const opsi = computed(() => ({
     series: deret.map((d, urutan) => ({
         name: d.nama,
         type: 'line',
-        stack: 'total',
         /*
          * Lengkung, bukan patah.
          *
@@ -85,7 +89,10 @@ const opsi = computed(() => ({
         // Simbol hanya muncul saat kursor menunjuk, jadi grafiknya tetap bersih.
         symbolSize: 7,
         emphasis: { focus: 'series' },
-        areaStyle: { opacity: 0.3 },
+        /*
+         * Tanpa isian di bawah garis. Deretnya tidak lagi ditumpuk, jadi tiga
+         * area yang saling menimpa hanya menutupi deret yang nilainya kecil.
+         */
         lineStyle: { width: 2.5 },
         itemStyle: { color: warnaSentimen.value[d.warna] },
         // Deret digambar berurutan dari bawah, mengikuti urutan legendanya.

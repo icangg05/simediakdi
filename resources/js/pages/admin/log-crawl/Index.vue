@@ -134,7 +134,7 @@ const RUPA_STATUS: Record<BarisLog['status'], { kelas: string; ikon: Component }
                      transparan: aksi yang tersedia, bukan yang diharapkan. -->
                 <button
                     type="button"
-                    class="tekan inline-flex items-center gap-2 rounded-lg bg-white/10 px-3.5 py-2 text-xs font-medium text-white ring-1 ring-inset ring-white/25 transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand disabled:opacity-60"
+                    class="tekan inline-flex items-center gap-2 rounded-lg bg-white/10 px-3.5 py-2 text-xs font-medium text-white ring-1 ring-white/25 transition-colors ring-inset hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand focus-visible:outline-hidden disabled:opacity-60"
                     :disabled="sedangCrawl"
                     @click="crawlSekarang"
                 >

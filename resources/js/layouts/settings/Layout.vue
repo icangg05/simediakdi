@@ -91,7 +91,7 @@ const jalurSekarang = computed(() => page.url.split('?')[0]);
                     <!-- Inisial, bukan foto. Sistem tidak menyimpan avatar dan
                          tidak akan menyimpannya, jadi bidang berhuruf adalah
                          penanda paling jujur yang bisa dipasang di sini. -->
-                    <div class="flex items-center gap-3 rounded-lg bg-white/10 px-3 py-2 ring-1 ring-inset ring-white/20">
+                    <div class="flex items-center gap-3 rounded-lg bg-white/10 px-3 py-2 ring-1 ring-white/20 ring-inset">
                         <span class="grid size-9 shrink-0 place-items-center rounded-full bg-white/15 text-sm font-semibold" aria-hidden="true">
                             {{ pengguna?.name?.charAt(0).toUpperCase() ?? '?' }}
                         </span>
@@ -119,7 +119,7 @@ const jalurSekarang = computed(() => page.url.split('?')[0]);
                             :key="item.href"
                             :href="item.href"
                             :aria-current="jalurSekarang === item.href ? 'page' : undefined"
-                            class="tekan inline-flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            class="tekan inline-flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-hidden"
                             :class="
                                 jalurSekarang === item.href
                                     ? 'bg-brand-lembut text-brand dark:text-white'

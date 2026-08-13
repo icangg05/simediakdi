@@ -230,9 +230,9 @@ function hapus() {
  * keduanya urutannya, bukan warnanya, dan memberi salah satunya rona lain akan
  * menyarankan salah satu lebih berisiko daripada yang lain.
  */
-const TOMBOL_UTAMA = cn(buttonVariants({ size: 'sm' }), 'gap-1.5 bg-brand text-white shadow-sm shadow-brand/25 hover:bg-brand-terang');
+const TOMBOL_UTAMA = cn(buttonVariants({ size: 'sm' }), 'gap-1.5 bg-brand text-white shadow-xs shadow-brand/25 hover:bg-brand-terang');
 
-const TOMBOL_KIRIM = cn(buttonVariants(), 'gap-2 bg-brand text-white shadow-sm shadow-brand/25 hover:bg-brand-terang');
+const TOMBOL_KIRIM = cn(buttonVariants(), 'gap-2 bg-brand text-white shadow-xs shadow-brand/25 hover:bg-brand-terang');
 
 /*
  * Tombol pencabutan memakai destructive, satu-satunya rona merah yang boleh ada
@@ -287,12 +287,12 @@ const kabut = (token: string, opasitas = 0.09) => ({
         -->
         <ol class="space-y-0">
             <li class="langkah muncul relative pb-5 pl-11" style="animation-delay: 60ms">
-                <span class="angka absolute left-0 top-0 grid size-8 place-items-center rounded-lg bg-brand text-sm font-semibold text-white">
+                <span class="angka absolute top-0 left-0 grid size-8 place-items-center rounded-lg bg-brand text-sm font-semibold text-white">
                     1
                 </span>
 
                 <div class="space-y-2 pt-1">
-                    <h2 class="text-sm font-semibold leading-tight">Lihat dulu yang sudah terpantau</h2>
+                    <h2 class="text-sm leading-tight font-semibold">Lihat dulu yang sudah terpantau</h2>
                     <p class="max-w-[70ch] text-xs leading-relaxed text-muted-foreground">
                         Berita yang sudah ada di daftar ini tidak perlu ditambahkan, karena sistem sudah menemukannya sendiri. Daftarnya bercampur:
                         sebagian ditemukan otomatis, sebagian masuk karena Anda kirim.
@@ -333,12 +333,12 @@ const kabut = (token: string, opasitas = 0.09) => ({
             </li>
 
             <li class="langkah muncul relative pb-5 pl-11" style="animation-delay: 120ms">
-                <span class="angka absolute left-0 top-0 grid size-8 place-items-center rounded-lg bg-brand text-sm font-semibold text-white">
+                <span class="angka absolute top-0 left-0 grid size-8 place-items-center rounded-lg bg-brand text-sm font-semibold text-white">
                     2
                 </span>
 
                 <div class="space-y-2 pt-1">
-                    <h2 class="text-sm font-semibold leading-tight">Tempel tautan yang belum ada di daftar itu</h2>
+                    <h2 class="text-sm leading-tight font-semibold">Tempel tautan yang belum ada di daftar itu</h2>
                     <p class="max-w-[70ch] text-xs leading-relaxed text-muted-foreground">
                         Judul dan tanggal dibaca sistem dari halamannya. Anda tidak perlu mengetik apa pun kecuali halamannya gagal dibaca.
                     </p>
@@ -357,7 +357,7 @@ const kabut = (token: string, opasitas = 0.09) => ({
                                     v-model="formPeriksa.tautan"
                                     rows="5"
                                     placeholder="https://contoh.id/berita-pertama&#10;https://contoh.id/berita-kedua"
-                                    class="w-full rounded-md border border-input bg-background p-3 font-mono text-xs transition-colors duration-150 placeholder:text-muted-foreground focus-visible:border-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+                                    class="w-full rounded-md border border-input bg-background p-3 font-mono text-xs transition-colors duration-150 placeholder:text-muted-foreground focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card focus-visible:outline-hidden"
                                     :aria-invalid="formPeriksa.errors.tautan ? true : undefined"
                                     aria-describedby="tautan-bantuan"
                                 />
@@ -386,12 +386,12 @@ const kabut = (token: string, opasitas = 0.09) => ({
             </li>
 
             <li class="langkah langkah-akhir muncul relative pl-11" style="animation-delay: 180ms">
-                <span class="angka absolute left-0 top-0 grid size-8 place-items-center rounded-lg bg-brand text-sm font-semibold text-white">
+                <span class="angka absolute top-0 left-0 grid size-8 place-items-center rounded-lg bg-brand text-sm font-semibold text-white">
                     3
                 </span>
 
                 <div class="space-y-2 pt-1">
-                    <h2 class="text-sm font-semibold leading-tight">Periksa hasilnya, lalu tambahkan</h2>
+                    <h2 class="text-sm leading-tight font-semibold">Periksa hasilnya, lalu tambahkan</h2>
                     <p class="max-w-[70ch] text-xs leading-relaxed text-muted-foreground">
                         Setiap tautan diperiksa satu per satu. Yang sudah ada di sistem dan yang ditolak tidak ikut ditambahkan, jadi Anda tidak perlu
                         membersihkan daftarnya sendiri.
@@ -421,7 +421,7 @@ const kabut = (token: string, opasitas = 0.09) => ({
                                     :class="GAYA_HASIL[b.status].bingkai"
                                 >
                                     <div class="flex items-start justify-between gap-3">
-                                        <p class="flex min-w-0 items-start gap-2 break-all text-xs text-muted-foreground">
+                                        <p class="flex min-w-0 items-start gap-2 text-xs break-all text-muted-foreground">
                                             <span
                                                 class="mt-1.5 size-1.5 shrink-0 rounded-full"
                                                 :class="GAYA_HASIL[b.status].titik"
@@ -550,7 +550,7 @@ const kabut = (token: string, opasitas = 0.09) => ({
                                 -->
                                 <button
                                     type="button"
-                                    class="tekan grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive focus-visible:bg-destructive/10 focus-visible:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    class="tekan grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive focus-visible:bg-destructive/10 focus-visible:text-destructive focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden"
                                     :title="`Cabut berita ini dari sistem`"
                                     @click="sasaranHapus = k"
                                 >

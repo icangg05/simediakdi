@@ -86,7 +86,7 @@ const waktu = (n: string) => format(new Date(n), 'd MMM yyyy, HH:mm', { locale: 
  */
 const TOMBOL_KOP = cn(
     buttonVariants({ size: 'sm' }),
-    'gap-1.5 bg-white text-brand shadow-sm shadow-black/10 hover:bg-white/90 focus-visible:ring-offset-brand',
+    'gap-1.5 bg-white text-brand shadow-xs shadow-black/10 hover:bg-white/90 focus-visible:ring-offset-brand',
 );
 </script>
 
@@ -169,7 +169,7 @@ const TOMBOL_KOP = cn(
                 >
                     <span class="line-clamp-2">{{ baris.judul }}</span>
                     <ExternalLink
-                        class="mt-0.5 size-3 shrink-0 text-muted-foreground transition-transform duration-150 group-hover:-translate-y-px group-hover:translate-x-px group-hover:text-brand dark:group-hover:text-brand-terang"
+                        class="mt-0.5 size-3 shrink-0 text-muted-foreground transition-transform duration-150 group-hover:translate-x-px group-hover:-translate-y-px group-hover:text-brand dark:group-hover:text-brand-terang"
                         aria-hidden="true"
                     />
                 </a>

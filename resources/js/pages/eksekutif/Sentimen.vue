@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import ChartDonatSentimen from '@/components/chart/ChartDonatSentimen.vue';
+import ChartPorsiSentimen from '@/components/chart/ChartPorsiSentimen.vue';
 import ChartTrenSentimen from '@/components/chart/ChartTrenSentimen.vue';
 import KartuArtikel from '@/components/domain/KartuArtikel.vue';
 import KartuEksekutif from '@/components/domain/KartuEksekutif.vue';
@@ -218,14 +219,14 @@ const daftarNada = computed(() => [
                 -->
                 <Card class="muncul relative overflow-hidden lg:col-span-2" style="animation-delay: 60ms">
                     <div
-                        class="tumbuh pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-aksen-biru to-transparent"
+                        class="tumbuh pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-linear-to-r from-aksen-biru to-transparent"
                         aria-hidden="true"
                     ></div>
 
                     <CardContent class="space-y-3 p-4 pt-5">
                         <ChartTrenSentimen judul="Perubahan dari waktu ke waktu" :data="deret.baris as never" :satuan="deret.satuan" :tinggi="280" />
                         <p class="text-xs leading-relaxed text-muted-foreground">
-                            Warnanya ditumpuk, jadi tinggi seluruh tumpukan berarti jumlah berita berlabel pada titik itu.
+                            Tiap garis berdiri sendiri. Tinggi garis pada sumbu kiri adalah jumlah berita nada itu di titik tersebut.
                         </p>
                     </CardContent>
                 </Card>
@@ -238,7 +239,7 @@ const daftarNada = computed(() => [
                         donatnya sempat dibaca.
                     -->
                     <div
-                        class="tumbuh pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-sentimen-positif via-sentimen-netral to-sentimen-negatif"
+                        class="tumbuh pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-linear-to-r from-sentimen-positif via-sentimen-netral to-sentimen-negatif"
                         aria-hidden="true"
                     ></div>
 
@@ -279,14 +280,14 @@ const daftarNada = computed(() => [
                                     </span>
 
                                     <span class="shrink-0 text-right">
-                                        <span :class="n.teks" class="angka block text-sm font-semibold leading-tight">
+                                        <span :class="n.teks" class="angka block text-sm leading-tight font-semibold">
                                             {{ formatAngka(n.jumlah) }}
                                         </span>
                                         <span class="angka block text-xs text-muted-foreground">{{ porsi(n.jumlah) }} dari 100</span>
                                     </span>
 
                                     <ArrowRight
-                                        class="ease-[cubic-bezier(0.32,0.72,0,1)] size-4 shrink-0 text-muted-foreground transition-transform duration-300 group-hover:translate-x-1"
+                                        class="size-4 shrink-0 text-muted-foreground transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-1"
                                         aria-hidden="true"
                                     />
                                 </Link>
@@ -299,6 +300,33 @@ const daftarNada = computed(() => [
                     </CardContent>
                 </Card>
             </div>
+
+            <!--
+                Baris ketiga, selebar halaman. Donat di atas menjawab porsi
+                sepanjang seluruh rentang, sebagai satu angka beku. Grafik ini
+                memecah porsi yang sama menurut waktu, jadi porsi negatif yang
+                membesar pelan-pelan terlihat sebelum ia cukup besar untuk
+                mengubah donatnya.
+            -->
+            <Card class="muncul relative overflow-hidden" style="animation-delay: 150ms">
+                <div
+                    class="tumbuh pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-linear-to-r from-sentimen-positif via-sentimen-netral to-sentimen-negatif"
+                    aria-hidden="true"
+                ></div>
+
+                <CardContent class="space-y-3 p-4 pt-5">
+                    <ChartPorsiSentimen
+                        judul="Porsi tiap nada dari waktu ke waktu"
+                        :data="deret.baris as never"
+                        :satuan="deret.satuan"
+                        :tinggi="380"
+                    />
+                    <p class="text-xs leading-relaxed text-muted-foreground">
+                        Tiap batang selalu penuh seratus persen, jadi yang dibandingkan hanya pembagian warnanya. Batang yang kosong berarti tidak ada
+                        berita berlabel pada titik itu.
+                    </p>
+                </CardContent>
+            </Card>
 
             <!--
                 Tiga baris, satu per nada, masing-masing selebar halaman.
@@ -322,7 +350,7 @@ const daftarNada = computed(() => [
                         akan mengira sepuluh itulah seluruhnya.
                     -->
                     <template v-if="d.jumlah > 0" #aksi>
-                        <span :class="d.tile" class="angka rounded-full px-3 py-1 text-xs font-semibold text-white shadow-sm dark:text-background">
+                        <span :class="d.tile" class="angka rounded-full px-3 py-1 text-xs font-semibold text-white shadow-xs dark:text-background">
                             {{ formatAngka(d.jumlah) }}
                         </span>
                     </template>
@@ -357,16 +385,16 @@ const daftarNada = computed(() => [
                         halamannya memang sudah satu kolom panjang, jadi tidak ada
                         yang benar-benar dihemat wadah gulir ini.
                     -->
-                    <div v-if="d.berita.length" class="sm:max-h-[22rem] sm:overflow-y-auto sm:pr-1">
+                    <div v-if="d.berita.length" class="sm:max-h-88 sm:overflow-y-auto sm:pr-1">
                         <ol class="relative">
                             <span
                                 :class="d.rel"
-                                class="tumbuh-turun absolute bottom-4 left-[5px] top-4 w-px bg-gradient-to-b via-border to-transparent"
+                                class="tumbuh-turun absolute top-4 bottom-4 left-[5px] w-px bg-linear-to-b via-border to-transparent"
                                 aria-hidden="true"
                             ></span>
 
-                            <li v-for="b in d.berita" :key="b.id" class="tekan relative rounded-lg py-1 pl-7 pr-2 hover:bg-background/60">
-                                <span :class="d.tile" class="absolute left-0 top-[18px] size-2.5 rounded-full" aria-hidden="true"></span>
+                            <li v-for="b in d.berita" :key="b.id" class="tekan relative rounded-lg py-1 pr-2 pl-7 hover:bg-background/60">
+                                <span :class="d.tile" class="absolute top-[18px] left-0 size-2.5 rounded-full" aria-hidden="true"></span>
 
                                 <KartuArtikel
                                     :judul="b.judul"

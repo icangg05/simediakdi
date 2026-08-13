@@ -212,7 +212,7 @@ const identitas = computed(() => [
                 -->
                 <button
                     type="button"
-                    class="tekan inline-flex items-center gap-2 rounded-lg bg-white px-3.5 py-2 text-xs font-semibold text-brand transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand disabled:opacity-50"
+                    class="tekan inline-flex items-center gap-2 rounded-lg bg-white px-3.5 py-2 text-xs font-semibold text-brand transition-colors hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand focus-visible:outline-hidden disabled:opacity-50"
                     :disabled="!bisaTarik"
                     :title="bisaTarik ? undefined : 'Butuh media aktif dengan sekurangnya satu sumber aktif'"
                     @click="router.post(`/admin/media/${media.id}/crawl`, {}, { preserveScroll: true })"
@@ -223,7 +223,7 @@ const identitas = computed(() => [
 
                 <Link
                     :href="`/admin/media/${media.id}/edit`"
-                    class="tekan inline-flex items-center gap-2 rounded-lg bg-white/10 px-3.5 py-2 text-xs font-medium text-white ring-1 ring-inset ring-white/25 transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand"
+                    class="tekan inline-flex items-center gap-2 rounded-lg bg-white/10 px-3.5 py-2 text-xs font-medium text-white ring-1 ring-white/25 transition-colors ring-inset hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand focus-visible:outline-hidden"
                 >
                     <Pencil class="size-3.5" aria-hidden="true" />
                     Ubah identitas
@@ -231,7 +231,7 @@ const identitas = computed(() => [
 
                 <button
                     type="button"
-                    class="tekan inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-medium ring-1 ring-inset transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand"
+                    class="tekan inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-medium ring-1 transition-colors ring-inset focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand focus-visible:outline-hidden"
                     :class="
                         media.aktif
                             ? 'bg-red-300/15 text-red-200 ring-red-300/40 hover:bg-red-300/25'
@@ -350,7 +350,7 @@ const identitas = computed(() => [
                             <div class="min-w-0 flex-1 space-y-1">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <span class="text-sm font-medium">{{ sumber.nama }}</span>
-                                    <span class="rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium uppercase text-muted-foreground">
+                                    <span class="rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground uppercase">
                                         {{ sumber.tipe }}
                                     </span>
                                     <span

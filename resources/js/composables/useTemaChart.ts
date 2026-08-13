@@ -57,26 +57,30 @@ export function useTemaChart() {
         void versi.value;
 
         return {
-            negatif: bacaToken('--color-sentimen-negatif'),
             /*
-             * Potongan netral memakai token batang, bukan nada kuatnya.
+             * Ketiga nada memakai varian `-batang`, bukan nada kuatnya.
              *
-             * Sama persis dengan alasan di batang bertumpuk, dan di sini
-             * akibatnya lebih terlihat karena potongan donat bersentuhan
-             * langsung tanpa jarak. Nada kuat netral berada pada bobot visual
-             * yang sama dengan potongan hijau di sebelahnya, rasio 1,01, padahal
-             * chromanya tujuh kali lebih rendah. Hasilnya potongan abu pekat
-             * yang terbaca sebagai potongan yang hilang, bukan potongan yang
-             * tenang. Uraian lengkapnya ada di app.css.
+             * Alasannya sama untuk ketiganya dan diuraikan di app.css: nada
+             * kuat dipilih untuk teks lencana dan isian pekat, dan sebagai
+             * bidang grafik ketiganya berdiri pada terang yang hampir sama.
+             * Bagi pembaca buta warna merah hijau, potongan positif dan
+             * negatif runtuh menjadi satu warna di sana.
              *
-             * Aman dipakai sebagai warna grafik: `warnaSentimen` hanya mengisi
-             * `itemStyle.color`, tidak pernah menjadi warna teks. Terhadap
-             * kartu putih ia menahan 3,35 dan terhadap kartu gelap 5,03,
-             * keduanya di atas ambang 3,0 untuk unsur bukan teks.
+             * Aman dipakai sebagai warna grafik: nilai ini hanya mengisi
+             * `itemStyle.color` dan tidak pernah menjadi warna teks.
              */
+            negatif: bacaToken('--color-sentimen-negatif-batang'),
+            // Netral menahan 3,35 terhadap kartu putih dan 5,03 terhadap kartu
+            // gelap, keduanya di atas ambang 3,0 untuk unsur bukan teks.
             netral: bacaToken('--color-sentimen-netral-batang'),
-            positif: bacaToken('--color-sentimen-positif'),
+            positif: bacaToken('--color-sentimen-positif-batang'),
             review: bacaToken('--color-sentimen-review'),
+            /*
+             * Aksen antarmuka, bukan warna nada. Dipakai unsur kendali di dalam
+             * kanvas, misalnya penanda periode aktif pada garis waktu, supaya
+             * warnanya sama dengan pil tombol milik BaseChart di atasnya.
+             */
+            aksen: bacaToken('--color-aksen-biru'),
             teks: gelap.value ? '#e5e5e5' : '#404040',
             teksSamar: gelap.value ? '#a3a3a3' : '#737373',
             garis: gelap.value ? '#333333' : '#e9edf2',

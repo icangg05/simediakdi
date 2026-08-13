@@ -1,3 +1,4 @@
+import type { PageProps } from '@inertiajs/core';
 import type { LucideIcon } from 'lucide-vue-next';
 
 export interface Auth {
@@ -24,7 +25,15 @@ export interface NavItem {
     kelompok?: string;
 }
 
-export interface SharedData {
+/*
+ * Mewarisi PageProps supaya bisa dipakai sebagai argumen usePage().
+ *
+ * usePage<T>() menuntut T punya index signature. Interface tidak pernah
+ * mendapatkannya secara tersirat, berbeda dengan type alias, jadi SharedData
+ * yang berdiri sendiri selalu ditolak dengan TS2344. Mewarisi PageProps
+ * memberi index signature itu tanpa melonggarkan satu pun bidang di bawah.
+ */
+export interface SharedData extends PageProps {
     name: string;
     quote: { message: string; author: string };
     auth: Auth;

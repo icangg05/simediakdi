@@ -91,7 +91,7 @@ function keAtas() {
 
         <!-- Busur sepusat, cerminan ornamen kop. Di kop ia membuka dari sudut
              kanan atas, di sini menutup dari sudut kiri bawah. -->
-        <svg class="pointer-events-none absolute -bottom-40 -left-28 size-[24rem] text-white/20" viewBox="0 0 200 200" fill="none" aria-hidden="true">
+        <svg class="pointer-events-none absolute -bottom-40 -left-28 size-96 text-white/20" viewBox="0 0 200 200" fill="none" aria-hidden="true">
             <circle
                 v-for="busur in BUSUR"
                 :key="busur.jari"
@@ -106,7 +106,7 @@ function keAtas() {
         </svg>
 
         <!-- Rel merek di tepi atas, pasangan rel yang ada di kaki bilah menu. -->
-        <div class="tumbuh absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-white/50" aria-hidden="true"></div>
+        <div class="tumbuh absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-white/25 to-white/50" aria-hidden="true"></div>
 
         <div class="relative mx-auto w-full max-w-[1400px] px-4 py-10 md:px-6">
             <div class="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
@@ -135,7 +135,7 @@ function keAtas() {
                             <img src="/img/logo-simedia.webp" alt="Lambang SIMEDIA" class="size-7 object-contain" width="28" height="28" />
                         </span>
                         <div class="min-w-0">
-                            <p class="text-sm font-semibold leading-tight">SIMEDIA Pemerintah Kota Kendari</p>
+                            <p class="text-sm leading-tight font-semibold">SIMEDIA Pemerintah Kota Kendari</p>
                             <p class="text-xs leading-relaxed text-white/70">Sistem Pemantauan dan Analisis Pemberitaan Media</p>
                         </div>
                     </div>
@@ -150,7 +150,7 @@ function keAtas() {
                             v-for="item in tautan"
                             :key="item.href"
                             :href="item.href"
-                            class="tekan ease-[cubic-bezier(0.32,0.72,0,1)] inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white/85 ring-1 ring-inset ring-white/10 transition-colors duration-200 hover:bg-white/20 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                            class="tekan inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white/85 ring-1 ring-white/10 transition-colors duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] ring-inset hover:bg-white/20 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white focus-visible:outline-solid"
                         >
                             <component :is="item.icon" v-if="item.icon" class="size-3.5" aria-hidden="true" />
                             {{ item.title }}
@@ -158,11 +158,11 @@ function keAtas() {
 
                         <button
                             type="button"
-                            class="tekan ease-[cubic-bezier(0.32,0.72,0,1)] group inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white/85 ring-1 ring-inset ring-white/10 transition-colors duration-200 hover:bg-white/20 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                            class="tekan group inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white/85 ring-1 ring-white/10 transition-colors duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] ring-inset hover:bg-white/20 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white focus-visible:outline-solid"
                             @click="keAtas"
                         >
                             <ArrowUp
-                                class="ease-[cubic-bezier(0.32,0.72,0,1)] size-3.5 transition-transform duration-300 group-hover:-translate-y-0.5"
+                                class="size-3.5 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:-translate-y-0.5"
                                 aria-hidden="true"
                             />
                             Kembali ke atas
@@ -181,8 +181,8 @@ function keAtas() {
                     Bentuknya dua lapis seperti kartu di isi halaman: cangkang
                     bertepi tipis, inti bertinta di dalamnya.
                 -->
-                <div class="grid max-w-[36rem] gap-3 sm:grid-cols-2">
-                    <div class="rounded-xl border border-white/15 bg-white/[0.06] p-4">
+                <div class="grid max-w-xl gap-3 sm:grid-cols-2">
+                    <div class="rounded-xl border border-white/15 bg-white/6 p-4">
                         <p class="mb-1.5 flex items-center gap-2 text-xs font-semibold text-white">
                             <span class="grid size-6 shrink-0 place-items-center rounded-lg bg-white/10">
                                 <Sparkles class="size-3.5" aria-hidden="true" />
@@ -195,7 +195,7 @@ function keAtas() {
                         </p>
                     </div>
 
-                    <div class="rounded-xl border border-white/15 bg-white/[0.06] p-4">
+                    <div class="rounded-xl border border-white/15 bg-white/6 p-4">
                         <p class="mb-1.5 flex items-center gap-2 text-xs font-semibold text-white">
                             <span class="grid size-6 shrink-0 place-items-center rounded-lg bg-white/10">
                                 <ShieldCheck class="size-3.5" aria-hidden="true" />

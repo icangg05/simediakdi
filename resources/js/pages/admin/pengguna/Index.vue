@@ -86,7 +86,7 @@ const nonaktif = computed(() => props.pengguna.data.filter((p) => !p.aktif).leng
             <template #aksi>
                 <Link
                     href="/admin/pengguna/create"
-                    class="tekan inline-flex items-center gap-2 rounded-lg bg-white px-3.5 py-2 text-xs font-semibold text-brand transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand"
+                    class="tekan inline-flex items-center gap-2 rounded-lg bg-white px-3.5 py-2 text-xs font-semibold text-brand transition-colors hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand focus-visible:outline-hidden"
                 >
                     <Plus class="size-3.5" aria-hidden="true" />
                     Tambah pengguna

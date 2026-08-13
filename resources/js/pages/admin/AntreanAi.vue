@@ -335,7 +335,7 @@ const NADA: Record<string, { label: string; kelas: string; ikon: Component }> = 
             -->
             <template #aksi>
                 <div
-                    class="flex items-center gap-2.5 rounded-lg border px-3 py-2 backdrop-blur-sm"
+                    class="flex items-center gap-2.5 rounded-lg border px-3 py-2 backdrop-blur-xs"
                     :class="indikator.bingkai"
                     role="status"
                     aria-live="polite"
@@ -438,7 +438,7 @@ const NADA: Record<string, { label: string; kelas: string; ikon: Component }> = 
                             :class="i === prioritas.length - 1 ? 'rel-akhir' : ''"
                         >
                             <span
-                                class="angka absolute left-0 top-0 grid size-6 place-items-center rounded-md bg-muted text-xs font-semibold text-muted-foreground"
+                                class="angka absolute top-0 left-0 grid size-6 place-items-center rounded-md bg-muted text-xs font-semibold text-muted-foreground"
                             >
                                 {{ p.nilai }}
                             </span>
@@ -563,7 +563,7 @@ const NADA: Record<string, { label: string; kelas: string; ikon: Component }> = 
                         <div class="min-w-0 flex-1 space-y-1">
                             <Link
                                 :href="`/admin/artikel/${b.artikel_id}`"
-                                class="line-clamp-2 rounded font-medium decoration-brand/40 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                class="line-clamp-2 rounded font-medium decoration-brand/40 underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-hidden"
                             >
                                 {{ b.judul }}
                             </Link>

@@ -177,7 +177,7 @@ const BARIS_LAPORAN = [
                      menjawab memang membuat seluruh tab ini tidak berguna. -->
                 <div
                     v-if="!layanan"
-                    class="flex items-start gap-2 rounded-lg bg-sentimen-negatif-lembut p-3 text-sm text-sentimen-negatif ring-1 ring-inset ring-sentimen-negatif/25"
+                    class="flex items-start gap-2 rounded-lg bg-sentimen-negatif-lembut p-3 text-sm text-sentimen-negatif ring-1 ring-sentimen-negatif/25 ring-inset"
                 >
                     <TriangleAlert class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                     <p>
@@ -190,7 +190,7 @@ const BARIS_LAPORAN = [
                      belum dibuat adalah pekerjaan yang belum dilakukan. -->
                 <div
                     v-else-if="siap.length === 0"
-                    class="flex items-start gap-2 rounded-lg bg-sentimen-review-lembut p-3 text-sm text-sentimen-review ring-1 ring-inset ring-sentimen-review/25"
+                    class="flex items-start gap-2 rounded-lg bg-sentimen-review-lembut p-3 text-sm text-sentimen-review ring-1 ring-sentimen-review/25 ring-inset"
                 >
                     <TriangleAlert class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                     <p>Belum ada snapshot yang siap dipakai. Buat snapshot dataset di tab Snapshot terlebih dahulu.</p>
@@ -222,7 +222,7 @@ const BARIS_LAPORAN = [
                          warna yang sama dengan pratinjau di tab Snapshot, jadi
                          satu bentuk berarti satu hal di kedua tab. -->
                     <div v-if="terpilih" class="space-y-2 rounded-lg bg-muted/40 p-3">
-                        <p class="break-words text-sm font-medium">{{ terpilih.nama }}</p>
+                        <p class="text-sm font-medium wrap-break-word">{{ terpilih.nama }}</p>
 
                         <div class="flex h-1.5 overflow-hidden rounded-full bg-background" aria-hidden="true">
                             <div class="bg-brand dark:bg-brand-terang" :style="{ width: `${terpilih.persen_train}%` }" />
@@ -259,7 +259,7 @@ const BARIS_LAPORAN = [
                     <section class="space-y-3">
                         <div class="flex items-center gap-2">
                             <SlidersHorizontal class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                            <h3 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Hyperparameter</h3>
+                            <h3 class="shrink-0 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Hyperparameter</h3>
                             <span class="h-px flex-1 bg-border" aria-hidden="true"></span>
                         </div>
 
@@ -275,11 +275,11 @@ const BARIS_LAPORAN = [
                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                     <SelectContent class="max-w-[min(32rem,calc(100vw-2rem))]">
                                         <SelectItem v-for="(ket, kunci) in opsi.base_model" :key="kunci" :value="kunci">
-                                            <span class="block break-all font-medium">{{ kunci }}</span>
+                                            <span class="block font-medium break-all">{{ kunci }}</span>
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <p class="break-words text-xs text-muted-foreground">{{ opsi.base_model[form.base_model] }}</p>
+                                <p class="text-xs wrap-break-word text-muted-foreground">{{ opsi.base_model[form.base_model] }}</p>
                                 <InputError :message="form.errors.base_model" />
                             </div>
 
@@ -422,7 +422,7 @@ const BARIS_LAPORAN = [
                         <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
                             <div class="min-w-0 flex-1 basis-64">
                                 <p class="flex flex-wrap items-center gap-x-2 gap-y-1 font-medium">
-                                    <span class="break-words">{{ p.nama }}</span>
+                                    <span class="wrap-break-word">{{ p.nama }}</span>
                                     <Badge
                                         v-if="p.aktif"
                                         variant="outline"
@@ -432,10 +432,10 @@ const BARIS_LAPORAN = [
                                         Model aktif
                                     </Badge>
                                 </p>
-                                <p class="break-words text-xs text-muted-foreground">
+                                <p class="text-xs wrap-break-word text-muted-foreground">
                                     {{ p.base_model }} pada snapshot {{ p.snapshot?.nama ?? 'yang sudah dihapus' }}
                                 </p>
-                                <p class="break-words text-xs text-muted-foreground">
+                                <p class="text-xs wrap-break-word text-muted-foreground">
                                     Dimulai {{ waktu(p.mulai_at) }} oleh {{ p.pembuat ?? 'pengguna yang sudah dihapus' }}
                                 </p>
                             </div>
@@ -450,7 +450,7 @@ const BARIS_LAPORAN = [
                                     />
                                     {{ LABEL_STATUS[p.status] }}
                                 </Badge>
-                                <span class="angka whitespace-nowrap text-xs text-muted-foreground">{{ formatDurasi(p.durasi_detik) }}</span>
+                                <span class="angka text-xs whitespace-nowrap text-muted-foreground">{{ formatDurasi(p.durasi_detik) }}</span>
                             </div>
                         </div>
 
@@ -465,10 +465,10 @@ const BARIS_LAPORAN = [
                                  halaman bisa digeser ke samping. Hanya angka
                                  persennya yang benar-benar tidak boleh terpotong. -->
                             <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-xs">
-                                <span class="min-w-0 break-words">{{ p.tahap ?? 'Menunggu' }}</span>
+                                <span class="min-w-0 wrap-break-word">{{ p.tahap ?? 'Menunggu' }}</span>
                                 <span class="angka shrink-0">
                                     <span v-if="p.status === 'berjalan'" class="text-muted-foreground">{{ sisa(p) }} lagi &middot;</span>
-                                    <span class="whitespace-nowrap font-medium text-aksen-ungu">{{ p.progres }}%</span>
+                                    <span class="font-medium whitespace-nowrap text-aksen-ungu">{{ p.progres }}%</span>
                                 </span>
                             </div>
                             <!-- Ungu, bukan biru langit. Batang ini menggambarkan
@@ -489,7 +489,7 @@ const BARIS_LAPORAN = [
 
                         <p
                             v-if="p.galat"
-                            class="break-words rounded-md bg-sentimen-negatif-lembut p-2 text-xs text-sentimen-negatif ring-1 ring-inset ring-sentimen-negatif/25"
+                            class="rounded-md bg-sentimen-negatif-lembut p-2 text-xs wrap-break-word text-sentimen-negatif ring-1 ring-sentimen-negatif/25 ring-inset"
                         >
                             {{ p.galat }}
                         </p>
@@ -602,7 +602,7 @@ const BARIS_LAPORAN = [
                 <div class="space-y-3 text-sm">
                     <div class="rounded-md bg-muted/50 p-3">
                         <p class="text-xs text-muted-foreground">Dataset</p>
-                        <p class="break-words font-medium">{{ terpilih?.nama ?? '-' }}</p>
+                        <p class="font-medium wrap-break-word">{{ terpilih?.nama ?? '-' }}</p>
                         <p class="angka mt-1 text-xs text-muted-foreground">
                             {{ formatAngka(terpilih?.total_train ?? 0) }} training, {{ formatAngka(terpilih?.total_validation ?? 0) }} validation,
                             {{ formatAngka(terpilih?.total_test ?? 0) }} testing.
@@ -611,7 +611,7 @@ const BARIS_LAPORAN = [
 
                     <div class="rounded-md bg-muted/50 p-3">
                         <p class="text-xs text-muted-foreground">Base model</p>
-                        <p class="break-all font-medium">{{ form.base_model }}</p>
+                        <p class="font-medium break-all">{{ form.base_model }}</p>
                     </div>
 
                     <dl class="grid grid-cols-2 gap-px overflow-hidden rounded-md border bg-border text-xs sm:grid-cols-3">
@@ -625,7 +625,7 @@ const BARIS_LAPORAN = [
                         </div>
                         <div class="min-w-0 bg-card p-2">
                             <dt class="text-muted-foreground">Learning rate</dt>
-                            <dd class="angka break-all font-medium">{{ ilmiah(form.learning_rate) }}</dd>
+                            <dd class="angka font-medium break-all">{{ ilmiah(form.learning_rate) }}</dd>
                         </div>
                         <div class="min-w-0 bg-card p-2">
                             <dt class="text-muted-foreground">Max seq length</dt>
@@ -648,7 +648,7 @@ const BARIS_LAPORAN = [
 
                     <div
                         v-if="layanan?.sedang_melatih"
-                        class="flex items-start gap-2 rounded-md bg-sentimen-review-lembut p-2 text-xs text-sentimen-review ring-1 ring-inset ring-sentimen-review/25"
+                        class="flex items-start gap-2 rounded-md bg-sentimen-review-lembut p-2 text-xs text-sentimen-review ring-1 ring-sentimen-review/25 ring-inset"
                     >
                         <TriangleAlert class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
                         <p>Layanan sedang melatih model lain. Pelatihan ini akan menunggu gilirannya di antrean.</p>
@@ -669,8 +669,8 @@ const BARIS_LAPORAN = [
         <Dialog :open="detail !== null" @update:open="(nilai) => !nilai && (detail = null)">
             <DialogScrollContent class="max-w-3xl">
                 <DialogHeader>
-                    <DialogTitle class="break-words">{{ detailSegar?.nama }}</DialogTitle>
-                    <DialogDescription class="break-words">
+                    <DialogTitle class="wrap-break-word">{{ detailSegar?.nama }}</DialogTitle>
+                    <DialogDescription class="wrap-break-word">
                         {{ detailSegar ? LABEL_STATUS[detailSegar.status] : '' }}. Snapshot {{ detailSegar?.snapshot?.nama ?? 'sudah dihapus' }}.
                         Perangkat {{ detailSegar?.perangkat ?? 'belum tercatat' }}.
                     </DialogDescription>
@@ -679,7 +679,7 @@ const BARIS_LAPORAN = [
                 <div v-if="detailSegar" class="space-y-5 text-sm">
                     <section class="space-y-2">
                         <div class="flex items-center gap-2">
-                            <h3 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Konfigurasi</h3>
+                            <h3 class="shrink-0 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Konfigurasi</h3>
                             <span class="h-px flex-1 bg-border" aria-hidden="true"></span>
                         </div>
                         <!-- `min-w-0` dan `break-all` pada tiap sel. Nilai
@@ -689,14 +689,14 @@ const BARIS_LAPORAN = [
                         <dl class="grid grid-cols-2 gap-px overflow-hidden rounded-md border bg-border text-xs sm:grid-cols-3">
                             <div v-for="(nilai, kunci) in detailSegar.konfigurasi" :key="kunci" class="min-w-0 bg-card p-2">
                                 <dt class="text-muted-foreground">{{ kunci }}</dt>
-                                <dd class="angka break-all font-medium">{{ nilai ?? 'mati' }}</dd>
+                                <dd class="angka font-medium break-all">{{ nilai ?? 'mati' }}</dd>
                             </div>
                         </dl>
                     </section>
 
                     <section v-if="detailSegar.metrik" class="space-y-2">
                         <div class="flex items-center gap-2">
-                            <h3 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Hasil pada data testing</h3>
+                            <h3 class="shrink-0 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Hasil pada data testing</h3>
                             <span class="h-px flex-1 bg-border" aria-hidden="true"></span>
                         </div>
                         <div class="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-4">
@@ -718,7 +718,7 @@ const BARIS_LAPORAN = [
 
                     <section v-if="detailSegar.confusion_matrix" class="space-y-2">
                         <div class="flex items-center gap-2">
-                            <h3 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Confusion matrix</h3>
+                            <h3 class="shrink-0 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Confusion matrix</h3>
                             <span class="h-px flex-1 bg-border" aria-hidden="true"></span>
                         </div>
                         <div class="overflow-x-auto">
@@ -763,7 +763,7 @@ const BARIS_LAPORAN = [
 
                     <section v-if="detailSegar.laporan_klasifikasi" class="space-y-2">
                         <div class="flex items-center gap-2">
-                            <h3 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Classification report</h3>
+                            <h3 class="shrink-0 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Classification report</h3>
                             <span class="h-px flex-1 bg-border" aria-hidden="true"></span>
                         </div>
                         <div class="overflow-x-auto">
@@ -800,7 +800,7 @@ const BARIS_LAPORAN = [
 
                     <section v-if="detailSegar.riwayat_epoch?.length" class="space-y-2">
                         <div class="flex items-center gap-2">
-                            <h3 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Metrik per epoch</h3>
+                            <h3 class="shrink-0 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Metrik per epoch</h3>
                             <span class="h-px flex-1 bg-border" aria-hidden="true"></span>
                         </div>
                         <GrafikEpoch :riwayat="detailSegar.riwayat_epoch" :tinggi="220" />
@@ -808,10 +808,10 @@ const BARIS_LAPORAN = [
 
                     <section class="space-y-1 text-xs text-muted-foreground">
                         <div class="flex items-center gap-2">
-                            <h3 class="shrink-0 text-xs font-semibold uppercase tracking-wide">Berkas dan waktu</h3>
+                            <h3 class="shrink-0 text-xs font-semibold tracking-wide uppercase">Berkas dan waktu</h3>
                             <span class="h-px flex-1 bg-border" aria-hidden="true"></span>
                         </div>
-                        <p class="break-all pt-1">Berkas model: {{ detailSegar.artefak_path ?? 'belum tersimpan' }}</p>
+                        <p class="pt-1 break-all">Berkas model: {{ detailSegar.artefak_path ?? 'belum tersimpan' }}</p>
                         <p>Mulai: {{ waktu(detailSegar.mulai_at) }}</p>
                         <p>Selesai: {{ waktu(detailSegar.selesai_at) }}</p>
                         <p>Durasi: {{ formatDurasi(detailSegar.durasi_detik) }}</p>

@@ -395,21 +395,21 @@ const asalTelegram = computed(() =>
             sudut mata, bukan bidang kedua yang harus dibaca.
         -->
         <div
-            class="muncul relative overflow-hidden rounded-xl bg-aksen-biru/5 p-4 ring-1 ring-inset ring-aksen-biru/20"
+            class="muncul relative overflow-hidden rounded-xl bg-aksen-biru/5 p-4 ring-1 ring-aksen-biru/20 ring-inset"
             style="animation-delay: 60ms"
         >
             <div class="kabut-keterangan pointer-events-none absolute inset-0" aria-hidden="true"></div>
 
             <div class="relative flex items-start gap-3 text-sm">
                 <span
-                    class="grid size-8 shrink-0 place-items-center rounded-lg bg-aksen-biru/10 text-aksen-biru ring-1 ring-inset ring-aksen-biru/20"
+                    class="grid size-8 shrink-0 place-items-center rounded-lg bg-aksen-biru/10 text-aksen-biru ring-1 ring-aksen-biru/20 ring-inset"
                 >
                     <Info class="size-4" aria-hidden="true" />
                 </span>
 
                 <div class="min-w-0 space-y-1.5">
                     <p class="font-medium">Empat hal yang bisa disunting di sini, sisanya hanya ditampilkan.</p>
-                    <p class="max-w-[80ch] text-pretty leading-relaxed text-muted-foreground">
+                    <p class="max-w-[80ch] leading-relaxed text-pretty text-muted-foreground">
                         Model Gemini, kedua prompt, daftar kunci API, dan kredensial Telegram disetel dari layar ini karena semuanya perlu diperbaiki
                         saat itu juga. Nilai lain di bawahnya hanya ditampilkan. Ambang keyakinan mengubah setiap angka dashboard secara surut,
                         termasuk untuk periode yang sudah dilaporkan ke pimpinan, jadi perubahannya lewat
@@ -456,7 +456,7 @@ const asalTelegram = computed(() =>
             >
                 <div class="flex flex-wrap items-end justify-between gap-4">
                     <div class="min-w-0">
-                        <p class="angka text-4xl font-semibold leading-none tracking-tight">{{ props.evaluasi.f1_macro.toFixed(4) }}</p>
+                        <p class="angka text-4xl leading-none font-semibold tracking-tight">{{ props.evaluasi.f1_macro.toFixed(4) }}</p>
                         <p class="mt-2 text-xs text-muted-foreground">
                             Dari <span class="angka">{{ props.evaluasi.jumlah_sampel }}</span> sampel gold set,
                             {{ format(new Date(props.evaluasi.dievaluasi_at), 'd MMMM yyyy', { locale: id }) }}.
@@ -499,8 +499,8 @@ const asalTelegram = computed(() =>
                 role="tab"
                 :aria-selected="tab === t.nilai"
                 :aria-controls="`panel-${t.nilai}`"
-                class="tekan inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                :class="tab === t.nilai ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+                class="tekan inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-hidden"
+                :class="tab === t.nilai ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'"
                 @click="tab = t.nilai"
             >
                 <component :is="t.ikon" class="size-4" aria-hidden="true" />
@@ -550,7 +550,7 @@ const asalTelegram = computed(() =>
 
                     <div
                         v-if="props.kunci.length === 0"
-                        class="flex items-start gap-2 rounded-lg bg-sentimen-negatif-lembut p-3 text-sm text-sentimen-negatif ring-1 ring-inset ring-sentimen-negatif/25"
+                        class="flex items-start gap-2 rounded-lg bg-sentimen-negatif-lembut p-3 text-sm text-sentimen-negatif ring-1 ring-sentimen-negatif/25 ring-inset"
                     >
                         <TriangleAlert class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                         <p>Belum ada kunci di database, jadi klasifikasi tidak bisa dijalankan sampai ada satu kunci.</p>
@@ -566,11 +566,11 @@ const asalTelegram = computed(() =>
                         <li
                             v-for="(k, i) in props.kunci"
                             :key="k.id"
-                            class="relative space-y-2 py-3.5 pl-9 pr-3 transition-colors hover:bg-muted/30"
+                            class="relative space-y-2 py-3.5 pr-3 pl-9 transition-colors hover:bg-muted/30"
                             :class="[i > 0 ? 'border-t' : '', i < props.kunci.length - 1 ? 'rel-kunci' : '']"
                         >
                             <span
-                                class="absolute left-[0.9375rem] top-[1.15rem] size-2.5 rounded-full ring-2 ring-card"
+                                class="absolute top-[1.15rem] left-3.75 size-2.5 rounded-full ring-2 ring-card"
                                 :class="titikKunci(k)"
                                 aria-hidden="true"
                             />
@@ -740,13 +740,13 @@ const asalTelegram = computed(() =>
                              ditekan. -->
                             <div
                                 v-if="k.galat_terakhir && !adaHasilUji(k)"
-                                class="rounded-md bg-sentimen-negatif-lembut p-2 text-xs ring-1 ring-inset ring-sentimen-negatif/25"
+                                class="rounded-md bg-sentimen-negatif-lembut p-2 text-xs ring-1 ring-sentimen-negatif/25 ring-inset"
                             >
                                 <p class="font-medium text-sentimen-negatif">
                                     Galat terakhir
                                     <span v-if="k.galat_at" class="font-normal opacity-70">&middot; {{ waktu(k.galat_at) }}</span>
                                 </p>
-                                <p class="mt-1 break-words text-sentimen-negatif">{{ k.galat_terakhir }}</p>
+                                <p class="mt-1 wrap-break-word text-sentimen-negatif">{{ k.galat_terakhir }}</p>
                                 <p class="mt-1 text-muted-foreground">Peringatan ini hilang sendiri begitu kunci berhasil dipakai lagi.</p>
                             </div>
 
@@ -775,7 +775,7 @@ const asalTelegram = computed(() =>
                                 <p v-if="uji.jawaban" class="mt-1 text-muted-foreground">
                                     Jawaban Gemini: <span class="text-foreground">{{ uji.jawaban }}</span>
                                 </p>
-                                <p v-if="uji.galat" class="mt-1 break-words text-sentimen-negatif">
+                                <p v-if="uji.galat" class="mt-1 wrap-break-word text-sentimen-negatif">
                                     {{ uji.galat }}
                                 </p>
                             </div>
@@ -788,7 +788,7 @@ const asalTelegram = computed(() =>
                             <Input id="label-kunci" v-model="formKunci.label" placeholder="Akun cadangan 1" />
                             <InputError :message="formKunci.errors.label" />
                         </div>
-                        <div class="grid flex-[2] gap-1.5">
+                        <div class="grid flex-2 gap-1.5">
                             <Label for="isi-kunci">Kunci API</Label>
                             <Input id="isi-kunci" v-model="formKunci.kunci" type="password" autocomplete="off" placeholder="AIza..." />
                             <InputError :message="formKunci.errors.kunci" />
@@ -825,7 +825,7 @@ const asalTelegram = computed(() =>
                                 role="radio"
                                 :aria-checked="formAi.penyedia_relevansi === p.nilai"
                                 :disabled="p.nilai === 'indobert' && !bisaIndoBert"
-                                class="tekan relative flex flex-col gap-1.5 rounded-lg border p-3 pr-9 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                class="tekan relative flex flex-col gap-1.5 rounded-lg border p-3 pr-9 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50"
                                 :class="formAi.penyedia_relevansi === p.nilai ? p.kelas : 'hover:bg-muted/50'"
                                 @click="formAi.penyedia_relevansi = p.nilai"
                             >
@@ -836,7 +836,7 @@ const asalTelegram = computed(() =>
                                  lima persen latar hilang sama sekali. -->
                                 <CircleCheck
                                     v-if="formAi.penyedia_relevansi === p.nilai"
-                                    class="absolute right-3 top-3 size-4"
+                                    class="absolute top-3 right-3 size-4"
                                     :class="p.ikonKelas"
                                     aria-hidden="true"
                                 />
@@ -845,7 +845,7 @@ const asalTelegram = computed(() =>
                                     <component :is="p.ikon" class="size-4 shrink-0" aria-hidden="true" />
                                 </span>
                                 <span class="text-sm font-medium">{{ p.label }}</span>
-                                <span class="text-pretty text-xs leading-relaxed text-muted-foreground">{{ p.keterangan }}</span>
+                                <span class="text-xs leading-relaxed text-pretty text-muted-foreground">{{ p.keterangan }}</span>
                             </button>
                         </div>
 
@@ -883,8 +883,8 @@ const asalTelegram = computed(() =>
 
                     <section class="space-y-3">
                         <div class="flex items-center gap-2">
-                            <h3 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Prompt relevansi</h3>
-                            <span class="tumbuh h-px flex-1 bg-gradient-to-r from-border to-transparent" aria-hidden="true"></span>
+                            <h3 class="shrink-0 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Prompt relevansi</h3>
+                            <span class="tumbuh h-px flex-1 bg-linear-to-r from-border to-transparent" aria-hidden="true"></span>
                         </div>
 
                         <div class="grid gap-1.5">
@@ -907,7 +907,7 @@ const asalTelegram = computed(() =>
                                 id="prompt-relevansi"
                                 v-model="formAi.prompt_relevansi"
                                 rows="16"
-                                class="rounded-md border border-input bg-muted/30 px-3 py-2 font-mono text-xs leading-relaxed outline-none transition-colors focus-visible:border-ring focus-visible:bg-background focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                                class="rounded-md border border-input bg-muted/30 px-3 py-2 font-mono text-xs leading-relaxed outline-hidden transition-colors focus-visible:border-ring focus-visible:bg-background focus-visible:ring-[3px] focus-visible:ring-ring/50"
                             />
                             <InputError :message="formAi.errors.prompt_relevansi" />
                         </div>
@@ -915,8 +915,8 @@ const asalTelegram = computed(() =>
 
                     <section class="space-y-3">
                         <div class="flex items-center gap-2">
-                            <h3 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Prompt sentimen</h3>
-                            <span class="tumbuh h-px flex-1 bg-gradient-to-r from-border to-transparent" aria-hidden="true"></span>
+                            <h3 class="shrink-0 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Prompt sentimen</h3>
+                            <span class="tumbuh h-px flex-1 bg-linear-to-r from-border to-transparent" aria-hidden="true"></span>
                         </div>
 
                         <div class="grid gap-1.5">
@@ -931,7 +931,7 @@ const asalTelegram = computed(() =>
                                 id="prompt-sentimen"
                                 v-model="formAi.prompt_sentimen"
                                 rows="16"
-                                class="rounded-md border border-input bg-muted/30 px-3 py-2 font-mono text-xs leading-relaxed outline-none transition-colors focus-visible:border-ring focus-visible:bg-background focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                                class="rounded-md border border-input bg-muted/30 px-3 py-2 font-mono text-xs leading-relaxed outline-hidden transition-colors focus-visible:border-ring focus-visible:bg-background focus-visible:ring-[3px] focus-visible:ring-ring/50"
                             />
                             <InputError :message="formAi.errors.prompt_sentimen" />
                         </div>
@@ -994,7 +994,7 @@ const asalTelegram = computed(() =>
                              keadaannya benar-benar berubah. -->
                             <span
                                 v-if="!telegram.siap"
-                                class="denyut absolute -right-1 -top-1 size-2 rounded-full bg-sentimen-negatif"
+                                class="denyut absolute -top-1 -right-1 size-2 rounded-full bg-sentimen-negatif"
                                 aria-hidden="true"
                             ></span>
                         </span>
@@ -1003,7 +1003,7 @@ const asalTelegram = computed(() =>
                             <p class="font-medium" :class="telegram.siap ? 'text-sentimen-positif' : 'text-sentimen-negatif'">
                                 {{ telegram.siap ? 'Kanal siap dipakai' : 'Kanal belum terkonfigurasi' }}
                             </p>
-                            <p class="text-pretty text-xs leading-relaxed text-muted-foreground">{{ asalTelegram }}</p>
+                            <p class="text-xs leading-relaxed text-pretty text-muted-foreground">{{ asalTelegram }}</p>
                             <p class="text-xs text-muted-foreground">
                                 Token bot:
                                 <span class="font-medium text-foreground">{{ telegram.token_terisi ? 'terisi' : 'belum diisi' }}</span>

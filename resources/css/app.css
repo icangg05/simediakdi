@@ -1,69 +1,146 @@
 /* Dilayani sendiri dari npm, bukan Google Fonts CDN: server instansi tidak
    selalu punya akses keluar yang stabil. Tiga bobot saja, tabel tipografi
    dokumen 04 tidak memakai bobot lain. */
-@import '@fontsource/ibm-plex-sans/latin-400.css';
-@import '@fontsource/ibm-plex-sans/latin-500.css';
-@import '@fontsource/ibm-plex-sans/latin-600.css';
+@import '@fontsource/ibm-plex-sans/latin-400.css' layer(base);
+@import '@fontsource/ibm-plex-sans/latin-500.css' layer(base);
+@import '@fontsource/ibm-plex-sans/latin-600.css' layer(base);
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
 
-body,
-html {
-    --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+@plugin 'tailwindcss-animate';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+    --font-sans: IBM Plex Sans, ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+
+    --radius-lg: var(--radius);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-sm: calc(var(--radius) - 4px);
+
+    --color-background: hsl(var(--background));
+    --color-foreground: hsl(var(--foreground));
+
+    --color-card: hsl(var(--card));
+    --color-card-foreground: hsl(var(--card-foreground));
+
+    --color-popover: hsl(var(--popover));
+    --color-popover-foreground: hsl(var(--popover-foreground));
+
+    --color-primary: hsl(var(--primary));
+    --color-primary-foreground: hsl(var(--primary-foreground));
+
+    --color-secondary: hsl(var(--secondary));
+    --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+    --color-muted: hsl(var(--muted));
+    --color-muted-foreground: hsl(var(--muted-foreground));
+
+    --color-accent: hsl(var(--accent));
+    --color-accent-foreground: hsl(var(--accent-foreground));
+
+    --color-destructive: hsl(var(--destructive));
+    --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+    --color-border: hsl(var(--border));
+    --color-input: hsl(var(--input));
+    --color-ring: hsl(var(--ring));
+
+    --color-chart-1: hsl(var(--chart-1));
+    --color-chart-2: hsl(var(--chart-2));
+    --color-chart-3: hsl(var(--chart-3));
+    --color-chart-4: hsl(var(--chart-4));
+    --color-chart-5: hsl(var(--chart-5));
+
+    --color-sidebar: hsl(var(--sidebar-background));
+    --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+    --color-sidebar-primary: hsl(var(--sidebar-primary));
+    --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+    --color-sidebar-accent: hsl(var(--sidebar-accent));
+    --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+    --color-sidebar-border: hsl(var(--sidebar-border));
+    --color-sidebar-ring: hsl(var(--sidebar-ring));
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+    *,
+    ::after,
+    ::before,
+    ::backdrop,
+    ::file-selector-button {
+        border-color: var(--color-gray-200, currentcolor);
+    }
+}
+
+@layer utilities {
+    body,
+    html {
+        --font-sans:
+            'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    }
 }
 
 /* Token domain. Satu-satunya sumber kebenaran untuk warna sentimen, termasuk
-   di dalam konfigurasi ECharts, useTemaChart() membacanya lewat
-   getComputedStyle(). Jangan pernah menulis heksadesimal di file grafik. */
-:root {
+ di dalam konfigurasi ECharts, useTemaChart() membacanya lewat
+ getComputedStyle(). Jangan pernah menulis heksadesimal di file grafik. */
+@theme static {
     /* Warna merek Pemerintah Kota Kendari. Navy pekat, dipakai kop halaman,
-       logo, dan tombol utama. Ditulis heksadesimal karena nilainya ditetapkan
-       instansi dan harus persis, bukan hasil konversi ruang warna. */
+     logo, dan tombol utama. Ditulis heksadesimal karena nilainya ditetapkan
+     instansi dan harus persis, bukan hasil konversi ruang warna. */
     --color-brand: #163f6c;
     --color-brand-terang: #1f5490;
     --color-brand-lembut: oklch(0.95 0.025 250);
 
     /*
-     * Biru langit merek. Dipakai hanya di atas bidang navy, tidak pernah di
-     * atas bidang terang.
-     *
-     * Navy merek terlalu pekat untuk menjadi aksen di atas dirinya sendiri, dan
-     * `--color-brand-terang` hanya berjarak 0,08 lightness darinya sehingga
-     * juga tenggelam. Warna ini yang menjadi sorotan di panel merek halaman
-     * masuk: penggal judul yang ditekankan, ikon tahapan, dan seluruh ornamen
-     * garis.
-     *
-     * Nilainya ditentukan syarat kontras, bukan selera. Di atas navy merek ia
-     * mencapai 4,67:1, jadi aman untuk teks berukuran besar maupun ikon. Ia
-     * tidak boleh dipakai sebagai teks biasa di atas latar terang: di atas
-     * putih rasionya hanya 2,3:1.
-     */
+   * Biru langit merek. Dipakai hanya di atas bidang navy, tidak pernah di
+   * atas bidang terang.
+   *
+   * Navy merek terlalu pekat untuk menjadi aksen di atas dirinya sendiri, dan
+   * `--color-brand-terang` hanya berjarak 0,08 lightness darinya sehingga
+   * juga tenggelam. Warna ini yang menjadi sorotan di panel merek halaman
+   * masuk: penggal judul yang ditekankan, ikon tahapan, dan seluruh ornamen
+   * garis.
+   *
+   * Nilainya ditentukan syarat kontras, bukan selera. Di atas navy merek ia
+   * mencapai 4,67:1, jadi aman untuk teks berukuran besar maupun ikon. Ia
+   * tidak boleh dipakai sebagai teks biasa di atas latar terang: di atas
+   * putih rasionya hanya 2,3:1.
+   */
     --color-brand-langit: #5cb4f5;
 
     /*
-     * Aksen dekoratif untuk tile ikon dan ilustrasi.
-     *
-     * Rona ketiganya sengaja dijauhkan dari palet sentimen (hijau 155, merah
-     * 22, kuning 75). Di halaman ini warna selalu berarti nada pemberitaan,
-     * dan hiasan tidak boleh meminjam arti itu.
-     */
+   * Aksen dekoratif untuk tile ikon dan ilustrasi.
+   *
+   * Rona ketiganya sengaja dijauhkan dari palet sentimen (hijau 155, merah
+   * 22, kuning 75). Di halaman ini warna selalu berarti nada pemberitaan,
+   * dan hiasan tidak boleh meminjam arti itu.
+   */
     --color-aksen-biru: oklch(0.52 0.12 250);
     --color-aksen-toska: oklch(0.5 0.1 200);
     --color-aksen-ungu: oklch(0.53 0.12 295);
 
     /*
-     * Kepekatan tiap warna nada ditentukan pemakaian tergelapnya, bukan seleranya.
-     *
-     * Warna yang sama dipakai dua arah: sebagai teks di atas varian lembut, dan
-     * sebagai isian tile yang teksnya putih. Kedua kebutuhan itu menarik ke arah
-     * yang sama, makin pekat makin terbaca, jadi satu nilai cukup untuk keduanya.
-     * Nilai sebelumnya (positif 0,62, review 0,70) hanya mencapai rasio 3,2 dan
-     * 2,4 di atas latar lembutnya, jauh di bawah ambang 4,5 WCAG AA. Angka di
-     * bawah ini semuanya melewati 4,5 pada seluruh opasitas latar yang dipakai
-     * halaman eksekutif.
-     */
+   * Kepekatan tiap warna nada ditentukan pemakaian tergelapnya, bukan seleranya.
+   *
+   * Warna yang sama dipakai dua arah: sebagai teks di atas varian lembut, dan
+   * sebagai isian tile yang teksnya putih. Kedua kebutuhan itu menarik ke arah
+   * yang sama, makin pekat makin terbaca, jadi satu nilai cukup untuk keduanya.
+   * Nilai sebelumnya (positif 0,62, review 0,70) hanya mencapai rasio 3,2 dan
+   * 2,4 di atas latar lembutnya, jauh di bawah ambang 4,5 WCAG AA. Angka di
+   * bawah ini semuanya melewati 4,5 pada seluruh opasitas latar yang dipakai
+   * halaman eksekutif.
+   */
     --color-sentimen-positif: oklch(0.51 0.15 155);
     --color-sentimen-positif-lembut: oklch(0.95 0.04 155);
     --color-sentimen-netral: oklch(0.53 0.02 250);
@@ -74,146 +151,185 @@ html {
     --color-sentimen-review-lembut: oklch(0.96 0.05 75);
 
     /*
-     * Bidang kartu bernada netral di panel eksekutif, dan sengaja bukan
-     * `netral-lembut`.
-     *
-     * Kartu netral menghilang ke dalam latar halaman. Sebabnya bukan gelap
-     * terang melainkan chroma. Latar eksekutif berada di hue 235 dengan chroma
-     * 0,005 sampai 0,019, sedangkan `netral-lembut` berada di hue 250 dengan
-     * chroma 0,010. Ditumpuk pada opasitas 45 persen chromanya jatuh ke 0,004,
-     * yaitu lebih pucat daripada latar yang ditempatinya, pada hue yang hanya
-     * berjarak lima belas derajat. Kartu itu bukan kurang terlihat, ia memang
-     * tidak punya tepi untuk dilihat.
-     *
-     * Diukur sebagai jarak persepsi di bidang oklab terhadap ketiga hentian
-     * gradien latar. Kartu positif terbaca pada 0,019 dan negatif pada 0,031.
-     * Netral sebelumnya hanya 0,0076, kurang dari separuh yang terendah.
-     *
-     * Pemisahnya suhu, bukan kegelapan, dan itu keputusan yang dipaksa dua
-     * syarat. Menggelapkan sampai terbaca menurunkan kontras teks lencana ke
-     * bawah 4,5, karena `--color-sentimen-netral` di L 0,53 hanya menyisakan
-     * 4,56 di atas nilai lamanya. Menaikkan chroma pada hue biru yang sama
-     * membuatnya terbaca sebagai kartu terpilih, bukan kartu tanpa penilaian.
-     * Batu hangat di hue 80 mencapai 0,031, setara kartu negatif, sambil
-     * menahan L di 0,975 sehingga tidak satu pun kontras teks bergeser.
-     *
-     * `netral-lembut` sengaja dibiarkan apa adanya. Ia melayani lencana yang
-     * berdiri di atas kartu putih, bukan di atas latar bertinta, dan di sana
-     * nilai lamanya sudah benar.
-     */
+   * Bidang kartu bernada netral di panel eksekutif, dan sengaja bukan
+   * `netral-lembut`.
+   *
+   * Kartu netral menghilang ke dalam latar halaman. Sebabnya bukan gelap
+   * terang melainkan chroma. Latar eksekutif berada di hue 235 dengan chroma
+   * 0,005 sampai 0,019, sedangkan `netral-lembut` berada di hue 250 dengan
+   * chroma 0,010. Ditumpuk pada opasitas 45 persen chromanya jatuh ke 0,004,
+   * yaitu lebih pucat daripada latar yang ditempatinya, pada hue yang hanya
+   * berjarak lima belas derajat. Kartu itu bukan kurang terlihat, ia memang
+   * tidak punya tepi untuk dilihat.
+   *
+   * Diukur sebagai jarak persepsi di bidang oklab terhadap ketiga hentian
+   * gradien latar. Kartu positif terbaca pada 0,019 dan negatif pada 0,031.
+   * Netral sebelumnya hanya 0,0076, kurang dari separuh yang terendah.
+   *
+   * Pemisahnya suhu, bukan kegelapan, dan itu keputusan yang dipaksa dua
+   * syarat. Menggelapkan sampai terbaca menurunkan kontras teks lencana ke
+   * bawah 4,5, karena `--color-sentimen-netral` di L 0,53 hanya menyisakan
+   * 4,56 di atas nilai lamanya. Menaikkan chroma pada hue biru yang sama
+   * membuatnya terbaca sebagai kartu terpilih, bukan kartu tanpa penilaian.
+   * Batu hangat di hue 80 mencapai 0,031, setara kartu negatif, sambil
+   * menahan L di 0,975 sehingga tidak satu pun kontras teks bergeser.
+   *
+   * `netral-lembut` sengaja dibiarkan apa adanya. Ia melayani lencana yang
+   * berdiri di atas kartu putih, bukan di atas latar bertinta, dan di sana
+   * nilai lamanya sudah benar.
+   */
     --color-sentimen-netral-bidang: oklch(0.975 0.025 80);
 
     /*
-     * Potongan netral di dalam batang bertumpuk, dan lagi lagi bukan
-     * `--color-sentimen-netral`.
-     *
-     * Nada kuat netral berada di L 0,53 dengan chroma 0,02, sedangkan positif di
-     * L 0,51 dan negatif di L 0,53, keduanya dengan chroma 0,15 sampai 0,19.
-     * Akibatnya potongan netral membawa bobot visual yang persis sama dengan
-     * potongan hijau di sebelahnya: rasio keduanya terhadap putih 5,27 melawan
-     * 5,22, yaitu 1,01 satu sama lain. Ia berteriak sekeras saudaranya tanpa
-     * membawa satu keterangan warna pun, dan abu sepekat itu di tengah batang
-     * terbaca sebagai lubang, bukan sebagai bagian.
-     *
-     * Dua hal digeser sekaligus. Terangnya naik ke 0,64 supaya potongan ini
-     * mundur satu langkah, 1,56 terhadap positif dan 1,74 terhadap negatif, yang
-     * cukup untuk menyatakan "ini yang tenang" tanpa membuatnya hilang.
-     * Chromanya naik ke 0,045 supaya ia berhenti menjadi abu mati dan menjadi
-     * baja biru yang masih satu keluarga dengan saudaranya. Chroma tidak
-     * mengubah rasio kontras sama sekali di sini, jadi kenaikannya murni soal
-     * kekerabatan warna, bukan keterbacaan.
-     *
-     * Batasnya jalur belakang batang, yang bernilai `--muted` di L 0,961.
-     * Potongan ini menahan 3,07 terhadapnya, tepat di atas ambang 3,0 untuk
-     * unsur bukan teks, sehingga bagian yang terisi tetap terbaca sebagai
-     * terisi. Menaikkan terangnya ke 0,66 sudah menjatuhkannya ke 2,85.
-     *
-     * Bukan menggeser `--color-sentimen-netral` sendiri, dan itu wajib. Token
-     * itu memikul teks di atas latar terang serta isian pekat yang teksnya
-     * putih. Pada L 0,64 keduanya jatuh ke sekitar 2,6 dan 2,4, jauh di bawah
-     * ambang.
-     */
+   * Potongan netral di dalam batang bertumpuk, dan lagi lagi bukan
+   * `--color-sentimen-netral`.
+   *
+   * Nada kuat netral berada di L 0,53 dengan chroma 0,02, sedangkan positif di
+   * L 0,51 dan negatif di L 0,53, keduanya dengan chroma 0,15 sampai 0,19.
+   * Akibatnya potongan netral membawa bobot visual yang persis sama dengan
+   * potongan hijau di sebelahnya: rasio keduanya terhadap putih 5,27 melawan
+   * 5,22, yaitu 1,01 satu sama lain. Ia berteriak sekeras saudaranya tanpa
+   * membawa satu keterangan warna pun, dan abu sepekat itu di tengah batang
+   * terbaca sebagai lubang, bukan sebagai bagian.
+   *
+   * Dua hal digeser sekaligus. Terangnya naik ke 0,64 supaya potongan ini
+   * mundur satu langkah, 1,56 terhadap positif dan 1,74 terhadap negatif, yang
+   * cukup untuk menyatakan "ini yang tenang" tanpa membuatnya hilang.
+   * Chromanya naik ke 0,045 supaya ia berhenti menjadi abu mati dan menjadi
+   * baja biru yang masih satu keluarga dengan saudaranya. Chroma tidak
+   * mengubah rasio kontras sama sekali di sini, jadi kenaikannya murni soal
+   * kekerabatan warna, bukan keterbacaan.
+   *
+   * Batasnya jalur belakang batang, yang bernilai `--muted` di L 0,961.
+   * Potongan ini menahan 3,07 terhadapnya, tepat di atas ambang 3,0 untuk
+   * unsur bukan teks, sehingga bagian yang terisi tetap terbaca sebagai
+   * terisi. Menaikkan terangnya ke 0,66 sudah menjatuhkannya ke 2,85.
+   *
+   * Bukan menggeser `--color-sentimen-netral` sendiri, dan itu wajib. Token
+   * itu memikul teks di atas latar terang serta isian pekat yang teksnya
+   * putih. Pada L 0,64 keduanya jatuh ke sekitar 2,6 dan 2,4, jauh di bawah
+   * ambang.
+   */
     --color-sentimen-netral-batang: oklch(0.64 0.045 250);
+
+    /*
+   * Dua saudaranya menyusul, dan alasannya bukan selera.
+   *
+   * Nada positif di L 0,51 dan negatif di L 0,53 hampir sama terangnya. Bagi
+   * pembaca deuteranopia, sekitar enam persen laki-laki, merah dan hijau
+   * memang runtuh ke hue yang sama, dan satu-satunya yang tersisa untuk
+   * memisahkan keduanya adalah selisih terang. Diukur di bidang oklab dengan
+   * simulasi deutan, jarak keduanya hanya 3,7. Di bawah 8 dianggap tidak
+   * terpisah, jadi pada grafik lama potongan positif dan potongan negatif
+   * benar-benar satu warna bagi mereka.
+   *
+   * Perbaikannya menarik keduanya ke arah berlawanan pada sumbu terang, bukan
+   * menggeser hue. Positif naik ke 0,575 dan negatif turun ke 0,45, dan jarak
+   * deutannya menjadi 11,5. Urutan terangnya sekarang juga menyatakan sesuatu
+   * tanpa warna sama sekali: negatif paling pekat, positif di tengah, netral
+   * paling terang dan karena itu paling mundur.
+   *
+   * Percobaan melembutkan hijau ditolak angkanya. Menurunkan chroma hijau ke
+   * 0,11 sambil menaikkan terangnya mendekatkannya ke potongan netral, dan
+   * jarak keduanya untuk mata normal jatuh ke 13,2, di bawah ambang 15. Hijau
+   * yang terasa berat itu justru yang menjaga keduanya terpisah.
+   *
+   * Hanya untuk bidang grafik, sama seperti netral di atas. Token nada yang
+   * asli tetap memikul teks lencana dan isian pekat, dan kontrasnya sudah
+   * dihitung pada nilai itu.
+   */
+    --color-sentimen-positif-batang: oklch(0.575 0.14 152);
+    --color-sentimen-negatif-batang: oklch(0.45 0.17 25);
 
     --color-tier-nasional: oklch(0.5 0.14 265);
     --color-tier-regional: oklch(0.6 0.1 220);
     --color-tier-lokal: oklch(0.65 0.05 200);
 
     /*
-     * Latar bidang isi panel admin, dan sejak 12 Agustus 2026 juga portal media.
-     *
-     * Namanya tetap `latar-admin` walaupun pemakainya sudah dua panel. Mengganti
-     * namanya berarti menyunting setiap kelas `bg-latar-admin` di seluruh
-     * repositori demi ketepatan sebutan, dan nilainya sendiri tidak berubah
-     * sedikit pun. Yang penting justru kebalikannya: kedua panel harus memakai
-     * nilai yang sama persis, karena satu pengguna superadmin bisa berpindah di
-     * antara keduanya dalam satu sesi.
-     *
-     * Sebelumnya bidang ini memakai `--background` yang bernilai putih murni,
-     * sama persis dengan `--card`. Akibatnya kartu putih berdiri di atas latar
-     * putih dan satu-satunya yang memisahkan keduanya adalah garis tepi setipis
-     * satu piksel. Sekarang latarnya diturunkan sedikit sehingga kartu terbaca
-     * terangkat tanpa perlu menambah bayangan, dan bidang seluas layar tidak
-     * lagi memantulkan putih penuh ke mata yang menatapnya sepanjang jam kerja.
-     *
-     * Nilainya ditentukan dua tetangga sekaligus, bukan selera. Ia harus cukup
-     * jauh dari `--card` yang putih supaya kartu terbaca terangkat, dan cukup
-     * jauh dari `--muted` yang menjadi jalur kelompok tab supaya jalur itu
-     * tidak lebur ke latar. Percobaan pertama di L 0,965 gagal pada syarat
-     * kedua: jaraknya ke jalur tab hanya 0,005 dan kelompok tabnya hilang.
-     * L 0,95 memberi 0,050 ke kartu dan 0,020 ke jalur tab. Teks utama di
-     * atasnya 17,1:1, jadi keterbacaan tidak berkurang.
-     *
-     * Bukan `--background` yang diubah, dan itu disengaja. Nilai itu dipakai
-     * juga oleh pil tab yang sedang aktif di halaman Berita dan Antrean AI,
-     * yang berdiri di atas jalur `--muted`. Menggeser `--background` mendekati
-     * `--muted` akan membuat tab aktif dan jalurnya nyaris sewarna, dan
-     * penanda tab mana yang sedang terbuka hilang.
-     */
+   * Latar bidang isi panel admin, dan sejak 12 Agustus 2026 juga portal media.
+   *
+   * Namanya tetap `latar-admin` walaupun pemakainya sudah dua panel. Mengganti
+   * namanya berarti menyunting setiap kelas `bg-latar-admin` di seluruh
+   * repositori demi ketepatan sebutan, dan nilainya sendiri tidak berubah
+   * sedikit pun. Yang penting justru kebalikannya: kedua panel harus memakai
+   * nilai yang sama persis, karena satu pengguna superadmin bisa berpindah di
+   * antara keduanya dalam satu sesi.
+   *
+   * Sebelumnya bidang ini memakai `--background` yang bernilai putih murni,
+   * sama persis dengan `--card`. Akibatnya kartu putih berdiri di atas latar
+   * putih dan satu-satunya yang memisahkan keduanya adalah garis tepi setipis
+   * satu piksel. Sekarang latarnya diturunkan sedikit sehingga kartu terbaca
+   * terangkat tanpa perlu menambah bayangan, dan bidang seluas layar tidak
+   * lagi memantulkan putih penuh ke mata yang menatapnya sepanjang jam kerja.
+   *
+   * Nilainya ditentukan dua tetangga sekaligus, bukan selera. Ia harus cukup
+   * jauh dari `--card` yang putih supaya kartu terbaca terangkat, dan cukup
+   * jauh dari `--muted` yang menjadi jalur kelompok tab supaya jalur itu
+   * tidak lebur ke latar. Percobaan pertama di L 0,965 gagal pada syarat
+   * kedua: jaraknya ke jalur tab hanya 0,005 dan kelompok tabnya hilang.
+   * L 0,95 memberi 0,050 ke kartu dan 0,020 ke jalur tab. Teks utama di
+   * atasnya 17,1:1, jadi keterbacaan tidak berkurang.
+   *
+   * Bukan `--background` yang diubah, dan itu disengaja. Nilai itu dipakai
+   * juga oleh pil tab yang sedang aktif di halaman Berita dan Antrean AI,
+   * yang berdiri di atas jalur `--muted`. Menggeser `--background` mendekati
+   * `--muted` akan membuat tab aktif dan jalurnya nyaris sewarna, dan
+   * penanda tab mana yang sedang terbuka hilang.
+   */
     --color-latar-admin: oklch(0.95 0.004 250);
 }
 
-.dark {
-    --color-brand-lembut: oklch(0.26 0.04 250);
+@layer utilities {
+    .dark {
+        --color-brand-lembut: oklch(0.26 0.04 250);
 
-    /*
+        /*
      * Arahnya membalik di mode gelap: latar menjadi lebih gelap daripada kartu,
      * bukan lebih terang. `--card` mode gelap berada di L 0,145, jadi latar ini
      * disetel 0,030 di bawahnya. Kartu tetap yang terangkat, sama seperti di
      * mode terang, hanya lapisannya yang bertukar tempat. Tidak sampai hitam
      * murni, karena bidang hitam pekat menghapus seluruh kedalaman.
      */
-    --color-latar-admin: oklch(0.115 0.008 250);
+        --color-latar-admin: oklch(0.115 0.008 250);
 
-    /* Aksen dicerahkan di latar gelap, kalau tidak teksnya tenggelam. */
-    --color-aksen-biru: oklch(0.72 0.11 250);
-    --color-aksen-toska: oklch(0.74 0.08 200);
-    --color-aksen-ungu: oklch(0.73 0.11 295);
+        /* Aksen dicerahkan di latar gelap, kalau tidak teksnya tenggelam. */
+        --color-aksen-biru: oklch(0.72 0.11 250);
+        --color-aksen-toska: oklch(0.74 0.08 200);
+        --color-aksen-ungu: oklch(0.73 0.11 295);
 
-    /* Varian lembut dibalik agar kontras teks tetap terbaca di latar gelap. */
-    --color-sentimen-positif-lembut: oklch(0.28 0.05 155);
-    --color-sentimen-netral-lembut: oklch(0.28 0.02 250);
-    --color-sentimen-negatif-lembut: oklch(0.28 0.07 22);
-    --color-sentimen-review-lembut: oklch(0.3 0.06 75);
+        /* Varian lembut dibalik agar kontras teks tetap terbaca di latar gelap. */
+        --color-sentimen-positif-lembut: oklch(0.28 0.05 155);
+        --color-sentimen-netral-lembut: oklch(0.28 0.02 250);
+        --color-sentimen-negatif-lembut: oklch(0.28 0.07 22);
+        --color-sentimen-review-lembut: oklch(0.3 0.06 75);
 
-    /*
+        /*
      * Tabrakan yang sama terjadi di mode gelap, dan di sana lebih parah. Latar
      * gelap berada di hue 250, hue yang sama persis dengan netral, sehingga
      * jarak persepsinya hanya 0,0122 melawan 0,0318 milik kartu positif.
      * Batu hangat yang sama dipakai, digelapkan ke L 0,235, dan mencapai
      * 0,0544. Kontras teks netral di atasnya 6,74.
      */
-    --color-sentimen-netral-bidang: oklch(0.235 0.02 85);
+        --color-sentimen-netral-bidang: oklch(0.235 0.02 85);
 
-    /*
+        /*
      * Arahnya membalik di mode gelap. Di sana jalur belakang batang yang gelap
      * dan ketiga potongannya yang terang, jadi potongan yang mundur adalah yang
      * lebih redup, bukan yang lebih terang. Saudaranya berdiri di 8,64 dan 6,58
      * terhadap jalur, potongan ini di 4,78, masih jauh di atas ambang 3,0.
      */
-    --color-sentimen-netral-batang: oklch(0.6 0.045 250);
+        --color-sentimen-netral-batang: oklch(0.6 0.045 250);
 
-    /*
+        /*
+     * Tangga terang yang sama, digeser naik supaya ketiganya tetap terbaca di
+     * atas latar gelap. Positif 0,72, netral 0,6, negatif 0,585. Jarak deutan
+     * antara positif dan negatif 12,6, naik dari 3,4 pada nilai lama yang
+     * menempatkan keduanya di 0,74 dan 0,70.
+     */
+        --color-sentimen-positif-batang: oklch(0.72 0.145 152);
+        --color-sentimen-negatif-batang: oklch(0.585 0.175 25);
+
+        /*
      * Warna nada ikut dicerahkan, bukan hanya varian lembutnya.
      *
      * Membalik latar saja tidak cukup. Sebelumnya latar lembut turun ke 0,28
@@ -224,18 +340,18 @@ html {
      * Konsekuensinya tile berisian penuh membalik arah: di mode gelap isian
      * menjadi terang, jadi ikonnya memakai `dark:text-background`, bukan putih.
      */
-    --color-sentimen-positif: oklch(0.74 0.14 155);
-    --color-sentimen-netral: oklch(0.72 0.02 250);
-    --color-sentimen-negatif: oklch(0.7 0.15 22);
-    --color-sentimen-review: oklch(0.78 0.13 75);
-}
+        --color-sentimen-positif: oklch(0.74 0.14 155);
+        --color-sentimen-netral: oklch(0.72 0.02 250);
+        --color-sentimen-negatif: oklch(0.7 0.15 22);
+        --color-sentimen-review: oklch(0.78 0.13 75);
+    }
 
-/* Angka tidak boleh bergeser saat nilainya berubah. */
-.angka {
-    font-variant-numeric: tabular-nums;
-}
+    /* Angka tidak boleh bergeser saat nilainya berubah. */
+    .angka {
+        font-variant-numeric: tabular-nums;
+    }
 
-/*
+    /*
  * Dipaku ke tengah tinggi layar yang tidak ikut menyusut.
  *
  * `top: 50%` pada elemen `fixed` diukur terhadap viewport, dan di ponsel tinggi
@@ -255,12 +371,12 @@ html {
  * `top: 50%` ditulis lebih dulu sebagai cadangan. Peramban yang belum mengenal
  * `svh` membuang baris kedua dan tetap memakai yang pertama.
  */
-.tengah-layar {
-    top: 50%;
-    top: 50svh;
-}
+    .tengah-layar {
+        top: 50%;
+        top: 50svh;
+    }
 
-/*
+    /*
  * Latar bertinta untuk panel eksekutif.
  *
  * Kartu putih di atas latar putih hanya terpisah oleh bayangan tipis, dan pada
@@ -271,7 +387,7 @@ html {
  * Hanya panel eksekutif. Halaman admin padat tabel, dan latar bertinta di sana
  * justru mengurangi kontras baris.
  */
-/*
+    /*
  * Empat lapis gradien, tidak satu pun berupa pola berulang.
  *
  * Lapis dasarnya gradien menurun: paling bertinta di kop, memucat di tengah
@@ -305,35 +421,35 @@ html {
  * kaki halaman: keduanya berlatar navy pekat dan berposisi, jadi keduanya tetap
  * tergambar di atas lapisan ini.
  */
-.latar-eksekutif {
-    position: relative;
-}
+    .latar-eksekutif {
+        position: relative;
+    }
 
-.latar-eksekutif::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    background-color: oklch(0.955 0.012 235);
-    background-image:
-        radial-gradient(70rem 40rem at 6% -12%, oklch(0.58 0.12 250 / 0.16), transparent 68%),
-        radial-gradient(55rem 34rem at 97% -4%, oklch(0.62 0.09 200 / 0.15), transparent 68%),
-        radial-gradient(64rem 38rem at 52% 112%, oklch(0.58 0.1 290 / 0.12), transparent 68%),
-        linear-gradient(180deg, oklch(0.935 0.019 235) 0%, oklch(0.985 0.005 235) 48%, oklch(0.951 0.014 235) 100%);
-    background-repeat: no-repeat;
-}
+    .latar-eksekutif::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        background-color: oklch(0.955 0.012 235);
+        background-image:
+            radial-gradient(70rem 40rem at 6% -12%, oklch(0.58 0.12 250 / 0.16), transparent 68%),
+            radial-gradient(55rem 34rem at 97% -4%, oklch(0.62 0.09 200 / 0.15), transparent 68%),
+            radial-gradient(64rem 38rem at 52% 112%, oklch(0.58 0.1 290 / 0.12), transparent 68%),
+            linear-gradient(180deg, oklch(0.935 0.019 235) 0%, oklch(0.985 0.005 235) 48%, oklch(0.951 0.014 235) 100%);
+        background-repeat: no-repeat;
+    }
 
-.dark .latar-eksekutif::before {
-    background-color: oklch(0.16 0.01 250);
-    background-image:
-        radial-gradient(70rem 40rem at 6% -12%, oklch(0.72 0.11 250 / 0.14), transparent 68%),
-        radial-gradient(55rem 34rem at 97% -4%, oklch(0.74 0.08 200 / 0.12), transparent 68%),
-        radial-gradient(64rem 38rem at 52% 112%, oklch(0.7 0.1 290 / 0.1), transparent 68%),
-        linear-gradient(180deg, oklch(0.2 0.022 250) 0%, oklch(0.145 0.008 250) 48%, oklch(0.185 0.016 250) 100%);
-}
+    .dark .latar-eksekutif::before {
+        background-color: oklch(0.16 0.01 250);
+        background-image:
+            radial-gradient(70rem 40rem at 6% -12%, oklch(0.72 0.11 250 / 0.14), transparent 68%),
+            radial-gradient(55rem 34rem at 97% -4%, oklch(0.74 0.08 200 / 0.12), transparent 68%),
+            radial-gradient(64rem 38rem at 52% 112%, oklch(0.7 0.1 290 / 0.1), transparent 68%),
+            linear-gradient(180deg, oklch(0.2 0.022 250) 0%, oklch(0.145 0.008 250) 48%, oklch(0.185 0.016 250) 100%);
+    }
 
-/*
+    /*
  * Permukaan yang bisa ditekan: kartu, baris daftar, dan potongan grafik yang
  * membuka halaman lain.
  *
@@ -346,30 +462,30 @@ html {
  * tata letak. Menganimasikan ukuran atau posisi membuat panel tersendat di
  * ponsel kelas menengah, dan itu perangkat yang dipakai membaca halaman ini.
  */
-.tekan {
-    transition:
-        background-color 200ms cubic-bezier(0.32, 0.72, 0, 1),
-        transform 200ms cubic-bezier(0.32, 0.72, 0, 1);
-}
+    .tekan {
+        transition:
+            background-color 200ms cubic-bezier(0.32, 0.72, 0, 1),
+            transform 200ms cubic-bezier(0.32, 0.72, 0, 1);
+    }
 
-.tekan:active {
-    transform: scale(0.99);
-}
+    .tekan:active {
+        transform: scale(0.99);
+    }
 
-/*
+    /*
  * Kartu yang terangkat sedikit saat disentuh kursor.
  *
  * Dipisahkan dari `.tekan` karena keduanya sering dipakai bersama pada elemen
  * yang sama: terangkat waktu disorot, tertekan waktu diklik.
  */
-.angkat {
-    transition:
-        transform 260ms cubic-bezier(0.32, 0.72, 0, 1),
-        box-shadow 260ms cubic-bezier(0.32, 0.72, 0, 1),
-        border-color 260ms cubic-bezier(0.32, 0.72, 0, 1);
-}
+    .angkat {
+        transition:
+            transform 260ms cubic-bezier(0.32, 0.72, 0, 1),
+            box-shadow 260ms cubic-bezier(0.32, 0.72, 0, 1),
+            border-color 260ms cubic-bezier(0.32, 0.72, 0, 1);
+    }
 
-/*
+    /*
  * Hanya untuk perangkat yang benar-benar punya kursor.
  *
  * Di layar sentuh `:hover` menyala saat jari menyentuh dan menempel di sana
@@ -378,14 +494,14 @@ html {
  * digambar ulang mengikuti gulirnya. Kartunya bisa banyak dalam satu petak,
  * jadi biayanya menumpuk persis ketika halaman sedang bergerak.
  */
-@media (hover: hover) {
-    .angkat:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 12px 28px -12px oklch(0.36 0.09 252 / 0.28);
+    @media (hover: hover) {
+        .angkat:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 28px -12px oklch(0.36 0.09 252 / 0.28);
+        }
     }
-}
 
-/*
+    /*
  * Masuknya isi halaman: naik sedikit sambil memudar masuk.
  *
  * Jeda antar blok diatur pemanggil lewat animation-delay, sehingga halaman
@@ -396,23 +512,23 @@ html {
  * sebabnya blok prefers-reduced-motion di bawah mematikan animasinya sama
  * sekali, bukan sekadar memperpendek durasinya.
  */
-@keyframes muncul {
-    from {
-        opacity: 0;
-        transform: translateY(14px);
+    @keyframes muncul {
+        from {
+            opacity: 0;
+            transform: translateY(14px);
+        }
+
+        to {
+            opacity: 1;
+            transform: none;
+        }
     }
 
-    to {
-        opacity: 1;
-        transform: none;
+    .muncul {
+        animation: muncul 620ms cubic-bezier(0.32, 0.72, 0, 1) both;
     }
-}
 
-.muncul {
-    animation: muncul 620ms cubic-bezier(0.32, 0.72, 0, 1) both;
-}
-
-/*
+    /*
  * Masuk yang menajam: naik sambil melepas kabur.
  *
  * Dipakai hanya untuk satu blok di seluruh aplikasi, yaitu kartu ringkas di
@@ -426,25 +542,25 @@ html {
  * satu elemen yang berjalan sekali saat halaman dibuka, bukan gerakan yang
  * berulang, jadi biayanya berhenti sebelum pengguna sempat menggulir.
  */
-@keyframes tajam {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-        filter: blur(10px);
+    @keyframes tajam {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+            filter: blur(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: none;
+            filter: blur(0);
+        }
     }
 
-    to {
-        opacity: 1;
-        transform: none;
-        filter: blur(0);
+    .tajam {
+        animation: tajam 760ms cubic-bezier(0.32, 0.72, 0, 1) both;
     }
-}
 
-.tajam {
-    animation: tajam 760ms cubic-bezier(0.32, 0.72, 0, 1) both;
-}
-
-/*
+    /*
  * Garis yang menggambar dirinya sendiri.
  *
  * Untuk ornamen SVG bergaris, misalnya busur sepusat di kop. Pemanggil wajib
@@ -452,54 +568,54 @@ html {
  * karena `stroke-dasharray` tidak bisa menghitung sendiri panjang lintasan
  * lewat CSS. Nilai yang kebesaran aman, garisnya hanya mulai lebih jauh.
  */
-@keyframes gambar {
-    from {
-        stroke-dashoffset: var(--panjang, 600);
+    @keyframes gambar {
+        from {
+            stroke-dashoffset: var(--panjang, 600);
+        }
+
+        to {
+            stroke-dashoffset: 0;
+        }
     }
 
-    to {
-        stroke-dashoffset: 0;
-    }
-}
-
-.gambar {
-    stroke-dasharray: var(--panjang, 600);
-    animation: gambar 1600ms cubic-bezier(0.32, 0.72, 0, 1) both;
-}
-
-/* Rel lini masa yang turun dari kepala daftar, arah baca barisnya. */
-@keyframes tumbuh-turun {
-    from {
-        transform: scaleY(0);
+    .gambar {
+        stroke-dasharray: var(--panjang, 600);
+        animation: gambar 1600ms cubic-bezier(0.32, 0.72, 0, 1) both;
     }
 
-    to {
-        transform: scaleY(1);
-    }
-}
+    /* Rel lini masa yang turun dari kepala daftar, arah baca barisnya. */
+    @keyframes tumbuh-turun {
+        from {
+            transform: scaleY(0);
+        }
 
-.tumbuh-turun {
-    transform-origin: top;
-    animation: tumbuh-turun 1100ms cubic-bezier(0.32, 0.72, 0, 1) both;
-}
-
-/* Batang komposisi tumbuh dari kiri, arah baca angkanya. */
-@keyframes tumbuh {
-    from {
-        transform: scaleX(0);
+        to {
+            transform: scaleY(1);
+        }
     }
 
-    to {
-        transform: scaleX(1);
+    .tumbuh-turun {
+        transform-origin: top;
+        animation: tumbuh-turun 1100ms cubic-bezier(0.32, 0.72, 0, 1) both;
     }
-}
 
-.tumbuh {
-    transform-origin: left;
-    animation: tumbuh 900ms cubic-bezier(0.32, 0.72, 0, 1) both;
-}
+    /* Batang komposisi tumbuh dari kiri, arah baca angkanya. */
+    @keyframes tumbuh {
+        from {
+            transform: scaleX(0);
+        }
 
-/*
+        to {
+            transform: scaleX(1);
+        }
+    }
+
+    .tumbuh {
+        transform-origin: left;
+        animation: tumbuh 900ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    }
+
+    /*
  * Garis aliran: cahaya yang menyusuri sebuah garis selama pekerjaan berjalan.
  *
  * Ditarik ke sini setelah pemakaiannya menyentuh empat halaman, yaitu Antrean
@@ -522,76 +638,77 @@ html {
  * sapuan terang yang cepat akan menarik mata setiap beberapa detik tanpa pernah
  * membawa kabar baru.
  */
-.aliran::after {
-    content: '';
-    position: absolute;
-    inset-block: 0;
-    left: 0;
-    width: 34%;
-    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.5), transparent);
-    animation: aliran-jalan 5s cubic-bezier(0.45, 0, 0.55, 1) infinite;
-}
-
-@keyframes aliran-jalan {
-    from {
-        transform: translateX(-100%);
-    }
-
-    to {
-        transform: translateX(400%);
-    }
-}
-
-/* Denyut pelan untuk penanda peringatan yang belum dibaca. */
-@keyframes denyut {
-    0%,
-    100% {
-        opacity: 1;
-        transform: scale(1);
-    }
-
-    50% {
-        opacity: 0.55;
-        transform: scale(0.88);
-    }
-}
-
-.denyut {
-    animation: denyut 2.4s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .tekan {
-        transition: none;
-    }
-
-    .tekan:active {
-        transform: none;
-    }
-
-    .angkat {
-        transition: none;
-    }
-
-    .angkat:hover {
-        transform: none;
-        box-shadow: none;
-    }
-
-    .muncul,
-    .tajam,
-    .tumbuh,
-    .tumbuh-turun,
-    .gambar,
-    .denyut,
     .aliran::after {
-        animation: none;
+        content: '';
+        position: absolute;
+        inset-block: 0;
+        left: 0;
+        width: 34%;
+        background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.5), transparent);
+        animation: aliran-jalan 5s cubic-bezier(0.45, 0, 0.55, 1) infinite;
     }
 
-    /* Tanpa animasi, garis putus-putusnya akan berhenti di keadaan awal, yaitu
+    @keyframes aliran-jalan {
+        from {
+            transform: translateX(-100%);
+        }
+
+        to {
+            transform: translateX(400%);
+        }
+    }
+
+    /* Denyut pelan untuk penanda peringatan yang belum dibaca. */
+    @keyframes denyut {
+        0%,
+        100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        50% {
+            opacity: 0.55;
+            transform: scale(0.88);
+        }
+    }
+
+    .denyut {
+        animation: denyut 2.4s ease-in-out infinite;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .tekan {
+            transition: none;
+        }
+
+        .tekan:active {
+            transform: none;
+        }
+
+        .angkat {
+            transition: none;
+        }
+
+        .angkat:hover {
+            transform: none;
+            box-shadow: none;
+        }
+
+        .muncul,
+        .tajam,
+        .tumbuh,
+        .tumbuh-turun,
+        .gambar,
+        .denyut,
+        .aliran::after {
+            animation: none;
+        }
+
+        /* Tanpa animasi, garis putus-putusnya akan berhenti di keadaan awal, yaitu
        tidak tergambar sama sekali. Ornamen ini harus tetap terlihat utuh. */
-    .gambar {
-        stroke-dasharray: none;
+        .gambar {
+            stroke-dasharray: none;
+        }
     }
 }
 

@@ -114,7 +114,7 @@ function simpan() {
                     <section class="space-y-3">
                         <div class="flex items-center gap-2">
                             <UserRound class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                            <h2 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Identitas</h2>
+                            <h2 class="shrink-0 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Identitas</h2>
                             <span class="h-px flex-1 bg-border" aria-hidden="true"></span>
                         </div>
 
@@ -147,7 +147,7 @@ function simpan() {
                     <section class="space-y-3">
                         <div class="flex items-center gap-2">
                             <KeyRound class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                            <h2 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Akses masuk</h2>
+                            <h2 class="shrink-0 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Akses masuk</h2>
                             <span class="h-px flex-1 bg-border" aria-hidden="true"></span>
                         </div>
 
@@ -199,7 +199,7 @@ function simpan() {
                     <section class="space-y-3">
                         <div class="flex items-center gap-2">
                             <ShieldCheck class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                            <h2 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Peran dan cakupan</h2>
+                            <h2 class="shrink-0 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Peran dan cakupan</h2>
                             <span class="h-px flex-1 bg-border" aria-hidden="true"></span>
                         </div>
 
@@ -210,7 +210,7 @@ function simpan() {
                                 type="button"
                                 role="radio"
                                 :aria-checked="form.peran === p.nilai"
-                                class="tekan flex flex-col gap-1.5 rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                class="tekan flex flex-col gap-1.5 rounded-lg border p-3 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-hidden"
                                 :class="form.peran === p.nilai ? p.kelas : 'hover:bg-muted/50'"
                                 @click="form.peran = p.nilai"
                             >
@@ -244,7 +244,7 @@ function simpan() {
                     <section class="space-y-3">
                         <div class="flex items-center gap-2">
                             <Power class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                            <h2 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Saklar</h2>
+                            <h2 class="shrink-0 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Saklar</h2>
                             <span class="h-px flex-1 bg-border" aria-hidden="true"></span>
                         </div>
 

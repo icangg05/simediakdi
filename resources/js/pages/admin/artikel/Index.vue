@@ -617,7 +617,7 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                         class="tekan rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
                         :class="
                             tahap === t.nilai
-                                ? 'bg-brand text-white shadow-sm dark:bg-brand-terang'
+                                ? 'bg-brand text-white shadow-xs dark:bg-brand-terang'
                                 : 'text-muted-foreground hover:bg-background hover:text-foreground'
                         "
                         :aria-pressed="tahap === t.nilai"
@@ -648,7 +648,7 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                         class="tekan rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
                         :class="
                             relevansi === r.nilai
-                                ? 'bg-aksen-toska text-white shadow-sm dark:text-background'
+                                ? 'bg-aksen-toska text-white shadow-xs dark:text-background'
                                 : 'text-muted-foreground hover:bg-background hover:text-foreground'
                         "
                         :aria-pressed="relevansi === r.nilai"
@@ -683,7 +683,7 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                         class="tekan inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
                         :class="
                             sentimen === s.nilai
-                                ? warnaSentimen[s.nilai] + ' shadow-sm'
+                                ? warnaSentimen[s.nilai] + ' shadow-xs'
                                 : 'text-muted-foreground hover:bg-background hover:text-foreground'
                         "
                         :aria-pressed="sentimen === s.nilai"
@@ -849,7 +849,7 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                      menyalin tanggal masuk ke sana membuat jeda yang justru
                      ingin dibaca menjadi selalu nol. -->
                 <template #sel-tanggal="{ baris }">
-                    <span class="whitespace-nowrap text-sm text-muted-foreground">
+                    <span class="text-sm whitespace-nowrap text-muted-foreground">
                         {{ baris.dipublikasikan_at ? waktu(baris.dipublikasikan_at) : '-' }}
                         <span class="opacity-40">/</span>
                         {{ waktu(baris.diambil_at) }}

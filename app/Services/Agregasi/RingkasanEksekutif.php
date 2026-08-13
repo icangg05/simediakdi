@@ -24,6 +24,22 @@ class RingkasanEksekutif
      * pengguna, jadi tidak ada parameter baru yang perlu divalidasi dan tidak
      * ada kombinasi ganjil seperti rentang tujuh hari yang diminta per bulan.
      *
+     * Ambang harian diturunkan dari 31 hari ke 14. Pemkot dan media daerah
+     * bergerak dalam siklus pekanan: kegiatan seremonial menumpuk di hari
+     * kerja, redaksi berhenti di akhir pekan, dan satu kunjungan kerja bisa
+     * mengangkat satu hari ke angka tiga puluh lalu menjatuhkannya ke tiga
+     * keesokan harinya. Pada rentang tiga puluh hari, garis harian menggambar
+     * jadwal kerja redaksi, bukan perubahan nada pemberitaan, dan pembacanya
+     * melihat gerigi yang tidak menyimpulkan apa pun.
+     *
+     * Rentang tiga puluh hari sekarang jadi sekitar lima titik mingguan. Itu
+     * sedikit, tapi lima titik yang berarti mengalahkan tiga puluh titik yang
+     * tidak. Angka hariannya tidak hilang, hanya tidak lagi menjadi bentuk
+     * bawaan grafiknya.
+     *
+     * Batas mingguan ikut naik ke 120 hari supaya rentang empat bulan tidak
+     * langsung jatuh ke empat titik bulanan.
+     *
      * @var array<string, string> satuan => argumen date_trunc Postgres
      */
     private const SATUAN = ['harian' => 'day', 'mingguan' => 'week', 'bulanan' => 'month'];
@@ -33,8 +49,8 @@ class RingkasanEksekutif
         $hari = $dari->diffInDays($sampai) + 1;
 
         return match (true) {
-            $hari <= 31 => 'harian',
-            $hari <= 92 => 'mingguan',
+            $hari <= 14 => 'harian',
+            $hari <= 120 => 'mingguan',
             default => 'bulanan',
         };
     }

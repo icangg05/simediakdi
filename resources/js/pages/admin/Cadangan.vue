@@ -238,7 +238,7 @@ async function salinPerintah() {
         -->
         <div
             v-if="!siap"
-            class="muncul relative overflow-hidden rounded-xl bg-sentimen-negatif-lembut p-4 ring-1 ring-inset ring-sentimen-negatif/25"
+            class="muncul relative overflow-hidden rounded-xl bg-sentimen-negatif-lembut p-4 ring-1 ring-sentimen-negatif/25 ring-inset"
             style="animation-delay: 60ms"
         >
             <!-- Garis rona di tepi atas, sama bentuk dengan garis kepala
@@ -251,19 +251,19 @@ async function salinPerintah() {
 
             <div class="flex items-start gap-3">
                 <span
-                    class="grid size-8 shrink-0 place-items-center rounded-lg bg-sentimen-negatif/10 text-sentimen-negatif ring-1 ring-inset ring-sentimen-negatif/25"
+                    class="grid size-8 shrink-0 place-items-center rounded-lg bg-sentimen-negatif/10 text-sentimen-negatif ring-1 ring-sentimen-negatif/25 ring-inset"
                 >
                     <TriangleAlert class="size-4" aria-hidden="true" />
                 </span>
 
                 <div class="min-w-0 space-y-1 text-sm">
                     <p class="font-medium text-sentimen-negatif">Cadangan tidak bisa dijalankan di server ini.</p>
-                    <p v-if="!database.didukung" class="text-pretty leading-relaxed text-muted-foreground">
+                    <p v-if="!database.didukung" class="leading-relaxed text-pretty text-muted-foreground">
                         Koneksi aktif memakai driver
                         <code class="rounded bg-muted px-1 py-0.5 text-xs">{{ database.driver || 'tidak dikenal' }}</code>
                         , sedangkan halaman ini hanya mendukung PostgreSQL.
                     </p>
-                    <p v-else class="text-pretty leading-relaxed text-muted-foreground">
+                    <p v-else class="leading-relaxed text-pretty text-muted-foreground">
                         Perintah <code class="rounded bg-muted px-1 py-0.5 text-xs">pg_dump</code> tidak ada di container aplikasi. Pasang paket
                         <code class="rounded bg-muted px-1 py-0.5 text-xs">postgresql-client-16</code> di
                         <code class="rounded bg-muted px-1 py-0.5 text-xs">docker/php/Dockerfile</code>, lalu bangun ulang image-nya dengan
@@ -356,7 +356,7 @@ async function salinPerintah() {
                         -->
                         <button
                             type="button"
-                            class="tekan group inline-flex items-center gap-2.5 rounded-lg bg-brand py-2.5 pl-4 pr-2.5 text-sm font-medium text-white shadow-lg shadow-brand/25 transition-colors hover:bg-brand-terang focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+                            class="tekan group inline-flex items-center gap-2.5 rounded-lg bg-brand py-2.5 pr-2.5 pl-4 text-sm font-medium text-white shadow-lg shadow-brand/25 transition-colors hover:bg-brand-terang focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
                             :disabled="!siap || sedangMembuat"
                             @click="buatCadangan"
                         >
@@ -367,14 +367,14 @@ async function salinPerintah() {
                                  bergerak saat tombol disorot, sehingga
                                  tombolnya terasa punya bagian dalam. -->
                             <span
-                                class="[transition-timing-function:cubic-bezier(0.32,0.72,0,1)] grid size-7 place-items-center rounded-md bg-white/15 transition-transform duration-300 group-hover:translate-y-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-y-0"
+                                class="grid size-7 place-items-center rounded-md bg-white/15 transition-transform duration-300 [transition-timing-function:cubic-bezier(0.32,0.72,0,1)] group-hover:translate-y-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-y-0"
                             >
                                 <Loader2 v-if="sedangMembuat" class="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
                                 <DatabaseBackup v-else class="size-4" aria-hidden="true" />
                             </span>
                         </button>
 
-                        <p class="max-w-[46ch] text-pretty text-xs leading-relaxed text-muted-foreground">
+                        <p class="max-w-[46ch] text-xs leading-relaxed text-pretty text-muted-foreground">
                             Basis data
                             <span class="angka font-medium text-foreground">{{ database.nama || 'tidak diketahui' }}</span>
                             di host
@@ -404,7 +404,7 @@ async function salinPerintah() {
                         ></span>
                     </div>
 
-                    <p class="text-pretty text-[11px] leading-relaxed text-muted-foreground">
+                    <p class="text-[11px] leading-relaxed text-pretty text-muted-foreground">
                         <template v-if="total.jumlah >= simpanTerakhir">
                             Slot penuh. Cadangan berikutnya akan membuang yang terlama, ditandai kuning di atas.
                         </template>
@@ -456,7 +456,7 @@ async function salinPerintah() {
 
                 <div class="space-y-1">
                     <p class="text-sm font-medium">Belum ada cadangan</p>
-                    <p class="mx-auto max-w-[52ch] text-pretty text-xs leading-relaxed text-muted-foreground">
+                    <p class="mx-auto max-w-[52ch] text-xs leading-relaxed text-pretty text-muted-foreground">
                         Tekan "Buat cadangan" di atas untuk membuat yang pertama. Berkasnya muncul di sini begitu selesai, dan bisa langsung diunduh.
                     </p>
                 </div>
@@ -466,7 +466,7 @@ async function salinPerintah() {
                 <li
                     v-for="(b, i) in berkas"
                     :key="b.nama"
-                    class="muncul relative py-4 pl-11 pr-4 transition-colors hover:bg-muted/30"
+                    class="muncul relative py-4 pr-4 pl-11 transition-colors hover:bg-muted/30"
                     :class="i < berkas.length - 1 ? 'rel-arsip' : ''"
                     :style="{ animationDelay: `${180 + i * 40}ms` }"
                 >
@@ -474,7 +474,7 @@ async function salinPerintah() {
                          satunya baris yang menjawab "apakah datanya aman
                          sekarang"; sisanya adalah riwayat. -->
                     <span
-                        class="absolute left-4 top-[1.35rem] size-2.5 rounded-full ring-4"
+                        class="absolute top-[1.35rem] left-4 size-2.5 rounded-full ring-4"
                         :class="i === 0 ? 'bg-brand ring-brand/15 dark:bg-brand-terang dark:ring-brand-terang/20' : 'bg-border ring-transparent'"
                         aria-hidden="true"
                     ></span>
@@ -515,7 +515,7 @@ async function salinPerintah() {
                                  berarti "tidak bisa dibatalkan". -->
                             <a
                                 :href="`/admin/cadangan/${b.nama}/unduh`"
-                                class="tekan inline-flex items-center gap-1.5 rounded-lg bg-aksen-biru/10 px-3 py-1.5 text-xs font-medium text-aksen-biru ring-1 ring-inset ring-aksen-biru/20 transition-colors hover:bg-aksen-biru/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-aksen-biru"
+                                class="tekan inline-flex items-center gap-1.5 rounded-lg bg-aksen-biru/10 px-3 py-1.5 text-xs font-medium text-aksen-biru ring-1 ring-aksen-biru/20 transition-colors ring-inset hover:bg-aksen-biru/20 focus-visible:ring-2 focus-visible:ring-aksen-biru focus-visible:outline-hidden"
                             >
                                 <Download class="size-3.5" aria-hidden="true" />
                                 Unduh
@@ -523,7 +523,7 @@ async function salinPerintah() {
 
                             <button
                                 type="button"
-                                class="tekan inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground ring-1 ring-inset ring-border transition-colors hover:bg-sentimen-negatif-lembut hover:text-sentimen-negatif hover:ring-sentimen-negatif/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sentimen-negatif"
+                                class="tekan inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground ring-1 ring-border transition-colors ring-inset hover:bg-sentimen-negatif-lembut hover:text-sentimen-negatif hover:ring-sentimen-negatif/25 focus-visible:ring-2 focus-visible:ring-sentimen-negatif focus-visible:outline-hidden"
                                 :aria-label="`Hapus cadangan ${b.nama}`"
                                 @click="akanDihapus = b"
                             >
@@ -574,7 +574,7 @@ async function salinPerintah() {
                         </span>
                         <div class="min-w-0 flex-1">
                             <dt class="font-medium">Perintah pg_dump</dt>
-                            <dd class="angka break-words text-xs text-muted-foreground">{{ versiPgDump ?? 'tidak terpasang' }}</dd>
+                            <dd class="angka text-xs wrap-break-word text-muted-foreground">{{ versiPgDump ?? 'tidak terpasang' }}</dd>
                         </div>
                     </div>
 
@@ -599,7 +599,7 @@ async function salinPerintah() {
                 :ikon="Terminal"
             >
                 <div class="space-y-3">
-                    <div class="relative overflow-hidden rounded-lg bg-brand p-3 pr-12 ring-1 ring-inset ring-brand-terang/40">
+                    <div class="relative overflow-hidden rounded-lg bg-brand p-3 pr-12 ring-1 ring-brand-terang/40 ring-inset">
                         <!-- Kabut sudut, sama bentuk dengan ornamen kop, supaya
                              blok perintah terbaca sebagai permukaan sistem dan
                              bukan sebagai kartu kelima. -->
@@ -609,13 +609,13 @@ async function salinPerintah() {
                             style="background: radial-gradient(20rem 8rem at 96% -40%, rgb(255 255 255 / 0.14), transparent 70%)"
                         ></div>
 
-                        <code class="angka relative block overflow-x-auto whitespace-pre text-xs leading-relaxed text-white/90">{{
+                        <code class="angka relative block overflow-x-auto text-xs leading-relaxed whitespace-pre text-white/90">{{
                             perintahPulih
                         }}</code>
 
                         <button
                             type="button"
-                            class="tekan absolute right-2 top-2 grid size-8 place-items-center rounded-md bg-white/10 text-white ring-1 ring-inset ring-white/20 transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                            class="tekan absolute top-2 right-2 grid size-8 place-items-center rounded-md bg-white/10 text-white ring-1 ring-white/20 transition-colors ring-inset hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-hidden"
                             :aria-label="tersalin ? 'Perintah tersalin' : 'Salin perintah'"
                             @click="salinPerintah"
                         >
@@ -643,7 +643,7 @@ async function salinPerintah() {
                     </ol>
 
                     <p
-                        class="flex items-start gap-2 rounded-lg bg-sentimen-review-lembut p-2.5 text-xs leading-relaxed text-sentimen-review ring-1 ring-inset ring-sentimen-review/25"
+                        class="flex items-start gap-2 rounded-lg bg-sentimen-review-lembut p-2.5 text-xs leading-relaxed text-sentimen-review ring-1 ring-sentimen-review/25 ring-inset"
                     >
                         <TriangleAlert class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
                         <span>
@@ -668,14 +668,14 @@ async function salinPerintah() {
                 <DialogFooter>
                     <button
                         type="button"
-                        class="tekan inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium ring-1 ring-inset ring-border transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        class="tekan inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium ring-1 ring-border transition-colors ring-inset hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden"
                         @click="akanDihapus = null"
                     >
                         Batal
                     </button>
                     <button
                         type="button"
-                        class="tekan inline-flex items-center justify-center gap-2 rounded-lg bg-sentimen-negatif px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sentimen-negatif focus-visible:ring-offset-2 dark:text-background"
+                        class="tekan inline-flex items-center justify-center gap-2 rounded-lg bg-sentimen-negatif px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 focus-visible:ring-2 focus-visible:ring-sentimen-negatif focus-visible:ring-offset-2 focus-visible:outline-hidden dark:text-background"
                         @click="hapus"
                     >
                         <Trash2 class="size-4" aria-hidden="true" />

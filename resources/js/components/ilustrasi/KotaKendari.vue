@@ -20,8 +20,8 @@
 <template>
     <svg class="ilustrasi-kota" viewBox="0 0 400 210" fill="none" aria-hidden="true" preserveAspectRatio="xMidYMax meet">
         <!-- Lingkaran langit, memberi kedalaman tanpa menambah objek. -->
-        <circle cx="322" cy="52" r="76" class="fill-brand/[0.05]" />
-        <circle cx="322" cy="52" r="50" class="fill-brand/[0.05]" />
+        <circle cx="322" cy="52" r="76" class="fill-brand/5" />
+        <circle cx="322" cy="52" r="50" class="fill-brand/5" />
 
         <!-- Awan. -->
         <g class="fill-brand/[0.07]">
@@ -39,7 +39,7 @@
         </g>
 
         <!-- Masjid: kubah, badan, dua menara. -->
-        <g class="fill-brand/[0.18]">
+        <g class="fill-brand/18">
             <rect x="90" y="122" width="11" height="58" rx="3" />
             <circle cx="95.5" cy="120" r="6" />
             <rect x="187" y="122" width="11" height="58" rx="3" />
@@ -60,8 +60,8 @@
         <!-- Gedung pemerintahan berpilar. -->
         <g>
             <path d="M228 128l38-22 38 22z" class="fill-brand/25" />
-            <rect x="234" y="128" width="64" height="52" class="fill-brand/[0.18]" />
-            <g class="fill-brand/[0.08]">
+            <rect x="234" y="128" width="64" height="52" class="fill-brand/18" />
+            <g class="fill-brand/8">
                 <rect x="242" y="140" width="7" height="40" />
                 <rect x="257" y="140" width="7" height="40" />
                 <rect x="272" y="140" width="7" height="40" />

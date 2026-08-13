@@ -105,7 +105,7 @@ function labelUrut(kolom: KolomDefinisi): string {
                             <button
                                 v-if="kol.bisaDiurutkan"
                                 type="button"
-                                class="-ml-2 inline-flex h-8 items-center gap-1 rounded px-2 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                class="-ml-2 inline-flex h-8 items-center gap-1 rounded px-2 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden"
                                 :aria-label="labelUrut(kol)"
                                 @click="urutkan(kol.kunci)"
                             >

@@ -179,8 +179,8 @@ watch(berjalan, (jumlah) => (jumlah > 0 ? poll.start() : poll.stop()), { immedia
                     type="button"
                     :aria-selected="tab === t.id"
                     :class="[
-                        'tekan group relative flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                        tab === t.id ? 'bg-brand text-white shadow-sm' : 'hover:bg-muted',
+                        'tekan group relative flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-2.5 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden',
+                        tab === t.id ? 'bg-brand text-white shadow-xs' : 'hover:bg-muted',
                     ]"
                     @click="buka(t.id)"
                 >

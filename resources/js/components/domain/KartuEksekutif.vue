@@ -68,19 +68,19 @@ const VARIAN = {
     biru: {
         tile: 'bg-aksen-biru text-white dark:text-background',
         teks: 'text-aksen-biru',
-        tinta: 'border-aksen-biru/25 bg-aksen-biru/[0.05]',
+        tinta: 'border-aksen-biru/25 bg-aksen-biru/5',
         warna: 'var(--color-aksen-biru)',
     },
     toska: {
         tile: 'bg-aksen-toska text-white dark:text-background',
         teks: 'text-aksen-toska',
-        tinta: 'border-aksen-toska/25 bg-aksen-toska/[0.05]',
+        tinta: 'border-aksen-toska/25 bg-aksen-toska/5',
         warna: 'var(--color-aksen-toska)',
     },
     ungu: {
         tile: 'bg-aksen-ungu text-white dark:text-background',
         teks: 'text-aksen-ungu',
-        tinta: 'border-aksen-ungu/25 bg-aksen-ungu/[0.05]',
+        tinta: 'border-aksen-ungu/25 bg-aksen-ungu/5',
         warna: 'var(--color-aksen-ungu)',
     },
     positif: {
@@ -142,12 +142,12 @@ const garis = computed(() => ({
         -->
         <CardHeader class="relative flex-col items-stretch gap-3 space-y-0 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
             <CardTitle class="flex min-w-0 items-center gap-3 text-base">
-                <span :class="varian.tile" class="grid size-9 shrink-0 place-items-center rounded-xl shadow-sm">
+                <span :class="varian.tile" class="grid size-9 shrink-0 place-items-center rounded-xl shadow-xs">
                     <component :is="ikon" class="size-[18px]" aria-hidden="true" />
                 </span>
                 <span class="min-w-0 flex-1">
                     <span class="block truncate leading-tight">{{ judul }}</span>
-                    <span v-if="catatan" class="mt-0.5 block text-xs font-normal leading-snug text-muted-foreground">{{ catatan }}</span>
+                    <span v-if="catatan" class="mt-0.5 block text-xs leading-snug font-normal text-muted-foreground">{{ catatan }}</span>
                 </span>
             </CardTitle>
 

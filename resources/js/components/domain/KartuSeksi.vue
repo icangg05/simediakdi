@@ -109,8 +109,8 @@ const garis = computed(() => ({
                 </span>
 
                 <div class="min-w-0 flex-1 space-y-1">
-                    <CardTitle class="text-sm font-semibold leading-tight">{{ judul }}</CardTitle>
-                    <p v-if="catatan" class="text-pretty text-xs leading-relaxed text-muted-foreground">{{ catatan }}</p>
+                    <CardTitle class="text-sm leading-tight font-semibold">{{ judul }}</CardTitle>
+                    <p v-if="catatan" class="text-xs leading-relaxed text-pretty text-muted-foreground">{{ catatan }}</p>
                 </div>
 
                 <div v-if="$slots.aksi" class="flex shrink-0 items-center gap-2">

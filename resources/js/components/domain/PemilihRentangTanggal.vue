@@ -138,10 +138,10 @@ const ringkas = computed(() => {
         -->
         <div v-if="tanpaSheet" class="flex flex-wrap items-center gap-1.5">
             <Label for="rentang-dari" class="text-xs text-muted-foreground">Dari</Label>
-            <Input id="rentang-dari" v-model="dariLokal" type="date" :max="sampaiLokal" class="h-8 w-[9.5rem] text-sm" @change="terapkan" />
+            <Input id="rentang-dari" v-model="dariLokal" type="date" :max="sampaiLokal" class="h-8 w-38 text-sm" @change="terapkan" />
 
             <Label for="rentang-sampai" class="text-xs text-muted-foreground">sampai</Label>
-            <Input id="rentang-sampai" v-model="sampaiLokal" type="date" :min="dariLokal" class="h-8 w-[9.5rem] text-sm" @change="terapkan" />
+            <Input id="rentang-sampai" v-model="sampaiLokal" type="date" :min="dariLokal" class="h-8 w-38 text-sm" @change="terapkan" />
         </div>
 
         <!--

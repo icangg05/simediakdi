@@ -273,7 +273,7 @@ const waktu = (nilai: string | null) => (nilai ? format(new Date(nilai), 'd MMM 
                 <section class="space-y-3">
                     <div class="flex items-center gap-2">
                         <SlidersHorizontal class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                        <h3 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Komposisi label</h3>
+                        <h3 class="shrink-0 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Komposisi label</h3>
                         <span class="h-px flex-1 bg-border" aria-hidden="true"></span>
                     </div>
 
@@ -325,7 +325,7 @@ const waktu = (nilai: string | null) => (nilai ? format(new Date(nilai), 'd MMM 
                 <section class="space-y-3">
                     <div class="flex items-center gap-2">
                         <Scissors class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                        <h3 class="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pembagian dataset</h3>
+                        <h3 class="shrink-0 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Pembagian dataset</h3>
                         <span class="h-px flex-1 bg-border" aria-hidden="true"></span>
                     </div>
 
@@ -389,7 +389,7 @@ const waktu = (nilai: string | null) => (nilai ? format(new Date(nilai), 'd MMM 
                      pelatihan. Ini bukan galat, ini daftar yang belum lengkap. -->
                 <div
                     v-if="halangan"
-                    class="flex items-start gap-2 rounded-lg bg-sentimen-review-lembut p-3 text-sm text-sentimen-review ring-1 ring-inset ring-sentimen-review/25"
+                    class="flex items-start gap-2 rounded-lg bg-sentimen-review-lembut p-3 text-sm text-sentimen-review ring-1 ring-sentimen-review/25 ring-inset"
                 >
                     <TriangleAlert class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                     <p>{{ halangan }}</p>
@@ -454,13 +454,13 @@ const waktu = (nilai: string | null) => (nilai ? format(new Date(nilai), 'd MMM 
                                      dipisah garis miring. Angkanya tetap ada di
                                      bawahnya, yang bertambah cuma bentuk yang
                                      bisa dibandingkan antar baris tanpa dibaca. -->
-                                <TableCell class="min-w-[7rem]">
+                                <TableCell class="min-w-28">
                                     <div class="flex h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
                                         <div class="bg-brand dark:bg-brand-terang" :style="{ width: `${s.persen_train}%` }" />
                                         <div class="bg-aksen-biru" :style="{ width: `${s.persen_validation}%` }" />
                                         <div class="bg-aksen-ungu" :style="{ width: `${s.persen_test}%` }" />
                                     </div>
-                                    <p class="angka mt-1 whitespace-nowrap text-xs text-muted-foreground">
+                                    <p class="angka mt-1 text-xs whitespace-nowrap text-muted-foreground">
                                         {{ formatAngka(s.total_train) }} / {{ formatAngka(s.total_validation) }} / {{ formatAngka(s.total_test) }}
                                     </p>
                                 </TableCell>
@@ -474,7 +474,7 @@ const waktu = (nilai: string | null) => (nilai ? format(new Date(nilai), 'd MMM 
                                         {{ s.pelatihan_count }} pelatihan
                                     </p>
                                 </TableCell>
-                                <TableCell class="whitespace-nowrap text-xs text-muted-foreground">
+                                <TableCell class="text-xs whitespace-nowrap text-muted-foreground">
                                     {{ waktu(s.dibuat_at) }}
                                     <p v-if="s.pembuat">{{ s.pembuat }}</p>
                                 </TableCell>

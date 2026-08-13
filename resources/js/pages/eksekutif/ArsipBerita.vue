@@ -87,9 +87,9 @@ watch(cari, (nilai) => {
  * layar dengan langkah tambahan, padahal ruangnya tidak sedang kurang.
  */
 const nada = [
-    { nilai: 'positif', label: 'Positif', aktif: 'bg-sentimen-positif text-white shadow-sm dark:text-background', titik: 'bg-sentimen-positif' },
-    { nilai: 'netral', label: 'Netral', aktif: 'bg-sentimen-netral text-white shadow-sm dark:text-background', titik: 'bg-sentimen-netral' },
-    { nilai: 'negatif', label: 'Negatif', aktif: 'bg-sentimen-negatif text-white shadow-sm dark:text-background', titik: 'bg-sentimen-negatif' },
+    { nilai: 'positif', label: 'Positif', aktif: 'bg-sentimen-positif text-white shadow-xs dark:text-background', titik: 'bg-sentimen-positif' },
+    { nilai: 'netral', label: 'Netral', aktif: 'bg-sentimen-netral text-white shadow-xs dark:text-background', titik: 'bg-sentimen-netral' },
+    { nilai: 'negatif', label: 'Negatif', aktif: 'bg-sentimen-negatif text-white shadow-xs dark:text-background', titik: 'bg-sentimen-negatif' },
 ];
 
 const nadaTerpilih = computed(() => nilaiFilter('sentimen'));
@@ -146,8 +146,8 @@ function aturUlangSaringan() {
         -->
         <KopEksekutif judul="Arsip berita" :keterangan="`Seluruh berita tentang Pemerintah Kota, ${rentangTerbaca}`">
             <template #kendali>
-                <div class="relative w-full sm:w-[22rem]">
-                    <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <div class="relative w-full sm:w-88">
+                    <Search class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                     <Input
                         v-model="kata"
                         type="search"
@@ -179,15 +179,15 @@ function aturUlangSaringan() {
         -->
         <Card class="muncul relative overflow-hidden" style="animation-delay: 60ms">
             <div
-                class="tumbuh pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-aksen-biru to-transparent"
+                class="tumbuh pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-linear-to-r from-aksen-biru to-transparent"
                 aria-hidden="true"
             ></div>
 
             <CardContent class="space-y-3 p-4 pt-5">
-                <p class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <p class="flex items-center gap-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                     <SlidersHorizontal class="size-3.5 shrink-0" aria-hidden="true" />
                     <span class="shrink-0">Penyaring</span>
-                    <span class="h-px flex-1 bg-gradient-to-r from-border to-transparent" aria-hidden="true"></span>
+                    <span class="h-px flex-1 bg-linear-to-r from-border to-transparent" aria-hidden="true"></span>
 
                     <Button v-if="saringanAktif.length" variant="ghost" size="sm" class="-my-1 h-7 shrink-0 px-2 text-xs" @click="aturUlangSaringan">
                         Atur ulang
@@ -231,7 +231,7 @@ function aturUlangSaringan() {
                             :key="n.nilai"
                             type="button"
                             :aria-pressed="nadaTerpilih.includes(n.nilai)"
-                            class="tekan ease-[cubic-bezier(0.32,0.72,0,1)] inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            class="tekan inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-colors duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden"
                             :class="nadaTerpilih.includes(n.nilai) ? n.aktif : 'bg-muted text-muted-foreground hover:text-foreground'"
                             @click="alihkanNada(n.nilai)"
                         >
@@ -248,12 +248,12 @@ function aturUlangSaringan() {
                     -->
                     <span
                         v-if="disaringTopik"
-                        class="inline-flex h-8 items-center gap-1.5 rounded-full bg-aksen-ungu/10 px-3 text-xs font-semibold text-aksen-ungu ring-1 ring-inset ring-aksen-ungu/25"
+                        class="inline-flex h-8 items-center gap-1.5 rounded-full bg-aksen-ungu/10 px-3 text-xs font-semibold text-aksen-ungu ring-1 ring-aksen-ungu/25 ring-inset"
                     >
                         Hanya berita dari satu topik
                         <button
                             type="button"
-                            class="tekan rounded-full p-0.5 hover:bg-aksen-ungu/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            class="tekan rounded-full p-0.5 hover:bg-aksen-ungu/20 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden"
                             aria-label="Tampilkan semua berita, bukan hanya satu topik"
                             @click="kunjungi({ artikel: null })"
                         >
@@ -274,10 +274,10 @@ function aturUlangSaringan() {
                             :key="opsi.label"
                             type="button"
                             :aria-pressed="urutanAktif === `${opsi.urut}:${opsi.arah}`"
-                            class="tekan ease-[cubic-bezier(0.32,0.72,0,1)] rounded-full px-3 py-1.5 text-xs font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            class="tekan rounded-full px-3 py-1.5 text-xs font-semibold transition-colors duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden"
                             :class="
                                 urutanAktif === `${opsi.urut}:${opsi.arah}`
-                                    ? 'bg-aksen-biru text-white shadow-sm dark:text-background'
+                                    ? 'bg-aksen-biru text-white shadow-xs dark:text-background'
                                     : 'text-muted-foreground hover:text-foreground'
                             "
                             @click="kunjungi({ urut: opsi.urut, arah: opsi.arah })"

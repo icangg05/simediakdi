@@ -222,7 +222,7 @@ function kosongkanRiwayat() {
                      belum dilatih adalah pekerjaan yang belum dilakukan. -->
                 <div
                     v-if="siap.length === 0"
-                    class="flex items-start gap-2 rounded-lg bg-sentimen-review-lembut p-3 text-sm text-sentimen-review ring-1 ring-inset ring-sentimen-review/25"
+                    class="flex items-start gap-2 rounded-lg bg-sentimen-review-lembut p-3 text-sm text-sentimen-review ring-1 ring-sentimen-review/25 ring-inset"
                 >
                     <TriangleAlert class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                     <p>Belum ada model yang selesai dilatih. Jalankan pelatihan di tab Pelatihan terlebih dahulu.</p>
@@ -251,7 +251,7 @@ function kosongkanRiwayat() {
                             id="teks-uji"
                             v-model="form.teks"
                             rows="8"
-                            class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm leading-relaxed shadow-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                            class="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm leading-relaxed shadow-xs outline-hidden transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                             placeholder="Tempelkan judul di baris pertama, lalu isi beritanya di bawahnya."
                         />
 
@@ -356,7 +356,7 @@ function kosongkanRiwayat() {
                         <!-- Garis ambang. Satu piksel, dan sengaja putus-putus
                              supaya tidak tertukar dengan tepi bidang warnanya. -->
                         <div class="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-foreground/50" aria-hidden="true">
-                            <div class="h-full w-full bg-gradient-to-b from-foreground/60 via-transparent to-foreground/60"></div>
+                            <div class="h-full w-full bg-linear-to-b from-foreground/60 via-transparent to-foreground/60"></div>
                         </div>
                     </div>
 
@@ -369,7 +369,7 @@ function kosongkanRiwayat() {
                         <span class="text-muted-foreground">Ambang keputusan 50%</span>
 
                         <span class="inline-flex items-center gap-1.5 text-muted-foreground">
-                            <span class="size-2 shrink-0 rounded-full bg-muted ring-1 ring-inset ring-border" aria-hidden="true"></span>
+                            <span class="size-2 shrink-0 rounded-full bg-muted ring-1 ring-border ring-inset" aria-hidden="true"></span>
                             Tidak Relevan <span class="angka">{{ formatPersen(hasil.probabilitas_tidak_relevan * 100) }}</span>
                         </span>
                     </div>
@@ -377,7 +377,7 @@ function kosongkanRiwayat() {
 
                 <div
                     v-if="ragu"
-                    class="flex items-start gap-2 rounded-lg bg-sentimen-review-lembut p-3 text-sm text-sentimen-review ring-1 ring-inset ring-sentimen-review/25"
+                    class="flex items-start gap-2 rounded-lg bg-sentimen-review-lembut p-3 text-sm text-sentimen-review ring-1 ring-sentimen-review/25 ring-inset"
                 >
                     <TriangleAlert class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                     <p>
@@ -389,11 +389,11 @@ function kosongkanRiwayat() {
                 <dl class="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border text-xs sm:grid-cols-4">
                     <div class="min-w-0 bg-card p-2.5">
                         <dt class="text-muted-foreground">Model</dt>
-                        <dd class="break-words font-medium">{{ hasil.model }}</dd>
+                        <dd class="font-medium wrap-break-word">{{ hasil.model }}</dd>
                     </div>
                     <div class="min-w-0 bg-card p-2.5">
                         <dt class="text-muted-foreground">Versi base model</dt>
-                        <dd class="break-all font-medium">{{ hasil.base_model }}</dd>
+                        <dd class="font-medium break-all">{{ hasil.base_model }}</dd>
                     </div>
                     <div class="min-w-0 bg-card p-2.5">
                         <dt class="text-muted-foreground">Waktu inferensi</dt>
@@ -474,7 +474,7 @@ function kosongkanRiwayat() {
                                      menyisir riwayat adalah baris mana yang
                                      ragu, dan bentuk pendek terlihat lebih cepat
                                      daripada angka kecil. -->
-                                <TableCell class="min-w-[6rem] text-right">
+                                <TableCell class="min-w-24 text-right">
                                     <span class="angka text-sm" :class="r.confidence < AMBANG_RAGU ? 'font-medium text-sentimen-review' : ''">
                                         {{ formatPersen(r.confidence * 100) }}
                                     </span>
@@ -491,7 +491,7 @@ function kosongkanRiwayat() {
                                     <p class="break-all text-muted-foreground">{{ r.base_model }}</p>
                                 </TableCell>
                                 <TableCell class="angka text-right text-xs">{{ formatAngka(r.inferensi_ms) }} ms</TableCell>
-                                <TableCell class="whitespace-nowrap text-xs text-muted-foreground">
+                                <TableCell class="text-xs whitespace-nowrap text-muted-foreground">
                                     {{ waktu(r.diuji_at) }}
                                     <p>{{ r.penguji ?? '-' }}</p>
                                 </TableCell>
@@ -505,7 +505,7 @@ function kosongkanRiwayat() {
                                 <TableCell class="w-10 p-1 text-right">
                                     <button
                                         type="button"
-                                        class="tekan grid size-8 place-items-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-aksen-toska/10 hover:text-aksen-toska focus-visible:bg-aksen-toska/10 focus-visible:text-aksen-toska focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                        class="tekan grid size-8 place-items-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-aksen-toska/10 hover:text-aksen-toska focus-visible:bg-aksen-toska/10 focus-visible:text-aksen-toska focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden"
                                         @click="bukaDetail(r)"
                                     >
                                         <Maximize2 class="size-4" aria-hidden="true" />
@@ -570,7 +570,7 @@ function kosongkanRiwayat() {
                             />
 
                             <div class="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-foreground/50" aria-hidden="true">
-                                <div class="h-full w-full bg-gradient-to-b from-foreground/60 via-transparent to-foreground/60"></div>
+                                <div class="h-full w-full bg-linear-to-b from-foreground/60 via-transparent to-foreground/60"></div>
                             </div>
                         </div>
 
@@ -583,7 +583,7 @@ function kosongkanRiwayat() {
                             <span class="text-muted-foreground">Ambang keputusan 50%</span>
 
                             <span class="inline-flex items-center gap-1.5 text-muted-foreground">
-                                <span class="size-2 shrink-0 rounded-full bg-muted ring-1 ring-inset ring-border" aria-hidden="true"></span>
+                                <span class="size-2 shrink-0 rounded-full bg-muted ring-1 ring-border ring-inset" aria-hidden="true"></span>
                                 Tidak Relevan <span class="angka">{{ formatPersen((1 - detail.probabilitas_relevan) * 100) }}</span>
                             </span>
                         </div>
@@ -591,7 +591,7 @@ function kosongkanRiwayat() {
 
                     <div
                         v-if="detail.confidence < AMBANG_RAGU"
-                        class="flex items-start gap-2 rounded-lg bg-sentimen-review-lembut p-3 text-sm text-sentimen-review ring-1 ring-inset ring-sentimen-review/25"
+                        class="flex items-start gap-2 rounded-lg bg-sentimen-review-lembut p-3 text-sm text-sentimen-review ring-1 ring-sentimen-review/25 ring-inset"
                     >
                         <TriangleAlert class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                         <p>
@@ -603,11 +603,11 @@ function kosongkanRiwayat() {
                     <dl class="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border text-xs sm:grid-cols-3">
                         <div class="min-w-0 bg-card p-2.5">
                             <dt class="text-muted-foreground">Model</dt>
-                            <dd class="break-words font-medium">{{ detail.model ?? 'sudah dihapus' }}</dd>
+                            <dd class="font-medium wrap-break-word">{{ detail.model ?? 'sudah dihapus' }}</dd>
                         </div>
                         <div class="min-w-0 bg-card p-2.5">
                             <dt class="text-muted-foreground">Versi base model</dt>
-                            <dd class="break-all font-medium">{{ detail.base_model ?? '-' }}</dd>
+                            <dd class="font-medium break-all">{{ detail.base_model ?? '-' }}</dd>
                         </div>
                         <div class="min-w-0 bg-card p-2.5">
                             <dt class="text-muted-foreground">Waktu inferensi</dt>
@@ -652,7 +652,7 @@ function kosongkanRiwayat() {
                                 <Loader2 class="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
                                 Mengambil teks utuh
                             </p>
-                            <p v-else class="whitespace-pre-wrap break-words text-xs leading-relaxed">{{ teksSalin }}</p>
+                            <p v-else class="text-xs leading-relaxed wrap-break-word whitespace-pre-wrap">{{ teksSalin }}</p>
                         </div>
 
                         <p v-if="galatSalin" class="flex items-start gap-1.5 text-xs text-destructive">
