@@ -1,4 +1,4 @@
-# SIMEDIA Kendari
+# SIMEDIA Kendari V1
 
 Sistem Monitoring dan Analisis Sentimen Media untuk Pemerintah Kota Kendari.
 
