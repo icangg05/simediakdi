@@ -28,6 +28,7 @@ import {
     Radar,
     Rss,
     ScanSearch,
+    Sparkles,
     TrendingDown,
     TrendingUp,
     UserRoundCheck,
@@ -123,6 +124,45 @@ function reset() {
 }
 
 const adaKoreksi = (analisis: Analisis) => analisis.relevan_manual !== null || analisis.label_manual !== null;
+
+/**
+ * Klasifikasi ulang dari halaman ini, dua jalur yang sama dengan halaman daftar.
+ *
+ * Rute dan validasinya sudah ada sejak tombol serupa dipasang di halaman daftar
+ * (`in:gemini,indobert` di ArtikelController), jadi yang ditambahkan di sini
+ * hanya jalan masuknya. Halaman detail justru tempat paling wajar untuk menekan
+ * tombol ini: admin sampai ke sini karena sedang memeriksa satu putusan yang
+ * mencurigakan, dan sebelumnya ia harus kembali ke daftar hanya untuk menilai
+ * ulang artikel yang sedang dibacanya.
+ *
+ * Berbeda dari Reset, keduanya tidak memakai dialog konfirmasi. Reset menghapus
+ * koreksi manusia yang tidak tersimpan di mana pun, sedangkan ini menimpa
+ * putusan AI dengan putusan AI yang baru. Yang hilang cuma hasil yang memang
+ * sedang diragukan.
+ */
+type JalurKlasifikasi = 'gemini' | 'indobert';
+
+const sedangJalur = ref<JalurKlasifikasi | null>(null);
+
+/**
+ * Satu penanda untuk seluruh aksi AI di halaman ini.
+ *
+ * Reset dan kedua tombol klasifikasi memanggil Gemini lewat jalur yang sama dan
+ * memakai kuota yang sama. Membiarkan tombol lain tetap bisa ditekan selama
+ * salah satunya berjalan berarti dua permintaan untuk artikel yang sama, dan
+ * yang datang belakangan menimpa yang duluan tanpa ada yang tahu urutannya.
+ */
+const sibuk = computed(() => sedangReset.value || sedangJalur.value !== null);
+
+function klasifikasi(jalur: JalurKlasifikasi) {
+    sedangJalur.value = jalur;
+
+    router.post(
+        `/admin/artikel/${props.artikel.id}/klasifikasi`,
+        { jalur },
+        { preserveScroll: true, showProgress: false, onFinish: () => (sedangJalur.value = null) },
+    );
+}
 
 /**
  * Status mentah tidak layak dibaca manusia.
@@ -523,7 +563,7 @@ async function salin() {
                                             v-if="adaKoreksi(analisis)"
                                             type="button"
                                             class="tekan inline-flex items-center gap-1.5 rounded-md border border-aksen-ungu/40 px-2.5 py-1.5 text-xs font-medium text-aksen-ungu transition-colors hover:bg-aksen-ungu/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:opacity-50"
-                                            :disabled="sedangReset"
+                                            :disabled="sibuk"
                                             @click="konfirmasiReset = true"
                                         >
                                             <Loader2 v-if="sedangReset" class="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
@@ -535,6 +575,55 @@ async function salin() {
                             </li>
                         </ol>
                     </CardContent>
+
+                    <!-- Di luar CardContent, bukan di dalamnya, dan ada dua
+                         alasannya.
+                         Pertama, CardContent membawa padding `p-6`, sehingga
+                         garis pemisah di dalamnya berhenti sebelum tepi kartu
+                         dan terbaca sebagai kotak yang salah ukuran. Kedua, di
+                         sini ia berada di luar cabang `v-if` daftar putusan,
+                         jadi artikel yang belum pernah diklasifikasi pun tetap
+                         punya tombolnya. Itu justru artikel yang paling butuh. -->
+                    <div class="space-y-2 border-t bg-muted/20 p-4">
+                        <p class="text-xs font-medium text-muted-foreground">Klasifikasi ulang</p>
+
+                        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <button
+                                type="button"
+                                class="tekan inline-flex items-center justify-center gap-1.5 rounded-md border border-aksen-ungu/40 px-2.5 py-2 text-xs font-medium text-aksen-ungu transition-colors hover:bg-aksen-ungu/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:opacity-50"
+                                :disabled="sibuk"
+                                @click="klasifikasi('gemini')"
+                            >
+                                <Loader2
+                                    v-if="sedangJalur === 'gemini'"
+                                    class="size-3.5 animate-spin motion-reduce:animate-none"
+                                    aria-hidden="true"
+                                />
+                                <Sparkles v-else class="size-3.5" aria-hidden="true" />
+                                {{ sedangJalur === 'gemini' ? 'Menilai...' : 'Gemini penuh' }}
+                            </button>
+
+                            <button
+                                type="button"
+                                class="tekan inline-flex items-center justify-center gap-1.5 rounded-md border border-aksen-biru/40 px-2.5 py-2 text-xs font-medium text-aksen-biru transition-colors hover:bg-aksen-biru/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:opacity-50"
+                                :disabled="sibuk"
+                                @click="klasifikasi('indobert')"
+                            >
+                                <Loader2
+                                    v-if="sedangJalur === 'indobert'"
+                                    class="size-3.5 animate-spin motion-reduce:animate-none"
+                                    aria-hidden="true"
+                                />
+                                <Radar v-else class="size-3.5" aria-hidden="true" />
+                                {{ sedangJalur === 'indobert' ? 'Menilai...' : 'IndoBERT + Gemini' }}
+                            </button>
+                        </div>
+
+                        <p class="text-xs text-muted-foreground">
+                            Gemini penuh menilai relevansi dan nada sekaligus. IndoBERT menentukan relevansinya lebih dulu, dan Gemini hanya dipanggil
+                            bila beritanya relevan, sehingga lebih hemat kuota.
+                        </p>
+                    </div>
                 </Card>
             </div>
         </div>

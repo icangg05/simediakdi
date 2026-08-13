@@ -3,13 +3,14 @@ import BadgeSentimen from '@/components/domain/BadgeSentimen.vue';
 import KopHalaman from '@/components/domain/KopHalaman.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useFormatAngka } from '@/composables/useFormatAngka';
 import LayoutAdmin from '@/layouts/LayoutAdmin.vue';
 import { Head, Link, usePoll } from '@inertiajs/vue3';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { CircleX, Gauge, HelpCircle, KeyRound, ListOrdered, Loader2, ThumbsDown, ThumbsUp, TriangleAlert } from 'lucide-vue-next';
-import { computed, type Component } from 'vue';
+import { ChevronRight, CircleX, Gauge, HelpCircle, KeyRound, ListOrdered, Loader2, ThumbsDown, ThumbsUp, TriangleAlert } from 'lucide-vue-next';
+import { computed, ref, type Component } from 'vue';
 
 interface Baris {
     id: number;
@@ -68,6 +69,61 @@ usePoll(5000, { only: ['ringkasan', 'aktivitas', 'prioritas', 'laju', 'kuota', '
 const persen = computed(() =>
     props.ringkasan.total === 0 ? 0 : Math.round(((props.ringkasan.selesai + props.ringkasan.menyerah) / props.ringkasan.total) * 100),
 );
+
+interface BarisGagal {
+    id: number;
+    artikel_id: number;
+    judul: string;
+    media: string | null;
+    prioritas: number;
+    percobaan: number;
+    galat: string | null;
+    waktu: string | null;
+}
+
+/**
+ * Daftar berita yang gagal dinilai, ditarik saat modalnya dibuka.
+ *
+ * Sengaja tidak ikut `usePoll` di atas. Angka Menyerah cukup untuk memberi tahu
+ * bahwa ada yang salah, dan itu memang sudah ditarik tiap lima detik. Judul
+ * beserta pesan galatnya baru berguna ketika ada yang benar-benar membukanya,
+ * dan menitipkannya pada polling berarti mengirim ratusan baris dua belas kali
+ * semenit untuk layar yang biasanya cuma dipandang sekilas.
+ */
+const modalGagal = ref(false);
+const memuatGagal = ref(false);
+const galatMuat = ref<string | null>(null);
+const barisGagal = ref<BarisGagal[]>([]);
+const kelompokGagal = ref<{ pesan: string; jumlah: number }[]>([]);
+const totalGagal = ref(0);
+
+async function bukaGagal() {
+    modalGagal.value = true;
+    memuatGagal.value = true;
+    galatMuat.value = null;
+
+    try {
+        const respons = await fetch('/admin/antrean-ai/gagal', { headers: { Accept: 'application/json' } });
+
+        if (!respons.ok) throw new Error(String(respons.status));
+
+        const isi = (await respons.json()) as { baris: BarisGagal[]; kelompok: { pesan: string; jumlah: number }[]; total: number };
+
+        barisGagal.value = isi.baris;
+        kelompokGagal.value = isi.kelompok;
+        totalGagal.value = isi.total;
+    } catch {
+        // Modalnya dibiarkan terbuka dengan pesan, bukan ditutup diam-diam.
+        // Modal yang menutup sendiri sesaat setelah diklik terbaca sebagai
+        // tombol yang rusak, bukan sebagai permintaan yang gagal.
+        galatMuat.value = 'Daftarnya gagal diambil. Coba tutup lalu buka lagi.';
+    } finally {
+        memuatGagal.value = false;
+    }
+}
+
+/** Tanggal lengkap, bukan cuma jam seperti daftar aktivitas. Kegagalan bisa berumur berhari-hari. */
+const tanggal = (nilai: string | null) => (nilai ? format(new Date(nilai), "d MMM yyyy 'pukul' HH:mm", { locale: id }) : 'Waktu tidak tercatat');
 
 const jam = (nilai: string | null) => (nilai ? format(new Date(nilai), 'HH:mm:ss', { locale: id }) : '-');
 
@@ -231,6 +287,11 @@ const segmen = computed(() => [
         jumlah: props.ringkasan.menyerah,
         titik: 'bg-sentimen-negatif',
         angka: props.ringkasan.menyerah > 0 ? 'text-sentimen-negatif' : '',
+        // Satu-satunya angka di baris ini yang bisa ditelusuri lebih jauh, dan
+        // hanya ketika ada isinya. Kartu yang bisa diklik tapi membuka daftar
+        // kosong mengajari orang bahwa mengkliknya tidak ada gunanya, dan
+        // pelajaran itu bertahan sampai angkanya benar-benar naik.
+        bisaDibuka: props.ringkasan.menyerah > 0,
     },
 ]);
 
@@ -388,13 +449,39 @@ const NADA: Record<string, { label: string; kelas: string; ikon: Component }> = 
                      kolom itu berarti sel pertama baris kedua ikut bergaris di
                      kiri padahal ia berada di tepi kartu. -->
                 <div class="grid grid-cols-2 gap-px bg-border sm:grid-cols-4">
-                    <div v-for="s in segmen" :key="s.kunci" class="space-y-1 bg-card p-4">
+                    <!-- Kartu Menyerah menjadi tombol, sisanya tetap div.
+                         Memakai `component :is` alih-alih memasang @click pada
+                         div: yang bisa ditekan harus benar-benar sebuah button,
+                         supaya ia punya fokus keyboard dan dibacakan sebagai
+                         tombol, bukan sebagai teks yang kebetulan menanggapi
+                         tetikus. -->
+                    <component
+                        :is="s.bisaDibuka ? 'button' : 'div'"
+                        v-for="s in segmen"
+                        :key="s.kunci"
+                        :type="s.bisaDibuka ? 'button' : undefined"
+                        class="space-y-1 bg-card p-4 text-left"
+                        :class="
+                            s.bisaDibuka
+                                ? 'tekan group cursor-pointer transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden focus-visible:ring-inset'
+                                : ''
+                        "
+                        @click="s.bisaDibuka ? bukaGagal() : undefined"
+                    >
                         <p class="flex items-center gap-1.5 text-xs text-muted-foreground">
                             <span class="size-2 shrink-0 rounded-full" :class="s.titik" aria-hidden="true"></span>
                             {{ s.label }}
                         </p>
-                        <p class="angka text-2xl font-semibold" :class="s.angka">{{ formatAngka(s.jumlah) }}</p>
-                    </div>
+                        <p class="flex items-center gap-1 text-2xl font-semibold" :class="s.angka">
+                            <span class="angka">{{ formatAngka(s.jumlah) }}</span>
+                            <ChevronRight
+                                v-if="s.bisaDibuka"
+                                class="size-4 transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none"
+                                aria-hidden="true"
+                            />
+                        </p>
+                        <p v-if="s.bisaDibuka" class="text-xs text-muted-foreground">Lihat beritanya</p>
+                    </component>
                 </div>
 
                 <!-- Bilah komposisi menggantikan bilah kemajuan satu warna.
@@ -616,6 +703,68 @@ const NADA: Record<string, { label: string; kelas: string; ikon: Component }> = 
                 </ol>
             </CardContent>
         </Card>
+
+        <Dialog :open="modalGagal" @update:open="(buka) => (modalGagal = buka)">
+            <DialogContent class="max-w-3xl">
+                <DialogHeader>
+                    <DialogTitle>Berita yang gagal diklasifikasi</DialogTitle>
+                    <DialogDescription>
+                        Ketiga percobaannya sudah habis, jadi antrean tidak akan mencobanya lagi dengan sendirinya. Buka beritanya untuk menilai ulang
+                        secara manual.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <p v-if="memuatGagal" class="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+                    <Loader2 class="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                    Mengambil daftarnya...
+                </p>
+
+                <p v-else-if="galatMuat" class="rounded-md bg-sentimen-negatif/10 p-3 text-sm text-sentimen-negatif">{{ galatMuat }}</p>
+
+                <template v-else>
+                    <!-- Pengelompokan sebab di atas daftarnya, bukan di bawah.
+                         Pertanyaan pertama saat melihat angka merah adalah
+                         "rusaknya satu macam atau macam-macam", dan menjawabnya
+                         lebih dulu menentukan apakah daftar di bawah perlu
+                         dibaca satu per satu sama sekali. -->
+                    <div v-if="kelompokGagal.length > 0" class="space-y-1.5 rounded-md border bg-muted/30 p-3">
+                        <p class="text-xs font-medium text-muted-foreground">Dikelompokkan menurut sebabnya</p>
+                        <div v-for="k in kelompokGagal" :key="k.pesan" class="flex items-start justify-between gap-3 text-xs">
+                            <span class="min-w-0 flex-1 wrap-break-word text-foreground">{{ k.pesan }}</span>
+                            <span class="angka shrink-0 font-semibold text-sentimen-negatif">{{ formatAngka(k.jumlah) }}</span>
+                        </div>
+                    </div>
+
+                    <p v-if="totalGagal > barisGagal.length" class="text-xs text-muted-foreground">
+                        Menampilkan <span class="angka">{{ formatAngka(barisGagal.length) }}</span> teratas dari
+                        <span class="angka">{{ formatAngka(totalGagal) }}</span> kegagalan, terbaru dulu.
+                    </p>
+
+                    <ol class="max-h-96 divide-y overflow-y-auto rounded-md border">
+                        <li v-for="b in barisGagal" :key="b.id" class="transition-colors hover:bg-muted/40">
+                            <Link
+                                :href="`/admin/artikel/${b.artikel_id}`"
+                                class="block space-y-1 px-3 py-2.5 focus-visible:bg-muted/60 focus-visible:outline-hidden"
+                            >
+                                <p class="line-clamp-2 text-sm font-medium">{{ b.judul }}</p>
+                                <p class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                                    <span v-if="b.media">{{ b.media }}</span>
+                                    <span v-if="b.media" aria-hidden="true">/</span>
+                                    <span class="angka">{{ tanggal(b.waktu) }}</span>
+                                    <span aria-hidden="true">/</span>
+                                    <span class="angka">{{ b.percobaan }}x percobaan</span>
+                                </p>
+                                <p class="text-xs wrap-break-word text-sentimen-negatif">{{ b.galat ?? 'Tanpa keterangan' }}</p>
+                            </Link>
+                        </li>
+                    </ol>
+
+                    <p v-if="barisGagal.length === 0" class="py-8 text-center text-sm text-muted-foreground">
+                        Tidak ada yang gagal. Angkanya mungkin baru saja berubah.
+                    </p>
+                </template>
+            </DialogContent>
+        </Dialog>
     </LayoutAdmin>
 </template>
 

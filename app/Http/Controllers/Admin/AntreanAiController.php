@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AntreanGemini;
 use App\Models\KunciGemini;
 use App\Services\Ai\RotasiKunciGemini;
+use Illuminate\Http\JsonResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -36,6 +37,72 @@ class AntreanAiController extends Controller
             'kuota' => $this->kuota($rotasi),
             'terbaru' => $this->terbaru(),
             'diperbarui' => now()->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * Daftar penuh pekerjaan yang sudah menyerah, untuk modal di layar.
+     *
+     * Terpisah dari `index`, dan itu bukan soal kerapian. Halaman Antrean AI
+     * menarik dirinya sendiri tiap lima detik, dan angka Menyerah bisa bernilai
+     * ratusan. Menitipkan daftar ini pada muatan polling berarti mengirim
+     * ratusan judul beserta pesan galatnya dua belas kali semenit selama
+     * halamannya dibiarkan terbuka, padahal isinya hanya dibaca ketika ada yang
+     * membuka modalnya. Pola yang sama sudah dipakai `model-relevansi/uji/{uji}`
+     * dengan alasan yang sama persis.
+     *
+     * Yang dipulangkan hanya yang benar-benar menyerah, bukan seluruh baris
+     * berstatus gagal. Gagal yang masih punya jatah percobaan akan dilepas lagi
+     * dengan sendirinya, dan menampilkannya di daftar bernama Menyerah membuat
+     * admin mengejar kegagalan yang sudah terjadwal ulang semenit kemudian.
+     * Ambang yang dipakai sama dengan yang menghitung angka di kartunya.
+     */
+    public function gagal(): JsonResponse
+    {
+        $baris = AntreanGemini::query()
+            ->with(['artikel:id,judul,media_id', 'artikel.media:id,nama'])
+            ->where('status', 'gagal')
+            ->where('percobaan', '>=', AntreanGemini::MAKS_PERCOBAAN)
+            ->orderByRaw('coalesce(selesai_at, dimulai_at) desc nulls last')
+            ->limit(200)
+            ->get()
+            ->map(fn (AntreanGemini $b): array => [
+                'id' => $b->id,
+                'artikel_id' => $b->artikel_id,
+                'judul' => $b->artikel?->judul ?? 'Artikel sudah dihapus',
+                'media' => $b->artikel?->media?->nama,
+                'prioritas' => $b->prioritas,
+                'percobaan' => $b->percobaan,
+                'galat' => $b->galat,
+                'waktu' => ($b->selesai_at ?? $b->dimulai_at)?->toIso8601String(),
+            ])
+            ->all();
+
+        // Pengelompokan pesan dihitung di server, bukan di layar. Pesan galat
+        // adalah teks bebas dari tiga sumber berbeda (Gemini, cURL, dan
+        // Laravel), dan mengelompokkannya di Vue berarti seluruh 200 baris
+        // harus disisir ulang tiap kali modal dibuka. Di sini ia satu query
+        // yang sudah punya indeks pada `status`.
+        $kelompok = AntreanGemini::query()
+            ->where('status', 'gagal')
+            ->where('percobaan', '>=', AntreanGemini::MAKS_PERCOBAAN)
+            ->selectRaw('left(coalesce(galat, ?), 80) as pesan, count(*) as n', ['Tanpa keterangan'])
+            ->groupBy('pesan')
+            ->orderByDesc('n')
+            ->limit(8)
+            ->get()
+            ->map(fn ($b): array => ['pesan' => (string) $b->pesan, 'jumlah' => (int) $b->n])
+            ->all();
+
+        return response()->json([
+            'baris' => $baris,
+            'kelompok' => $kelompok,
+            // Dikirim terpisah karena `baris` dipotong di 200. Tanpa ini, layar
+            // tidak punya cara membedakan 200 kegagalan dari 900 kegagalan.
+            'total' => AntreanGemini::query()
+                ->where('status', 'gagal')
+                ->where('percobaan', '>=', AntreanGemini::MAKS_PERCOBAAN)
+                ->count(),
         ]);
     }
 

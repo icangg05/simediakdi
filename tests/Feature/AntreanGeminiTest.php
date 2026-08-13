@@ -447,6 +447,84 @@ class AntreanGeminiTest extends TestCase
         $this->assertSame($harapan, $props['aktivitas']['keadaan']);
     }
 
+    /**
+     * Daftar kegagalan hanya berisi yang benar-benar menyerah.
+     *
+     * Batasnya `percobaan >= MAKS_PERCOBAAN`, sama dengan yang menghitung angka
+     * di kartunya. Kalau keduanya sampai berbeda, kartu bertuliskan satu angka
+     * akan membuka daftar berisi angka lain, dan yang akan dipercaya admin
+     * adalah yang salah. Baris gagal yang jatah percobaannya masih ada memang
+     * akan dilepas lagi dengan sendirinya, jadi ia bukan urusan daftar ini.
+     */
+    public function test_daftar_gagal_hanya_memuat_yang_kehabisan_percobaan(): void
+    {
+        $menyerah = $this->artikel('Sudah tiga kali gagal');
+        $masihAdaJatah = $this->artikel('Baru sekali gagal');
+
+        AntreanGemini::create([
+            'artikel_id' => $menyerah->id,
+            'prioritas' => 1,
+            'status' => 'gagal',
+            'percobaan' => AntreanGemini::MAKS_PERCOBAAN,
+            'galat' => 'The MAC is invalid.',
+            'selesai_at' => now(),
+        ]);
+
+        AntreanGemini::create([
+            'artikel_id' => $masihAdaJatah->id,
+            'prioritas' => 1,
+            'status' => 'gagal',
+            'percobaan' => 1,
+            'galat' => 'cURL error 28',
+            'selesai_at' => now(),
+        ]);
+
+        $isi = $this->actingAs(User::factory()->create(['peran' => 'superadmin']))
+            ->getJson('/admin/antrean-ai/gagal')
+            ->assertOk()
+            ->json();
+
+        $this->assertSame(1, $isi['total']);
+        $this->assertCount(1, $isi['baris']);
+        $this->assertSame('Sudah tiga kali gagal', $isi['baris'][0]['judul']);
+        $this->assertSame('The MAC is invalid.', $isi['baris'][0]['galat']);
+
+        // Pengelompokan dihitung di server, dan ia harus menyaring dengan
+        // ambang yang sama. Kalau tidak, jumlah di kelompok tidak akan pernah
+        // cocok dengan jumlah baris di bawahnya pada layar yang sama.
+        $this->assertCount(1, $isi['kelompok']);
+        $this->assertSame(1, $isi['kelompok'][0]['jumlah']);
+    }
+
+    /** Angka pada kartu dan isi daftarnya harus berasal dari ambang yang sama. */
+    public function test_daftar_gagal_cocok_dengan_angka_menyerah_di_halaman(): void
+    {
+        $artikel = $this->artikel('Gagal terus');
+
+        AntreanGemini::create([
+            'artikel_id' => $artikel->id,
+            'prioritas' => 1,
+            'status' => 'gagal',
+            'percobaan' => AntreanGemini::MAKS_PERCOBAAN,
+            'galat' => 'AI provider [gemini] is overloaded.',
+            'selesai_at' => now(),
+        ]);
+
+        $admin = User::factory()->create(['peran' => 'superadmin']);
+
+        $menyerah = $this->actingAs($admin)
+            ->get('/admin/antrean-ai')
+            ->assertOk()
+            ->viewData('page')['props']['ringkasan']['menyerah'];
+
+        $total = $this->actingAs($admin)
+            ->getJson('/admin/antrean-ai/gagal')
+            ->assertOk()
+            ->json('total');
+
+        $this->assertSame($menyerah, $total);
+    }
+
     private function artikel(string $judul, string $status = 'selesai'): Artikel
     {
         return Artikel::create([

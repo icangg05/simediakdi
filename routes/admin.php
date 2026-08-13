@@ -62,6 +62,12 @@ Route::prefix('admin')->name('admin.')->middleware('peran:superadmin,walikota')-
     // artikel baru sudah mengantre sendiri begitu isinya selesai diekstrak.
     Route::get('antrean-ai', [AntreanAiController::class, 'index'])->name('antrean-ai.index');
 
+    // Daftar pekerjaan yang menyerah, dibaca modal di halaman Antrean AI.
+    // Terpisah dari rute halaman supaya muatan polling tiap lima detik tidak
+    // ikut membawa ratusan judul beserta pesan galatnya. Alasan lengkapnya ada
+    // di method `gagal` pada controllernya.
+    Route::get('antrean-ai/gagal', [AntreanAiController::class, 'gagal'])->name('antrean-ai.gagal');
+
     Route::get('log-crawl', [LogCrawlController::class, 'index'])->name('log-crawl.index');
     // Satu crawl penuh menarik 28 feed dari 28 server milik orang lain. Dua
     // kali semenit sudah lebih dari cukup, dan menahan admin yang menekan
