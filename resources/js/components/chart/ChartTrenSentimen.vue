@@ -35,10 +35,11 @@ const { warnaSentimen, dasar, sumbuNilai, sumbuKategori } = useTemaChart();
 const polaLabel: Record<SatuanDeret, string> = {
     harian: 'd MMM',
     mingguan: 'd MMM',
+    dua_mingguan: 'd MMM',
     bulanan: 'MMM yyyy',
 };
 
-const judulKolom = computed(() => ({ harian: 'Tanggal', mingguan: 'Pekan mulai', bulanan: 'Bulan' })[props.satuan]);
+const judulKolom = computed(() => ({ harian: 'Tanggal', mingguan: 'Pekan mulai', dua_mingguan: 'Dua pekan mulai', bulanan: 'Bulan' })[props.satuan]);
 
 const tanggal = computed(() => props.data.map((b) => format(new Date(b.tanggal), polaLabel[props.satuan], { locale: id })));
 

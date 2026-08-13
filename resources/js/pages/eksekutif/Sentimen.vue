@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import ChartDonatSentimen from '@/components/chart/ChartDonatSentimen.vue';
-import ChartPorsiSentimen from '@/components/chart/ChartPorsiSentimen.vue';
+import ChartNadaMedia from '@/components/chart/ChartNadaMedia.vue';
 import ChartTrenSentimen from '@/components/chart/ChartTrenSentimen.vue';
 import KartuArtikel from '@/components/domain/KartuArtikel.vue';
 import KartuEksekutif from '@/components/domain/KartuEksekutif.vue';
@@ -14,7 +14,7 @@ import { useFormatAngka } from '@/composables/useFormatAngka';
 import { useGerbangSentimen } from '@/composables/useGerbangSentimen';
 import { usePeriodeEksekutif } from '@/composables/usePeriodeEksekutif';
 import LayoutEksekutif from '@/layouts/LayoutEksekutif.vue';
-import type { DeretTren } from '@/types';
+import type { DeretMedia, DeretTren } from '@/types';
 import { Head, Link } from '@inertiajs/vue3';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -49,6 +49,7 @@ const props = defineProps<{
         negatif_persen: number;
     };
     deret: DeretTren;
+    deretMedia: DeretMedia;
     beritaNegatif: Berita[];
     beritaNetral: Berita[];
     beritaPositif: Berita[];
@@ -226,7 +227,10 @@ const daftarNada = computed(() => [
                     <CardContent class="space-y-3 p-4 pt-5">
                         <ChartTrenSentimen judul="Perubahan dari waktu ke waktu" :data="deret.baris as never" :satuan="deret.satuan" :tinggi="280" />
                         <p class="text-xs leading-relaxed text-muted-foreground">
-                            Tiap garis berdiri sendiri. Tinggi garis pada sumbu kiri adalah jumlah berita nada itu di titik tersebut.
+                            Tiap garis berdiri sendiri. Tinggi garis pada sumbu kiri adalah jumlah berita nada itu di titik tersebut. Satu titik tidak
+                            selalu berarti satu hari. Rentang tujuh hari digambar per hari, rentang di atas dua pekan dikelompokkan per pekan, dan
+                            rentang di atas empat bulan per bulan, supaya garisnya menggambarkan perubahan nada dan bukan jadwal kerja redaksi. Angka
+                            persis tiap titik tersedia lewat tombol lihat sebagai tabel.
                         </p>
                     </CardContent>
                 </Card>
@@ -302,11 +306,12 @@ const daftarNada = computed(() => [
             </div>
 
             <!--
-                Baris ketiga, selebar halaman. Donat di atas menjawab porsi
-                sepanjang seluruh rentang, sebagai satu angka beku. Grafik ini
-                memecah porsi yang sama menurut waktu, jadi porsi negatif yang
-                membesar pelan-pelan terlihat sebelum ia cukup besar untuk
-                mengubah donatnya.
+                Baris ketiga, selebar halaman. Dua grafik di atas menjawab
+                "berapa" dan "porsinya berapa" untuk seluruh pemberitaan
+                sekaligus. Grafik ini menjawab pertanyaan berikutnya yang selalu
+                muncul sesudahnya: di media mana. Sumbunya nama media, dan garis
+                waktu di dasarnya memutar periode satu per satu tanpa mengubah
+                susunan sumbunya.
             -->
             <Card class="muncul relative overflow-hidden" style="animation-delay: 150ms">
                 <div
@@ -315,15 +320,12 @@ const daftarNada = computed(() => [
                 ></div>
 
                 <CardContent class="space-y-3 p-4 pt-5">
-                    <ChartPorsiSentimen
-                        judul="Porsi tiap nada dari waktu ke waktu"
-                        :data="deret.baris as never"
-                        :satuan="deret.satuan"
-                        :tinggi="380"
-                    />
+                    <ChartNadaMedia :deret="deretMedia" :tinggi="440" />
                     <p class="text-xs leading-relaxed text-muted-foreground">
-                        Tiap batang selalu penuh seratus persen, jadi yang dibandingkan hanya pembagian warnanya. Batang yang kosong berarti tidak ada
-                        berita berlabel pada titik itu.
+                        Tiap media punya tiga batang: jumlah berita positif, netral, dan negatif yang diterbitkannya pada periode yang sedang diputar.
+                        Garis waktu di bawah grafik berjalan sendiri, tekan tombol jeda untuk berhenti di satu periode. Sumbu tegaknya dikunci ke
+                        batang tertinggi sepanjang rentang, jadi tinggi batang bisa dibandingkan antar periode. Hanya media teramai yang ditampilkan:
+                        dua belas di layar lebar, enam di ponsel.
                     </p>
                 </CardContent>
             </Card>

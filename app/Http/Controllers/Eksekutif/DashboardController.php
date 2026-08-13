@@ -26,6 +26,9 @@ class DashboardController extends Controller
             ...$periode->untukInertia(),
             'kpi' => $ringkasan->kpi($periode->dari, $periode->sampai),
             'deret' => $ringkasan->deret($periode->dari, $periode->sampai),
+            // Deret kedua, dipecah per media. Grafik batang beranimasi memakai
+            // ini, dan sumbunya nama media, bukan tanggal.
+            'deretMedia' => $ringkasan->deretMedia($periode->dari, $periode->sampai),
             // Dibaca dari tabel, tidak pernah dibuat di sini. Halaman ini tidak
             // boleh menunggu Gemini, dan menyegarkannya tidak boleh menambah
             // satu pun permintaan ke Google.

@@ -37,13 +37,22 @@ class RingkasanEksekutif
      * tidak. Angka hariannya tidak hilang, hanya tidak lagi menjadi bentuk
      * bawaan grafiknya.
      *
-     * Batas mingguan ikut naik ke 120 hari supaya rentang empat bulan tidak
-     * langsung jatuh ke empat titik bulanan.
+     * Jumlah titik yang dihasilkan aturan ini pada tiga pintasan rentang:
      *
-     * @var array<string, string> satuan => argumen date_trunc Postgres
+     * | Rentang  | Satuan   | Titik |
+     * |----------|----------|-------|
+     * | 7 hari   | harian   | 7     |
+     * | 30 hari  | mingguan | 5     |
+     * | 90 hari  | mingguan | 13    |
+     *
+     * Sasarannya lima sampai lima belas titik. Di bawah lima, garis berhenti
+     * punya bentuk dan hanya menyisakan dua tiga patahan. Di atas lima belas,
+     * label tanggalnya mulai bertindihan dan gerigi harian kembali mendominasi.
+     * Ketiga pintasan jatuh di dalam rentang itu, jadi tidak ada satuan baru
+     * yang perlu ditambahkan untuk grafik ini.
+     *
+     * Bulanan tetap menjadi bentuk terakhir untuk rentang di atas 120 hari.
      */
-    private const SATUAN = ['harian' => 'day', 'mingguan' => 'week', 'bulanan' => 'month'];
-
     public function satuan(CarbonImmutable $dari, CarbonImmutable $sampai): string
     {
         $hari = $dari->diffInDays($sampai) + 1;
@@ -56,6 +65,58 @@ class RingkasanEksekutif
     }
 
     /**
+     * Satuan untuk grafik batang beranimasi, satu tingkat lebih kasar.
+     *
+     * Grafik garis dan grafik batang tidak boleh memakai angka yang sama, dan
+     * alasannya bukan estetika. Pada grafik garis, satu titik memakan beberapa
+     * piksel dan tiga belas titik dibaca sekali pandang. Pada grafik batang,
+     * satu periode memakan satu bingkai animasi penuh: dengan jeda 1,8 detik,
+     * tiga belas periode berarti dua puluh tiga detik untuk satu putaran, dan
+     * tidak ada yang menunggu selama itu untuk melihat periode terakhir.
+     * Tujuh bingkai selesai dalam tiga belas detik.
+     *
+     * Sasarannya lima sampai delapan bingkai. Rentang 90 hari yang di grafik
+     * garis menjadi tiga belas titik mingguan, di sini menjadi tujuh bingkai
+     * dua pekanan.
+     */
+    public function satuanMedia(CarbonImmutable $dari, CarbonImmutable $sampai): string
+    {
+        $hari = $dari->diffInDays($sampai) + 1;
+
+        return match (true) {
+            $hari <= 14 => 'harian',
+            $hari <= 45 => 'mingguan',
+            $hari <= 120 => 'dua_mingguan',
+            default => 'bulanan',
+        };
+    }
+
+    /**
+     * Ekspresi SQL yang memampatkan tanggal menjadi satu titik grafik.
+     *
+     * Aman diinterpolasi. Satuannya selalu berasal dari `satuan()` atau
+     * `satuanMedia()`, tidak pernah dari request, dan tanggal awalnya dicetak
+     * ulang sebagai Y-m-d oleh Carbon.
+     * date_trunc dan date_bin sama-sama tidak menerima satuannya sebagai
+     * parameter terikat.
+     *
+     * Dua pekanan memakai `date_bin`, bukan `date_trunc`, karena Postgres tidak
+     * mengenal satuan dua pekan. Titik awalnya tanggal awal rentang, jadi titik
+     * pertama grafik selalu jatuh tepat di tanggal yang diminta pengguna, bukan
+     * di suatu Senin acak sebelum rentangnya.
+     */
+    private function pemampat(string $satuan, CarbonImmutable $dari): string
+    {
+        if ($satuan === 'dua_mingguan') {
+            return "date_bin('14 days', tanggal::timestamp, timestamp '{$dari->toDateString()}')";
+        }
+
+        $trunc = ['harian' => 'day', 'mingguan' => 'week', 'bulanan' => 'month'][$satuan];
+
+        return "date_trunc('{$trunc}', tanggal)";
+    }
+
+    /**
      * Deret untuk grafik tren, dikelompokkan menurut panjang rentangnya.
      *
      * @return array{satuan: string, baris: list<array<string, mixed>>}
@@ -63,22 +124,18 @@ class RingkasanEksekutif
     public function deret(CarbonImmutable $dari, CarbonImmutable $sampai): array
     {
         $satuan = $this->satuan($dari, $sampai);
-
-        // Aman diinterpolasi: nilainya selalu salah satu dari konstanta di
-        // atas, tidak pernah berasal dari request. date_trunc tidak menerima
-        // satuannya sebagai parameter terikat.
-        $trunc = self::SATUAN[$satuan];
+        $pemampat = $this->pemampat($satuan, $dari);
 
         $baris = DB::table('ringkasan_harian')
             ->whereNull('media_id')
             ->whereBetween('tanggal', [$dari->toDateString(), $sampai->toDateString()])
-            ->groupByRaw("date_trunc('{$trunc}', tanggal)")
-            ->orderByRaw("date_trunc('{$trunc}', tanggal)")
+            ->groupByRaw($pemampat)
+            ->orderByRaw($pemampat)
             ->get([
                 // Dipotong ke ::date supaya yang sampai ke peramban tetap
                 // "2026-08-07", bukan timestamp berzona yang bisa mundur
                 // sehari saat diurai new Date() di sisi klien.
-                DB::raw("date_trunc('{$trunc}', tanggal)::date AS tanggal"),
+                DB::raw("{$pemampat}::date AS tanggal"),
                 DB::raw('sum(jumlah_artikel)::int AS jumlah_artikel'),
                 DB::raw('sum(jumlah_negatif)::int AS jumlah_negatif'),
                 DB::raw('sum(jumlah_netral)::int AS jumlah_netral'),
@@ -89,6 +146,80 @@ class RingkasanEksekutif
             ->all();
 
         return ['satuan' => $satuan, 'baris' => $baris];
+    }
+
+    /**
+     * Nada per media, dipecah lagi menurut periode.
+     *
+     * Sumbu grafiknya nama media dan harus tetap sama sepanjang animasi, jadi
+     * daftar medianya dihitung sekali dari seluruh rentang, bukan per periode.
+     * Media yang tidak menerbitkan apa pun pada satu periode tetap berdiri di
+     * sumbunya dengan batang nol. Sumbu yang isinya berganti tiap periode
+     * membuat pembaca kehilangan jejak media yang sedang diikutinya, dan itu
+     * satu-satunya hal yang bisa dilakukan dengan grafik ini.
+     *
+     * Dibatasi dua belas media teramai. Di atas itu namanya saling tindih pada
+     * lebar kartu, dan ekor daftarnya berisi media yang menerbitkan satu dua
+     * berita sepanjang rentang.
+     *
+     * @return array{satuan: string, media: list<string>, baris: list<array<string, mixed>>}
+     */
+    public function deretMedia(CarbonImmutable $dari, CarbonImmutable $sampai, int $batas = 12): array
+    {
+        $satuan = $this->satuanMedia($dari, $sampai);
+        $pemampat = $this->pemampat($satuan, $dari);
+
+        $baris = DB::table('ringkasan_harian')
+            ->join('media', 'media.id', '=', 'ringkasan_harian.media_id')
+            ->whereNotNull('media_id')
+            ->whereBetween('tanggal', [$dari->toDateString(), $sampai->toDateString()])
+            ->groupByRaw("{$pemampat}, media.nama")
+            ->orderByRaw($pemampat)
+            ->get([
+                DB::raw("{$pemampat}::date AS tanggal"),
+                DB::raw('media.nama AS media'),
+                DB::raw('sum(jumlah_negatif)::int AS negatif'),
+                DB::raw('sum(jumlah_netral)::int AS netral'),
+                DB::raw('sum(jumlah_positif)::int AS positif'),
+            ]);
+
+        $media = $baris
+            ->groupBy('media')
+            ->map(fn ($grup) => $grup->sum(fn ($b) => $b->positif + $b->netral + $b->negatif))
+            // Media tanpa satu pun berita berlabel sepanjang rentang tidak
+            // ditampilkan. Batang nol di dua belas periode berturut-turut hanya
+            // memakan lebar yang dibutuhkan media yang benar-benar terbit.
+            ->filter()
+            ->sortDesc()
+            ->take($batas)
+            ->keys()
+            ->all();
+
+        $nol = array_fill(0, count($media), 0);
+
+        $periode = $baris
+            ->groupBy('tanggal')
+            ->map(function ($grup, $tanggal) use ($media, $nol) {
+                $nilai = ['positif' => $nol, 'netral' => $nol, 'negatif' => $nol];
+
+                foreach ($grup as $b) {
+                    $kolom = array_search($b->media, $media, true);
+
+                    if ($kolom === false) {
+                        continue;
+                    }
+
+                    $nilai['positif'][$kolom] = $b->positif;
+                    $nilai['netral'][$kolom] = $b->netral;
+                    $nilai['negatif'][$kolom] = $b->negatif;
+                }
+
+                return ['tanggal' => $tanggal, ...$nilai];
+            })
+            ->values()
+            ->all();
+
+        return ['satuan' => $satuan, 'media' => $media, 'baris' => $periode];
     }
 
     /**

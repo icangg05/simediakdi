@@ -120,12 +120,26 @@ export interface SumberFeedBaris {
  * Satuan pengelompokan grafik tren, ditentukan server dari panjang rentang.
  * Cerminan RingkasanEksekutif::satuan().
  */
-export type SatuanDeret = 'harian' | 'mingguan' | 'bulanan';
+export type SatuanDeret = 'harian' | 'mingguan' | 'dua_mingguan' | 'bulanan';
 
 /** Deret grafik tren beserta satuannya. */
 export interface DeretTren {
     satuan: SatuanDeret;
     baris: Array<Record<string, number | string>>;
+}
+
+/**
+ * Deret nada per media, dipecah menurut periode.
+ *
+ * `media` adalah sumbu mendatar grafiknya dan tetap sama di seluruh periode.
+ * Ketiga larik di tiap baris berurutan sama dengan `media`, jadi indeks ketiga
+ * yang menghubungkan angka dengan nama medianya. Cerminan
+ * RingkasanEksekutif::deretMedia().
+ */
+export interface DeretMedia {
+    satuan: SatuanDeret;
+    media: string[];
+    baris: Array<{ tanggal: string; positif: number[]; netral: number[]; negatif: number[] }>;
 }
 
 export interface User {

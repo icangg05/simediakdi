@@ -1,5 +1,43 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 
+/** Kanvas satu piksel, dipakai bersama sebagai penerjemah warna. */
+let piksel: CanvasRenderingContext2D | null = null;
+
+/**
+ * Menerjemahkan warna token menjadi rgb.
+ *
+ * Palet aplikasi ditulis dalam oklch. Kanvas sanggup menggambar warna itu apa
+ * adanya, jadi grafiknya terlihat benar, tapi zrender tidak bisa menguraikan
+ * oklch menjadi angka. Begitu ECharts perlu menghitung warna turunan, dan itu
+ * terjadi pada setiap sorotan tetikus, hasilnya warna yang tidak sah dan
+ * bentuknya tidak digambar sama sekali. Yang terlihat pengguna: grafik lenyap
+ * saat kursor lewat, lalu kembali saat kursor pergi.
+ *
+ * Terjemahannya lewat piksel, bukan `getComputedStyle`. Chrome mengembalikan
+ * nilai `color` yang dihitung tetap dalam oklch, jadi jalur itu tidak mengubah
+ * apa pun. Menggambar satu piksel lalu membaca isinya memaksa peramban
+ * menuntaskan konversi ke sRGB, dan hasilnya sudah pasti bisa dibaca zrender.
+ *
+ * Konsekuensi yang diterima: warna di luar gamut sRGB dipangkas ke tepi gamut.
+ * Palet ini memang dipilih untuk layar sRGB, jadi tidak ada yang berubah di
+ * layar biasa. Yang hilang hanya kecerahan ekstra pada layar gamut lebar.
+ */
+function keRgb(nilai: string): string {
+    if (!nilai) return nilai;
+
+    piksel ??= document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+
+    if (!piksel) return nilai;
+
+    piksel.clearRect(0, 0, 1, 1);
+    piksel.fillStyle = nilai;
+    piksel.fillRect(0, 0, 1, 1);
+
+    const [r, h, b, alfa] = piksel.getImageData(0, 0, 1, 1).data;
+
+    return alfa === 255 ? `rgb(${r},${h},${b})` : `rgba(${r},${h},${b},${(alfa / 255).toFixed(3)})`;
+}
+
 /**
  * Menyuntikkan token warna aplikasi ke opsi ECharts.
  *
@@ -27,7 +65,7 @@ export function useTemaChart() {
     function bacaToken(nama: string): string {
         if (typeof document === 'undefined') return '';
 
-        return getComputedStyle(document.documentElement).getPropertyValue(nama).trim();
+        return keRgb(getComputedStyle(document.documentElement).getPropertyValue(nama).trim());
     }
 
     // Dibaca ulang saat tema berubah: nilai token berbeda antara terang dan gelap.

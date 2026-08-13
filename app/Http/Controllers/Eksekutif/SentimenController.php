@@ -21,6 +21,9 @@ class SentimenController extends Controller
             ...$periode->untukInertia(),
             'kpi' => $ringkasan->kpi($periode->dari, $periode->sampai),
             'deret' => $ringkasan->deret($periode->dari, $periode->sampai),
+            // Deret kedua, dipecah per media. Grafik batang beranimasi memakai
+            // ini, dan sumbunya nama media, bukan tanggal.
+            'deretMedia' => $ringkasan->deretMedia($periode->dari, $periode->sampai),
             // Tiga nada, sepuluh berita masing-masing, dalam rentang yang sedang
             // dipilih. Halaman ini memang halaman rincian nada, jadi ketiganya
             // berhak atas daftarnya sendiri, bukan hanya yang negatif.

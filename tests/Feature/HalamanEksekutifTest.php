@@ -149,8 +149,9 @@ class HalamanEksekutifTest extends TestCase
 
         $harapan = [
             ['2026-08-01', '2026-08-07', 'harian'],
-            ['2026-08-01', '2026-08-31', 'harian'],
-            ['2026-06-01', '2026-08-01', 'mingguan'],
+            ['2026-08-01', '2026-08-14', 'harian'],
+            ['2026-08-01', '2026-08-31', 'mingguan'],
+            ['2026-05-04', '2026-08-01', 'mingguan'],
             ['2026-01-01', '2026-08-01', 'bulanan'],
         ];
 
@@ -158,6 +159,50 @@ class HalamanEksekutifTest extends TestCase
             $this->get("/eksekutif?dari={$dari}&sampai={$sampai}")
                 ->assertInertia(fn ($page) => $page->where('deret.satuan', $satuan));
         }
+    }
+
+    /**
+     * Grafik batang beranimasi memakai satuan yang lebih kasar daripada grafik
+     * garis, karena satu periode di sana memakan satu bingkai animasi penuh.
+     * Rentang sembilan puluh hari yang jadi tiga belas titik garis harus jatuh
+     * ke tujuh bingkai batang.
+     */
+    public function test_grafik_media_memakai_satuan_lebih_kasar_daripada_grafik_garis(): void
+    {
+        $this->actingAs($this->walikota);
+
+        $this->get('/eksekutif?dari=2026-05-04&sampai=2026-08-01')
+            ->assertInertia(fn ($page) => $page
+                ->where('deret.satuan', 'mingguan')
+                ->where('deretMedia.satuan', 'dua_mingguan'));
+    }
+
+    /**
+     * Sumbu grafik batang beranimasi adalah nama media, dan sumbu itu tidak
+     * boleh berubah saat periodenya berganti. Karena itu tiap baris periode
+     * wajib sepanjang daftar medianya, termasuk periode yang medianya tidak
+     * menerbitkan apa pun, dan urutan angkanya wajib mengikuti urutan daftar.
+     */
+    public function test_deret_media_menyusun_sumbu_media_yang_tetap(): void
+    {
+        $this->actingAs($this->walikota);
+
+        $deret = $this->get('/eksekutif/sentimen')->viewData('page')['props']['deretMedia'];
+
+        $this->assertSame(['Kendari Pos'], $deret['media']);
+        $this->assertNotEmpty($deret['baris']);
+
+        foreach ($deret['baris'] as $baris) {
+            foreach (['positif', 'netral', 'negatif'] as $nada) {
+                $this->assertCount(count($deret['media']), $baris[$nada], "Baris {$baris['tanggal']} tidak sepanjang sumbu medianya.");
+            }
+        }
+
+        $hariIni = collect($deret['baris'])->last();
+
+        $this->assertSame([2], $hariIni['positif']);
+        $this->assertSame([0], $hariIni['netral']);
+        $this->assertSame([1], $hariIni['negatif']);
     }
 
     /**

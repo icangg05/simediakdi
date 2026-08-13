@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import ChartPorsiSentimen from '@/components/chart/ChartPorsiSentimen.vue';
+import ChartNadaMedia from '@/components/chart/ChartNadaMedia.vue';
 import ChartTrenSentimen from '@/components/chart/ChartTrenSentimen.vue';
 import Sparkline from '@/components/chart/Sparkline.vue';
 import BadgeSentimen from '@/components/domain/BadgeSentimen.vue';
@@ -15,7 +15,7 @@ import { useFormatAngka } from '@/composables/useFormatAngka';
 import { useGerbangSentimen } from '@/composables/useGerbangSentimen';
 import { usePeriodeEksekutif } from '@/composables/usePeriodeEksekutif';
 import LayoutEksekutif from '@/layouts/LayoutEksekutif.vue';
-import type { DeretTren, LabelSentimen } from '@/types';
+import type { DeretMedia, DeretTren, LabelSentimen } from '@/types';
 import { Head, Link } from '@inertiajs/vue3';
 import { differenceInCalendarDays, format, formatDistanceToNow, isSameDay } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -105,6 +105,7 @@ const props = defineProps<{
         media_aktif: number;
     };
     deret: DeretTren;
+    deretMedia: DeretMedia;
     /** Null saat rentangnya bukan salah satu pintasan, atau belum pernah dibuat. */
     narasi: {
         nada: 'positif' | 'netral' | 'negatif' | 'campuran' | null;
@@ -277,7 +278,9 @@ const arahVolume = computed(() => {
     return { ikon: Minus, teks: 'Sama banyak' };
 });
 
-const namaSatuan = computed(() => ({ harian: 'per hari', mingguan: 'per pekan', bulanan: 'per bulan' })[props.deret.satuan]);
+const namaSatuan = computed(
+    () => ({ harian: 'per hari', mingguan: 'per pekan', dua_mingguan: 'per dua pekan', bulanan: 'per bulan' })[props.deret.satuan],
+);
 
 const puncakMedia = computed(() => Math.max(1, ...props.peringkatMedia.map((m) => m.jumlah_artikel)));
 
@@ -792,9 +795,12 @@ function rupaTopik(nada: LabelSentimen) {
             <!--
                 Pasangan grafik di atasnya, bukan pengulangannya.
 
-                Grafik garis menjawab berapa banyak, grafik ini menjawab
-                seberapa besar porsinya. Keduanya perlu, karena rentang yang
-                penuh kegiatan seremonial menaikkan ketiga garis sekaligus dan
+                Grafik garis menjawab bentuk perubahan sepanjang rentang.
+                Grafik ini menjawab di media mana perubahan itu terjadi, satu
+                periode pada satu waktu, dengan sumbu nama media yang tidak ikut
+                berubah saat garis waktunya berjalan. Pai kecil di kanan atas
+                menahan porsi nada periode itu, karena rentang yang penuh
+                kegiatan seremonial menaikkan ketiga angka sekaligus dan
                 pimpinan menyimpulkan keadaan memburuk, padahal pembagian
                 nadanya tidak bergerak sama sekali.
             -->
@@ -805,10 +811,12 @@ function rupaTopik(nada: LabelSentimen) {
                 ></div>
 
                 <CardContent class="space-y-3 p-4 pt-5 sm:p-5">
-                    <ChartPorsiSentimen judul="Porsi tiap nada" :data="deret.baris as never" :satuan="deret.satuan" :tinggi="380" />
+                    <ChartNadaMedia :deret="deretMedia" :tinggi="440" />
                     <p class="text-xs leading-relaxed text-muted-foreground">
-                        Tiap batang selalu penuh seratus persen, jadi yang dibandingkan hanya pembagian warnanya. Batang yang kosong berarti tidak ada
-                        berita berlabel pada titik itu.
+                        Tiap media punya tiga batang: jumlah berita positif, netral, dan negatif yang diterbitkannya pada periode yang sedang diputar.
+                        Garis waktu di bawah grafik berjalan sendiri, tekan tombol jeda untuk berhenti di satu periode. Sumbu tegaknya dikunci ke
+                        batang tertinggi sepanjang rentang, jadi tinggi batang bisa dibandingkan antar periode. Hanya media teramai yang ditampilkan:
+                        dua belas di layar lebar, enam di ponsel.
                     </p>
                 </CardContent>
             </Card>
