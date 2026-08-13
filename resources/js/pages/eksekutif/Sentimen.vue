@@ -324,7 +324,6 @@ const daftarNada = computed(() => [
                     <template v-if="d.jumlah > 0" #aksi>
                         <span :class="d.tile" class="angka rounded-full px-3 py-1 text-xs font-semibold text-white shadow-sm dark:text-background">
                             {{ formatAngka(d.jumlah) }}
-                            <template v-if="d.kunci === 'negatif'">&middot; {{ formatPersen(kpi.negatif_persen) }}</template>
                         </span>
                     </template>
 
