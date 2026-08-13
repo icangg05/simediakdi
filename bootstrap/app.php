@@ -16,6 +16,21 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Di produksi TLS diputus di nginx milik host, lalu permintaan
+        // diteruskan sebagai http biasa ke Caddy dan aplikasi. Tanpa baris ini
+        // Laravel membaca skema dari soketnya sendiri, menyimpulkan "http", dan
+        // menuliskan seluruh URL Ziggy serta action form sebagai http://.
+        // Halaman yang dibuka lewat https lalu menolak mengirimnya sendiri:
+        // peramban memblokir permintaan Inertia sebagai konten campuran, dan
+        // gejalanya adalah tombol yang diam tanpa satu pun galat di log server.
+        //
+        // `at: '*'` karena alamat Caddy di jaringan Docker berganti setiap kali
+        // container dibuat ulang, jadi tidak ada IP tetap yang bisa didaftar.
+        // Ini aman selama app tidak menerbitkan port ke host, dan memang tidak:
+        // docker-compose.yml hanya memberinya `expose`, sehingga satu-satunya
+        // jalan masuk adalah nginx lalu Caddy.
+        $middleware->trustProxies(at: '*');
+
         $middleware->web(append: [
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
