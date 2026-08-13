@@ -1,0 +1,91 @@
+name: Deploy Website to VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
+          command_timeout: 30m
+          script: |
+            set -e
+            cd /var/www/simediakdi
+
+            echo "==> Sinkron kode dengan origin/main..."
+            # reset --hard, bukan pull: perbaikan darurat yang sempat diterapkan
+            # langsung di server tidak boleh membuat deploy macet karena konflik.
+            # Berkas untracked (.env, docker-compose.override.yml) tidak tersentuh.
+            git fetch --prune origin main
+            git reset --hard origin/main
+
+            # Seluruh layanan me-mount repositori ini apa adanya (`.:/app`), jadi
+            # kode baru sudah terlihat di dalam container begitu git selesai.
+            # Yang tidak ikut git justru yang harus dibangun ulang di sini:
+            # vendor/, node_modules/, dan public/build ketiganya di .gitignore.
+            echo "==> Build image bila Dockerfile berubah..."
+            docker compose build
+
+            # Dependensi PHP lebih dulu, dan bukan sekadar urutan rapi.
+            # resources/js/app.ts meng-import vendor/tightenco/ziggy, jadi build
+            # Vite gagal kalau vendor/ belum ada atau masih versi lama.
+            echo "==> Dependensi PHP..."
+            docker compose run --rm --no-deps app \
+              composer install --no-interaction --no-dev --prefer-dist --optimize-autoloader
+
+            # Node tidak ada di image php maupun di host. Container sekali pakai
+            # lebih murah daripada memasang Node di server hanya untuk ini.
+            # HOME=/tmp supaya npm punya direktori cache yang boleh ditulis uid 1000.
+            echo "==> Build aset frontend..."
+            docker run --rm -u 1000:1000 -e HOME=/tmp \
+              -v "$PWD":/app -w /app node:22-alpine \
+              sh -c "npm ci && npm run build"
+
+            echo "==> Jalankan container..."
+            docker compose up -d --remove-orphans
+
+            echo "==> Migrasi dan cache..."
+            docker compose exec -T app php artisan migrate --force
+            docker compose exec -T app php artisan storage:link
+            docker compose exec -T app php artisan config:cache
+            docker compose exec -T app php artisan route:cache
+            docker compose exec -T app php artisan view:cache
+            docker compose exec -T app php artisan event:cache
+
+            # Wajib, bukan opsional. Kode di-mount, bukan dipanggang ke image,
+            # jadi `up -d` tidak membuat ulang container yang konfigurasinya
+            # tidak berubah. Tanpa restart, `artisan serve` dan seluruh worker
+            # terus menjalankan kode lama tanpa satu pun galat yang menunjukkannya.
+            echo "==> Muat ulang proses yang berumur panjang..."
+            docker compose restart app worker worker-pelatihan scheduler
+
+            echo "==> Tunggu aplikasi siap..."
+            for i in $(seq 1 30); do
+              if curl -fsS -o /dev/null http://127.0.0.1:8000/up; then
+                echo "Aplikasi merespons."
+                break
+              fi
+              if [ "$i" = "30" ]; then
+                echo "Aplikasi tidak merespons setelah 60 detik." >&2
+                docker compose logs --tail=50 app web >&2
+                exit 1
+              fi
+              sleep 2
+            done
+
+            echo "==> Bersihkan image lama..."
+            docker image prune -f
+
+            docker compose ps
+            df -h /
+            echo "Done!"
