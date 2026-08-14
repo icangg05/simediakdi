@@ -29,6 +29,16 @@ class PengaturanAiTest extends TestCase
         $this->admin = User::factory()->create(['peran' => 'superadmin']);
     }
 
+    public function test_prompt_bawaan_memakai_istilah_sentimen_secara_konsisten(): void
+    {
+        $pengaturan = PengaturanAi::aktif();
+
+        $this->assertDoesNotMatchRegularExpression(
+            '/\b(?:nada|nadanya|bernada)\b/ui',
+            $pengaturan->prompt_relevansi."\n".$pengaturan->prompt_sentimen,
+        );
+    }
+
     public function test_kunci_terakhir_tidak_bisa_dihapus(): void
     {
         $kunci = $this->kunci('Satu-satunya');

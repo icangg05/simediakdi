@@ -30,7 +30,7 @@ class HalamanEksekutifTest extends TestCase
 
         $this->walikota = User::factory()->walikota()->create();
 
-        $media = Media::create(['nama' => 'Kendari Pos', 'slug' => 'kp', 'domain' => 'kp.test']);
+        $media = Media::create(['nama' => 'Kendari Pos', 'slug' => 'kp', 'domain' => 'kp.test', 'partner' => true]);
 
         foreach ([LabelSentimen::Negatif, LabelSentimen::Positif, LabelSentimen::Positif] as $n => $label) {
             $artikel = Artikel::withoutGlobalScopes()->create([
@@ -71,6 +71,30 @@ class HalamanEksekutifTest extends TestCase
             ->assertForbidden();
     }
 
+    /** Status kerja sama media tersedia pada seluruh daftar yang dibaca pimpinan. */
+    public function test_status_kerja_sama_media_dikirim_ke_daftar_eksekutif(): void
+    {
+        $this->actingAs($this->walikota);
+
+        $this->get('/eksekutif')->assertInertia(fn ($page) => $page
+            ->where('beritaPerhatian.0.media_partner', true)
+            ->where('beritaPositif.0.media_partner', true)
+            ->where('beritaTerbaru.0.media_partner', true));
+
+        $this->get('/eksekutif/media')->assertInertia(fn ($page) => $page
+            ->where('peringkat.0.partner', true));
+
+        $this->get('/eksekutif/berita')->assertInertia(fn ($page) => $page
+            ->where('artikel.data.0.media_partner', true));
+
+        $this->artikelTambahan('Berita netral dari media kerja sama', relevan: true, label: LabelSentimen::Netral);
+
+        $this->get('/eksekutif/sentimen')->assertInertia(fn ($page) => $page
+            ->where('beritaNegatif.0.media_partner', true)
+            ->where('beritaNetral.0.media_partner', true)
+            ->where('beritaPositif.0.media_partner', true));
+    }
+
     /** Angka KPI harus cocok saat dihitung ulang manual dari tabel artikel. */
     public function test_kpi_membaca_angka_dari_tabel_ringkasan(): void
     {
@@ -85,7 +109,49 @@ class HalamanEksekutifTest extends TestCase
                 ->where('kpi.positif', 2)
                 // 1 dari 3 berlabel, dibulatkan satu desimal.
                 ->where('kpi.negatif_persen', 33.3)
-                ->where('kpi.media_aktif', 1));
+                ->where('kpi.media_aktif', 1)
+                ->where('kpi.media_total_aktif', 1)
+                ->where('kpi.media_bekerja_sama', 1)
+                ->where('kpi.media_tidak_bekerja_sama', 0));
+    }
+
+    public function test_kpi_media_membandingkan_yang_memberitakan_dengan_seluruh_media_aktif(): void
+    {
+        Media::create([
+            'nama' => 'Partner Diam',
+            'slug' => 'partner-diam',
+            'domain' => 'partner-diam.test',
+            'partner' => true,
+        ]);
+        Media::create([
+            'nama' => 'Nonpartner Diam',
+            'slug' => 'nonpartner-diam',
+            'domain' => 'nonpartner-diam.test',
+            'partner' => false,
+        ]);
+        $nonaktif = Media::create([
+            'nama' => 'Media Nonaktif',
+            'slug' => 'media-nonaktif',
+            'domain' => 'media-nonaktif.test',
+            'partner' => false,
+            'aktif' => false,
+        ]);
+
+        // Media nonaktif sengaja punya berita pada periode yang sama. Ia tetap
+        // menjadi bagian riwayat, tetapi tidak boleh menjadi pembilang maupun
+        // penyebut rasio media yang masih dipantau.
+        $this->artikelTambahan('Berita dari media nonaktif', relevan: true, label: LabelSentimen::Netral, media: $nonaktif);
+        app(RingkasanHarian::class)->hitung(Waktu::tanggalWita(now()));
+
+        $hariIni = Waktu::tanggalWita(now());
+
+        $this->actingAs($this->walikota)
+            ->get("/eksekutif?dari={$hariIni}&sampai={$hariIni}")
+            ->assertInertia(fn ($page) => $page
+                ->where('kpi.media_aktif', 1)
+                ->where('kpi.media_total_aktif', 3)
+                ->where('kpi.media_bekerja_sama', 2)
+                ->where('kpi.media_tidak_bekerja_sama', 1));
     }
 
     /**
@@ -236,10 +302,10 @@ class HalamanEksekutifTest extends TestCase
     }
 
     /** Artikel tambahan pada hari ini, di media yang sama dengan setUp. */
-    private function artikelTambahan(string $judul, bool $relevan, ?LabelSentimen $label): Artikel
+    private function artikelTambahan(string $judul, bool $relevan, ?LabelSentimen $label, ?Media $media = null): Artikel
     {
         $artikel = Artikel::withoutGlobalScopes()->create([
-            'media_id' => Media::first()->id,
+            'media_id' => ($media ?? Media::first())->id,
             'judul' => $judul,
             'url' => 'https://kp.test/'.md5($judul),
             'url_kanonik' => 'https://kp.test/'.md5($judul),

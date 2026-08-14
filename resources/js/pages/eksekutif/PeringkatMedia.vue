@@ -12,7 +12,7 @@ import LayoutEksekutif from '@/layouts/LayoutEksekutif.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { ArrowRight, Globe2, ListOrdered, Newspaper, Radio } from 'lucide-vue-next';
+import { ArrowRight, Globe2, Handshake, ListOrdered, Newspaper, Radio } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 /*
@@ -26,6 +26,7 @@ interface Baris {
     id: number;
     nama: string;
     tier: string;
+    partner: boolean;
     /** Sama dengan jumlah tiga nada di bawahnya, dihitung Postgres. */
     jumlah_artikel: number;
     jumlah_negatif: number;
@@ -364,6 +365,13 @@ function rupaNomor(urut: number): string {
                                     <span class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
                                         <span class="truncate text-sm font-semibold">{{ m.nama }}</span>
                                         <Badge variant="secondary" :class="warnaTier[m.tier]" class="shrink-0 capitalize">{{ m.tier }}</Badge>
+                                        <span
+                                            v-if="m.partner"
+                                            class="inline-flex shrink-0 items-center gap-1 rounded-md bg-aksen-toska/10 px-1.5 py-0.5 text-[11px] font-medium text-aksen-toska"
+                                        >
+                                            <Handshake class="size-3 shrink-0" aria-hidden="true" />
+                                            Bekerja sama
+                                        </span>
                                     </span>
 
                                     <span class="shrink-0 text-right">

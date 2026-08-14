@@ -41,7 +41,10 @@ class MediaController extends Controller
 
     public function create(): Response
     {
-        return Inertia::render('admin/media/Form', ['media' => null]);
+        return Inertia::render('admin/media/Form', [
+            'media' => null,
+            'slugTerpakai' => $this->slugTerpakai(),
+        ]);
     }
 
     public function store(SimpanMediaRequest $request): RedirectResponse
@@ -103,7 +106,10 @@ class MediaController extends Controller
 
     public function edit(Media $media): Response
     {
-        return Inertia::render('admin/media/Form', ['media' => $media]);
+        return Inertia::render('admin/media/Form', [
+            'media' => $media,
+            'slugTerpakai' => $this->slugTerpakai($media),
+        ]);
     }
 
     public function update(SimpanMediaRequest $request, Media $media): RedirectResponse
@@ -198,13 +204,30 @@ class MediaController extends Controller
                 ['nilai' => 'radio', 'label' => 'Radio'],
             ],
             'partner' => [
-                ['nilai' => 'true', 'label' => 'Partner'],
-                ['nilai' => 'false', 'label' => 'Bukan partner'],
+                ['nilai' => 'true', 'label' => 'Bekerja sama'],
+                ['nilai' => 'false', 'label' => 'Tidak bekerja sama'],
             ],
             'aktif' => [
                 ['nilai' => 'true', 'label' => 'Aktif'],
                 ['nilai' => 'false', 'label' => 'Nonaktif'],
             ],
         ];
+    }
+
+    /**
+     * Slug dipakai form untuk menampilkan pratinjau unik tanpa menunggu submit.
+     * Baris soft-delete tetap dikirim karena indeks unik database juga tetap
+     * menyimpannya.
+     *
+     * @return list<string>
+     */
+    private function slugTerpakai(?Media $kecuali = null): array
+    {
+        return Media::withoutGlobalScopes()
+            ->withTrashed()
+            ->when($kecuali, fn ($kueri) => $kueri->where('id', '!=', $kecuali->id))
+            ->orderBy('slug')
+            ->pluck('slug')
+            ->all();
     }
 }

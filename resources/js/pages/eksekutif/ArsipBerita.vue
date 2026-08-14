@@ -37,6 +37,7 @@ interface Baris {
     judul: string;
     url: string;
     media: string | null;
+    media_partner: boolean;
     diambil_at: string;
     label: Label | null;
     perlu_review: boolean;
@@ -225,7 +226,7 @@ function aturUlangSaringan() {
                         sepakat karena warnanya persis warna nada yang sedang
                         disaring.
                     -->
-                    <div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="Saring menurut nada">
+                    <div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="Saring menurut sentimen">
                         <button
                             v-for="n in nada"
                             :key="n.nilai"
@@ -316,6 +317,7 @@ function aturUlangSaringan() {
                             :judul="b.judul"
                             :url="b.url"
                             :media="b.media"
+                            :media-partner="b.media_partner"
                             :diambil-at="b.diambil_at"
                             :label="b.label"
                             :perlu-review="b.perlu_review"

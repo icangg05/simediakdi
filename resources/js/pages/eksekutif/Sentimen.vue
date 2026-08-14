@@ -34,6 +34,7 @@ interface Berita {
     judul: string;
     url: string;
     media: string | null;
+    media_partner: boolean;
     diambil_at: string;
     /** Alasan model atas label yang diberikannya. Kosong pada baris analisis lama. */
     ringkasan_ai: string | null;
@@ -146,36 +147,36 @@ const nadaPilNegatif = computed(() => (props.kpi.negatif_persen >= 25 ? ('buruk'
 const daftarNada = computed(() => [
     {
         kunci: 'positif' as const,
-        judul: 'Berita bernada positif',
+        judul: 'Berita bersentimen positif',
         catatan: 'Media memberitakan hal baik tentang Pemerintah Kota',
         ikon: ThumbsUp,
         berita: props.beritaPositif,
         tile: 'bg-sentimen-positif',
         rel: 'from-sentimen-positif/40',
         jumlah: props.kpi.positif,
-        kosong: 'Tidak ada berita bernada positif pada rentang ini.',
+        kosong: 'Tidak ada berita bersentimen positif pada rentang ini.',
     },
     {
         kunci: 'netral' as const,
-        judul: 'Berita bernada netral',
+        judul: 'Berita bersentimen netral',
         catatan: 'Media menyampaikan informasi tanpa menilai',
         ikon: Info,
         berita: props.beritaNetral,
         tile: 'bg-sentimen-netral',
         rel: 'from-sentimen-netral/40',
         jumlah: props.kpi.netral,
-        kosong: 'Tidak ada berita bernada netral pada rentang ini.',
+        kosong: 'Tidak ada berita bersentimen netral pada rentang ini.',
     },
     {
         kunci: 'negatif' as const,
-        judul: 'Berita bernada negatif',
+        judul: 'Berita bersentimen negatif',
         catatan: 'Media menyoroti masalah atau menyampaikan kritik',
         ikon: TriangleAlert,
         berita: props.beritaNegatif,
         tile: 'bg-sentimen-negatif',
         rel: 'from-sentimen-negatif/40',
         jumlah: props.kpi.negatif,
-        kosong: 'Tidak ada berita bernada negatif pada rentang ini.',
+        kosong: 'Tidak ada berita bersentimen negatif pada rentang ini.',
     },
 ]);
 </script>
@@ -184,14 +185,14 @@ const daftarNada = computed(() => [
     <Head title="Analisis sentimen" />
 
     <LayoutEksekutif>
-        <KopEksekutif judul="Analisis sentimen" :keterangan="`Rincian nada pemberitaan tentang Pemerintah Kota, ${rentangTerbaca}`">
+        <KopEksekutif judul="Analisis sentimen" :keterangan="`Rincian sentimen pemberitaan tentang Pemerintah Kota, ${rentangTerbaca}`">
             <template #kendali>
                 <PemilihRentangTanggal :dari="periode.dari" :sampai="periode.sampai" inline @ubah="(dari, sampai) => pindah({ dari, sampai })" />
             </template>
 
             <template v-if="sentimenTersedia" #pil>
                 <PilKop :ikon="Newspaper">{{ formatAngka(kpi.berlabel) }} berita berlabel</PilKop>
-                <PilKop :nada="nadaPilNegatif" :ikon="TriangleAlert">{{ formatPersen(kpi.negatif_persen) }} bernada negatif</PilKop>
+                <PilKop :nada="nadaPilNegatif" :ikon="TriangleAlert">{{ formatPersen(kpi.negatif_persen) }} bersentimen negatif</PilKop>
             </template>
         </KopEksekutif>
 
@@ -227,10 +228,10 @@ const daftarNada = computed(() => [
                     <CardContent class="space-y-3 p-4 pt-5">
                         <ChartTrenSentimen judul="Perubahan dari waktu ke waktu" :data="deret.baris as never" :satuan="deret.satuan" :tinggi="280" />
                         <p class="text-xs leading-relaxed text-muted-foreground">
-                            Tiap garis berdiri sendiri. Tinggi garis pada sumbu kiri adalah jumlah berita nada itu di titik tersebut. Satu titik tidak
-                            selalu berarti satu hari. Rentang tujuh hari digambar per hari, rentang di atas dua pekan dikelompokkan per pekan, dan
-                            rentang di atas empat bulan per bulan, supaya garisnya menggambarkan perubahan nada dan bukan jadwal kerja redaksi. Angka
-                            persis tiap titik tersedia lewat tombol lihat sebagai tabel.
+                            Tiap garis berdiri sendiri. Tinggi garis pada sumbu kiri adalah jumlah berita dengan sentimen itu di titik tersebut. Satu
+                            titik tidak selalu berarti satu hari. Rentang tujuh hari digambar per hari, rentang di atas dua pekan dikelompokkan per
+                            pekan, dan rentang di atas empat bulan per bulan, supaya garisnya menggambarkan perubahan sentimen dan bukan jadwal kerja
+                            redaksi. Angka persis tiap titik tersedia lewat tombol lihat sebagai tabel.
                         </p>
                     </CardContent>
                 </Card>
@@ -402,6 +403,7 @@ const daftarNada = computed(() => [
                                     :judul="b.judul"
                                     :url="b.url"
                                     :media="b.media"
+                                    :media-partner="b.media_partner"
                                     :diambil-at="b.diambil_at"
                                     :ringkasan-ai="b.ringkasan_ai"
                                     :label="d.kunci"

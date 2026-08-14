@@ -85,7 +85,7 @@ class DashboardController extends Controller
                 'analisisSentimen',
                 fn ($s) => $s->where('relevan', true)->where('label_efektif', $label),
             ))
-            ->with(['media:id,nama', 'analisisSentimen' => fn ($q) => $q
+            ->with(['media:id,nama,partner', 'analisisSentimen' => fn ($q) => $q
                 ->where('relevan', true),
             ])
             ->terbitAntara($periode->mulaiUtc(), $periode->akhirUtc())
@@ -97,6 +97,7 @@ class DashboardController extends Controller
                 'judul' => $a->judul,
                 'url' => $a->url,
                 'media' => $a->media?->nama,
+                'media_partner' => (bool) $a->media?->partner,
                 'diambil_at' => $a->diambil_at,
                 'label' => $a->analisisSentimen->first()?->label_efektif?->value,
                 'perlu_review' => (bool) $a->analisisSentimen->first()?->perlu_review,

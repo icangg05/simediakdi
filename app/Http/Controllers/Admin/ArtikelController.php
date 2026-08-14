@@ -699,7 +699,7 @@ class ArtikelController extends Controller
 
         $kueri = $this->saringanUmum(
             Artikel::withoutGlobalScopes()
-                ->with(['media:id,nama', 'analisisSentimen'])
+                ->with(['media:id,nama,partner', 'analisisSentimen'])
                 ->whereIn('status_proses', self::TAHAP[$tahap]['status']),
             $request,
         )
@@ -750,6 +750,7 @@ class ArtikelController extends Controller
             'judul' => $satu->judul,
             'url' => $satu->url,
             'media' => $satu->media?->nama,
+            'media_partner' => (bool) $satu->media?->partner,
             // Terisi berarti pengguna media yang menambahkannya lewat portal.
             // Ditampilkan sebagai penanda di kolom Media supaya hasil saringan
             // asal bisa dibaca tanpa membuka detail satu per satu.

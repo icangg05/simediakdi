@@ -76,7 +76,7 @@ const tahap = [
     },
     {
         ikon: Activity,
-        judul: 'Nilai nada',
+        judul: 'Nilai sentimen',
         detail: 'Negatif, netral, atau positif terhadap Pemkot.',
     },
     {
@@ -223,11 +223,11 @@ const submit = () => {
                     <span class="mb-6 block h-1 w-11 rounded-full bg-brand-langit" aria-hidden="true"></span>
 
                     <h2 class="judul-panel text-[1.875rem] leading-[1.2] font-semibold tracking-tight text-balance text-white xl:text-[2.125rem]">
-                        Nada pemberitaan Kota Kendari, terbaca dalam
+                        Sentimen pemberitaan Kota Kendari, terbaca dalam
                         <span class="text-brand-langit">satu layar.</span>
                     </h2>
                     <p class="penjelas-panel mt-5 max-w-md text-[0.9375rem] leading-relaxed text-pretty text-white/70">
-                        SIMEDIA mengumpulkan berita tentang Kendari, menyaring yang menyangkut Pemerintah Kota, lalu menilai nadanya.
+                        SIMEDIA mengumpulkan berita tentang Kendari, menyaring yang menyangkut Pemerintah Kota, lalu menilai sentimennya.
                     </p>
                 </div>
 

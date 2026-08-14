@@ -265,6 +265,49 @@ class NarasiEksekutifTest extends TestCase
         );
     }
 
+    public function test_istilah_nada_pada_narasi_lama_disajikan_sebagai_sentimen(): void
+    {
+        $baris = Baris::create([
+            'periode' => '7d',
+            'dari' => Waktu::tanggalWita(now()),
+            'sampai' => Waktu::tanggalWita(now()),
+            'nada' => 'campuran',
+            'judul' => 'Nada pemberitaan bernada beragam',
+            'ringkasan' => 'Media menjelaskan nadanya.',
+            'penjelasan_tren' => 'NADA berubah.',
+            'poin' => [['teks' => 'Poin bernada netral', 'artikel_ids' => []]],
+            'perhatian' => [['topik' => 'Sorotan', 'alasan' => 'Nada negatif meningkat.']],
+            'nada_ringkas' => ['negatif' => 'Berita bernada negatif.'],
+            'topik' => [['judul' => 'Topik bernada positif']],
+            'jumlah_artikel' => 1,
+            'sidik' => 'istilah-lama',
+            'model' => 'uji',
+            'dibuat_at' => now(),
+        ]);
+
+        $narasi = $baris->untukInertia();
+
+        $this->assertSame('campuran', $narasi['nada']);
+        $this->assertSame('Sentimen pemberitaan bersentimen beragam', $narasi['judul']);
+        $this->assertSame('Media menjelaskan sentimennya.', $narasi['ringkasan']);
+        $this->assertSame('SENTIMEN berubah.', $narasi['penjelasan_tren']);
+        $this->assertSame('Poin bersentimen netral', $narasi['poin'][0]['teks']);
+        $this->assertSame('Sentimen negatif meningkat.', $narasi['perhatian'][0]['alasan']);
+        $this->assertSame('Berita bersentimen negatif.', $narasi['nada_ringkas']['negatif']);
+        $this->assertSame('Topik bersentimen positif', $narasi['topik'][0]['judul']);
+    }
+
+    public function test_istilah_nada_pada_alasan_klasifikasi_lama_disajikan_sebagai_sentimen(): void
+    {
+        $analisis = AnalisisSentimen::query()->firstOrFail();
+        $analisis->update(['reason_summary' => 'Artikel bernada negatif dan nadanya kuat.']);
+
+        $this->assertSame(
+            'Artikel bersentimen negatif dan sentimennya kuat.',
+            $analisis->fresh()->reason_summary,
+        );
+    }
+
     /**
      * @param  list<array<string, mixed>>  $topik
      * @return array<string, mixed>

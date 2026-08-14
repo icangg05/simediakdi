@@ -3,12 +3,14 @@ import BadgeSentimen from '@/components/domain/BadgeSentimen.vue';
 import BadgeTahapPortal from '@/components/domain/BadgeTahapPortal.vue';
 import { formatDistanceToNow } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { ExternalLink, Newspaper, PlusCircle } from 'lucide-vue-next';
+import { ExternalLink, Handshake, Newspaper, PlusCircle } from 'lucide-vue-next';
 
 defineProps<{
     judul: string;
     url: string;
     media: string | null;
+    /** Media memiliki kerja sama publikasi dengan Pemerintah Kota. */
+    mediaPartner?: boolean;
     diambilAt: string;
     label?: 'negatif' | 'netral' | 'positif' | null;
     perluReview?: boolean;
@@ -74,6 +76,13 @@ defineProps<{
                 <span class="inline-flex max-w-full items-center gap-1.5 rounded-md bg-muted px-2 py-0.5 font-medium text-foreground/75">
                     <Newspaper class="h-3 w-3 shrink-0" aria-hidden="true" />
                     <span class="truncate">{{ media ?? 'Media belum ditautkan' }}</span>
+                </span>
+                <span
+                    v-if="mediaPartner"
+                    class="inline-flex shrink-0 items-center gap-1 rounded-md bg-aksen-toska/10 px-2 py-0.5 font-medium text-aksen-toska"
+                >
+                    <Handshake class="h-3 w-3 shrink-0" aria-hidden="true" />
+                    Bekerja sama
                 </span>
                 <span
                     v-if="ditambahkanSendiri"

@@ -144,7 +144,7 @@ const partner = computed(() => props.media.data.filter((m) => m.partner).length)
                 <span class="angka">{{ media.total }}</span> media terdaftar
             </PilKop>
             <PilKop v-if="partner > 0" :ikon="Handshake">
-                <span class="angka">{{ partner }}</span> partner di halaman ini
+                <span class="angka">{{ partner }}</span> media bekerja sama di halaman ini
             </PilKop>
             <PilKop v-if="bermasalah > 0" nada="tunggu" :ikon="TriangleAlert">
                 <span class="angka">{{ bermasalah }}</span> tanpa sumber aktif di halaman ini
@@ -161,7 +161,7 @@ const partner = computed(() => props.media.data.filter((m) => m.partner).length)
             nomor
             url-basis="/admin/media"
             judul-kosong="Belum ada media"
-            keterangan-kosong="Tambahkan media partner lebih dulu, lalu daftarkan sumber feed-nya."
+            keterangan-kosong="Tambahkan media yang bekerja sama lebih dulu, lalu daftarkan sumber feed-nya."
         >
             <template #sel-nama="{ baris }">
                 <div class="flex items-center gap-2">
@@ -172,14 +172,15 @@ const partner = computed(() => props.media.data.filter((m) => m.partner).length)
                         {{ baris.nama }}
                     </Link>
                     <!-- Toska berarti terhitung dan masuk lingkup, sama dengan
-                         label Relevan di halaman Berita. Media partner adalah
-                         media yang pemuatannya dihitung terhadap kontrak. -->
+                         label Relevan di halaman Berita. Media yang bekerja
+                         sama adalah media yang pemuatannya dihitung terhadap
+                         kontrak. -->
                     <span
                         v-if="baris.partner"
-                        class="inline-flex items-center gap-1 rounded-md bg-aksen-toska/10 px-1.5 py-0.5 text-[11px] font-medium text-aksen-toska"
+                        class="inline-flex items-center gap-1 rounded-md bg-aksen-toska/10 px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap text-aksen-toska"
                     >
                         <Handshake class="size-3 shrink-0" aria-hidden="true" />
-                        Partner
+                        Bekerja sama
                     </span>
                 </div>
             </template>

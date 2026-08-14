@@ -22,7 +22,7 @@ import { computed } from 'vue';
  * apa pun.
  */
 const props = withDefaults(defineProps<{ deret: DeretMedia; tinggi?: number; memuat?: boolean; judul?: string }>(), {
-    judul: 'Nada tiap media',
+    judul: 'Sentimen tiap media',
 });
 
 const { warnaSentimen, dasar, warna, sumbuKategori, gelap } = useTemaChart();

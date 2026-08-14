@@ -28,6 +28,7 @@ import {
     Flame,
     Gauge,
     Globe2,
+    Handshake,
     Info,
     Minus,
     Newspaper,
@@ -67,6 +68,7 @@ type Berita = {
     judul: string;
     url: string;
     media: string | null;
+    media_partner: boolean;
     diambil_at: string;
     label: LabelSentimen | null;
     perlu_review: boolean;
@@ -103,6 +105,9 @@ const props = defineProps<{
         netral: number;
         perlu_review: number;
         media_aktif: number;
+        media_total_aktif: number;
+        media_bekerja_sama: number;
+        media_tidak_bekerja_sama: number;
     };
     deret: DeretTren;
     deretMedia: DeretMedia;
@@ -485,20 +490,58 @@ function rupaTopik(nada: LabelSentimen) {
                 </template>
 
                 <!--
-                    Tiga fakta yang tidak diulang di tempat lain: seberapa
-                    banyak, seberapa luas, seberapa sering. Warnanya aksen, bukan
-                    nada, karena tidak satu pun dari ketiganya menyatakan nada
-                    pemberitaan.
+                    Cakupan media memimpin bidang fakta karena ia menjawab
+                    langsung berapa banyak media aktif yang benar-benar
+                    memberitakan pada periode ini. Dua angka kerja sama adalah
+                    pembentuk penyebutnya, bukan pembentuk pembilangnya.
 
-                    Digambar sebagai satu bidang bergaris pemisah, bukan tiga
-                    kartu terpisah. Tiga kartu di sini akan menjadi lapis kartu
-                    ketiga di dalam kartu yang sudah berdiri di dalam kop.
+                    Seluruhnya tetap satu bidang bergaris pemisah, bukan lima
+                    kartu kecil di dalam kartu kop. Pada ponsel rasio media
+                    memakai satu baris penuh, lalu empat fakta pendukung
+                    tersusun dua kolom agar labelnya tidak terpotong.
                 -->
-                <div class="grid grid-cols-3 divide-x divide-border overflow-hidden rounded-xl border bg-muted/40">
-                    <Link :href="`/eksekutif/berita?${kueri()}`" class="tekan group flex flex-col gap-1 p-3 hover:bg-background">
+                <div class="grid grid-cols-2 overflow-hidden rounded-xl border bg-muted/40 sm:grid-cols-5">
+                    <Link
+                        :href="`/eksekutif/media?${kueri()}`"
+                        class="tekan group col-span-2 flex flex-col gap-1 border-b p-3 hover:bg-background sm:col-span-1 sm:border-r sm:border-b-0"
+                    >
+                        <span class="flex items-center gap-1.5 text-aksen-toska">
+                            <Radio class="size-3.5 shrink-0" aria-hidden="true" />
+                            <span class="text-[11px] font-semibold tracking-wide uppercase">Media</span>
+                            <ArrowRight
+                                class="ml-auto size-3 shrink-0 opacity-0 transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-0.5 group-hover:opacity-100"
+                                aria-hidden="true"
+                            />
+                        </span>
+                        <span class="angka flex items-baseline leading-none font-semibold">
+                            <span class="text-2xl">{{ formatAngka(kpi.media_aktif) }}</span>
+                            <span class="text-base text-muted-foreground">/{{ formatAngka(kpi.media_total_aktif) }}</span>
+                        </span>
+                        <span class="block text-[11px] leading-tight text-muted-foreground">Aktif memberitakan periode ini</span>
+                    </Link>
+
+                    <div class="flex flex-col gap-1 border-r border-b p-3 sm:border-b-0">
+                        <span class="flex items-center gap-1.5 text-aksen-toska">
+                            <Handshake class="size-3.5 shrink-0" aria-hidden="true" />
+                            <span class="text-[11px] font-semibold tracking-wide uppercase">Bekerja sama</span>
+                        </span>
+                        <span class="angka block text-2xl leading-none font-semibold">{{ formatAngka(kpi.media_bekerja_sama) }}</span>
+                        <span class="block text-[11px] leading-tight text-muted-foreground">Media aktif terdaftar</span>
+                    </div>
+
+                    <div class="flex flex-col gap-1 border-b p-3 sm:border-r sm:border-b-0">
+                        <span class="flex items-center gap-1.5 text-aksen-toska">
+                            <Globe2 class="size-3.5 shrink-0" aria-hidden="true" />
+                            <span class="text-[11px] font-semibold tracking-wide uppercase">Tidak bekerja sama</span>
+                        </span>
+                        <span class="angka block text-2xl leading-none font-semibold">{{ formatAngka(kpi.media_tidak_bekerja_sama) }}</span>
+                        <span class="block text-[11px] leading-tight text-muted-foreground">Media aktif terdaftar</span>
+                    </div>
+
+                    <Link :href="`/eksekutif/berita?${kueri()}`" class="tekan group flex flex-col gap-1 border-r p-3 hover:bg-background">
                         <span class="flex items-center gap-1.5 text-aksen-biru">
                             <Newspaper class="size-3.5 shrink-0" aria-hidden="true" />
-                            <span class="truncate text-[11px] font-semibold tracking-wide uppercase">Berita</span>
+                            <span class="text-[11px] font-semibold tracking-wide uppercase">Berita</span>
                             <ArrowRight
                                 class="ml-auto size-3 shrink-0 opacity-0 transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-0.5 group-hover:opacity-100"
                                 aria-hidden="true"
@@ -508,28 +551,10 @@ function rupaTopik(nada: LabelSentimen) {
                             <span class="angka text-2xl leading-none font-semibold">{{ formatAngka(kpi.berlabel) }}</span>
                             <Sparkline :nilai="deretVolume" :lebar="64" :tinggi="22" class="hidden shrink-0 lg:block" />
                         </span>
-                        <!-- Keterangannya dibiarkan melipat, bukan dipotong.
-                             "29 lebih se..." pada kolom selebar sepertiga layar
-                             ponsel adalah kalimat yang hilang artinya, dan dua
-                             baris pendek lebih murah daripada satu baris yang
-                             tidak bisa dibaca. -->
                         <span class="flex items-start gap-1 text-[11px] leading-tight text-muted-foreground">
                             <component :is="arahVolume.ikon" class="mt-px size-3 shrink-0" aria-hidden="true" />
                             <span class="angka">{{ arahVolume.teks }}</span>
                         </span>
-                    </Link>
-
-                    <Link :href="`/eksekutif/media?${kueri()}`" class="tekan group flex flex-col gap-1 p-3 hover:bg-background">
-                        <span class="flex items-center gap-1.5 text-aksen-toska">
-                            <Radio class="size-3.5 shrink-0" aria-hidden="true" />
-                            <span class="truncate text-[11px] font-semibold tracking-wide uppercase">Media</span>
-                            <ArrowRight
-                                class="ml-auto size-3 shrink-0 opacity-0 transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-0.5 group-hover:opacity-100"
-                                aria-hidden="true"
-                            />
-                        </span>
-                        <span class="angka block text-2xl leading-none font-semibold">{{ formatAngka(kpi.media_aktif) }}</span>
-                        <span class="block text-[11px] leading-tight text-muted-foreground">Portal yang memberitakan</span>
                     </Link>
 
                     <div class="flex flex-col gap-1 p-3">
@@ -570,7 +595,7 @@ function rupaTopik(nada: LabelSentimen) {
                         <p class="truncate text-xs text-muted-foreground">{{ peringatan.terbaru }}</p>
                     </div>
 
-                    <TautanTujuan :href="`/eksekutif/sentimen?${kueri()}`" rona="negatif">Buka rincian nada</TautanTujuan>
+                    <TautanTujuan :href="`/eksekutif/sentimen?${kueri()}`" rona="negatif">Buka rincian sentimen</TautanTujuan>
                 </CardContent>
             </Card>
 
@@ -657,7 +682,7 @@ function rupaTopik(nada: LabelSentimen) {
                         >
                             <p class="flex items-center gap-1.5 text-sm font-semibold text-sentimen-review">
                                 <TriangleAlert class="size-4 shrink-0" aria-hidden="true" />
-                                Berita bernada negatif terbaru
+                                Berita bersentimen negatif terbaru
                             </p>
 
                             <KartuArtikel
@@ -665,6 +690,7 @@ function rupaTopik(nada: LabelSentimen) {
                                     judul: beritaPerhatian[0].judul,
                                     url: beritaPerhatian[0].url,
                                     media: beritaPerhatian[0].media,
+                                    mediaPartner: beritaPerhatian[0].media_partner,
                                     diambilAt: beritaPerhatian[0].diambil_at,
                                     label: beritaPerhatian[0].label,
                                     perluReview: beritaPerhatian[0].perlu_review,
@@ -682,9 +708,9 @@ function rupaTopik(nada: LabelSentimen) {
                             tiap butir, jadi tautan per kalimat hanya bisa dibuat
                             dengan menebak.
                         -->
-                        <div class="mt-4 flex flex-wrap flex-col md:flex-row items-center justify-between gap-3 border-t pt-4">
+                        <div class="mt-4 flex flex-col flex-wrap items-center justify-between gap-3 border-t pt-4 md:flex-row">
                             <p class="max-w-184 flex-1 text-xs leading-relaxed text-muted-foreground">
-                                Ulasan ini menyebut nada dan volume pemberitaan, bukan penilaian atas kinerja siapa pun.
+                                Ulasan ini menyebut sentimen dan volume pemberitaan, bukan penilaian atas kinerja siapa pun.
                                 <template v-if="narasiBasi">
                                     Ia menghitung rentang {{ tanggalTerbaca(narasi.dari) }} sampai {{ tanggalTerbaca(narasi.sampai) }}, sedikit
                                     berbeda dari rentang yang sedang dibuka. Seluruh angka di halaman ini tetap yang terbaru.
@@ -710,13 +736,62 @@ function rupaTopik(nada: LabelSentimen) {
                 </KartuEksekutif>
             </div>
 
+            <div class="muncul" style="animation-delay: 240ms">
+                <KartuEksekutif judul="Media yang paling banyak memberitakan" :ikon="Globe2" rona="toska">
+                    <template #aksi>
+                        <TautanTujuan :href="`/eksekutif/media?${kueri()}`" rona="toska">Peringkat lengkap</TautanTujuan>
+                    </template>
+
+                    <ul v-if="peringkatMedia.length" class="grid gap-2 sm:grid-cols-2">
+                        <li v-for="(m, urutan) in peringkatMedia" :key="m.id">
+                            <Link
+                                :href="`/eksekutif/berita?${kueri({ media: m.id })}`"
+                                class="tekan flex items-center gap-3 rounded-xl px-2.5 py-2 hover:bg-muted"
+                            >
+                                <span
+                                    class="angka grid size-7 shrink-0 place-items-center rounded-lg bg-aksen-toska/10 text-xs font-semibold text-aksen-toska"
+                                >
+                                    {{ urutan + 1 }}
+                                </span>
+
+                                <span class="min-w-0 flex-1">
+                                    <span class="flex items-center gap-3">
+                                        <span class="min-w-0 flex-1 truncate text-sm font-medium">{{ m.nama }}</span>
+                                        <span class="angka shrink-0 text-xs text-muted-foreground">{{ formatAngka(m.jumlah_artikel) }} berita</span>
+                                    </span>
+
+                                    <!--
+                                        Satu batang, panjangnya total berita
+                                        media itu dibanding media teratas.
+                                        Pembagian nada dilepas atas permintaan:
+                                        daftar ini menjawab siapa yang paling
+                                        banyak menulis, dan nada pemberitaannya
+                                        sudah punya tempatnya sendiri di kop.
+                                    -->
+                                    <span class="mt-1.5 block h-2 overflow-hidden rounded-full bg-muted">
+                                        <span
+                                            class="tumbuh block h-full rounded-full bg-aksen-toska/70"
+                                            :style="{
+                                                width: `${(m.jumlah_artikel / puncakMedia) * 100}%`,
+                                                animationDelay: `${300 + urutan * 60}ms`,
+                                            }"
+                                        ></span>
+                                    </span>
+                                </span>
+                            </Link>
+                        </li>
+                    </ul>
+                    <p v-else class="py-4 text-sm text-muted-foreground">Belum ada media yang memberitakan Pemkot pada rentang ini.</p>
+                </KartuEksekutif>
+            </div>
+
             <!--
                 Penjelasan model ditempel tepat di sebelah angka yang
                 dijelaskannya. Batang di kop menjawab "berapa", tiga kolom ini
                 menjawab "kenapa", dan itu pertanyaan berikutnya yang pasti
                 muncul di kepala pembaca.
             -->
-            <section v-if="narasi?.nada_ringkas.positif" class="muncul space-y-3" style="animation-delay: 240ms">
+            <section v-if="narasi?.nada_ringkas.positif" class="muncul space-y-3" style="animation-delay: 300ms">
                 <h2 class="flex items-center gap-2.5 text-base font-semibold text-primary dark:text-aksen-biru">
                     <span class="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 dark:bg-aksen-biru/15">
                         <Info class="size-4" aria-hidden="true" />
@@ -741,12 +816,12 @@ function rupaTopik(nada: LabelSentimen) {
                         :key="bagian.kunci"
                         :class="bagian.kartu"
                         class="angkat muncul relative space-y-3 overflow-hidden rounded-2xl border p-5"
-                        :style="{ animationDelay: `${300 + urutan * 90}ms` }"
+                        :style="{ animationDelay: `${360 + urutan * 90}ms` }"
                     >
                         <span
                             :class="bagian.pita"
                             class="tumbuh absolute inset-x-0 top-0 h-[3px] bg-linear-to-r to-transparent"
-                            :style="{ animationDelay: `${360 + urutan * 90}ms` }"
+                            :style="{ animationDelay: `${420 + urutan * 90}ms` }"
                             aria-hidden="true"
                         ></span>
 
@@ -776,7 +851,7 @@ function rupaTopik(nada: LabelSentimen) {
                 ini tidak menjadi satu-satunya yang keluar dari keluarga bentuk
                 halaman.
             -->
-            <Card class="muncul relative overflow-hidden" style="animation-delay: 300ms">
+            <Card class="muncul relative overflow-hidden" style="animation-delay: 360ms">
                 <div
                     class="tumbuh pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-linear-to-r from-aksen-biru to-transparent"
                     aria-hidden="true"
@@ -786,7 +861,7 @@ function rupaTopik(nada: LabelSentimen) {
                     <ChartTrenSentimen judul="Perubahan dari waktu ke waktu" :data="deret.baris as never" :satuan="deret.satuan" :tinggi="280" />
                     <p class="text-xs leading-relaxed text-muted-foreground">
                         Tiap titik menghitung berita {{ namaSatuan }}. Tiap garis berdiri sendiri, jadi tinggi garis pada sumbu kiri adalah jumlah
-                        berita nada itu.
+                        berita dengan sentimen itu.
                     </p>
                     <p v-if="narasi?.penjelasan_tren" class="max-w-184 text-sm leading-relaxed">{{ narasi.penjelasan_tren }}</p>
                 </CardContent>
@@ -804,7 +879,7 @@ function rupaTopik(nada: LabelSentimen) {
                 pimpinan menyimpulkan keadaan memburuk, padahal pembagian
                 nadanya tidak bergerak sama sekali.
             -->
-            <Card class="muncul relative overflow-hidden" style="animation-delay: 340ms">
+            <Card class="muncul relative overflow-hidden" style="animation-delay: 400ms">
                 <div
                     class="tumbuh pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-linear-to-r from-aksen-toska to-transparent"
                     aria-hidden="true"
@@ -826,7 +901,7 @@ function rupaTopik(nada: LabelSentimen) {
                 isunya, dan seluruh angka di kartu dihitung Postgres setelah
                 pengelompokan dari Gemini divalidasi.
             -->
-            <section v-if="narasi?.topik.length" class="muncul space-y-3" style="animation-delay: 360ms">
+            <section v-if="narasi?.topik.length" class="muncul space-y-3" style="animation-delay: 440ms">
                 <h2 class="flex items-center gap-2.5 text-base font-semibold text-primary dark:text-aksen-biru">
                     <span class="grid size-7 shrink-0 place-items-center rounded-lg bg-aksen-ungu/10">
                         <Flame class="size-4 text-aksen-ungu" aria-hidden="true" />
@@ -912,55 +987,6 @@ function rupaTopik(nada: LabelSentimen) {
                 </div>
             </section>
 
-            <div class="muncul" style="animation-delay: 440ms">
-                <KartuEksekutif judul="Media yang paling banyak memberitakan" :ikon="Globe2" rona="toska">
-                    <template #aksi>
-                        <TautanTujuan :href="`/eksekutif/media?${kueri()}`" rona="toska">Peringkat lengkap</TautanTujuan>
-                    </template>
-
-                    <ul v-if="peringkatMedia.length" class="grid gap-2 sm:grid-cols-2">
-                        <li v-for="(m, urutan) in peringkatMedia" :key="m.id">
-                            <Link
-                                :href="`/eksekutif/berita?${kueri({ media: m.id })}`"
-                                class="tekan flex items-center gap-3 rounded-xl px-2.5 py-2 hover:bg-muted"
-                            >
-                                <span
-                                    class="angka grid size-7 shrink-0 place-items-center rounded-lg bg-aksen-toska/10 text-xs font-semibold text-aksen-toska"
-                                >
-                                    {{ urutan + 1 }}
-                                </span>
-
-                                <span class="min-w-0 flex-1">
-                                    <span class="flex items-center gap-3">
-                                        <span class="min-w-0 flex-1 truncate text-sm font-medium">{{ m.nama }}</span>
-                                        <span class="angka shrink-0 text-xs text-muted-foreground">{{ formatAngka(m.jumlah_artikel) }} berita</span>
-                                    </span>
-
-                                    <!--
-                                        Satu batang, panjangnya total berita
-                                        media itu dibanding media teratas.
-                                        Pembagian nada dilepas atas permintaan:
-                                        daftar ini menjawab siapa yang paling
-                                        banyak menulis, dan nada pemberitaannya
-                                        sudah punya tempatnya sendiri di kop.
-                                    -->
-                                    <span class="mt-1.5 block h-2 overflow-hidden rounded-full bg-muted">
-                                        <span
-                                            class="tumbuh block h-full rounded-full bg-aksen-toska/70"
-                                            :style="{
-                                                width: `${(m.jumlah_artikel / puncakMedia) * 100}%`,
-                                                animationDelay: `${500 + urutan * 60}ms`,
-                                            }"
-                                        ></span>
-                                    </span>
-                                </span>
-                            </Link>
-                        </li>
-                    </ul>
-                    <p v-else class="py-4 text-sm text-muted-foreground">Belum ada media yang memberitakan Pemkot pada rentang ini.</p>
-                </KartuEksekutif>
-            </div>
-
             <!--
                 Dua kelompok berdampingan, bukan satu daftar kronologis. Pada
                 rentang yang penuh kegiatan seremonial, satu-satunya berita
@@ -973,7 +999,7 @@ function rupaTopik(nada: LabelSentimen) {
                 bahwa keduanya menjawab pertanyaan yang berlawanan.
             -->
             <div class="muncul grid gap-4 lg:grid-cols-2" style="animation-delay: 500ms">
-                <KartuEksekutif v-if="beritaPerhatian.length" judul="Berita yang bernada negatif" :ikon="TriangleAlert" rona="negatif" bertinta>
+                <KartuEksekutif v-if="beritaPerhatian.length" judul="Berita bersentimen negatif" :ikon="TriangleAlert" rona="negatif" bertinta>
                     <template #aksi>
                         <TautanTujuan :href="`/eksekutif/berita?${kueri({ sentimen: 'negatif' })}`" rona="negatif">Semua</TautanTujuan>
                     </template>
@@ -986,6 +1012,7 @@ function rupaTopik(nada: LabelSentimen) {
                                 judul: berita.judul,
                                 url: berita.url,
                                 media: berita.media,
+                                mediaPartner: berita.media_partner,
                                 diambilAt: berita.diambil_at,
                                 label: berita.label,
                                 perluReview: berita.perlu_review,
@@ -996,7 +1023,7 @@ function rupaTopik(nada: LabelSentimen) {
                     </div>
                 </KartuEksekutif>
 
-                <KartuEksekutif v-if="beritaPositif.length" judul="Berita bernada positif" :ikon="ThumbsUp" rona="positif" bertinta>
+                <KartuEksekutif v-if="beritaPositif.length" judul="Berita bersentimen positif" :ikon="ThumbsUp" rona="positif" bertinta>
                     <template #aksi>
                         <TautanTujuan :href="`/eksekutif/berita?${kueri({ sentimen: 'positif' })}`" rona="positif">Semua</TautanTujuan>
                     </template>
@@ -1009,6 +1036,7 @@ function rupaTopik(nada: LabelSentimen) {
                                 judul: berita.judul,
                                 url: berita.url,
                                 media: berita.media,
+                                mediaPartner: berita.media_partner,
                                 diambilAt: berita.diambil_at,
                                 label: berita.label,
                                 perluReview: berita.perlu_review,
@@ -1056,6 +1084,7 @@ function rupaTopik(nada: LabelSentimen) {
                                     judul: berita.judul,
                                     url: berita.url,
                                     media: berita.media,
+                                    mediaPartner: berita.media_partner,
                                     diambilAt: berita.diambil_at,
                                     label: berita.label,
                                     perluReview: berita.perlu_review,

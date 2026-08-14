@@ -14,7 +14,21 @@ class AuthenticationTest extends TestCase
     {
         $response = $this->get('/login');
 
-        $response->assertStatus(200);
+        $this->assertSame('id', app()->getLocale());
+        $response
+            ->assertStatus(200)
+            ->assertSee('<html lang="id">', false);
+    }
+
+    public function test_pesan_validasi_login_menggunakan_bahasa_indonesia(): void
+    {
+        $this->from('/login')
+            ->post('/login', [])
+            ->assertRedirect('/login')
+            ->assertSessionHasErrors([
+                'username' => 'Kolom username wajib diisi.',
+                'password' => 'Kolom kata sandi wajib diisi.',
+            ]);
     }
 
     public function test_users_can_authenticate_using_the_login_screen()

@@ -80,8 +80,8 @@ final class AnalisEksekutif implements Agent, HasStructuredOutput
 
         8. Pakai hanya statistik yang diberikan. Jangan menghitung ulang, jangan
            menjumlahkan sendiri, jangan menyebut angka yang tidak ada di sana.
-        9. Ini pemberitaan media, bukan pendapat warga. Tulis "pemberitaan",
-           "nada pemberitaan", atau "sentimen pemberitaan". Jangan sekali pun
+        9. Ini pemberitaan media, bukan pendapat warga. Tulis "pemberitaan"
+           atau "sentimen pemberitaan" secara konsisten. Jangan sekali pun
            menulis "sentimen masyarakat" atau "opini publik".
         10. Jangan menilai secara politik dan jangan memakai bahasa dramatis.
         11. Jangan menyatakan sebab yang tidak tertulis di artikel.

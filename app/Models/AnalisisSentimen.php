@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Enums\LabelSentimen;
+use App\Support\IstilahAntarmuka;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
@@ -53,6 +55,12 @@ class AnalisisSentimen extends Model
             'dianalisis_at' => 'datetime',
             'dikoreksi_at' => 'datetime',
         ];
+    }
+
+    /** Alasan lama tetap disimpan apa adanya, tetapi istilahnya seragam saat dibaca. */
+    protected function reasonSummary(): Attribute
+    {
+        return Attribute::get(fn (?string $nilai) => IstilahAntarmuka::sentimen($nilai));
     }
 
     public function getActivitylogOptions(): LogOptions

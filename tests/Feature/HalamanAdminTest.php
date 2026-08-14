@@ -25,7 +25,12 @@ class HalamanAdminTest extends TestCase
     {
         parent::setUp();
 
-        $media = Media::create(['nama' => 'Contoh', 'slug' => 'contoh', 'domain' => 'contoh.id']);
+        $media = Media::create([
+            'nama' => 'Contoh',
+            'slug' => 'contoh',
+            'domain' => 'contoh.id',
+            'partner' => true,
+        ]);
 
         $sumber = SumberFeed::create([
             'media_id' => $media->id, 'nama' => 'Contoh RSS', 'tipe' => 'rss',
@@ -70,6 +75,27 @@ class HalamanAdminTest extends TestCase
         foreach ($halaman as $url) {
             $this->get($url)->assertOk("Halaman {$url} tidak mengembalikan 200.");
         }
+    }
+
+    /** Status kerja sama ikut sampai ke tabel artikel dan media. */
+    public function test_status_kerja_sama_media_dikirim_ke_halaman_admin(): void
+    {
+        $admin = User::factory()->create();
+
+        $this->actingAs($admin)
+            ->get('/admin/artikel')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('artikel.data.0.media', 'Contoh')
+                ->where('artikel.data.0.media_partner', true));
+
+        $this->actingAs($admin)
+            ->get('/admin/media')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('media.data.0.partner', true)
+                ->where('opsi.partner.0.label', 'Bekerja sama')
+                ->where('opsi.partner.1.label', 'Tidak bekerja sama'));
     }
 
     public function test_halaman_eksekutif_dan_portal_terbuka_untuk_perannya(): void

@@ -20,6 +20,7 @@ import {
     BrainCircuit,
     ExternalLink,
     Filter,
+    Handshake,
     Loader2,
     Minus,
     Newspaper,
@@ -55,6 +56,7 @@ interface BarisArtikel {
     judul: string;
     url: string;
     media: string | null;
+    media_partner: boolean;
     ditambahkan_media: boolean;
     dipublikasikan_at: string | null;
     diambil_at: string;
@@ -574,7 +576,7 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
         <div class="space-y-4">
             <KopHalaman
                 judul="Berita"
-                keterangan="Arsip berita beserta putusan relevansi dan nadanya. Setiap baris bisa dinilai ulang lewat Gemini penuh atau kombinasi IndoBERT dan Gemini."
+                keterangan="Arsip berita beserta putusan relevansi dan sentimennya. Setiap baris bisa dinilai ulang lewat Gemini penuh atau kombinasi IndoBERT dan Gemini."
             >
                 <PilKop :ikon="Target">Yang dinilai: {{ pantauan }}</PilKop>
                 <PilKop :ikon="Newspaper">
@@ -840,8 +842,17 @@ watch([dari, sampai], ([d, s]) => pindah({ dari: d || null, sampai: s || null })
                      hampir selalu berbunyi sama hanya memakan lebar tanpa
                      memberi tahu apa pun. -->
                 <template #sel-media="{ baris }">
-                    <span class="text-sm text-muted-foreground">{{ baris.media ?? '-' }}</span>
-                    <Badge v-if="baris.ditambahkan_media" variant="outline" class="ml-1.5 font-normal"> Dari media </Badge>
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <span class="text-sm text-muted-foreground">{{ baris.media ?? '-' }}</span>
+                        <span
+                            v-if="baris.media_partner"
+                            class="inline-flex items-center gap-1 rounded-md bg-aksen-toska/10 px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap text-aksen-toska"
+                        >
+                            <Handshake class="size-3 shrink-0" aria-hidden="true" />
+                            Bekerja sama
+                        </span>
+                        <Badge v-if="baris.ditambahkan_media" variant="outline" class="font-normal"> Dari media </Badge>
+                    </div>
                 </template>
 
                 <!-- Tanda hubung untuk tanggal terbit yang kosong, bukan

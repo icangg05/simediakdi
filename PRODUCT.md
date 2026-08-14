@@ -12,15 +12,15 @@ Tiga peran pengguna, masing-masing dengan situasi pemakaian yang sangat berbeda.
 
 **Admin Diskominfo (peran `superadmin`).** Staf yang mengelola sistem setiap hari kerja, sesi 20 sampai 60 menit, dari komputer kantor. Nyaman dengan spreadsheet, tanpa latar belakang teknis. Pekerjaannya: mendaftarkan media dan sumber RSS, memverifikasi klaim pemuatan dari media, mengoreksi label relevansi dan sentimen yang salah, serta menyiapkan rekap saat pimpinan meminta. Frustrasi terbesarnya adalah form panjang tanpa penyimpanan otomatis, tabel yang tidak bisa difilter, dan error tanpa penjelasan.
 
-**Walikota dan staf khusus (peran `walikota`).** Membuka sistem dari ponsel, sering di sela kegiatan, sesi di bawah tiga menit. Tidak akan membaca manual, tidak akan mengisi form apa pun, tidak akan mencari menu tersembunyi. Butuh jawaban tiga pertanyaan dalam satu layar: berapa berita hari ini, nadanya bagaimana dibanding minggu lalu, isu apa yang sedang naik. Berhenti memakai sistem kalau loading lebih dari empat detik, grafik tidak terbaca di layar 6 inci, atau angka terasa tidak masuk akal tanpa cara mengeceknya.
+**Walikota dan staf khusus (peran `walikota`).** Membuka sistem dari ponsel, sering di sela kegiatan, sesi di bawah tiga menit. Tidak akan membaca manual, tidak akan mengisi form apa pun, tidak akan mencari menu tersembunyi. Butuh jawaban tiga pertanyaan dalam satu layar: berapa berita hari ini, sentimennya bagaimana dibanding minggu lalu, isu apa yang sedang naik. Berhenti memakai sistem kalau loading lebih dari empat detik, grafik tidak terbaca di layar 6 inci, atau angka terasa tidak masuk akal tanpa cara mengeceknya.
 
 **Pengelola media partner (peran `media`).** Redaktur atau staf administrasi di media yang punya kontrak dengan Pemkot. Membuka sistem beberapa kali sebulan, terutama mendekati akhir periode kontrak. Butuh melihat berapa pemuatan yang sudah tercatat terhadap targetnya, dan melaporkan pemuatan yang belum terdeteksi sistem. Kesal kalau berita yang sudah dimuat tidak terhitung tanpa cara mengajukan koreksi.
 
 ## Product Purpose
 
-SIMEDIA Kendari adalah sistem monitoring dan analisis sentimen media untuk Pemerintah Kota Kendari. Sistem mengumpulkan berita tentang Kendari secara otomatis, menilai relevansinya terhadap Pemkot, menganalisis nadanya, memverifikasi realisasi kontrak kerja sama publikasi dengan media, dan memberi peringatan dini saat berita negatif melonjak.
+SIMEDIA Kendari adalah sistem monitoring dan analisis sentimen media untuk Pemerintah Kota Kendari. Sistem mengumpulkan berita tentang Kendari secara otomatis, menilai relevansinya terhadap Pemkot, menganalisis sentimennya, memverifikasi realisasi kontrak kerja sama publikasi dengan media, dan memberi peringatan dini saat berita negatif melonjak.
 
-Sistem ini menggantikan proses manual: staf mencari berita, menyalin tautan ke spreadsheet, lalu menyusun rekap bulanan. Cara lama menimbulkan tiga masalah yang produk ini ada untuk menutupnya. Verifikasi realisasi kontrak lambat dan mudah diperdebatkan karena tidak ada catatan tunggal yang bisa dirujuk kedua pihak. Berita negatif baru diketahui setelah menyebar. Tidak ada gambaran isu apa yang sedang ramai, karena rekap bulanan menghitung jumlah berita, bukan tema atau nadanya.
+Sistem ini menggantikan proses manual: staf mencari berita, menyalin tautan ke spreadsheet, lalu menyusun rekap bulanan. Cara lama menimbulkan tiga masalah yang produk ini ada untuk menutupnya. Verifikasi realisasi kontrak lambat dan mudah diperdebatkan karena tidak ada catatan tunggal yang bisa dirujuk kedua pihak. Berita negatif baru diketahui setelah menyebar. Tidak ada gambaran isu apa yang sedang ramai, karena rekap bulanan menghitung jumlah berita, bukan tema atau sentimennya.
 
 Keberhasilan diukur dengan indikator berikut. Lebih dari 90% berita dari media terdaftar masuk sistem dalam 2 jam sejak publikasi. Rekap per media bisa dibuka kapan saja tanpa pekerjaan manual. Notifikasi berita negatif terkirim dalam 30 menit sejak terdeteksi. Satu halaman eksekutif bisa dibaca pimpinan di bawah dua menit. Waktu penyusunan rekap bulanan turun dari beberapa hari menjadi di bawah 30 menit. Peran walikota login minimal 12 kali per bulan.
 
@@ -84,7 +84,7 @@ Dark mode sudah menjadi bagian sistem, bawaan starter kit.
 
 ## Product Principles
 
-1. **Sistem mengukur nada dan volume pemberitaan, bukan menilai kinerja pemerintah.** Perbedaan itu wajib jelas di antarmuka. Tidak ada halaman yang boleh terbaca sebagai kesimpulan kebijakan.
+1. **Sistem mengukur sentimen dan volume pemberitaan, bukan menilai kinerja pemerintah.** Perbedaan itu wajib jelas di antarmuka. Tidak ada halaman yang boleh terbaca sebagai kesimpulan kebijakan.
 
 2. **Angka yang tidak bisa dipercaya lebih buruk daripada angka yang tidak ada.** Hasil model dengan keyakinan di bawah ambang ditandai perlu review dan tidak ditampilkan sebagai fakta. Setiap angka di dashboard harus punya jalan untuk dicek asalnya, karena satu angka yang terasa janggal tanpa cara memverifikasinya cukup untuk membuat pimpinan berhenti memakai sistem.
 

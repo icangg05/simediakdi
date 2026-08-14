@@ -190,8 +190,8 @@ function keAtas() {
                             Cara data ini dinilai
                         </p>
                         <p class="text-xs leading-relaxed text-white/75">
-                            Nada pemberitaan diklasifikasikan otomatis oleh kecerdasan buatan, lalu dapat dikoreksi administrator. Sumbernya portal
-                            media daring, bukan opini masyarakat.
+                            Sentimen pemberitaan diklasifikasikan otomatis oleh kecerdasan buatan, lalu dapat dikoreksi administrator. Sumbernya
+                            portal media daring, bukan opini masyarakat.
                         </p>
                     </div>
 
@@ -203,7 +203,7 @@ function keAtas() {
                             Batas pemakaian
                         </p>
                         <p class="text-xs leading-relaxed text-white/75">
-                            Angka di panel ini mengukur nada dan volume pemberitaan, bukan kinerja pemerintah. Hasilnya untuk pemantauan internal,
+                            Angka di panel ini mengukur sentimen dan volume pemberitaan, bukan kinerja pemerintah. Hasilnya untuk pemantauan internal,
                             bukan data statistik resmi.
                         </p>
                     </div>

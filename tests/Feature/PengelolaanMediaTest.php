@@ -162,6 +162,61 @@ class PengelolaanMediaTest extends TestCase
         Queue::assertPushed(TemukanFeedMedia::class);
     }
 
+    public function test_media_baru_selalu_online_dan_slug_duplikat_diberi_nomor(): void
+    {
+        Queue::fake();
+        $this->actingAs(User::factory()->create());
+
+        // Baris soft-delete tetap menahan slug karena indeks unik database
+        // tidak menghapus nilainya.
+        $this->media([
+            'nama' => 'Media Baru',
+            'slug' => 'media-baru',
+            'domain' => 'media-lama.id',
+        ])->delete();
+
+        $this->get('/admin/media/create')
+            ->assertInertia(fn ($halaman) => $halaman
+                ->component('admin/media/Form')
+                ->where('slugTerpakai.0', 'media-baru'));
+
+        $this->post('/admin/media', [
+            'nama' => 'Media Baru',
+            // Keduanya sengaja dimanipulasi. Server harus memakai nilai hasil
+            // perhitungannya sendiri karena field slug terkunci di antarmuka
+            // dan field jenis tidak lagi ditampilkan.
+            'slug' => 'slug-palsu',
+            'jenis' => 'radio',
+            'tier' => 'lokal',
+            'domain' => 'media-baru.id',
+            'aktif' => true,
+        ])->assertRedirect();
+
+        $media = Media::withoutGlobalScopes()->where('domain', 'media-baru.id')->firstOrFail();
+
+        $this->assertSame('online', $media->jenis);
+        $this->assertSame('media-baru-2', $media->slug);
+        $this->assertSame(1, Media::withoutGlobalScopes()->where('slug', 'media-baru-2')->count());
+    }
+
+    public function test_pesan_validasi_media_menggunakan_bahasa_indonesia(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $this->from('/admin/media/create')
+            ->post('/admin/media', [
+                'nama' => '',
+                'tier' => 'bukan-tier',
+                'url_website' => 'alamat situs tidak valid',
+            ])
+            ->assertRedirect('/admin/media/create')
+            ->assertSessionHasErrors([
+                'nama' => 'Kolom nama wajib diisi.',
+                'tier' => 'Pilihan tier media tidak valid.',
+                'url_website' => 'Kolom URL situs web harus berupa URL yang valid.',
+            ]);
+    }
+
     /** Alamat hasil isian tangan tidak boleh ditimpa hasil tebakan. */
     public function test_pencarian_feed_tidak_menimpa_sumber_yang_sudah_ada(): void
     {

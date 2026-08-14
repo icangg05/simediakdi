@@ -60,7 +60,7 @@ class SentimenController extends Controller
             // Baris analisisnya ikut dimuat karena alasan model atas labelnya
             // tampil di tiap baris berita, sama seperti di dashboard. Tanpa
             // eager load ini, dua puluh baris berarti dua puluh kueri.
-            ->with(['media:id,nama', 'analisisSentimen' => fn ($q) => $q->where('relevan', true)])
+            ->with(['media:id,nama,partner', 'analisisSentimen' => fn ($q) => $q->where('relevan', true)])
             ->terbitAntara($periode->mulaiUtc(), $periode->akhirUtc())
             ->orderByDesc('diambil_at');
     }
@@ -73,6 +73,7 @@ class SentimenController extends Controller
             'judul' => $artikel->judul,
             'url' => $artikel->url,
             'media' => $artikel->media?->nama,
+            'media_partner' => (bool) $artikel->media?->partner,
             'diambil_at' => $artikel->diambil_at,
             // Alasan model atas label yang diberikannya. Untuk artikel relevan
             // kolom ini sudah ditimpa tahap sentimen, jadi isinya menjelaskan

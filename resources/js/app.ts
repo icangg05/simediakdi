@@ -52,7 +52,9 @@ createInertiaApp({
             .mount(el);
     },
     progress: {
-        color: '#4B5563',
+        // Status navigasi memakai aksen antarmuka, bukan abu generik atau
+        // warna sentimen. Token ini ikut dicerahkan saat mode gelap aktif.
+        color: 'var(--color-aksen-biru)',
     },
 });
 

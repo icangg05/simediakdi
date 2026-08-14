@@ -436,7 +436,7 @@ async function salin() {
                                 </template>
 
                                 <p v-else class="mt-0.5 text-xs text-muted-foreground">
-                                    Tidak dinilai nadanya. Artikel yang tidak membahas Pemkot tidak punya nada terhadap Pemkot.
+                                    Tidak dinilai sentimennya. Artikel yang tidak membahas Pemkot tidak punya sentimen terhadap Pemkot.
                                 </p>
                             </li>
 
@@ -620,8 +620,8 @@ async function salin() {
                         </div>
 
                         <p class="text-xs text-muted-foreground">
-                            Gemini penuh menilai relevansi dan nada sekaligus. IndoBERT menentukan relevansinya lebih dulu, dan Gemini hanya dipanggil
-                            bila beritanya relevan, sehingga lebih hemat kuota.
+                            Gemini penuh menilai relevansi dan sentimen sekaligus. IndoBERT menentukan relevansinya lebih dulu, dan Gemini hanya
+                            dipanggil bila beritanya relevan, sehingga lebih hemat kuota.
                         </p>
                     </div>
                 </Card>

@@ -9,7 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import LayoutAdmin from '@/layouts/LayoutAdmin.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { Handshake, Link2, Loader2, MapPin, Power } from 'lucide-vue-next';
+import { Handshake, Link2, Loader2, LockKeyhole, MapPin, Power } from 'lucide-vue-next';
+import { watch } from 'vue';
 
 interface Media {
     id: number;
@@ -28,7 +29,7 @@ interface Media {
     aktif: boolean;
 }
 
-const props = defineProps<{ media: Media | null }>();
+const props = defineProps<{ media: Media | null; slugTerpakai: string[] }>();
 
 const form = useForm({
     nama: props.media?.nama ?? '',
@@ -45,6 +46,45 @@ const form = useForm({
     catatan: props.media?.catatan ?? '',
     aktif: props.media?.aktif ?? true,
 });
+
+const slugTerpakai = new Set(props.slugTerpakai);
+
+/** Padanan ringan Str::slug untuk pratinjau sebelum server memvalidasi lagi. */
+function buatSlug(nama: string): string {
+    return nama
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 150)
+        .replace(/-+$/g, '');
+}
+
+function buatSlugUnik(nama: string): string {
+    const dasar = buatSlug(nama);
+
+    if (!dasar) return '';
+
+    let calon = dasar;
+    let urutan = 2;
+
+    while (slugTerpakai.has(calon)) {
+        const akhiran = `-${urutan}`;
+        calon = `${dasar.slice(0, 150 - akhiran.length).replace(/-+$/g, '')}${akhiran}`;
+        urutan++;
+    }
+
+    return calon;
+}
+
+watch(
+    () => form.nama,
+    (nama) => {
+        form.slug = props.media && nama.trim() === props.media.nama ? props.media.slug : buatSlugUnik(nama);
+    },
+    { immediate: true },
+);
 
 function simpan() {
     if (props.media) {
@@ -91,19 +131,35 @@ function simpan() {
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div class="grid gap-1.5 sm:col-span-2">
                                 <Label for="nama">Nama media</Label>
-                                <Input id="nama" v-model="form.nama" required autofocus />
+                                <Input id="nama" v-model="form.nama" required autofocus placeholder="Kendari Pos" />
                                 <InputError :message="form.errors.nama" />
                             </div>
 
                             <div class="grid gap-1.5">
                                 <Label for="slug">Slug</Label>
-                                <Input id="slug" v-model="form.slug" placeholder="Dibuat otomatis dari nama" />
+                                <div class="relative">
+                                    <Input
+                                        id="slug"
+                                        v-model="form.slug"
+                                        disabled
+                                        aria-describedby="slug-keterangan"
+                                        placeholder="kendari-pos"
+                                        class="pr-9 disabled:bg-muted/50 disabled:text-muted-foreground disabled:opacity-100"
+                                    />
+                                    <LockKeyhole
+                                        class="pointer-events-none absolute top-1/2 right-3 size-3.5 -translate-y-1/2 text-muted-foreground"
+                                        aria-hidden="true"
+                                    />
+                                </div>
+                                <p id="slug-keterangan" class="text-xs text-muted-foreground">
+                                    Dibuat otomatis dari nama dan diberi nomor jika sudah dipakai media lain.
+                                </p>
                                 <InputError :message="form.errors.slug" />
                             </div>
 
                             <div class="grid gap-1.5">
                                 <Label for="url_website">URL situs</Label>
-                                <Input id="url_website" v-model="form.url_website" type="url" placeholder="https://…" />
+                                <Input id="url_website" v-model="form.url_website" type="url" placeholder="https://kendaripos.co.id" />
                                 <InputError :message="form.errors.url_website" />
                             </div>
 
@@ -117,24 +173,10 @@ function simpan() {
                                 <InputError :message="form.errors.domain" />
                             </div>
 
-                            <div class="grid gap-1.5">
-                                <Label for="jenis">Jenis</Label>
-                                <Select id="jenis" v-model="form.jenis">
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="online">Online</SelectItem>
-                                        <SelectItem value="cetak">Cetak</SelectItem>
-                                        <SelectItem value="tv">TV</SelectItem>
-                                        <SelectItem value="radio">Radio</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <InputError :message="form.errors.jenis" />
-                            </div>
-
-                            <div class="grid gap-1.5">
+                            <div class="grid gap-1.5 sm:col-span-2">
                                 <Label for="tier">Tier</Label>
                                 <Select id="tier" v-model="form.tier">
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectTrigger><SelectValue placeholder="Pilih cakupan media" /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="nasional">Nasional</SelectItem>
                                         <SelectItem value="regional">Regional</SelectItem>
@@ -157,22 +199,26 @@ function simpan() {
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div class="grid gap-1.5">
                                 <Label for="kota">Kota</Label>
-                                <Input id="kota" v-model="form.kota" />
+                                <Input id="kota" v-model="form.kota" placeholder="Kendari" />
+                                <InputError :message="form.errors.kota" />
                             </div>
 
                             <div class="grid gap-1.5">
                                 <Label for="provinsi">Provinsi</Label>
-                                <Input id="provinsi" v-model="form.provinsi" />
+                                <Input id="provinsi" v-model="form.provinsi" placeholder="Sulawesi Tenggara" />
+                                <InputError :message="form.errors.provinsi" />
                             </div>
 
                             <div class="grid gap-1.5">
                                 <Label for="nama_pic">Nama PIC</Label>
-                                <Input id="nama_pic" v-model="form.nama_pic" />
+                                <Input id="nama_pic" v-model="form.nama_pic" placeholder="Andi Rahman" />
+                                <InputError :message="form.errors.nama_pic" />
                             </div>
 
                             <div class="grid gap-1.5">
                                 <Label for="kontak_pic">Kontak PIC</Label>
-                                <Input id="kontak_pic" v-model="form.kontak_pic" />
+                                <Input id="kontak_pic" v-model="form.kontak_pic" placeholder="0812 3456 7890 atau pic@media.id" />
+                                <InputError :message="form.errors.kontak_pic" />
                             </div>
 
                             <div class="grid gap-1.5 sm:col-span-2">
@@ -184,6 +230,7 @@ function simpan() {
                                     class="rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed shadow-xs outline-hidden transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                                     placeholder="Jenis situs dan jalur pengambilannya, misalnya: SPA tanpa feed, andalkan portal pelaporan."
                                 />
+                                <InputError :message="form.errors.catatan" />
                             </div>
                         </div>
                     </section>

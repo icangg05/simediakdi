@@ -23,7 +23,7 @@ class ArsipBeritaController extends Controller
         // Kalau tidak, jumlah baris di sini tidak akan pernah cocok dengan KPI.
         $kueri = Artikel::query()
             ->relevanBerlabel()
-            ->with(['media:id,nama', 'analisisSentimen' => fn ($q) => $q
+            ->with(['media:id,nama,partner', 'analisisSentimen' => fn ($q) => $q
                 ->where('relevan', true),
             ])
             ->terbitAntara($periode->mulaiUtc(), $periode->akhirUtc())
@@ -56,6 +56,7 @@ class ArsipBeritaController extends Controller
                 'judul' => $a->judul,
                 'url' => $a->url,
                 'media' => $a->media?->nama,
+                'media_partner' => (bool) $a->media?->partner,
                 'diambil_at' => $a->diambil_at,
                 'label' => $a->analisisSentimen->first()?->label_efektif?->value,
                 'perlu_review' => (bool) $a->analisisSentimen->first()?->perlu_review,

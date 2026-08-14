@@ -72,7 +72,7 @@ const aktif = computed(() => hrefAktif(mainNavItems.value, page.url));
  */
 const KETERANGAN: Record<string, string> = {
     '/eksekutif': 'Kondisi pemberitaan hari ini',
-    '/eksekutif/sentimen': 'Rincian nada pemberitaan',
+    '/eksekutif/sentimen': 'Rincian sentimen pemberitaan',
     '/eksekutif/media': 'Siapa yang paling banyak menulis',
     '/eksekutif/berita': 'Cari dan saring seluruh berita',
 };

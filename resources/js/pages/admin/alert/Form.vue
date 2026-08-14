@@ -75,7 +75,7 @@ const JENIS: { nilai: string; label: string; keterangan: string; ikon: Component
     {
         nilai: 'kata_kunci_muncul',
         label: 'Kata kunci muncul di judul',
-        keterangan: 'Mengawasi daftar istilah, terlepas dari nada beritanya.',
+        keterangan: 'Mengawasi daftar istilah, terlepas dari sentimen beritanya.',
         ikon: Search,
         kelas: 'border-aksen-biru/50 bg-aksen-biru/5',
         ikonKelas: 'text-aksen-biru',

@@ -9,7 +9,19 @@ import LayoutAdmin from '@/layouts/LayoutAdmin.vue';
 import { Head, Link, usePoll } from '@inertiajs/vue3';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { ChevronRight, CircleX, Gauge, HelpCircle, KeyRound, ListOrdered, Loader2, ThumbsDown, ThumbsUp, TriangleAlert } from 'lucide-vue-next';
+import {
+    ChevronRight,
+    CircleX,
+    Gauge,
+    Handshake,
+    HelpCircle,
+    KeyRound,
+    ListOrdered,
+    Loader2,
+    ThumbsDown,
+    ThumbsUp,
+    TriangleAlert,
+} from 'lucide-vue-next';
 import { computed, ref, type Component } from 'vue';
 
 interface Baris {
@@ -17,6 +29,7 @@ interface Baris {
     artikel_id: number;
     judul: string;
     media: string | null;
+    media_partner: boolean;
     prioritas: number;
     status: string;
     percobaan: number;
@@ -75,6 +88,7 @@ interface BarisGagal {
     artikel_id: number;
     judul: string;
     media: string | null;
+    media_partner: boolean;
     prioritas: number;
     percobaan: number;
     galat: string | null;
@@ -690,6 +704,13 @@ const NADA: Record<string, { label: string; kelas: string; ikon: Component }> = 
                                 <BadgeSentimen v-if="b.sentimen" :label="b.sentimen" />
 
                                 <span class="text-xs text-muted-foreground">{{ b.media ?? '-' }}</span>
+                                <span
+                                    v-if="b.media_partner"
+                                    class="inline-flex items-center gap-1 rounded-md bg-aksen-toska/10 px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap text-aksen-toska"
+                                >
+                                    <Handshake class="size-3 shrink-0" aria-hidden="true" />
+                                    Bekerja sama
+                                </span>
 
                                 <!-- Nomor prioritas ikut ditampilkan supaya
                                      terlihat bahwa antrean benar-benar
@@ -749,6 +770,13 @@ const NADA: Record<string, { label: string; kelas: string; ikon: Component }> = 
                                 <p class="line-clamp-2 text-sm font-medium">{{ b.judul }}</p>
                                 <p class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
                                     <span v-if="b.media">{{ b.media }}</span>
+                                    <span
+                                        v-if="b.media_partner"
+                                        class="inline-flex items-center gap-1 rounded-md bg-aksen-toska/10 px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap text-aksen-toska"
+                                    >
+                                        <Handshake class="size-3 shrink-0" aria-hidden="true" />
+                                        Bekerja sama
+                                    </span>
                                     <span v-if="b.media" aria-hidden="true">/</span>
                                     <span class="angka">{{ tanggal(b.waktu) }}</span>
                                     <span aria-hidden="true">/</span>

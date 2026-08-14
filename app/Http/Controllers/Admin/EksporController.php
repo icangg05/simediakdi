@@ -36,7 +36,7 @@ class EksporController extends Controller
 
         $penulis = SimpleExcelWriter::create($jalur)->addHeader([
             'Judul', 'Media', 'Penulis', 'Terbit', 'Diambil', 'Jumlah kata',
-            'Konteks', 'Nada', 'Kode alasan', 'Perlu review', 'URL',
+            'Konteks', 'Sentimen', 'Kode alasan', 'Perlu review', 'URL',
         ]);
 
         Artikel::query()

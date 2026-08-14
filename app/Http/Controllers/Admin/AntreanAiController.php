@@ -60,7 +60,7 @@ class AntreanAiController extends Controller
     public function gagal(): JsonResponse
     {
         $baris = AntreanGemini::query()
-            ->with(['artikel:id,judul,media_id', 'artikel.media:id,nama'])
+            ->with(['artikel:id,judul,media_id', 'artikel.media:id,nama,partner'])
             ->where('status', 'gagal')
             ->where('percobaan', '>=', AntreanGemini::MAKS_PERCOBAAN)
             ->orderByRaw('coalesce(selesai_at, dimulai_at) desc nulls last')
@@ -71,6 +71,7 @@ class AntreanAiController extends Controller
                 'artikel_id' => $b->artikel_id,
                 'judul' => $b->artikel?->judul ?? 'Artikel sudah dihapus',
                 'media' => $b->artikel?->media?->nama,
+                'media_partner' => (bool) $b->artikel?->media?->partner,
                 'prioritas' => $b->prioritas,
                 'percobaan' => $b->percobaan,
                 'galat' => $b->galat,
@@ -301,7 +302,7 @@ class AntreanAiController extends Controller
     private function terbaru(): array
     {
         return AntreanGemini::query()
-            ->with(['artikel:id,judul,media_id,status_proses', 'artikel.media:id,nama', 'artikel.analisisSentimen'])
+            ->with(['artikel:id,judul,media_id,status_proses', 'artikel.media:id,nama,partner', 'artikel.analisisSentimen'])
             ->whereIn('status', ['berjalan', 'selesai', 'gagal'])
             ->orderByRaw('coalesce(selesai_at, dimulai_at) desc nulls last')
             ->limit(15)
@@ -314,6 +315,7 @@ class AntreanAiController extends Controller
                     'artikel_id' => $baris->artikel_id,
                     'judul' => $baris->artikel?->judul ?? 'Artikel sudah dihapus',
                     'media' => $baris->artikel?->media?->nama,
+                    'media_partner' => (bool) $baris->artikel?->media?->partner,
                     'prioritas' => $baris->prioritas,
                     'status' => $baris->status,
                     'percobaan' => $baris->percobaan,

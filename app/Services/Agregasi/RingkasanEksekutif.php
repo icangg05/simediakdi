@@ -236,6 +236,7 @@ class RingkasanEksekutif
         $panjang = $dari->diffInDays($sampai) + 1;
         $sekarang = $this->total($dari, $sampai);
         $sebelumnya = $this->total($dari->subDays($panjang), $dari->subDay());
+        $media = $this->statistikMedia($dari, $sampai);
 
         $totalBerlabel = $sekarang['berlabel'];
 
@@ -260,7 +261,7 @@ class RingkasanEksekutif
             'positif_selisih' => $sekarang['positif'] - $sebelumnya['positif'],
             'netral' => $sekarang['netral'],
             'perlu_review' => $sekarang['perlu_review'],
-            'media_aktif' => $this->mediaAktif($dari, $sampai),
+            ...$media,
         ];
     }
 
@@ -291,25 +292,42 @@ class RingkasanEksekutif
     }
 
     /**
-     * Media yang memuat minimal satu berita relevan berlabel pada periode itu.
+     * Cakupan media aktif dan pembagian status kerja samanya.
      *
-     * Dihitung dari ketiga kolom label, bukan dari `jumlah_artikel`. Kolom itu
-     * memuat seluruh hasil crawl termasuk yang tidak relevan dan yang belum
-     * diklasifikasi, sedangkan angka utama panel ini berita berlabel. Bedanya
-     * terlihat di layar: enam berita hari ini pernah ditemani "16 media aktif",
-     * dan sepuluh di antaranya tidak menyumbang satu pun berita yang dihitung.
+     * Pembilang memuat media aktif dengan minimal satu berita relevan berlabel
+     * pada periode itu. Penyebut dan dua angka kerja sama memuat seluruh media
+     * aktif terdaftar. Dihitung dari ketiga kolom label, bukan dari
+     * `jumlah_artikel`, supaya populasi pembilang sama dengan angka utama panel.
+     *
+     * @return array{media_aktif: int, media_total_aktif: int, media_bekerja_sama: int, media_tidak_bekerja_sama: int}
      */
-    private function mediaAktif(CarbonImmutable $dari, CarbonImmutable $sampai): int
+    private function statistikMedia(CarbonImmutable $dari, CarbonImmutable $sampai): array
     {
-        return DB::query()->fromSub(
-            DB::table('ringkasan_harian')
-                ->select('media_id')
-                ->whereNotNull('media_id')
-                ->whereBetween('tanggal', [$dari->toDateString(), $sampai->toDateString()])
-                ->groupBy('media_id')
-                ->havingRaw('sum(jumlah_negatif + jumlah_netral + jumlah_positif) > 0'),
-            'media_berlabel',
-        )->count();
+        $memberitakan = DB::table('ringkasan_harian')
+            ->select('media_id')
+            ->whereNotNull('media_id')
+            ->whereBetween('tanggal', [$dari->toDateString(), $sampai->toDateString()])
+            ->groupBy('media_id')
+            ->havingRaw('sum(jumlah_negatif + jumlah_netral + jumlah_positif) > 0');
+
+        $baris = DB::table('media as m')
+            ->leftJoinSub($memberitakan, 'media_berlabel', fn ($sambung) => $sambung
+                ->on('media_berlabel.media_id', '=', 'm.id'))
+            // Media yang dinonaktifkan tidak menjadi penyebut. Ia memang masih
+            // tersimpan untuk riwayat, tetapi tidak lagi diharapkan memasok
+            // berita. Soft delete perlu disebut sendiri karena DB::table tidak
+            // menjalankan global scope model.
+            ->where('m.aktif', true)
+            ->whereNull('m.deleted_at')
+            ->selectRaw('
+                count(media_berlabel.media_id) AS media_aktif,
+                count(*) AS media_total_aktif,
+                coalesce(sum(case when m.partner then 1 else 0 end), 0) AS media_bekerja_sama,
+                coalesce(sum(case when not m.partner then 1 else 0 end), 0) AS media_tidak_bekerja_sama
+            ')
+            ->first();
+
+        return array_map('intval', (array) $baris);
     }
 
     /**
@@ -341,7 +359,7 @@ class RingkasanEksekutif
             // jadi barisnya masih ada di tabel dan `DB::table` tidak mengenal
             // global scope milik model.
             ->whereNull('m.deleted_at')
-            ->groupBy('m.id', 'm.nama', 'm.tier')
+            ->groupBy('m.id', 'm.nama', 'm.tier', 'm.partner')
             ->orderByRaw("coalesce({$jumlahBerlabel}, 0) DESC")
             // Media yang sama sama nol diurutkan menurut nama, bukan menurut
             // urutan yang dikembalikan Postgres begitu saja. Tanpa ini daftar
@@ -363,7 +381,7 @@ class RingkasanEksekutif
 
         return $kueri
             ->get([
-                'm.id', 'm.nama', 'm.tier',
+                'm.id', 'm.nama', 'm.tier', 'm.partner',
                 DB::raw("coalesce({$jumlahBerlabel}, 0)::int AS jumlah_artikel"),
                 DB::raw('coalesce(sum(r.jumlah_negatif), 0)::int AS jumlah_negatif'),
                 DB::raw('coalesce(sum(r.jumlah_netral), 0)::int AS jumlah_netral'),

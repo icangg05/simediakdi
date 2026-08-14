@@ -458,6 +458,8 @@ class AntreanGeminiTest extends TestCase
      */
     public function test_daftar_gagal_hanya_memuat_yang_kehabisan_percobaan(): void
     {
+        $this->media->update(['partner' => true]);
+
         $menyerah = $this->artikel('Sudah tiga kali gagal');
         $masihAdaJatah = $this->artikel('Baru sekali gagal');
 
@@ -479,7 +481,14 @@ class AntreanGeminiTest extends TestCase
             'selesai_at' => now(),
         ]);
 
-        $isi = $this->actingAs(User::factory()->create(['peran' => 'superadmin']))
+        $admin = User::factory()->create(['peran' => 'superadmin']);
+
+        $this->actingAs($admin)
+            ->get('/admin/antrean-ai')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('terbaru.0.media_partner', true));
+
+        $isi = $this->actingAs($admin)
             ->getJson('/admin/antrean-ai/gagal')
             ->assertOk()
             ->json();
@@ -487,6 +496,7 @@ class AntreanGeminiTest extends TestCase
         $this->assertSame(1, $isi['total']);
         $this->assertCount(1, $isi['baris']);
         $this->assertSame('Sudah tiga kali gagal', $isi['baris'][0]['judul']);
+        $this->assertTrue($isi['baris'][0]['media_partner']);
         $this->assertSame('The MAC is invalid.', $isi['baris'][0]['galat']);
 
         // Pengelompokan dihitung di server, dan ia harus menyaring dengan

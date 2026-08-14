@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\IstilahAntarmuka;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -43,13 +44,13 @@ class NarasiEksekutif extends Model
     {
         return [
             'nada' => $this->nada,
-            'judul' => $this->judul,
-            'ringkasan' => $this->ringkasan,
-            'penjelasan_tren' => $this->penjelasan_tren,
-            'poin' => $this->daftarPoin(),
-            'perhatian' => $this->perhatian ?? [],
-            'nada_ringkas' => $this->nada_ringkas ?? [],
-            'topik' => $this->topik ?? [],
+            'judul' => IstilahAntarmuka::sentimen($this->judul),
+            'ringkasan' => IstilahAntarmuka::sentimen($this->ringkasan),
+            'penjelasan_tren' => IstilahAntarmuka::sentimen($this->penjelasan_tren),
+            'poin' => IstilahAntarmuka::sentimen($this->daftarPoin()),
+            'perhatian' => IstilahAntarmuka::sentimen($this->perhatian ?? []),
+            'nada_ringkas' => IstilahAntarmuka::sentimen($this->nada_ringkas ?? []),
+            'topik' => IstilahAntarmuka::sentimen($this->topik ?? []),
             'dari' => $this->dari->toDateString(),
             'sampai' => $this->sampai->toDateString(),
             'dibuat_at' => $this->dibuat_at,
