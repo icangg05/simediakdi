@@ -682,7 +682,7 @@ function rupaTopik(nada: LabelSentimen) {
                             tiap butir, jadi tautan per kalimat hanya bisa dibuat
                             dengan menebak.
                         -->
-                        <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+                        <div class="mt-4 flex flex-wrap flex-col md:flex-row items-center justify-between gap-3 border-t pt-4">
                             <p class="max-w-184 flex-1 text-xs leading-relaxed text-muted-foreground">
                                 Ulasan ini menyebut nada dan volume pemberitaan, bukan penilaian atas kinerja siapa pun.
                                 <template v-if="narasiBasi">
