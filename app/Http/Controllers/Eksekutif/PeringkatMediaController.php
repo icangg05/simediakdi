@@ -17,6 +17,7 @@ class PeringkatMediaController extends Controller
 
         return Inertia::render('eksekutif/PeringkatMedia', [
             ...$periode->untukInertia(),
+            'opsiBulan' => $ringkasan->bulanTersedia($periode->dari),
             // Seluruh media terdaftar, termasuk yang tidak memuat satu berita
             // pun pada rentang ini. Halaman ini satu satunya tempat pimpinan
             // bisa melihat siapa yang diam, dan daftar yang dipotong dua puluh

@@ -7,9 +7,9 @@ namespace App\Console\Commands;
 use App\Jobs\KlasifikasiGemini;
 use App\Models\AntreanGemini;
 use App\Models\Artikel;
+use App\Models\PengaturanAi;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Mengisi antrean klasifikasi Gemini, lalu melepas sebagian ke worker.
@@ -42,7 +42,7 @@ class AntreGemini extends Command
     }
 
     /**
-     * Menyisir artikel yang belum dinilai Gemini, lalu mencatatnya sekali saja.
+     * Menyisir artikel yang belum pernah dinilai, lalu mencatatnya sekali saja.
      *
      * `insertOrIgnore` bukan `insert`. Perintah ini berjalan berulang kali dan
      * selalu menemukan kandidat yang sama selama pekerjaannya belum jalan,
@@ -51,76 +51,38 @@ class AntreGemini extends Command
      */
     private function isi(): int
     {
-        $jumlah = 0;
+        $baru = $this->kandidat()
+            ->whereNotIn('artikel.id', AntreanGemini::query()->select('artikel_id'))
+            ->pluck('artikel.id')
+            ->map(fn (int $id): array => [
+                'artikel_id' => $id,
+                'prioritas' => 1,
+                'status' => 'menunggu',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ])
+            ->all();
 
-        foreach ([1, 2, 3] as $prioritas) {
-            $baru = $this->kandidat($prioritas)
-                ->whereNotIn('artikel.id', AntreanGemini::query()->select('artikel_id'))
-                ->pluck('artikel.id')
-                ->map(fn (int $id): array => [
-                    'artikel_id' => $id,
-                    'prioritas' => $prioritas,
-                    'status' => 'menunggu',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ])
-                ->all();
-
-            foreach (array_chunk($baru, 500) as $bagian) {
-                AntreanGemini::insertOrIgnore($bagian);
-            }
-
-            $jumlah += \count($baru);
+        foreach (array_chunk($baru, 500) as $bagian) {
+            AntreanGemini::insertOrIgnore($bagian);
         }
 
-        return $jumlah;
+        return \count($baru);
     }
 
     /**
-     * Tiga sumber pekerjaan, sesuai urutan prioritas yang diminta.
-     *
-     * `perlu_review` dikecualikan di ketiganya. Di situlah artikel yang
+     * `perlu_review` dikecualikan. Di situlah artikel yang
      * penilainya menolak memutuskan, dan yang ditunggu memang keputusan manusia
      * lewat tombol Relevan atau Tidak, bukan percobaan kedua dari mesin yang
      * sama.
      */
-    private function kandidat(int $prioritas): Builder
+    private function kandidat(): Builder
     {
-        $kueri = Artikel::withoutGlobalScopes()
+        return Artikel::withoutGlobalScopes()
             ->where('status_proses', '<>', 'perlu_review')
             ->whereNotNull('isi')
-            ->where('isi', '<>', '');
-
-        // Belum pernah dinilai siapa pun. Satu-satunya kelompok yang benar-benar
-        // meninggalkan lubang di dashboard selama belum dikerjakan.
-        if ($prioritas === 1) {
-            return $kueri->doesntHave('analisisSentimen');
-        }
-
-        $relevan = $prioritas === 2;
-
-        return $kueri->whereHas('analisisSentimen', function (Builder $analisis) use ($relevan) {
-            $analisis->where('relevan', $relevan)
-                // Provider kosong berarti barisnya tidak mencatat siapa yang
-                // memutuskan, sehingga keputusannya tidak bisa ditelusuri dan
-                // perlu dinilai ulang oleh penilai yang mencap dirinya.
-                //
-                // Dulu syarat ini berbunyi "kosong atau bukan gemini", dan itu
-                // benar selama gemini satu-satunya penyedia yang mencap. Sejak
-                // IndoBERT ikut mengisi kolom ini, bunyi itu berubah menjadi
-                // lingkaran yang tidak pernah berhenti: IndoBERT menilai, kolom
-                // terisi indobert, penyisiran jam berikutnya melihatnya bukan
-                // gemini lalu mengantrekannya lagi, selamanya. Diuji di
-                // PenyediaRelevansiTest supaya tidak kembali secara diam-diam.
-                ->whereNull('provider');
-
-            // Prioritas 2 khusus yang labelnya sudah ada. Relevan tanpa label
-            // berarti sentimennya belum pernah tuntas, dan itu keadaan yang
-            // berbeda dari sekadar dinilai model lama.
-            if ($relevan) {
-                $analisis->whereNotNull('label_efektif');
-            }
-        });
+            ->where('isi', '<>', '')
+            ->doesntHave('analisisSentimen');
     }
 
     /**
@@ -134,6 +96,7 @@ class AntreGemini extends Command
      */
     private function lepas(): int
     {
+        $this->sinkronkanHasilManual();
         $this->bersihkanMacet();
 
         // Dibandingkan dengan null, bukan dipakai sebagai nilai kebenaran.
@@ -145,6 +108,7 @@ class AntreGemini extends Command
             : (int) config('ai.antrean.gantung');
 
         $menggantung = AntreanGemini::query()
+            ->belumTuntas()
             ->whereNotNull('dijadwalkan_at')
             ->whereIn('status', ['menunggu', 'berjalan'])
             ->count();
@@ -155,28 +119,53 @@ class AntreGemini extends Command
             return 0;
         }
 
-        // Tanpa jarak, worker menghabiskan dua puluh pekerjaan dalam setengah
-        // menit dan menembak Gemini berjubel. Ini bukan dugaan: pada uji jalan
-        // pertama, 109 permintaan terkirim untuk 19 artikel yang berhasil,
-        // artinya sekitar tujuh puluh di antaranya dijawab 429. Google tetap
-        // menghitung permintaan yang ditolaknya, jadi menembak berjubel bukan
-        // sekadar sia-sia, ia memakan kuota yang seharusnya dipakai artikel
-        // lain.
+        // Seluruh ruang dilepas langsung, seperti beberapa klik manual yang
+        // berurutan. Setiap job memeriksa `terakhir_dipakai_at` secara atomik,
+        // jadi worker paralel memilih kunci lain atau menunda sebesar sisa jeda
+        // 15 detik; tidak ada lagi jadwal tetap satu menit per artikel.
         $baris = AntreanGemini::query()->siapDiambil()->limit($ruang)->get();
-        $jeda = AntreanGemini::jedaDetik();
+        $jedaCpu = PengaturanAi::aktif()->penyedia_relevansi === 'indobert'
+            ? AntreanGemini::jedaDetik()
+            : 0;
+        $awal = now();
 
         foreach ($baris->values() as $urutan => $satu) {
-            $mulai = now()->addSeconds((int) ($urutan * $jeda));
+            // IndoBERT tetap berjarak untuk menjaga CPU layanan lokal. Jalur
+            // Gemini bernilai nol di sini karena pemilih kuncinya sendiri yang
+            // mengatur kapan tiap permintaan boleh lewat.
+            $mulai = $awal->copy()->addSeconds((int) ($urutan * $jedaCpu));
 
             // Ditandai lebih dulu, baru dilepas. Urutan sebaliknya membuat job
             // yang langsung diambil worker menemukan barisnya belum bertanda,
             // dan tarikan berikutnya melepasnya sekali lagi.
-            $satu->update(['status' => 'menunggu', 'dijadwalkan_at' => $mulai]);
+            $satu->update([
+                'status' => 'menunggu',
+                'dijadwalkan_at' => $mulai,
+                'coba_lagi_at' => null,
+            ]);
 
             KlasifikasiGemini::dispatch($satu->id)->delay($mulai);
         }
 
         return $baris->count();
+    }
+
+    /** Menutup baris aktif bila artikelnya sudah diputus lewat jalur lain. */
+    private function sinkronkanHasilManual(): void
+    {
+        AntreanGemini::query()
+            ->where('prioritas', 1)
+            ->where('status', '<>', 'selesai')
+            ->sudahTuntas()
+            ->eachById(function (AntreanGemini $baris): void {
+                $baris->update([
+                    'status' => 'selesai',
+                    'galat' => null,
+                    'dijadwalkan_at' => null,
+                    'coba_lagi_at' => null,
+                    'selesai_at' => $baris->selesai_at ?? now(),
+                ]);
+            });
     }
 
     /**
@@ -195,14 +184,21 @@ class AntreGemini extends Command
     private function bersihkanMacet(): void
     {
         AntreanGemini::query()
+            ->belumTuntas()
             ->where('status', 'berjalan')
             ->where('dimulai_at', '<', now()->subMinutes(30))
-            ->update([
-                'status' => 'gagal',
-                'percobaan' => DB::raw('percobaan + 1'),
-                'galat' => 'Pekerjaan berhenti di tengah jalan, kemungkinan worker dimatikan.',
-                'selesai_at' => now(),
-            ]);
+            ->eachById(function (AntreanGemini $baris): void {
+                $percobaan = $baris->percobaan + 1;
+
+                $baris->update([
+                    'status' => 'gagal',
+                    'percobaan' => $percobaan,
+                    'galat' => 'Pekerjaan berhenti di tengah jalan, kemungkinan worker dimatikan.',
+                    'dijadwalkan_at' => null,
+                    'coba_lagi_at' => now()->addSeconds(AntreanGemini::jedaCobaUlangDetik($percobaan)),
+                    'selesai_at' => now(),
+                ]);
+            });
 
         $this->bebaskanHantu();
     }
@@ -234,6 +230,7 @@ class AntreGemini extends Command
     private function bebaskanHantu(): void
     {
         $jumlah = AntreanGemini::query()
+            ->belumTuntas()
             ->where('status', 'menunggu')
             ->whereNotNull('dijadwalkan_at')
             ->where('dijadwalkan_at', '<', now()->subMinutes(30))

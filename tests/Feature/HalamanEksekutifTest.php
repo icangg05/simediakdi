@@ -6,9 +6,13 @@ use App\Enums\LabelSentimen;
 use App\Models\AnalisisSentimen;
 use App\Models\Artikel;
 use App\Models\Media;
+use App\Models\NarasiEksekutif as BarisNarasi;
 use App\Models\User;
+use App\Services\Agregasi\NarasiEksekutif;
 use App\Services\Agregasi\RingkasanHarian;
+use App\Support\Periode;
 use App\Support\Waktu;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -27,6 +31,8 @@ class HalamanEksekutifTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->travelTo(CarbonImmutable::parse('2026-08-15 12:00:00', Waktu::ZONA));
 
         $this->walikota = User::factory()->walikota()->create();
 
@@ -57,7 +63,7 @@ class HalamanEksekutifTest extends TestCase
     {
         $this->actingAs($this->walikota);
 
-        foreach (['/eksekutif', '/eksekutif/sentimen', '/eksekutif/media', '/eksekutif/berita'] as $url) {
+        foreach (['/eksekutif', '/eksekutif/sentimen', '/eksekutif/media', '/eksekutif/berita', '/eksekutif/laporan'] as $url) {
             $this->get($url)->assertOk("Halaman {$url} tidak mengembalikan 200.");
         }
     }
@@ -69,6 +75,151 @@ class HalamanEksekutifTest extends TestCase
         $this->actingAs(User::factory()->media($media)->create())
             ->get('/eksekutif')
             ->assertForbidden();
+
+        $this->get('/eksekutif/laporan')->assertForbidden();
+    }
+
+    public function test_laporan_memakai_satu_bulan_kalender_dan_hanya_media_aktif(): void
+    {
+        Media::create([
+            'nama' => 'Media Aktif Tanpa Berita',
+            'slug' => 'aktif-tanpa-berita',
+            'domain' => 'aktif-tanpa-berita.test',
+            'partner' => false,
+        ]);
+        Media::create([
+            'nama' => 'Media Nonaktif',
+            'slug' => 'nonaktif-laporan',
+            'domain' => 'nonaktif-laporan.test',
+            'partner' => false,
+            'aktif' => false,
+        ]);
+
+        $this->actingAs($this->walikota)
+            ->get('/eksekutif/laporan?bulan=2026-08')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('eksekutif/Laporan')
+                ->where('bulan', '2026-08')
+                ->where('opsiBulan.0', '2026-08')
+                ->where('periode.dari', '2026-08-01')
+                ->where('periode.sampai', '2026-08-31')
+                ->where('kpi.berlabel', 3)
+                ->where('kpi.media_total_aktif', 2)
+                ->count('peringkatMedia', 2)
+                ->where('peringkatMedia.0.nama', 'Kendari Pos')
+                ->where('peringkatMedia.1.nama', 'Media Aktif Tanpa Berita'));
+    }
+
+    public function test_bulan_laporan_tidak_valid_kembali_ke_bulan_saat_ini(): void
+    {
+        $this->actingAs($this->walikota)
+            ->get('/eksekutif/laporan?bulan=bukan-bulan')
+            ->assertInertia(fn ($page) => $page
+                ->where('bulan', '2026-08')
+                ->where('periode.dari', '2026-08-01')
+                ->where('periode.sampai', '2026-08-31'));
+    }
+
+    public function test_laporan_hanya_menampilkan_narasi_gemini_dari_bulan_yang_dipilih(): void
+    {
+        foreach ([
+            ['2026-08-01', '2026-08-31', 'Analisis bulan Agustus', 'sidik-agustus'],
+            ['2026-09-01', '2026-09-30', 'Analisis bulan September', 'sidik-september'],
+        ] as [$dari, $sampai, $judul, $sidik]) {
+            BarisNarasi::create([
+                'periode' => '30d',
+                'dari' => $dari,
+                'sampai' => $sampai,
+                'nada' => 'campuran',
+                'judul' => $judul,
+                'ringkasan' => "Ringkasan {$judul}.",
+                'poin' => [['teks' => 'Pola pemberitaan utama.', 'artikel_ids' => []]],
+                'jumlah_artikel' => 1,
+                'sidik' => $sidik,
+                'model' => 'gemini-uji',
+                'dibuat_at' => now(),
+            ]);
+        }
+
+        $this->actingAs($this->walikota)
+            ->get('/eksekutif/laporan?bulan=2026-08')
+            ->assertInertia(fn ($page) => $page
+                ->where('narasi.judul', 'Analisis bulan Agustus')
+                ->where('narasi.dari', '2026-08-01')
+                ->where('narasi.sampai', '2026-08-31'));
+    }
+
+    public function test_rentang_mingguan_laporan_dipotong_pada_batas_bulan(): void
+    {
+        $artikel = Artikel::withoutGlobalScopes()->create([
+            'media_id' => Media::first()->id,
+            'judul' => 'Berita awal Agustus',
+            'url' => 'https://kp.test/awal-agustus',
+            'url_kanonik' => 'https://kp.test/awal-agustus',
+            'isi' => 'Isi berita.',
+            'diambil_at' => Waktu::awalHari('2026-08-01')->addHours(9),
+            'status_proses' => 'selesai',
+        ]);
+
+        AnalisisSentimen::create([
+            'artikel_id' => $artikel->id,
+            'relevan' => true,
+            'label_model' => LabelSentimen::Positif,
+        ]);
+
+        app(RingkasanHarian::class)->hitung('2026-08-01');
+
+        $this->actingAs($this->walikota)
+            ->get('/eksekutif/laporan?bulan=2026-08')
+            ->assertInertia(fn ($page) => $page
+                // Kelompok SQL-nya dimulai Senin, 27 Juli. Yang ditampilkan
+                // kepada pengguna tetap hanya bagian yang berada di Agustus.
+                ->where('deret.baris.0.tanggal', '2026-07-27')
+                ->where('deret.baris.0.rentang_dari', '2026-08-01')
+                ->where('deret.baris.0.rentang_sampai', '2026-08-02'));
+    }
+
+    public function test_bulan_tanpa_pemberitaan_tetap_bisa_dibuka_sebagai_laporan_kosong(): void
+    {
+        $this->actingAs($this->walikota)
+            ->get('/eksekutif/laporan?bulan=2026-07')
+            ->assertInertia(fn ($page) => $page
+                ->where('bulan', '2026-07')
+                ->where('opsiBulan.0', '2026-08')
+                ->where('opsiBulan.1', '2026-07')
+                ->where('kpi.berlabel', 0));
+    }
+
+    public function test_preset_dashboard_mengikuti_batas_kalender(): void
+    {
+        $harapan = [
+            'today' => ['2026-08-15', '2026-08-15'],
+            // 15 Agustus 2026 jatuh pada Sabtu: pekannya tetap Senin-Minggu.
+            '7d' => ['2026-08-10', '2026-08-16'],
+            '30d' => ['2026-08-01', '2026-08-31'],
+            // Dua bulan penuh sebelumnya, lalu tanggal 1-15 bulan berjalan.
+            '90d' => ['2026-06-01', '2026-08-15'],
+        ];
+
+        $narasi = app(NarasiEksekutif::class);
+
+        foreach ($harapan as $nama => [$dari, $sampai]) {
+            $periode = Periode::dariPreset($nama);
+            [$narasiDari, $narasiSampai] = $narasi->rentang($nama);
+
+            $this->assertSame($dari, $periode->dari->toDateString());
+            $this->assertSame($sampai, $periode->sampai->toDateString());
+            $this->assertSame($dari, $narasiDari->toDateString());
+            $this->assertSame($sampai, $narasiSampai->toDateString());
+            $this->assertSame($nama, $narasi->preset($periode->dari, $periode->sampai));
+        }
+
+        $this->actingAs($this->walikota)
+            ->get('/eksekutif')
+            ->assertInertia(fn ($page) => $page
+                ->where('periode.dari', '2026-08-10')
+                ->where('periode.sampai', '2026-08-16'));
     }
 
     /** Status kerja sama media tersedia pada seluruh daftar yang dibaca pimpinan. */
@@ -332,6 +483,21 @@ class HalamanEksekutifTest extends TestCase
                 ->where('periode.sampai', '2026-07-31'));
     }
 
+    public function test_seluruh_halaman_eksekutif_menyediakan_pilihan_bulan(): void
+    {
+        $this->actingAs($this->walikota);
+
+        foreach (['/eksekutif', '/eksekutif/sentimen', '/eksekutif/media', '/eksekutif/berita'] as $url) {
+            $this->get("{$url}?dari=2026-07-01&sampai=2026-07-31")
+                ->assertOk()
+                ->assertInertia(fn ($page) => $page
+                    ->where('periode.dari', '2026-07-01')
+                    ->where('periode.sampai', '2026-07-31')
+                    ->where('opsiBulan.0', '2026-08')
+                    ->where('opsiBulan.1', '2026-07'));
+        }
+    }
+
     /** Rentang terbalik biasanya salah ketik, bukan permintaan sungguhan. */
     public function test_rentang_terbalik_ditukar_bukan_ditolak(): void
     {
@@ -343,15 +509,14 @@ class HalamanEksekutifTest extends TestCase
                 ->where('periode.sampai', '2026-07-31'));
     }
 
-    public function test_tanggal_ngawur_jatuh_ke_rentang_bawaan_tujuh_hari(): void
+    public function test_tanggal_ngawur_jatuh_ke_minggu_kalender_saat_ini(): void
     {
         $this->actingAs($this->walikota)
             ->get('/eksekutif?dari=bukan-tanggal&sampai=juga-bukan')
             ->assertOk()
-            ->assertInertia(fn ($page) => $page->where(
-                'periode.sampai',
-                Waktu::tanggalWita(now()),
-            ));
+            ->assertInertia(fn ($page) => $page
+                ->where('periode.dari', '2026-08-10')
+                ->where('periode.sampai', '2026-08-16'));
     }
 
     /** Satu permintaan tidak boleh menyapu bertahun-tahun data. */

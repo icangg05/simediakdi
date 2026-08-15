@@ -51,6 +51,7 @@ class ArsipBeritaController extends Controller
 
         return Inertia::render('eksekutif/ArsipBerita', [
             ...$periode->untukInertia(),
+            'opsiBulan' => $ringkasan->bulanTersedia($periode->dari),
             'artikel' => $artikel->through(fn (Artikel $a) => [
                 'id' => $a->id,
                 'judul' => $a->judul,

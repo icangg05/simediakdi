@@ -5,7 +5,9 @@ import ChartTrenSentimen from '@/components/chart/ChartTrenSentimen.vue';
 import KartuArtikel from '@/components/domain/KartuArtikel.vue';
 import KartuEksekutif from '@/components/domain/KartuEksekutif.vue';
 import KopEksekutif from '@/components/domain/KopEksekutif.vue';
+import PemilihBulan from '@/components/domain/PemilihBulan.vue';
 import PemilihRentangTanggal from '@/components/domain/PemilihRentangTanggal.vue';
+import PermukaanKendaliKop from '@/components/domain/PermukaanKendaliKop.vue';
 import PilKop from '@/components/domain/PilKop.vue';
 import SentimenBelumTersedia from '@/components/domain/SentimenBelumTersedia.vue';
 import TautanTujuan from '@/components/domain/TautanTujuan.vue';
@@ -42,6 +44,7 @@ interface Berita {
 
 const props = defineProps<{
     periode: { dari: string; sampai: string };
+    opsiBulan: string[];
     kpi: {
         berlabel: number;
         negatif: number;
@@ -187,7 +190,24 @@ const daftarNada = computed(() => [
     <LayoutEksekutif>
         <KopEksekutif judul="Analisis sentimen" :keterangan="`Rincian sentimen pemberitaan tentang Pemerintah Kota, ${rentangTerbaca}`">
             <template #kendali>
-                <PemilihRentangTanggal :dari="periode.dari" :sampai="periode.sampai" inline @ubah="(dari, sampai) => pindah({ dari, sampai })" />
+                <div class="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-start">
+                    <PermukaanKendaliKop tanpa-padding>
+                        <PemilihBulan
+                            :dari="periode.dari"
+                            :sampai="periode.sampai"
+                            :opsi="opsiBulan"
+                            @ubah="(dari, sampai) => pindah({ dari, sampai })"
+                        />
+                    </PermukaanKendaliKop>
+                    <PemilihRentangTanggal
+                        :dari="periode.dari"
+                        :sampai="periode.sampai"
+                        inline
+                        kalender
+                        rentang-di-bawah
+                        @ubah="(dari, sampai) => pindah({ dari, sampai })"
+                    />
+                </div>
             </template>
 
             <template v-if="sentimenTersedia" #pil>

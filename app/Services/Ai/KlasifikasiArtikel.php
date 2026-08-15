@@ -62,10 +62,23 @@ class KlasifikasiArtikel
     /** @return list<HasilKlasifikasi> */
     public function jalankanManual(Artikel $artikel, ?string $penyediaRelevansi = null): array
     {
+        return $this->jalankanDenganJedaKunci($artikel, $penyediaRelevansi);
+    }
+
+    /**
+     * Menjalankan klasifikasi dengan pemilih kunci yang sudah menganggur 15 detik.
+     *
+     * Dipakai tombol manual dan job antrean agar keduanya tidak punya dua
+     * aturan rotasi yang perlahan berbeda.
+     *
+     * @return list<HasilKlasifikasi>
+     */
+    public function jalankanDenganJedaKunci(Artikel $artikel, ?string $penyediaRelevansi = null): array
+    {
         $penyedia = $penyediaRelevansi ?? PengaturanAi::aktif()->penyedia_relevansi;
 
-        return $this->ai->dalamKlasifikasiManual(
-            fn (): array => $this->lanjutkanManual($artikel, $penyedia),
+        return $this->ai->dalamJedaKunci(
+            fn (): array => $this->lanjutkanDenganJedaKunci($artikel, $penyedia),
         );
     }
 
@@ -75,7 +88,7 @@ class KlasifikasiArtikel
      *
      * @return list<HasilKlasifikasi>
      */
-    private function lanjutkanManual(Artikel $artikel, string $penyediaRelevansi): array
+    private function lanjutkanDenganJedaKunci(Artikel $artikel, string $penyediaRelevansi): array
     {
         $baris = $this->baris($artikel);
 
@@ -180,26 +193,6 @@ class KlasifikasiArtikel
     public function perluSentimen(Artikel $artikel): bool
     {
         return (bool) $this->baris($artikel)?->relevan;
-    }
-
-    /**
-     * Apakah salah satu hasil datang dari Gemini.
-     *
-     * Dibaca dari hasilnya, bukan dari pengaturan yang sedang aktif. Satu
-     * artikel bisa menghasilkan dua keputusan dari dua penilai berbeda, dan
-     * yang menentukan pemakaian kuota hanya yang benar-benar terpanggil.
-     *
-     * @param  list<HasilKlasifikasi>  $hasil
-     */
-    public static function pakaiGemini(array $hasil): bool
-    {
-        foreach ($hasil as $satu) {
-            if ($satu->penyedia === 'gemini') {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**

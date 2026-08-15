@@ -261,14 +261,8 @@ class PenyediaRelevansiTest extends TestCase
         $this->assertSame(0, AntreanGemini::query()->count());
     }
 
-    /**
-     * Baris warisan tetap tersapu.
-     *
-     * Perbaikan di atas tidak boleh sekalian mematikan sebab aslinya. Baris
-     * dari pipeline lama tidak pernah dicap penyedia mana pun, dan itulah yang
-     * memang perlu dinilai ulang.
-     */
-    public function test_baris_tanpa_penyedia_tetap_diantrekan(): void
+    /** Baris warisan tanpa penyedia tidak lagi menjadi prioritas antrean. */
+    public function test_baris_tanpa_penyedia_tidak_diantrekan_ulang(): void
     {
         AnalisisSentimen::create([
             'artikel_id' => $this->artikel->id,
@@ -281,7 +275,7 @@ class PenyediaRelevansiTest extends TestCase
         $this->artisan(AntreGemini::class, ['--isi' => true, '--batas' => 0])
             ->assertSuccessful();
 
-        $this->assertSame(1, AntreanGemini::query()->count());
+        $this->assertSame(0, AntreanGemini::query()->count());
     }
 
     /**
@@ -377,16 +371,8 @@ class PenyediaRelevansiTest extends TestCase
             ->assertSessionHas('galat');
     }
 
-    /**
-     * Berita tidak relevan tidak menggeser giliran Gemini.
-     *
-     * Inti pemisahannya. Jeda itu ada untuk menjaga kuota, dan artikel yang
-     * ditolak IndoBERT tidak memakai kuota sepeser pun. Menghitungnya sebagai
-     * giliran berarti tumpukan berita tidak relevan ikut mengantre di belakang
-     * jarak yang tidak menjaga apa pun, dan antreannya menumpuk tanpa satu pun
-     * permintaan terkirim ke Google.
-     */
-    public function test_artikel_tidak_relevan_tidak_menggeser_giliran_gemini(): void
+    /** Berita yang ditolak IndoBERT tidak memakai satu kunci Gemini pun. */
+    public function test_artikel_tidak_relevan_tidak_memakai_kunci_gemini(): void
     {
         $this->modelAktif();
         $this->pilihIndoBert();
@@ -401,21 +387,13 @@ class PenyediaRelevansiTest extends TestCase
 
         $this->kerjakanAntrean();
 
-        $rotasi = app(RotasiKunciGemini::class);
-
-        $this->assertSame(0, $rotasi->jedaArtikel());
+        $this->assertNull(KunciGemini::firstOrFail()->terakhir_dipakai_at);
         $this->assertSame('selesai', AntreanGemini::firstOrFail()->status);
         $this->assertSame('tidak_relevan', $this->artikel->fresh()->status_proses);
     }
 
-    /**
-     * Berita yang lolos menggeser giliran, karena ia memang memanggil Gemini.
-     *
-     * Sisi lain pemisahannya, dan yang menjaga maksud aslinya tetap hidup.
-     * Melonggarkan jalur yang tidak memakai kuota tidak boleh sekalian
-     * melonggarkan jalur yang membakarnya.
-     */
-    public function test_artikel_yang_lolos_menggeser_giliran_gemini(): void
+    /** Berita yang lolos IndoBERT memakai kunci Gemini untuk sentimen. */
+    public function test_artikel_yang_lolos_memakai_kunci_gemini(): void
     {
         $this->modelAktif();
         $this->pilihIndoBert();
@@ -424,7 +402,7 @@ class PenyediaRelevansiTest extends TestCase
 
         $this->kerjakanAntrean();
 
-        $this->assertGreaterThan(0, app(RotasiKunciGemini::class)->jedaArtikel());
+        $this->assertNotNull(KunciGemini::firstOrFail()->terakhir_dipakai_at);
         $this->assertSame('selesai', $this->artikel->fresh()->status_proses);
     }
 
@@ -440,8 +418,9 @@ class PenyediaRelevansiTest extends TestCase
         $this->modelAktif();
         $this->pilihIndoBert();
 
-        // Artikel lain barusan memakai Gemini, jadi gilirannya belum tiba.
-        app(RotasiKunciGemini::class)->tandaiArtikel();
+        // Artikel lain barusan memakai satu-satunya kunci, jadi gilirannya
+        // belum tiba sampai jeda 15 detik kunci tersebut selesai.
+        KunciGemini::query()->update(['terakhir_dipakai_at' => now()]);
 
         $this->kerjakanAntrean();
 
@@ -449,40 +428,11 @@ class PenyediaRelevansiTest extends TestCase
 
         $this->assertSame('menunggu', $baris->status);
         $this->assertSame(0, (int) $baris->percobaan);
+        $this->assertLessThanOrEqual(15, now()->diffInSeconds($baris->dijadwalkan_at, absolute: true));
 
         // Relevansinya sudah diputuskan dan tersimpan, tinggal sentimennya.
         $this->assertTrue(AnalisisSentimen::firstOrFail()->relevan);
         $this->assertSame('dianalisis', $this->artikel->fresh()->status_proses);
-    }
-
-    /**
-     * Jarak antar artikel yang lolos menjaga jatah harian bertahan sehari.
-     *
-     * Enam kunci berarti 3.000 permintaan sehari, dan satu artikel yang lolos
-     * IndoBERT memakan tepat satu permintaan untuk sentimen. Dibagi rata ke
-     * dalam 86.400 detik, jaraknya 28,8 detik. Tanpa lantai ini kuotanya habis
-     * sebelum sore, lalu seluruh antrean mematung sampai tengah malam waktu
-     * Pasifik dan tombol Klasifikasi ikut menolak bekerja.
-     */
-    public function test_jarak_artikel_menjaga_jatah_harian(): void
-    {
-        $this->modelAktif();
-        $this->pilihIndoBert();
-
-        // Tepat enam kunci, sama dengan produksi. Yang dibuat setUp dibuang
-        // dulu supaya jumlahnya angka yang dihitung komentar di atas.
-        KunciGemini::query()->delete();
-
-        foreach (range(1, 6) as $nomor) {
-            KunciGemini::create(['label' => "Kunci {$nomor}", 'kunci' => "kunci-{$nomor}-cukup-panjang", 'aktif' => true]);
-        }
-
-        config(['ai.batas_kunci.rpd' => 500, 'ai.antrean.jeda_gemini_indobert' => 0]);
-
-        $rotasi = app(RotasiKunciGemini::class);
-        $rotasi->tandaiArtikel();
-
-        $this->assertEqualsWithDelta(28.8, $rotasi->jedaArtikel(), 1.0);
     }
 
     /**

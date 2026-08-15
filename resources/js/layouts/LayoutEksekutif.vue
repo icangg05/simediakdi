@@ -12,7 +12,7 @@ import AppHeaderLayout from '@/layouts/app/AppHeaderLayout.vue';
         Yang dibatasi di sini hanya lebar isinya.
     -->
     <AppHeaderLayout>
-        <div class="mx-auto w-full max-w-[1400px] space-y-5 px-4 py-6 text-sm md:px-6 md:py-8">
+        <div class="mx-auto w-full max-w-[1400px] space-y-5 px-4 py-6 text-sm md:px-6 md:py-8 print:max-w-none print:p-0">
             <slot />
         </div>
     </AppHeaderLayout>

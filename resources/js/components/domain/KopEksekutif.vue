@@ -2,9 +2,9 @@
 import KotaKendari from '@/components/ilustrasi/KotaKendari.vue';
 
 /**
- * Kop navy panel eksekutif, satu bentuk untuk keempat halamannya.
+ * Kop navy panel eksekutif, satu bentuk untuk seluruh halamannya.
  *
- * Ditarik jadi komponen setelah pemakaiannya menyentuh empat halaman. Sebelum
+ * Ditarik jadi komponen setelah pemakaiannya menyentuh beberapa halaman. Sebelum
  * itu ornamennya disalin utuh di tiap berkas, sekitar enam puluh baris sekali
  * salin, dan menggeser satu busur berarti menyunting empat tempat yang harus
  * sepakat. Prinsip produk nomor 6 menyebut ambangnya dua kali pakai.
@@ -19,8 +19,8 @@ import KotaKendari from '@/components/ilustrasi/KotaKendari.vue';
  * Empat bidang isi, semuanya opsional kecuali judul:
  *
  * - `kendali`: apa pun yang bisa diatur pengguna, misalnya rentang tanggal.
- *   Diletakkan di dalam talam terang, karena seluruh kendali di aplikasi ini
- *   berwarna untuk latar terang dan akan hilang kalau ditempel ke navy.
+ *   Kop hanya mengatur posisinya; setiap kelompok kendali membawa permukaan
+ *   terang sendiri agar bidang putihnya tetap ringkas.
  * - `pil`: baris lencana keterangan, di bawah garis merek.
  * - slot bawaan: kalimat pembuka di atas navy.
  * - `inti`: bidang terang di kaki kop, untuk angka pembuka halaman.
@@ -33,7 +33,7 @@ withDefaults(
          * Siluet Kota Kendari di sudut kanan.
          *
          * Hanya untuk halaman ringkasan. Ia penanda halaman muka panel ini, dan
-         * mengulangnya di keempat halaman membuatnya berhenti menandai apa pun.
+         * mengulangnya di setiap halaman membuatnya berhenti menandai apa pun.
          */
         siluet?: boolean;
     }>(),
@@ -113,26 +113,24 @@ const BUSUR = [38, 62, 88, 116].map((jari, urutan) => ({
         <KotaKendari v-if="siluet" class="ilustrasi-kota-navy pointer-events-none absolute top-1 right-3 hidden w-[34%] max-w-[360px] md:block" />
 
         <div class="relative space-y-4 p-4 pb-5 sm:p-5 sm:pb-6">
-            <div class="flex flex-wrap items-start justify-between gap-4">
-                <div class="min-w-0 space-y-1">
+            <div class="flex flex-wrap items-start justify-between gap-4 xl:flex-nowrap">
+                <div class="min-w-0 space-y-1 xl:flex-1">
                     <h1 class="max-w-[24ch] text-2xl leading-tight font-semibold tracking-tight text-balance sm:text-[1.75rem]">{{ judul }}</h1>
                     <p v-if="keterangan" class="max-w-[62ch] text-sm text-white/75">{{ keterangan }}</p>
                 </div>
 
                 <!--
-                    Kendali duduk di dalam talam terang miliknya sendiri.
-                    Isinya komponen yang dipakai beberapa halaman dan seluruh
-                    warnanya disetel untuk latar terang, jadi menempelkannya
-                    langsung ke navy akan menghasilkan tombol abu di atas biru
-                    tua yang labelnya nyaris hilang.
+                    Pembungkus ini hanya mengatur posisi. Setiap kelompok
+                    kendali membawa permukaannya sendiri supaya pilihan bulan,
+                    pintasan, dan keterangan rentang tidak melebur menjadi satu
+                    bidang putih besar di atas kop navy.
 
-                    Talamnya melebar penuh di layar sempit. Deretan pintasan
-                    tanggal lebih lebar daripada kop pada 390 piksel, dan tanpa
-                    lebar penuh tombol terakhirnya terpotong tepi kartu.
+                    Barisnya tetap melebar penuh di layar sempit agar kendali
+                    dapat tersusun vertikal tanpa terpotong tepi kartu.
                 -->
                 <div
                     v-if="$slots.kendali"
-                    class="w-full min-w-0 rounded-xl bg-background p-1 text-foreground shadow-lg ring-1 shadow-brand/30 ring-white/25 sm:w-auto sm:shrink-0"
+                    class="w-full min-w-0 text-foreground sm:ml-auto sm:w-auto sm:shrink-0"
                 >
                     <slot name="kendali" />
                 </div>

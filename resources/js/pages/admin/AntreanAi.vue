@@ -9,19 +9,7 @@ import LayoutAdmin from '@/layouts/LayoutAdmin.vue';
 import { Head, Link, usePoll } from '@inertiajs/vue3';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import {
-    ChevronRight,
-    CircleX,
-    Gauge,
-    Handshake,
-    HelpCircle,
-    KeyRound,
-    ListOrdered,
-    Loader2,
-    ThumbsDown,
-    ThumbsUp,
-    TriangleAlert,
-} from 'lucide-vue-next';
+import { ChevronRight, CircleX, Gauge, Handshake, HelpCircle, Inbox, KeyRound, Loader2, ThumbsDown, ThumbsUp, TriangleAlert } from 'lucide-vue-next';
 import { computed, ref, type Component } from 'vue';
 
 interface Baris {
@@ -42,8 +30,13 @@ interface Baris {
 type Keadaan = 'bekerja' | 'menunggu' | 'tertunda' | 'kosong' | 'macet';
 
 const props = defineProps<{
-    ringkasan: { menunggu: number; berjalan: number; selesai: number; menyerah: number; total: number };
-    aktivitas: { keadaan: Keadaan; terakhir_selesai_at: string | null; dilanjutkan_at: string | null };
+    ringkasan: { menunggu: number; berjalan: number; selesai: number; gagal: number; total: number };
+    aktivitas: {
+        keadaan: Keadaan;
+        terakhir_selesai_at: string | null;
+        dilanjutkan_at: string | null;
+        coba_lagi_at: string | null;
+    };
     prioritas: { nilai: number; label: string; jumlah: number }[];
     laju: { jam: number; hari: number };
     kuota: {
@@ -79,9 +72,7 @@ const { formatAngka } = useFormatAngka();
  */
 usePoll(5000, { only: ['ringkasan', 'aktivitas', 'prioritas', 'laju', 'kuota', 'terbaru', 'diperbarui'] }, { autoStart: true });
 
-const persen = computed(() =>
-    props.ringkasan.total === 0 ? 0 : Math.round(((props.ringkasan.selesai + props.ringkasan.menyerah) / props.ringkasan.total) * 100),
-);
+const persen = computed(() => (props.ringkasan.total === 0 ? 0 : Math.round((props.ringkasan.selesai / props.ringkasan.total) * 100)));
 
 interface BarisGagal {
     id: number;
@@ -92,14 +83,15 @@ interface BarisGagal {
     prioritas: number;
     percobaan: number;
     galat: string | null;
+    coba_lagi_at: string | null;
     waktu: string | null;
 }
 
 /**
- * Daftar berita yang gagal dinilai, ditarik saat modalnya dibuka.
+ * Daftar berita yang sedang menunggu percobaan ulang, ditarik saat modal dibuka.
  *
- * Sengaja tidak ikut `usePoll` di atas. Angka Menyerah cukup untuk memberi tahu
- * bahwa ada yang salah, dan itu memang sudah ditarik tiap lima detik. Judul
+ * Sengaja tidak ikut `usePoll` di atas. Angka kegagalan sementara cukup untuk
+ * memberi tahu bahwa ada kendala, dan itu sudah ditarik tiap lima detik. Judul
  * beserta pesan galatnya baru berguna ketika ada yang benar-benar membukanya,
  * dan menitipkannya pada polling berarti mengirim ratusan baris dua belas kali
  * semenit untuk layar yang biasanya cuma dipandang sekilas.
@@ -174,9 +166,9 @@ const jam = (nilai: string | null) => (nilai ? format(new Date(nilai), 'HH:mm:ss
 /**
  * Lima keadaan mesin, masing-masing dengan warna dan gerakannya sendiri.
  *
- * `menunggu` sengaja hijau dan tetap berdenyut, bukan abu-abu diam. Dengan
- * jeda enam puluh detik antar artikel, keadaan inilah yang terlihat hampir
- * sepanjang waktu pada antrean yang justru sedang sehat. Menampilkannya
+ * `menunggu` sengaja hijau dan tetap berdenyut, bukan abu-abu diam. Saat semua
+ * kunci masih berada dalam jeda 15 detik, keadaan inilah yang terlihat pada
+ * antrean yang justru sedang sehat. Menampilkannya
  * sebagai diam berarti melatih admin mengabaikan penunjuk yang benar.
  *
  * `bekerja` memakai ungu, bukan biru, karena yang sedang bekerja adalah Gemini
@@ -250,7 +242,13 @@ const keterangan = computed(() => {
         case 'bekerja':
             return `${formatAngka(props.ringkasan.berjalan)} artikel sedang dikirim ke Gemini`;
         case 'menunggu':
-            return `Jeda ${formatAngka(props.kuota.jeda_detik)} detik antar artikel, ${formatAngka(props.ringkasan.menunggu)} di belakang`;
+            if (props.ringkasan.gagal > 0 && props.ringkasan.menunggu === 0 && props.ringkasan.berjalan === 0) {
+                const jadwal = props.aktivitas.coba_lagi_at ? ` pada ${tanggal(props.aktivitas.coba_lagi_at)}` : '';
+
+                return `${formatAngka(props.ringkasan.gagal)} artikel akan dicoba kembali otomatis${jadwal}`;
+            }
+
+            return `Kunci dipakai bergiliran tiap ${formatAngka(props.kuota.jeda_detik)} detik, ${formatAngka(props.ringkasan.menunggu)} artikel menunggu`;
         case 'tertunda':
             // Pekerjaannya hidup, hanya tidur. Menyebut jam bangunnya membuat
             // bedanya dengan macet terbaca tanpa perlu menjelaskan apa pun.
@@ -289,23 +287,23 @@ const segmen = computed(() => [
         titik: 'bg-aksen-ungu',
         // Hanya dua dari empat angka yang bisa berwarna, dan keduanya punya
         // alasan. Ungu menandai pekerjaan yang sedang dipegang Gemini, merah
-        // menandai kegagalan yang perlu ditindaklanjuti. Menunggu dan Selesai
+        // menandai percobaan ulang. Menunggu dan Selesai
         // dibiarkan netral: keduanya keadaan normal, dan mewarnai keempatnya
         // membuat tidak ada satu pun yang menonjol.
         angka: props.ringkasan.berjalan > 0 ? 'text-aksen-ungu' : '',
     },
     { kunci: 'selesai', label: 'Selesai', jumlah: props.ringkasan.selesai, titik: 'bg-brand dark:bg-brand-terang', angka: '' },
     {
-        kunci: 'menyerah',
-        label: 'Menyerah setelah 3 percobaan',
-        jumlah: props.ringkasan.menyerah,
+        kunci: 'gagal',
+        label: 'Menunggu coba ulang',
+        jumlah: props.ringkasan.gagal,
         titik: 'bg-sentimen-negatif',
-        angka: props.ringkasan.menyerah > 0 ? 'text-sentimen-negatif' : '',
+        angka: props.ringkasan.gagal > 0 ? 'text-sentimen-negatif' : '',
         // Satu-satunya angka di baris ini yang bisa ditelusuri lebih jauh, dan
         // hanya ketika ada isinya. Kartu yang bisa diklik tapi membuka daftar
         // kosong mengajari orang bahwa mengkliknya tidak ada gunanya, dan
         // pelajaran itu bertahan sampai angkanya benar-benar naik.
-        bisaDibuka: props.ringkasan.menyerah > 0,
+        bisaDibuka: props.ringkasan.gagal > 0,
     },
 ]);
 
@@ -318,7 +316,7 @@ const bilah = computed(() => {
 
     return [
         { kunci: 'selesai', kelas: 'bg-brand dark:bg-brand-terang', jumlah: props.ringkasan.selesai },
-        { kunci: 'menyerah', kelas: 'bg-sentimen-negatif', jumlah: props.ringkasan.menyerah },
+        { kunci: 'gagal', kelas: 'bg-sentimen-negatif', jumlah: props.ringkasan.gagal },
         { kunci: 'berjalan', kelas: 'bg-aksen-ungu', jumlah: props.ringkasan.berjalan },
         { kunci: 'menunggu', kelas: 'bg-muted-foreground/30', jumlah: props.ringkasan.menunggu },
     ]
@@ -326,8 +324,8 @@ const bilah = computed(() => {
         .map((s) => ({ ...s, lebar: `${(s.jumlah / total) * 100}%` }));
 });
 
-/** Bilah proporsi tiap prioritas dihitung terhadap tingkat terbanyak, bukan terhadap total. */
-const prioritasTerbanyak = computed(() => Math.max(1, ...props.prioritas.map((p) => p.jumlah)));
+/** Kini hanya ada satu jenis pekerjaan otomatis, jadi cukup tampilkan jumlah keseluruhannya. */
+const jumlahDalamAntrean = computed(() => props.prioritas.reduce((jumlah, item) => jumlah + item.jumlah, 0));
 
 /**
  * Status pekerjaan, dan hanya yang layak diberitakan.
@@ -350,7 +348,7 @@ const STATUS_TAMPIL: Record<string, { label: string; kelas: string; ikon: Compon
         berputar: true,
     },
     gagal: {
-        label: 'Gagal',
+        label: 'Gagal sementara',
         kelas: 'bg-sentimen-negatif-lembut text-sentimen-negatif',
         ikon: CircleX,
         berputar: false,
@@ -463,7 +461,7 @@ const NADA: Record<string, { label: string; kelas: string; ikon: Component }> = 
                      kolom itu berarti sel pertama baris kedua ikut bergaris di
                      kiri padahal ia berada di tepi kartu. -->
                 <div class="grid grid-cols-2 gap-px bg-border sm:grid-cols-4">
-                    <!-- Kartu Menyerah menjadi tombol, sisanya tetap div.
+                    <!-- Kartu percobaan ulang menjadi tombol, sisanya tetap div.
                          Memakai `component :is` alih-alih memasang @click pada
                          div: yang bisa ditekan harus benar-benar sebuah button,
                          supaya ia punya fokus keyboard dan dibacakan sebagai
@@ -494,7 +492,7 @@ const NADA: Record<string, { label: string; kelas: string; ikon: Component }> = 
                                 aria-hidden="true"
                             />
                         </p>
-                        <p v-if="s.bisaDibuka" class="text-xs text-muted-foreground">Lihat beritanya</p>
+                        <p v-if="s.bisaDibuka" class="text-xs text-muted-foreground">Lihat kendalanya</p>
                     </component>
                 </div>
 
@@ -514,49 +512,22 @@ const NADA: Record<string, { label: string; kelas: string; ikon: Component }> = 
         </Card>
 
         <div class="grid gap-3 lg:grid-cols-3">
-            <!--
-                Urutan prioritas dibaca dari atas ke bawah, sama dengan urutan
-                pengerjaannya. Yang di bawah tidak akan tersentuh sebelum yang
-                di atas habis, dan rel yang menghubungkan nomornya membuat
-                keterurutan itu terlihat tanpa perlu dikalimatkan.
-            -->
             <Card class="muncul" style="animation-delay: 140ms">
-                <CardHeader class="flex-row items-center gap-2 space-y-0 border-b py-3">
-                    <div class="grid size-7 place-items-center rounded-md bg-brand-lembut text-brand dark:text-white">
-                        <ListOrdered class="size-4" aria-hidden="true" />
+                <CardHeader class="space-y-2 border-b py-3">
+                    <div class="flex items-center gap-2">
+                        <div class="grid size-7 place-items-center rounded-md bg-brand-lembut text-brand dark:text-white">
+                            <Inbox class="size-4" aria-hidden="true" />
+                        </div>
+                        <CardTitle class="text-sm font-semibold">Artikel dalam antrean</CardTitle>
                     </div>
-                    <CardTitle class="text-sm font-semibold">Urutan pengerjaan</CardTitle>
+                    <p class="text-xs leading-relaxed text-muted-foreground">Artikel baru yang belum pernah dinilai akan diklasifikasi otomatis.</p>
                 </CardHeader>
 
                 <CardContent class="pt-4">
-                    <p v-if="!prioritas.length" class="text-xs text-muted-foreground">Antrean kosong, tidak ada tingkat prioritas yang terisi.</p>
-
-                    <dl v-else class="space-y-0">
-                        <div
-                            v-for="(p, i) in prioritas"
-                            :key="p.nilai"
-                            class="rel relative pb-4 pl-9 last:pb-0"
-                            :class="i === prioritas.length - 1 ? 'rel-akhir' : ''"
-                        >
-                            <span
-                                class="angka absolute top-0 left-0 grid size-6 place-items-center rounded-md bg-muted text-xs font-semibold text-muted-foreground"
-                            >
-                                {{ p.nilai }}
-                            </span>
-
-                            <div class="flex items-baseline justify-between gap-2">
-                                <dt class="truncate text-sm">{{ p.label }}</dt>
-                                <dd class="angka shrink-0 text-sm font-semibold">{{ formatAngka(p.jumlah) }}</dd>
-                            </div>
-
-                            <div class="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-muted">
-                                <div
-                                    class="tumbuh h-full rounded-full bg-brand/70 dark:bg-brand-terang"
-                                    :style="{ width: `${(p.jumlah / prioritasTerbanyak) * 100}%`, animationDelay: `${240 + i * 80}ms` }"
-                                />
-                            </div>
-                        </div>
-                    </dl>
+                    <div class="flex items-end justify-between gap-4">
+                        <p class="text-sm text-muted-foreground">Belum diklasifikasi</p>
+                        <p class="angka text-2xl font-semibold tracking-tight">{{ formatAngka(jumlahDalamAntrean) }}</p>
+                    </div>
                 </CardContent>
             </Card>
 
@@ -603,8 +574,9 @@ const NADA: Record<string, { label: string; kelas: string; ikon: Component }> = 
                         <span class="ml-1.5 text-xs text-muted-foreground">permintaan terkirim hari ini</span>
                     </p>
                     <p class="text-xs text-muted-foreground">
-                        Jarak antar artikel <span class="angka font-medium text-foreground">{{ formatAngka(kuota.jeda_detik) }}</span> detik,
-                        kira-kira <span class="angka">{{ formatAngka(kuota.per_hari) }}</span> artikel sehari
+                        Jeda pemakaian ulang kunci
+                        <span class="angka font-medium text-foreground">{{ formatAngka(kuota.jeda_detik) }}</span> detik, kira-kira
+                        <span class="angka">{{ formatAngka(kuota.per_hari) }}</span> artikel sehari
                     </p>
                     <!-- Perkiraan dihitung dari kapasitas dan jeda, bukan dari
                          laju sejam terakhir. Laju sejam terakhir jatuh ke nol
@@ -711,14 +683,9 @@ const NADA: Record<string, { label: string; kelas: string; ikon: Component }> = 
                                     <Handshake class="size-3 shrink-0" aria-hidden="true" />
                                     Bekerja sama
                                 </span>
-
-                                <!-- Nomor prioritas ikut ditampilkan supaya
-                                     terlihat bahwa antrean benar-benar
-                                     mengerjakan yang di atas lebih dulu. -->
-                                <span class="angka text-xs text-muted-foreground">prioritas {{ b.prioritas }}</span>
                             </div>
 
-                            <p v-if="b.galat" class="text-xs text-sentimen-negatif">Percobaan ke-{{ b.percobaan }}: {{ b.galat }}</p>
+                            <p v-if="b.galat" class="text-xs text-sentimen-negatif">Kegagalan ke-{{ b.percobaan }}: {{ b.galat }}</p>
                         </div>
                     </li>
                 </ol>
@@ -728,10 +695,9 @@ const NADA: Record<string, { label: string; kelas: string; ikon: Component }> = 
         <Dialog :open="modalGagal" @update:open="(buka) => (modalGagal = buka)">
             <DialogContent class="max-w-3xl">
                 <DialogHeader>
-                    <DialogTitle>Berita yang gagal diklasifikasi</DialogTitle>
+                    <DialogTitle>Klasifikasi yang akan dicoba ulang</DialogTitle>
                     <DialogDescription>
-                        Ketiga percobaannya sudah habis, jadi antrean tidak akan mencobanya lagi dengan sendirinya. Buka beritanya untuk menilai ulang
-                        secara manual.
+                        Sistem mencoba setiap berita lagi secara otomatis dengan jeda bertahap. Berita akan hilang dari daftar setelah berhasil.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -780,7 +746,11 @@ const NADA: Record<string, { label: string; kelas: string; ikon: Component }> = 
                                     <span v-if="b.media" aria-hidden="true">/</span>
                                     <span class="angka">{{ tanggal(b.waktu) }}</span>
                                     <span aria-hidden="true">/</span>
-                                    <span class="angka">{{ b.percobaan }}x percobaan</span>
+                                    <span class="angka">{{ b.percobaan }}x gagal</span>
+                                    <template v-if="b.coba_lagi_at">
+                                        <span aria-hidden="true">/</span>
+                                        <span class="angka">Dicoba lagi {{ tanggal(b.coba_lagi_at) }}</span>
+                                    </template>
                                 </p>
                                 <p class="text-xs wrap-break-word text-sentimen-negatif">{{ b.galat ?? 'Tanpa keterangan' }}</p>
                             </Link>
@@ -788,7 +758,7 @@ const NADA: Record<string, { label: string; kelas: string; ikon: Component }> = 
                     </ol>
 
                     <p v-if="barisGagal.length === 0" class="py-8 text-center text-sm text-muted-foreground">
-                        Tidak ada yang gagal. Angkanya mungkin baru saja berubah.
+                        Tidak ada klasifikasi yang sedang menunggu percobaan ulang.
                     </p>
                 </template>
             </DialogContent>
@@ -804,44 +774,4 @@ const NADA: Record<string, { label: string; kelas: string; ikon: Component }> = 
  * bergerak, jadi garis yang diam adalah keterangan, bukan animasi yang kebetulan
  * mati.
  */
-
-/*
- * Rel penghubung nomor prioritas.
- *
- * Digambar sebagai pseudo elemen, bukan div, supaya daftar yang dibacakan
- * pembaca layar tidak berisi simpul kosong. Garisnya berhenti di tingkat
- * terakhir, kalau tidak ia menjuntai ke bawah tanpa tujuan.
- */
-.rel::before {
-    content: '';
-    position: absolute;
-    left: 0.6875rem;
-    top: 1.75rem;
-    bottom: 0.5rem;
-    width: 1px;
-    background: linear-gradient(180deg, hsl(var(--border)) 0%, hsl(var(--border) / 0.35) 100%);
-    transform-origin: top;
-    animation: rel-turun 700ms cubic-bezier(0.32, 0.72, 0, 1) both;
-    animation-delay: 300ms;
-}
-
-.rel-akhir::before {
-    display: none;
-}
-
-@keyframes rel-turun {
-    from {
-        transform: scaleY(0);
-    }
-
-    to {
-        transform: scaleY(1);
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .rel::before {
-        animation: none;
-    }
-}
 </style>

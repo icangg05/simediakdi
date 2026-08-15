@@ -6,7 +6,9 @@ import BadgeSentimen from '@/components/domain/BadgeSentimen.vue';
 import KartuArtikel from '@/components/domain/KartuArtikel.vue';
 import KartuEksekutif from '@/components/domain/KartuEksekutif.vue';
 import KopEksekutif from '@/components/domain/KopEksekutif.vue';
+import PemilihBulan from '@/components/domain/PemilihBulan.vue';
 import PemilihRentangTanggal from '@/components/domain/PemilihRentangTanggal.vue';
+import PermukaanKendaliKop from '@/components/domain/PermukaanKendaliKop.vue';
 import PilKop from '@/components/domain/PilKop.vue';
 import SentimenBelumTersedia from '@/components/domain/SentimenBelumTersedia.vue';
 import TautanTujuan from '@/components/domain/TautanTujuan.vue';
@@ -92,6 +94,7 @@ type Topik = {
 
 const props = defineProps<{
     periode: { dari: string; sampai: string };
+    opsiBulan: string[];
     kpi: {
         berlabel: number;
         berlabel_selisih: number;
@@ -150,10 +153,24 @@ const { pindah, kueri } = usePeriodeEksekutif(props.periode, '/eksekutif');
  */
 const { sentimenTersedia, alasanSentimen } = useGerbangSentimen();
 
-const rentangTerbaca = computed(
-    () =>
+const tanggalTunggal = computed(() => isSameDay(new Date(props.periode.dari), new Date(props.periode.sampai)));
+
+/** Satu hari dibaca sebagai nama hari dan tanggal, bukan rentang yang berulang. */
+const rentangTerbaca = computed(() => {
+    if (tanggalTunggal.value) {
+        return format(new Date(props.periode.dari), 'EEEE, d MMMM yyyy', { locale: id });
+    }
+
+    return (
         `${format(new Date(props.periode.dari), 'd MMMM', { locale: id })} sampai ` +
-        `${format(new Date(props.periode.sampai), 'd MMMM yyyy', { locale: id })}`,
+        `${format(new Date(props.periode.sampai), 'd MMMM yyyy', { locale: id })}`
+    );
+});
+
+const keteranganKop = computed(() =>
+    tanggalTunggal.value
+        ? `Apa yang ditulis media tentang Pemerintah Kota pada ${rentangTerbaca.value}`
+        : `Apa yang ditulis media tentang Pemerintah Kota, ${rentangTerbaca.value}`,
 );
 
 const jumlahHari = computed(() => differenceInCalendarDays(new Date(props.periode.sampai), new Date(props.periode.dari)) + 1);
@@ -400,26 +417,33 @@ function rupaTopik(nada: LabelSentimen) {
     <Head title="Kondisi pemberitaan Kota Kendari" />
 
     <LayoutEksekutif>
-        <KopEksekutif
-            judul="Kondisi pemberitaan Kota Kendari"
-            :keterangan="`Apa yang ditulis media tentang Pemerintah Kota, ${rentangTerbaca}`"
-            siluet
-        >
+        <KopEksekutif judul="Kondisi pemberitaan Kota Kendari" :keterangan="keteranganKop" siluet>
             <template #kendali>
                 <!--
                     Rentangnya tampil, tetapi tidak bisa dipilih sendiri.
-                    Halaman ini menjawab keadaan hari ini, pekan ini, bulan ini,
-                    dan tiga bulan ini, dan keempat pintasan sudah memuat
+                    Halaman ini menjawab keadaan hari ini, pekan kalender,
+                    bulan kalender, dan tiga bulan berjalan. Keempat pintasan memuat
                     seluruhnya. Rentang khusus dilayani halaman Arsip berita,
                     tempat penyaring memang jadi pekerjaan utamanya.
                 -->
-                <PemilihRentangTanggal
-                    :dari="periode.dari"
-                    :sampai="periode.sampai"
-                    inline
-                    tanpa-pilih
-                    @ubah="(dari, sampai) => pindah({ dari, sampai })"
-                />
+                <div class="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-start">
+                    <PermukaanKendaliKop tanpa-padding>
+                        <PemilihBulan
+                            :dari="periode.dari"
+                            :sampai="periode.sampai"
+                            :opsi="opsiBulan"
+                            @ubah="(dari, sampai) => pindah({ dari, sampai })"
+                        />
+                    </PermukaanKendaliKop>
+                    <PemilihRentangTanggal
+                        :dari="periode.dari"
+                        :sampai="periode.sampai"
+                        inline
+                        kalender
+                        tanpa-pilih
+                        @ubah="(dari, sampai) => pindah({ dari, sampai })"
+                    />
+                </div>
             </template>
 
             <!--
@@ -730,8 +754,8 @@ function rupaTopik(nada: LabelSentimen) {
                     </template>
 
                     <p v-else class="text-sm leading-relaxed text-muted-foreground">
-                        Ulasan sedang disusun dari berita terbaru, dan tersedia untuk rentang Hari ini, 7 hari, 30 hari, dan 90 hari. Seluruh angka di
-                        halaman ini sudah bisa dibaca sekarang.
+                        Ulasan sedang disusun dari berita terbaru, dan tersedia untuk rentang Hari ini, Minggu ini, Bulan ini, dan 3 bulan. Seluruh
+                        angka di halaman ini sudah bisa dibaca sekarang.
                     </p>
                 </KartuEksekutif>
             </div>

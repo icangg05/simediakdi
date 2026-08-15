@@ -5,20 +5,23 @@ declare(strict_types=1);
 namespace App\Services\Agregasi;
 
 use App\Ai\Agents\AnalisEksekutif;
+use App\Exceptions\ArtikelNarasiTidakValid;
 use App\Models\Artikel;
 use App\Models\NarasiEksekutif as Baris;
+use App\Models\PemantauanNarasiBulanan;
 use App\Models\PengaturanAi;
 use App\Services\Ai\RotasiKunciGemini;
+use App\Support\Periode;
 use App\Support\Waktu;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Enums\Lab;
-use RuntimeException;
+use Throwable;
 
 /**
- * Membuat bagian naratif dashboard eksekutif dengan Gemini.
+ * Membuat bagian naratif dashboard dan laporan eksekutif dengan Gemini.
  *
  * Pembagian kerjanya tegas dan tidak boleh kabur. Postgres yang menghitung,
  * Gemini yang menjelaskan. Angka yang dikirim ke Gemini berstatus fakta yang
@@ -34,13 +37,17 @@ use RuntimeException;
 class NarasiEksekutif
 {
     /**
-     * Pilihan periode, dalam jumlah hari ke belakang dari hari ini WITA.
+     * Identitas preset yang disimpan di basis data.
      *
-     * Sama persis dengan pintasan di PemilihRentangTanggal.vue. Kalau kedua
-     * daftar ini berbeda, pengguna menekan pintasan "30 hari" lalu mendapat
-     * halaman tanpa ringkasan tanpa penjelasan apa pun.
+     * Nilainya menjelaskan arti kalender terbaru tanpa mengganti kunci lama,
+     * sehingga narasi yang sudah tersimpan tetap dapat dibaca.
      */
-    public const PRESET = ['today' => 0, '7d' => 6, '30d' => 29, '90d' => 89];
+    public const PRESET = [
+        'today' => 'hari_ini',
+        '7d' => 'minggu_kalender',
+        '30d' => 'bulan_kalender',
+        '90d' => 'tiga_bulan_berjalan',
+    ];
 
     /**
      * Batas jumlah topik per periode.
@@ -53,7 +60,7 @@ class NarasiEksekutif
     /**
      * Batas artikel yang dikirim sebagai bahan topik.
      *
-     * Rentang 90 hari bisa memuat ribuan artikel, dan mengirim semuanya berarti
+     * Rentang tiga bulan bisa memuat ribuan artikel, dan mengirim semuanya berarti
      * satu prompt raksasa tiap hari untuk hasil yang tidak lebih baik. Yang
      * dikirim adalah artikel yang paling menjelaskan periode itu, lihat
      * bahanArtikel().
@@ -68,9 +75,10 @@ class NarasiEksekutif
     /** @return array{CarbonImmutable, CarbonImmutable} rentang WITA untuk satu preset */
     public function rentang(string $periode): array
     {
-        $sampai = CarbonImmutable::parse(Waktu::tanggalWita(now()));
+        $nama = array_key_exists($periode, self::PRESET) ? $periode : '7d';
+        $rentang = Periode::dariPreset($nama);
 
-        return [$sampai->subDays(self::PRESET[$periode] ?? 6), $sampai];
+        return [$rentang->dari, $rentang->sampai];
     }
 
     /**
@@ -84,14 +92,11 @@ class NarasiEksekutif
      */
     public function preset(CarbonImmutable $dari, CarbonImmutable $sampai): ?string
     {
-        $hariIni = Waktu::tanggalWita(now());
+        foreach (array_keys(self::PRESET) as $nama) {
+            [$presetDari, $presetSampai] = $this->rentang($nama);
 
-        if ($sampai->toDateString() !== $hariIni) {
-            return null;
-        }
-
-        foreach (self::PRESET as $nama => $mundur) {
-            if ($dari->toDateString() === $sampai->subDays($mundur)->toDateString()) {
+            if ($dari->toDateString() === $presetDari->toDateString()
+                && $sampai->toDateString() === $presetSampai->toDateString()) {
                 return $nama;
             }
         }
@@ -116,6 +121,16 @@ class NarasiEksekutif
             ->first();
     }
 
+    /** Narasi yang tanggalnya tepat sama dengan rentang laporan. */
+    public function padaRentang(string $periode, CarbonImmutable $dari, CarbonImmutable $sampai): ?Baris
+    {
+        return Baris::query()
+            ->where('periode', $periode)
+            ->where('dari', $dari->toDateString())
+            ->where('sampai', $sampai->toDateString())
+            ->first();
+    }
+
     /**
      * Membuat ulang narasi satu preset, kecuali datanya belum berubah.
      *
@@ -127,6 +142,116 @@ class NarasiEksekutif
     {
         [$dari, $sampai] = $this->rentang($periode);
 
+        // Preset 30d adalah bulan kalender berjalan, jadi ia harus melalui
+        // pencatatan yang sama dengan bulan yang diminta lewat --bulan.
+        if ($periode === '30d') {
+            return $this->perbaruiBulan($dari);
+        }
+
+        return $this->perbaruiRentang($periode, $dari, $sampai);
+    }
+
+    /**
+     * Membuat atau memperbarui narasi untuk satu bulan kalender tertentu.
+     *
+     * Bulan berjalan diperiksa setiap hari. Sidik di perbaruiRentang() menahan
+     * panggilan Gemini bila berita dan labelnya tidak berubah. Setelah bulan
+     * berganti, satu pemeriksaan terakhir mengunci hasil; pemanggilan berikutnya
+     * langsung berhenti sebelum membaca bahan maupun memanggil Gemini.
+     */
+    public function perbaruiBulan(CarbonImmutable $bulan): ?Baris
+    {
+        $dari = $bulan->startOfMonth()->startOfDay();
+        $sampai = $dari->endOfMonth()->startOfDay();
+        $sudahDitutup = $dari->lt(CarbonImmutable::now(Waktu::ZONA)->startOfMonth());
+        $pantauan = PemantauanNarasiBulanan::query()->firstOrCreate(
+            ['bulan' => $dari->toDateString()],
+            ['status' => PemantauanNarasiBulanan::STATUS_MENUNGGU],
+        );
+        $tersimpan = $this->padaRentang('30d', $dari, $sampai);
+
+        if ($sudahDitutup && $pantauan->dikunci) {
+            // Kunci hanya berlaku bila hasilnya tepat satu bulan kalender.
+            // Migrasi awal pemantauan sempat mengaitkan hasil 30 hari bergulir
+            // ke bulan tanggal mulainya, sehingga status terlihat final padahal
+            // laporan bulan tersebut belum pernah dibuat.
+            if ($tersimpan !== null) {
+                if ($pantauan->narasi_eksekutif_id !== $tersimpan->id
+                    || $pantauan->status !== PemantauanNarasiBulanan::STATUS_SELESAI) {
+                    $pantauan->update([
+                        'status' => PemantauanNarasiBulanan::STATUS_SELESAI,
+                        'narasi_eksekutif_id' => $tersimpan->id,
+                        'galat' => null,
+                    ]);
+                }
+
+                return null;
+            }
+
+            $pantauan->update([
+                'status' => PemantauanNarasiBulanan::STATUS_MENUNGGU,
+                'dikunci' => false,
+                'pemeriksaan' => 0,
+                'narasi_eksekutif_id' => null,
+                'galat' => null,
+                'mulai_at' => null,
+                'selesai_at' => null,
+                'gagal_at' => null,
+            ]);
+        }
+
+        $mulai = now();
+        // Satu update menjaga nilai di basis data dan atribut model tetap
+        // sejalan. increment(..., $extra) memang menulis field tambahan ke DB,
+        // tetapi tidak menyelaraskan atribut tambahannya pada objek; akibatnya
+        // update status "selesai" sesudahnya dapat dianggap tidak berubah dan
+        // baris tertinggal pada status "berjalan".
+        $pantauan->update([
+            'pemeriksaan' => $pantauan->pemeriksaan + 1,
+            'status' => PemantauanNarasiBulanan::STATUS_BERJALAN,
+            'galat' => null,
+            'mulai_at' => $mulai,
+            'gagal_at' => null,
+        ]);
+
+        try {
+            $hasil = $this->perbaruiRentang('30d', $dari, $sampai);
+            // null juga berarti sidiknya sama. Ambil baris yang sudah ada agar
+            // pemantauan tetap dapat menunjuk hasil terakhir yang masih sah.
+            $tersimpan = $hasil ?? $tersimpan ?? $this->padaRentang('30d', $dari, $sampai);
+
+            $pantauan->update([
+                'status' => $tersimpan
+                    ? PemantauanNarasiBulanan::STATUS_SELESAI
+                    : PemantauanNarasiBulanan::STATUS_TANPA_DATA,
+                'dikunci' => $sudahDitutup,
+                'narasi_eksekutif_id' => $tersimpan?->id,
+                'galat' => null,
+                'selesai_at' => now(),
+                'gagal_at' => null,
+            ]);
+
+            return $hasil;
+        } catch (Throwable $galat) {
+            $pesan = trim($galat->getMessage());
+
+            $pantauan->update([
+                'status' => PemantauanNarasiBulanan::STATUS_GAGAL,
+                'dikunci' => false,
+                // Kolomnya text dan halaman pemantauan memang dipakai untuk
+                // diagnosis. Jangan memotong bagian akhir pesan karena kode
+                // provider atau petunjuk pemulihannya sering berada di sana.
+                'galat' => $pesan !== '' ? $pesan : $galat::class,
+                'selesai_at' => null,
+                'gagal_at' => now(),
+            ]);
+
+            throw $galat;
+        }
+    }
+
+    private function perbaruiRentang(string $periode, CarbonImmutable $dari, CarbonImmutable $sampai): ?Baris
+    {
         $artikel = $this->bahanArtikel($dari, $sampai);
 
         if ($artikel->isEmpty()) {
@@ -135,23 +260,39 @@ class NarasiEksekutif
 
         $sidik = $this->sidik($periode, $dari, $sampai, $artikel);
 
-        if ($this->terbaru($periode)?->sidik === $sidik) {
+        if ($this->padaRentang($periode, $dari, $sampai)?->sidik === $sidik) {
             return null;
         }
 
         $pengaturan = PengaturanAi::aktif();
         $model = (string) $pengaturan->model;
 
-        $jawaban = $this->rotasi->jalankan(fn () => (new AnalisEksekutif)->prompt(
-            $this->prompt($periode, $dari, $sampai, $artikel),
-            provider: Lab::Gemini,
-            model: $model,
-            // Prompt narasi jauh lebih panjang daripada prompt klasifikasi satu
-            // artikel, dan jawabannya memuat delapan topik sekaligus.
-            timeout: (int) config('ai.gemini_timeout') * 3,
-        ));
+        $prompt = $this->prompt($periode, $dari, $sampai, $artikel);
+        $jawaban = $this->mintaJawaban($prompt, $model);
 
-        $topik = $this->topik($jawaban['topik'] ?? [], $artikel, $periode);
+        try {
+            $topik = $this->topik($jawaban['topik'] ?? [], $artikel, $periode);
+        } catch (ArtikelNarasiTidakValid $galat) {
+            // Struktur jawaban sah, tetapi model salah menyalin id. Satu
+            // koreksi terarah jauh lebih murah daripada membiarkan admin
+            // menekan tombol berulang kali tanpa konteks kesalahannya. Hasil
+            // kedua tetap melalui validasi yang sama dan tetap ditolak bila
+            // masih mengarang id.
+            Log::warning('Narasi Gemini memakai artikel id yang tidak dikenal, diminta koreksi sekali.', [
+                'id' => $galat->artikelIds,
+                'periode' => $periode,
+            ]);
+
+            $idSah = $artikel->pluck('id')->map(fn ($id): int => (int) $id)->implode(', ');
+            $jawaban = $this->mintaJawaban($prompt.<<<TEKS
+
+
+            KOREKSI WAJIB: Jawaban sebelumnya ditolak karena memakai artikel_id
+            yang tidak tersedia. Susun ulang seluruh jawaban dan gunakan hanya
+            artikel_id berikut: {$idSah}. Jangan menebak atau mengubah angkanya.
+            TEKS, $model);
+            $topik = $this->topik($jawaban['topik'] ?? [], $artikel, $periode);
+        }
 
         return Baris::updateOrCreate(
             ['periode' => $periode, 'dari' => $dari->toDateString(), 'sampai' => $sampai->toDateString()],
@@ -172,12 +313,25 @@ class NarasiEksekutif
         );
     }
 
+    /** Meminta satu jawaban terstruktur dengan pengaturan model yang aktif. */
+    private function mintaJawaban(string $prompt, string $model): mixed
+    {
+        return $this->rotasi->jalankan(fn () => (new AnalisEksekutif)->prompt(
+            $prompt,
+            provider: Lab::Gemini,
+            model: $model,
+            // Prompt narasi jauh lebih panjang daripada prompt klasifikasi satu
+            // artikel, dan jawabannya memuat delapan topik sekaligus.
+            timeout: (int) config('ai.gemini_timeout') * 3,
+        ));
+    }
+
     /**
      * Artikel yang mewakili periode, dibatasi supaya prompt tetap masuk akal.
      *
      * Urutannya bukan sekadar terbaru. Artikel negatif didahulukan karena bagian
      * dashboard yang paling menentukan tindakan pimpinan adalah isu yang perlu
-     * diperhatikan, dan pada rentang 90 hari berita negatif selalu kalah jumlah
+     * diperhatikan, dan pada rentang tiga bulan berita negatif selalu kalah jumlah
      * sehingga urutan kronologis murni bisa membuangnya seluruhnya dari prompt.
      *
      * Judul yang sama persis disingkirkan. Berita kantor berita yang dimuat
@@ -335,10 +489,7 @@ class NarasiEksekutif
             $asing = array_diff($ids, $sah->keys()->all());
 
             if ($asing !== []) {
-                throw new RuntimeException(
-                    'Gemini mengembalikan artikel_id yang tidak ada di daftar masukan: '
-                    .implode(', ', $asing).'.'
-                );
+                throw new ArtikelNarasiTidakValid(array_values($asing));
             }
 
             // Satu artikel satu topik. Model kadang menyalin id yang sama ke dua

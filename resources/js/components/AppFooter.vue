@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { navPerPeran } from '@/nav';
+import { hrefDenganPeriodeEksekutif, type PeriodeEksekutif } from '@/composables/usePeriodeEksekutif';
 import type { SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
 import { ArrowUp, ShieldCheck, Sparkles } from 'lucide-vue-next';
@@ -19,7 +20,12 @@ import { computed } from 'vue';
  * tidak perlu dibaca sebelum angkanya, tapi harus selalu bisa ditemukan tanpa
  * mencari.
  */
-const page = usePage<SharedData>();
+type HalamanEksekutif = SharedData & {
+    periode?: PeriodeEksekutif;
+    bulan?: string;
+};
+
+const page = usePage<HalamanEksekutif>();
 
 const tahun = new Date().getFullYear();
 
@@ -29,6 +35,8 @@ const tahun = new Date().getFullYear();
  * naik lagi ke kop hanya untuk pindah halaman.
  */
 const tautan = computed(() => navPerPeran[page.props.auth.user?.peran] ?? []);
+
+const hrefDenganPeriode = (href: string) => hrefDenganPeriodeEksekutif(href, page.props.periode, page.props.bulan);
 
 const BUSUR = [40, 66, 94, 124].map((jari, urutan) => ({
     jari,
@@ -55,7 +63,7 @@ function keAtas() {
 </script>
 
 <template>
-    <footer class="relative overflow-hidden bg-brand text-white">
+    <footer class="relative overflow-hidden bg-brand text-white print:hidden">
         <!--
             Sapuan cahaya sangat samar di dua sudut, senada dengan hiasan latar
             halaman. Bidang navy polos selebar layar terbaca berat, sapuan ini
@@ -65,7 +73,7 @@ function keAtas() {
             `blur-3xl`. Bentuk itu dilepas: bidang 320 piksel dengan radius kabur
             64 piksel yang terklip `overflow-hidden` memaksa browser menyiapkan
             buffer di luar layar lalu mengaburkannya, dan itu operasi raster yang
-            mahal di GPU ponsel. Kaki halaman ini dipakai keempat halaman panel
+            mahal di GPU ponsel. Kaki halaman ini dipakai seluruh halaman panel
             eksekutif, jadi biayanya dibayar di mana-mana. Sebagai gradien
             biayanya nol, rupanya nyaris tidak bisa dibedakan pada kepekatan
             serendah ini, dan satu simpul DOM ikut hilang.
@@ -149,7 +157,7 @@ function keAtas() {
                         <Link
                             v-for="item in tautan"
                             :key="item.href"
-                            :href="item.href"
+                            :href="hrefDenganPeriode(item.href)"
                             class="tekan inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white/85 ring-1 ring-white/10 transition-colors duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] ring-inset hover:bg-white/20 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white focus-visible:outline-solid"
                         >
                             <component :is="item.icon" v-if="item.icon" class="size-3.5" aria-hidden="true" />

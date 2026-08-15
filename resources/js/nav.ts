@@ -3,6 +3,8 @@ import {
     BarChart3,
     BellRing,
     Bot,
+    CalendarClock,
+    ClipboardList,
     DatabaseBackup,
     FileText,
     FlaskConical,
@@ -43,6 +45,7 @@ export const navPerPeran: Record<PeranPengguna, NavItem[]> = {
         { title: 'Alert', href: '/admin/alert', icon: BellRing, kelompok: 'Pemantauan' },
 
         { title: 'Antrean AI', href: '/admin/antrean-ai', icon: Bot, kelompok: 'Penilaian AI' },
+        { title: 'Analisis Bulanan', href: '/admin/analisis-bulanan', icon: CalendarClock, kelompok: 'Penilaian AI' },
         { title: 'Model Relevansi', href: '/admin/model-relevansi', icon: FlaskConical, kelompok: 'Penilaian AI' },
 
         // Sumber Feed tidak lagi jadi menu sendiri. Pengelolaannya pindah ke
@@ -63,6 +66,7 @@ export const navPerPeran: Record<PeranPengguna, NavItem[]> = {
         { title: 'Sentimen', href: '/eksekutif/sentimen', icon: BarChart3 },
         { title: 'Peringkat Media', href: '/eksekutif/media', icon: Newspaper },
         { title: 'Arsip Berita', href: '/eksekutif/berita', icon: FileText },
+        { title: 'Laporan', href: '/eksekutif/laporan', icon: ClipboardList },
     ],
     media: [
         { title: 'Beranda', href: '/portal', icon: LayoutGrid },

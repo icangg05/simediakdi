@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { format } from 'date-fns';
+import { endOfMonth, endOfWeek, format, startOfMonth, startOfWeek, subDays, subMonths } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { CalendarDays } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
@@ -25,16 +25,33 @@ import { computed, ref, watch } from 'vue';
  * menutup dan membuka lapisan itu berulang kali hanya untuk melihat akibat
  * pilihannya.
  *
+ * `kalender` mengganti pintasan bergulir dengan periode panel eksekutif:
+ * Senin-Minggu, bulan kalender penuh, dan tiga bulan yang dimulai pada tanggal
+ * 1 dua bulan sebelumnya. Portal media tetap memakai rentang bergulir karena
+ * kontraknya memang menyebut "30 hari terakhir".
+ *
  * `tanpaPilih` menurunkan rentangnya menjadi keterangan, bukan kendali. Keempat
- * pintasan tetap bisa ditekan, dan tanggal di sebelahnya melaporkan rentang yang
+ * pintasan tetap bisa ditekan, dan tanggal di bawahnya melaporkan rentang yang
  * dihasilkan pintasan itu. Dipakai di halaman ringkasan, tempat pertanyaannya
  * selalu salah satu dari empat periode baku dan tidak pernah rentang khusus.
  * Sebelumnya rentang khusus tersedia di sana lewat sheet, dan itu membuka
  * seluruh permukaan tanggal untuk kebutuhan yang tidak pernah muncul, sementara
  * kotak tanggalnya sendiri adalah satu satunya benda di kop yang bisa
  * mengembalikan halaman dalam keadaan tidak cocok dengan pintasan mana pun.
+ *
+ * `rentangDiBawah` mempertahankan pemilih rentang khusus, tetapi menaruh
+ * tombolnya di bawah pintasan. Dipakai saat lebar kop perlu diringkas tanpa
+ * menghilangkan kemampuan memilih tanggal bebas.
  */
-const props = defineProps<{ dari: string; sampai: string; inline?: boolean; tanpaSheet?: boolean; tanpaPilih?: boolean }>();
+const props = defineProps<{
+    dari: string;
+    sampai: string;
+    inline?: boolean;
+    tanpaSheet?: boolean;
+    tanpaPilih?: boolean;
+    rentangDiBawah?: boolean;
+    kalender?: boolean;
+}>();
 const emit = defineEmits<{ ubah: [dari: string, sampai: string] }>();
 
 const terbuka = ref(false);
@@ -58,12 +75,43 @@ watch(
     },
 );
 
-const pintasan = [
-    { label: 'Hari ini', hari: 0 },
-    { label: '7 hari', hari: 6 },
-    { label: '30 hari', hari: 29 },
-    { label: '90 hari', hari: 89 },
+type Pintasan = {
+    kunci: string;
+    label: string;
+    keterangan: string;
+    rentang: (hariIni: Date) => [Date, Date];
+};
+
+const PINTASAN_BERGULIR: Pintasan[] = [
+    { kunci: 'today', label: 'Hari ini', keterangan: 'Hari ini', rentang: (hariIni) => [hariIni, hariIni] },
+    { kunci: '7d', label: '7 hari', keterangan: '7 hari terakhir', rentang: (hariIni) => [subDays(hariIni, 6), hariIni] },
+    { kunci: '30d', label: '30 hari', keterangan: '30 hari terakhir', rentang: (hariIni) => [subDays(hariIni, 29), hariIni] },
+    { kunci: '90d', label: '90 hari', keterangan: '90 hari terakhir', rentang: (hariIni) => [subDays(hariIni, 89), hariIni] },
 ];
+
+const PINTASAN_KALENDER: Pintasan[] = [
+    { kunci: 'today', label: 'Hari ini', keterangan: 'Hari ini', rentang: (hariIni) => [hariIni, hariIni] },
+    {
+        kunci: '7d',
+        label: 'Minggu ini',
+        keterangan: 'Senin sampai Minggu',
+        rentang: (hariIni) => [startOfWeek(hariIni, { weekStartsOn: 1 }), endOfWeek(hariIni, { weekStartsOn: 1 })],
+    },
+    {
+        kunci: '30d',
+        label: 'Bulan ini',
+        keterangan: 'Tanggal 1 sampai akhir bulan',
+        rentang: (hariIni) => [startOfMonth(hariIni), endOfMonth(hariIni)],
+    },
+    {
+        kunci: '90d',
+        label: '3 bulan',
+        keterangan: 'Dari tanggal 1 dua bulan sebelumnya sampai hari ini',
+        rentang: (hariIni) => [startOfMonth(subMonths(hariIni, 2)), hariIni],
+    },
+];
+
+const pintasan = computed(() => (props.kalender ? PINTASAN_KALENDER : PINTASAN_BERGULIR));
 
 /**
  * Tanggal menurut kalender setempat, bukan UTC.
@@ -74,16 +122,14 @@ const pintasan = [
  */
 const tanggalIso = (d: Date) => format(d, 'yyyy-MM-dd');
 
-function tanggalMundur(hari: number): string {
-    const d = new Date();
-    d.setDate(d.getDate() - hari);
+function rentangIso(pintasan: Pintasan): [string, string] {
+    const [dari, sampai] = pintasan.rentang(new Date());
 
-    return tanggalIso(d);
+    return [tanggalIso(dari), tanggalIso(sampai)];
 }
 
-function pakaiPintasan(hari: number) {
-    dariLokal.value = tanggalMundur(hari);
-    sampaiLokal.value = tanggalIso(new Date());
+function pakaiPintasan(pintasan: Pintasan) {
+    [dariLokal.value, sampaiLokal.value] = rentangIso(pintasan);
     terapkan();
 }
 
@@ -94,9 +140,11 @@ function terapkan() {
 
 /** Pintasan yang sedang dilihat, supaya pengguna tahu ini rentang yang mana. */
 const pintasanAktif = computed(() => {
-    const hariIni = tanggalIso(new Date());
+    return pintasan.value.find((pilihan) => {
+        const [dari, sampai] = rentangIso(pilihan);
 
-    return props.sampai === hariIni ? pintasan.find((p) => tanggalMundur(p.hari) === props.dari)?.label : undefined;
+        return props.dari === dari && props.sampai === sampai;
+    })?.kunci;
 });
 
 const ringkas = computed(() => {
@@ -107,7 +155,10 @@ const ringkas = computed(() => {
 </script>
 
 <template>
-    <div class="flex flex-wrap items-center gap-1.5">
+    <div
+        class="flex gap-1.5"
+        :class="inline && (tanpaPilih || rentangDiBawah) ? 'flex-col items-stretch sm:items-end' : 'flex-wrap items-center'"
+    >
         <!--
             Alas deretan pintasan memakai `secondary`, bukan `muted`.
             Di mode gelap `muted` bernilai 6,9% sedangkan latar halaman 3,9%,
@@ -119,12 +170,14 @@ const ringkas = computed(() => {
         <div v-if="inline" class="flex flex-wrap items-center gap-1 rounded-lg bg-secondary p-1">
             <Button
                 v-for="p in pintasan"
-                :key="p.label"
-                :variant="p.label === pintasanAktif ? 'default' : 'ghost'"
+                :key="p.kunci"
+                :variant="p.kunci === pintasanAktif ? 'default' : 'ghost'"
                 size="sm"
                 class="h-8 px-3 text-sm font-semibold"
-                :class="p.label === pintasanAktif ? '' : 'text-foreground hover:bg-background'"
-                @click="pakaiPintasan(p.hari)"
+                :class="p.kunci === pintasanAktif ? '' : 'text-foreground hover:bg-background'"
+                :title="p.keterangan"
+                :aria-label="`${p.label}: ${p.keterangan}`"
+                @click="pakaiPintasan(p)"
             >
                 {{ p.label }}
             </Button>
@@ -147,13 +200,11 @@ const ringkas = computed(() => {
         <!--
             Rentang sebagai keterangan, bukan tombol.
 
-            Bentuknya sengaja tidak meniru tombol di sebelahnya. Tinggi dan
-            radiusnya sama supaya barisnya tetap rapi, tetapi tepinya dilepas dan
-            alasnya memakai `secondary` yang sama dengan talam pintasan, sehingga
-            keduanya terbaca sebagai satu bilah: yang kiri memilih, yang kanan
-            melaporkan. Tepi bergaris pada benda yang tidak bisa ditekan adalah
-            janji yang tidak ditepati, dan pengguna akan menekannya sekali
-            sebelum menyimpulkan halamannya rusak.
+            Bentuknya sengaja tidak meniru tombol di atasnya. Rentang ditempatkan
+            pada baris kedua agar deretan kendali utama tidak menjadi terlalu
+            panjang. Tepi bergaris pada benda yang tidak bisa ditekan adalah janji
+            yang tidak ditepati, dan pengguna akan menekannya sekali sebelum
+            menyimpulkan halamannya rusak.
 
             `aria-live` supaya perubahan rentang terbacakan. Yang menekan
             pintasan lewat pembaca layar tidak melihat tanggal di sebelahnya
@@ -178,7 +229,7 @@ const ringkas = computed(() => {
                 membuat keduanya terlihat tidak sengaja diletakkan sebaris.
             -->
             <SheetTrigger as-child>
-                <Button variant="outline" class="h-10 gap-2 font-semibold text-foreground">
+                <Button :variant="rentangDiBawah ? 'secondary' : 'outline'" class="h-10 gap-2 font-semibold text-foreground">
                     <CalendarDays class="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                     <span class="text-sm">{{ ringkas }}</span>
                 </Button>
@@ -193,10 +244,12 @@ const ringkas = computed(() => {
                 <div class="flex flex-wrap gap-2">
                     <Button
                         v-for="p in pintasan"
-                        :key="p.label"
-                        :variant="p.label === pintasanAktif ? 'default' : 'secondary'"
+                        :key="p.kunci"
+                        :variant="p.kunci === pintasanAktif ? 'default' : 'secondary'"
                         size="sm"
-                        @click="pakaiPintasan(p.hari)"
+                        :title="p.keterangan"
+                        :aria-label="`${p.label}: ${p.keterangan}`"
+                        @click="pakaiPintasan(p)"
                     >
                         {{ p.label }}
                     </Button>

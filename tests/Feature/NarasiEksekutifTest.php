@@ -9,10 +9,12 @@ use App\Models\Artikel;
 use App\Models\KunciGemini;
 use App\Models\Media;
 use App\Models\NarasiEksekutif as Baris;
+use App\Models\PemantauanNarasiBulanan;
 use App\Models\User;
 use App\Services\Agregasi\NarasiEksekutif;
 use App\Services\Agregasi\RingkasanHarian;
 use App\Support\Waktu;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use RuntimeException;
 use Tests\TestCase;
@@ -37,6 +39,10 @@ class NarasiEksekutifTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Sabtu memberi tiga hari bahan sekaligus tanpa menyeberang ke pekan
+        // sebelumnya setelah preset 7d berubah menjadi Senin-Minggu.
+        $this->travelTo(CarbonImmutable::parse('2026-08-15 12:00:00', Waktu::ZONA));
 
         KunciGemini::create(['label' => 'Kunci uji', 'kunci' => 'kunci-uji-yang-cukup-panjang']);
 
@@ -101,15 +107,37 @@ class NarasiEksekutifTest extends TestCase
 
     public function test_artikel_id_karangan_membatalkan_narasi(): void
     {
-        AnalisEksekutif::fake([$this->jawaban([[
+        $jawabanSalah = $this->jawaban([[
             'judul' => 'Topik dengan id yang tidak pernah dikirim',
             'ringkasan' => 'Ringkasan.',
             'artikel_ids' => [$this->id[0], 999_999],
-        ]])]);
+        ]]);
+        AnalisEksekutif::fake([$jawabanSalah, $jawabanSalah]);
 
         $this->expectException(RuntimeException::class);
 
         app(NarasiEksekutif::class)->perbarui('7d');
+    }
+
+    public function test_artikel_id_karangan_diminta_dikoreksi_sekali(): void
+    {
+        AnalisEksekutif::fake([
+            $this->jawaban([[
+                'judul' => 'Topik pertama memakai id yang tidak pernah dikirim',
+                'ringkasan' => 'Ringkasan yang akan dikoreksi.',
+                'artikel_ids' => [$this->id[0], 999_999],
+            ]]),
+            $this->jawaban([[
+                'judul' => 'Pengelolaan parkir mulai mendapat sorotan dalam pemberitaan',
+                'ringkasan' => 'Jawaban koreksi memakai id yang tersedia.',
+                'artikel_ids' => [$this->id[0], $this->id[1]],
+            ]]),
+        ])->preventStrayPrompts();
+
+        $baris = app(NarasiEksekutif::class)->perbarui('7d');
+
+        $this->assertNotNull($baris);
+        $this->assertSame([$this->id[0], $this->id[1]], $baris->topik[0]['artikel_ids']);
     }
 
     public function test_satu_artikel_tidak_dihitung_di_dua_topik(): void
@@ -149,6 +177,97 @@ class NarasiEksekutifTest extends TestCase
         // sidik bahan tidak menahannya.
         $this->assertNull($narasi->perbarui('7d'));
         $this->assertSame(1, Baris::where('periode', '7d')->count());
+    }
+
+    public function test_perintah_narasi_laporan_memakai_batas_bulan_kalender(): void
+    {
+        AnalisEksekutif::fake([$this->jawaban([[
+            'judul' => 'Pemberitaan pelayanan publik menjadi topik utama bulan ini',
+            'ringkasan' => 'Ringkasan.',
+            'artikel_ids' => [$this->id[0]],
+        ]])]);
+
+        $this->artisan('narasi:eksekutif', ['--bulan' => ['2026-08']])
+            ->assertSuccessful();
+
+        $baris = Baris::query()
+            ->where('periode', '30d')
+            ->where('dari', '2026-08-01')
+            ->firstOrFail();
+
+        $this->assertSame('30d', $baris->periode);
+        $this->assertSame('2026-08-01', $baris->dari->toDateString());
+        $this->assertSame('2026-08-31', $baris->sampai->toDateString());
+    }
+
+    public function test_bulan_lampau_dikunci_setelah_pemeriksaan_final(): void
+    {
+        AnalisEksekutif::fake([$this->jawaban([[
+            'judul' => 'Pemberitaan pelayanan publik menjadi topik utama bulan ini',
+            'ringkasan' => 'Ringkasan.',
+            'artikel_ids' => [$this->id[0]],
+        ]])])->preventStrayPrompts();
+
+        $narasi = app(NarasiEksekutif::class);
+        $agustus = CarbonImmutable::parse('2026-08-01', Waktu::ZONA);
+
+        $awal = $narasi->perbaruiBulan($agustus);
+        $this->assertNotNull($awal);
+        $this->assertFalse(PemantauanNarasiBulanan::firstOrFail()->dikunci);
+
+        // Setelah bulan berganti, bahan yang sama cukup diperiksa sidiknya.
+        // Gemini tidak dipanggil lagi, tetapi hasilnya berubah menjadi final.
+        $this->travelTo(CarbonImmutable::parse('2026-09-01 05:00:00', Waktu::ZONA));
+        $this->assertNull($narasi->perbaruiBulan($agustus));
+
+        $pantauan = PemantauanNarasiBulanan::firstOrFail();
+        $this->assertTrue($pantauan->dikunci);
+        $this->assertSame(PemantauanNarasiBulanan::STATUS_SELESAI, $pantauan->status);
+        $this->assertSame(2, $pantauan->pemeriksaan);
+
+        // Bahkan bila data lama berubah sesudah dikunci, bulan final tidak
+        // masuk lagi ke proses dan hasil yang sudah disahkan tetap sama.
+        $artikel = Artikel::withoutGlobalScopes()->create([
+            'media_id' => Media::firstOrFail()->id,
+            'judul' => 'Berita terlambat setelah laporan dikunci',
+            'url' => 'https://contoh.test/terlambat',
+            'url_kanonik' => 'https://contoh.test/terlambat',
+            'ringkasan' => 'Ringkasan berita terlambat.',
+            'isi' => 'Isi berita.',
+            'diambil_at' => CarbonImmutable::parse('2026-08-31 22:00:00', Waktu::ZONA),
+            'status_proses' => 'selesai',
+        ]);
+        AnalisisSentimen::create([
+            'artikel_id' => $artikel->id,
+            'relevan' => true,
+            'label_model' => LabelSentimen::Positif,
+        ]);
+
+        $this->assertNull($narasi->perbaruiBulan($agustus));
+        $this->assertSame($awal->sidik, $awal->fresh()->sidik);
+        $this->assertSame(2, $pantauan->fresh()->pemeriksaan);
+    }
+
+    public function test_kegagalan_narasi_bulanan_tercatat_untuk_admin(): void
+    {
+        AnalisEksekutif::fake(function (): never {
+            throw new RuntimeException('Gemini tidak dapat menjawab dalam batas waktu.');
+        });
+
+        try {
+            app(NarasiEksekutif::class)->perbaruiBulan(CarbonImmutable::parse('2026-08-01', Waktu::ZONA));
+            $this->fail('Kegagalan Gemini seharusnya dilempar kembali ke command.');
+        } catch (RuntimeException $galat) {
+            $this->assertSame('Gemini tidak dapat menjawab dalam batas waktu.', $galat->getMessage());
+        }
+
+        $this->assertDatabaseHas('pemantauan_narasi_bulanan', [
+            'bulan' => '2026-08-01',
+            'status' => PemantauanNarasiBulanan::STATUS_GAGAL,
+            'dikunci' => false,
+            'pemeriksaan' => 1,
+            'galat' => 'Gemini tidak dapat menjawab dalam batas waktu.',
+        ]);
     }
 
     public function test_dashboard_tetap_terisi_saat_narasi_belum_ada(): void

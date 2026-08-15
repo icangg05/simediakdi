@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import KartuEksekutif from '@/components/domain/KartuEksekutif.vue';
 import KopEksekutif from '@/components/domain/KopEksekutif.vue';
+import PemilihBulan from '@/components/domain/PemilihBulan.vue';
 import PemilihRentangTanggal from '@/components/domain/PemilihRentangTanggal.vue';
+import PermukaanKendaliKop from '@/components/domain/PermukaanKendaliKop.vue';
 import PilKop from '@/components/domain/PilKop.vue';
 import KeadaanKosong from '@/components/KeadaanKosong.vue';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +38,7 @@ interface Baris {
 
 const props = defineProps<{
     periode: { dari: string; sampai: string };
+    opsiBulan: string[];
     peringkat: Baris[];
 }>();
 
@@ -266,7 +269,24 @@ function rupaNomor(urut: number): string {
         -->
         <KopEksekutif judul="Peringkat media" :keterangan="`Media yang memberitakan Pemerintah Kota, ${rentangTerbaca}`">
             <template #kendali>
-                <PemilihRentangTanggal :dari="periode.dari" :sampai="periode.sampai" inline @ubah="(dari, sampai) => pindah({ dari, sampai })" />
+                <div class="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-start">
+                    <PermukaanKendaliKop tanpa-padding>
+                        <PemilihBulan
+                            :dari="periode.dari"
+                            :sampai="periode.sampai"
+                            :opsi="opsiBulan"
+                            @ubah="(dari, sampai) => pindah({ dari, sampai })"
+                        />
+                    </PermukaanKendaliKop>
+                    <PemilihRentangTanggal
+                        :dari="periode.dari"
+                        :sampai="periode.sampai"
+                        inline
+                        kalender
+                        rentang-di-bawah
+                        @ubah="(dari, sampai) => pindah({ dari, sampai })"
+                    />
+                </div>
             </template>
 
             <template v-if="totalBerita > 0" #pil>

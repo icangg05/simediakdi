@@ -4,7 +4,9 @@ import DataTablePagination from '@/components/data-table/DataTablePagination.vue
 import KartuArtikel from '@/components/domain/KartuArtikel.vue';
 import KartuEksekutif from '@/components/domain/KartuEksekutif.vue';
 import KopEksekutif from '@/components/domain/KopEksekutif.vue';
+import PemilihBulan from '@/components/domain/PemilihBulan.vue';
 import PemilihRentangTanggal from '@/components/domain/PemilihRentangTanggal.vue';
+import PermukaanKendaliKop from '@/components/domain/PermukaanKendaliKop.vue';
 import PilKop from '@/components/domain/PilKop.vue';
 import KeadaanKosong from '@/components/KeadaanKosong.vue';
 import { Button } from '@/components/ui/button';
@@ -47,6 +49,7 @@ interface Baris {
 
 const props = defineProps<{
     periode: { dari: string; sampai: string };
+    opsiBulan: string[];
     artikel: { data: Baris[] } & PaginasiMeta;
     disaringTopik: boolean;
     opsi: Record<string, OpsiFilter[]>;
@@ -137,8 +140,9 @@ function aturUlangSaringan() {
 
     <LayoutEksekutif>
         <!--
-            Kotak cari duduk di dalam talam terang kop, bukan di papan penyaring
-            di bawahnya.
+            Kotak cari membawa permukaan terangnya sendiri di dalam kop, bukan
+            bergantung pada satu talam besar dan bukan pula dipindah ke papan
+            penyaring di bawahnya.
 
             Mencari judul adalah satu-satunya hal yang dibawa pembaca ke halaman
             ini, dan kendali yang paling sering dipakai berhak atas tempat yang
@@ -147,16 +151,18 @@ function aturUlangSaringan() {
         -->
         <KopEksekutif judul="Arsip berita" :keterangan="`Seluruh berita tentang Pemerintah Kota, ${rentangTerbaca}`">
             <template #kendali>
-                <div class="relative w-full sm:w-88">
-                    <Search class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                    <Input
-                        v-model="kata"
-                        type="search"
-                        placeholder="Cari judul atau penulis"
-                        class="h-10 border-transparent bg-transparent pl-9 text-sm shadow-none focus-visible:ring-1"
-                        aria-label="Cari berita di arsip"
-                    />
-                </div>
+                <PermukaanKendaliKop class="w-full sm:w-88">
+                    <div class="relative">
+                        <Search class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                        <Input
+                            v-model="kata"
+                            type="search"
+                            placeholder="Cari judul atau penulis"
+                            class="h-10 border-transparent bg-transparent pl-9 text-sm shadow-none focus-visible:ring-1"
+                            aria-label="Cari berita di arsip"
+                        />
+                    </div>
+                </PermukaanKendaliKop>
             </template>
 
             <!-- Rentangnya tidak diulang sebagai pil. Kalimat keterangan tepat
@@ -203,10 +209,17 @@ function aturUlangSaringan() {
                     tidak tertampung pintasan.
                 -->
                 <div class="flex flex-wrap items-center gap-2">
+                    <PemilihBulan
+                        :dari="periode.dari"
+                        :sampai="periode.sampai"
+                        :opsi="opsiBulan"
+                        @ubah="(dari, sampai) => kunjungi({ dari, sampai })"
+                    />
                     <PemilihRentangTanggal
                         :dari="periode.dari"
                         :sampai="periode.sampai"
                         inline
+                        kalender
                         tanpa-sheet
                         @ubah="(dari, sampai) => kunjungi({ dari, sampai })"
                     />

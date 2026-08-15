@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Waktu;
 use Illuminate\Support\Facades\Schedule;
 
 // Jadwal lengkap ada di dokumen 02 bagian 7. Yang belum terdaftar di sini
@@ -51,15 +52,25 @@ Schedule::command('hitung:ringkasan-harian --hari=90')
 // tabelnya membatalkan panggilan itu kalau tidak ada berita baru sejak generasi
 // terakhir, jadi jam-jam malam tidak membakar kuota.
 //
-// Dua irama karena biayanya tidak sama. Rentang hari ini dan tujuh hari yang
-// paling sering dibuka dan paling cepat basi. Rentang 30 dan 90 hari berubah
-// pelan, dan promptnya paling panjang, jadi sekali sehari sudah cukup.
+// Dua irama karena biayanya tidak sama. Rentang hari ini dan minggu kalender
+// paling sering dibuka dan paling cepat basi. Rentang bulan kalender dan tiga
+// bulan berjalan berubah lebih pelan, dan promptnya paling panjang, jadi sekali
+// sehari sudah cukup. Bulan sebelumnya ikut diperiksa agar laporan yang baru
+// tersedia setelah pergantian bulan tetap memiliki ringkasan final. Sidik bahan
+// mencegah panggilan Gemini baru kalau datanya tidak berubah.
 Schedule::command('narasi:eksekutif --periode=today --periode=7d')
     ->hourly()
     ->withoutOverlapping();
 
-Schedule::command('narasi:eksekutif --periode=30d --periode=90d')
+Schedule::command(
+    'narasi:eksekutif --periode=30d --periode=90d --bulan='.
+    now(Waktu::ZONA)->subMonthNoOverflow()->format('Y-m')
+)
     ->dailyAt('04:10')
+    // Aplikasi sengaja berjalan di UTC, tetapi jadwal laporan dibaca manusia
+    // Kendari. Tanpa zona eksplisit, 04.10 di sini sebenarnya menjadi 12.10
+    // WITA dan keterangan jadwal pada halaman admin akan menyesatkan.
+    ->timezone(Waktu::ZONA)
     ->withoutOverlapping();
 
 // Log crawl tumbuh cepat dan nilainya menurun tajam setelah beberapa minggu.

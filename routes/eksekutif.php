@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Eksekutif\ArsipBeritaController;
 use App\Http\Controllers\Eksekutif\DashboardController;
+use App\Http\Controllers\Eksekutif\LaporanController;
 use App\Http\Controllers\Eksekutif\PeringkatMediaController;
 use App\Http\Controllers\Eksekutif\SentimenController;
 use Illuminate\Support\Facades\Route;
@@ -11,4 +12,5 @@ Route::prefix('eksekutif')->name('eksekutif.')->middleware('peran:walikota,super
     Route::get('sentimen', SentimenController::class)->name('sentimen');
     Route::get('media', PeringkatMediaController::class)->name('media');
     Route::get('berita', ArsipBeritaController::class)->name('berita');
+    Route::get('laporan', LaporanController::class)->name('laporan');
 });

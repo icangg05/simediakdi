@@ -6,6 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/compon
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import UserMenuContent from '@/components/UserMenuContent.vue';
 import { getInitials } from '@/composables/useInitials';
+import { hrefDenganPeriodeEksekutif, type PeriodeEksekutif } from '@/composables/usePeriodeEksekutif';
 import { hrefAktif, navPerPeran } from '@/nav';
 import type { SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
@@ -29,12 +30,17 @@ import { computed, ref } from 'vue';
  * **Menu di sini sengaja tidak ikut aturan warna per fungsi.** Di dalam isi
  * halaman, warna menyatakan apa yang sedang dibaca: hijau nada positif, toska
  * media, ungu tulisan model. Bilah ini bukan isi, ia perabot yang membawa
- * pengguna ke isi, dan memberi empat menunya empat warna berarti pengguna
+ * pengguna ke isi, dan memberi tiap menu warna berbeda berarti pengguna
  * belajar arti warna dari perabot lalu menemukannya berarti hal lain di
  * halaman. Keadaan menu dinyatakan bentuk dan terang gelap: yang sedang dibuka
  * jadi pil putih penuh, sisanya teks di atas navy.
  */
-const page = usePage<SharedData>();
+type HalamanEksekutif = SharedData & {
+    periode?: PeriodeEksekutif;
+    bulan?: string;
+};
+
+const page = usePage<HalamanEksekutif>();
 const auth = computed(() => page.props.auth);
 
 const menuTerbuka = ref(false);
@@ -55,8 +61,19 @@ const bilah = ref<HTMLElement | null>(null);
 const bilahTerlihat = useElementVisibility(bilah);
 
 const mainNavItems = computed(() => navPerPeran[auth.value.user?.peran] ?? []);
-const beranda = computed(() => mainNavItems.value[0]?.href ?? '/dashboard');
 const aktif = computed(() => hrefAktif(mainNavItems.value, page.url));
+
+/**
+ * Rentang yang sedang dibaca ikut setiap perpindahan halaman eksekutif.
+ * Laporan menerima satu bulan, sedangkan halaman lain menerima batas tanggal
+ * lengkap. Keduanya diturunkan dari periode yang sama agar menu tidak
+ * mengembalikan pengguna ke periode bawaan.
+ */
+function hrefDenganPeriode(href: string): string {
+    return hrefDenganPeriodeEksekutif(href, page.props.periode, page.props.bulan);
+}
+
+const beranda = computed(() => hrefDenganPeriode(mainNavItems.value[0]?.href ?? '/dashboard'));
 
 /**
  * Keterangan satu baris per menu, hanya dipakai daftar ponsel.
@@ -75,6 +92,7 @@ const KETERANGAN: Record<string, string> = {
     '/eksekutif/sentimen': 'Rincian sentimen pemberitaan',
     '/eksekutif/media': 'Siapa yang paling banyak menulis',
     '/eksekutif/berita': 'Cari dan saring seluruh berita',
+    '/eksekutif/laporan': 'Siapkan laporan bulanan untuk dicetak',
 };
 </script>
 
@@ -84,7 +102,7 @@ const KETERANGAN: Record<string, string> = {
 
         Bilah melekat berarti satu bidang yang harus digambar ulang di atas
         seluruh isi yang lewat di belakangnya sepanjang gulir, dan di ponsel itu
-        biaya yang dibayar terus menerus demi empat menu yang jarang ditekan
+        biaya yang dibayar terus menerus demi menu yang jarang ditekan
         selagi membaca. Yang menggantikannya rel mengambang di bawah, yang baru
         dipasang setelah bilahnya benar benar keluar layar.
 
@@ -95,7 +113,7 @@ const KETERANGAN: Record<string, string> = {
         terus menerus. Di atas latar 95 persen pekat efek blurnya sendiri hampir
         tidak terlihat, jadi yang hilang nyaris nol.
     -->
-    <div ref="bilah" class="relative z-40 bg-brand text-white">
+    <div ref="bilah" class="relative z-40 bg-brand text-white print:hidden">
         <!-- Sapuan cahaya di sudut kanan, senada dengan kop halaman di bawahnya. -->
         <div
             class="pointer-events-none absolute inset-0"
@@ -148,7 +166,7 @@ const KETERANGAN: Record<string, string> = {
                         <Link
                             v-for="item in mainNavItems"
                             :key="item.title"
-                            :href="item.href"
+                            :href="hrefDenganPeriode(item.href)"
                             :aria-current="item.href === aktif ? 'page' : undefined"
                             class="tekan relative flex items-center gap-3 overflow-hidden rounded-xl px-3 py-2.5"
                             :class="item.href === aktif ? 'bg-brand-lembut' : 'hover:bg-muted'"
@@ -185,7 +203,7 @@ const KETERANGAN: Record<string, string> = {
                 <Link
                     v-for="item in mainNavItems"
                     :key="item.title"
-                    :href="item.href"
+                    :href="hrefDenganPeriode(item.href)"
                     :aria-current="item.href === aktif ? 'page' : undefined"
                     class="tekan flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-medium transition-colors duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white focus-visible:outline-solid"
                     :class="
@@ -314,7 +332,7 @@ const KETERANGAN: Record<string, string> = {
             <Link
                 v-for="item in mainNavItems"
                 :key="item.title"
-                :href="item.href"
+                :href="hrefDenganPeriode(item.href)"
                 :aria-current="item.href === aktif ? 'page' : undefined"
                 class="tekan group relative grid size-8 place-items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white focus-visible:outline-solid sm:size-10 sm:rounded-xl"
                 :class="item.href === aktif ? 'bg-white text-brand shadow-xs' : 'text-white/85 hover:bg-white/15 hover:text-white'"

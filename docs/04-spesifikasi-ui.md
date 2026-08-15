@@ -134,7 +134,7 @@ Total sekitar 30 komponen. Semuanya masuk ke `resources/js/components/ui` dan me
 | `KartuKpi.vue` | Dashboard eksekutif dan portal | Angka besar, label, dan pembanding periode sebelumnya |
 | `KartuArtikel.vue` | Feed berita eksekutif | Judul, media, waktu, badge sentimen, tautan keluar |
 | `ProgresKontrak.vue` | Admin dan portal | Progress bar realisasi terhadap target, sisa hari |
-| `PemilihRentangTanggal.vue` | Sepanjang aplikasi | Preset 7 hari, 30 hari, bulan ini, kustom |
+| `PemilihRentangTanggal.vue` | Sepanjang aplikasi | Preset bergulir untuk portal; Hari ini, Minggu ini (Senin-Minggu), Bulan ini, dan 3 bulan berjalan untuk panel eksekutif; serta rentang kustom |
 | `PemilihKonteks.vue` | Halaman analisis | Select konteks pantauan aktif. Sejak versi 1.4 hanya ada satu konteks aktif, jadi komponen ini menyembunyikan dirinya sendiri saat pilihannya tinggal satu. Jangan dihapus, dan jangan pula dirender sebagai dropdown berisi satu opsi |
 | `KartuRelevansi.vue` | Detail artikel, antrean review | Keputusan relevansi, skor, chip sinyal, potongan kalimat pemicu, dan dua tombol koreksi |
 | `BaseChart.vue` | Semua grafik | Wrapper ECharts yang menerapkan tema dan menangani resize |
@@ -169,7 +169,7 @@ Daftar grafik dan jenisnya:
 
 ## Bagian B: Inventaris halaman
 
-Total 24 halaman. Kolom "Sprint" merujuk dokumen 07.
+Total 25 halaman. Kolom "Sprint" merujuk dokumen 07.
 
 ### B.1 Panel admin, prefix `/admin`
 
@@ -193,6 +193,7 @@ Total 24 halaman. Kolom "Sprint" merujuk dokumen 07.
 | `/admin/review` | Antrean perlu review | Artikel dengan keyakinan dekat ambang, satu per layar, urutan berprioritas | 6 |
 | `/admin/evaluasi` | Hasil evaluasi model | Dua tab terpisah, relevansi dan sentimen. Confusion matrix, grafik F1 antar waktu, 20 false positive dan 20 false negative terbesar | 3 |
 | `/admin/model-relevansi` | Laboratorium Model Relevansi | Delapan tab lewat query string: ringkasan, dataset, snapshot, pelatihan, evaluasi, uji-model, versi-model, pengaturan. Wireframe dan komponennya di dokumen 10 bagian 5 sampai 18 | 8 |
+| `/admin/analisis-bulanan` | Pemantauan analisis laporan bulanan | Status per bulan, hasil terakhir, waktu proses, dan pesan kegagalan Gemini | 4 |
 | `/admin/alert` | Aturan alert | DataTable dan form | 5 |
 | `/admin/alert/riwayat` | Riwayat alert | DataTable | 5 |
 | `/admin/pengguna` | Pengguna | DataTable dan form | 4 |
@@ -201,7 +202,7 @@ Total 24 halaman. Kolom "Sprint" merujuk dokumen 07.
 
 ### B.2 Panel eksekutif, prefix `/eksekutif`
 
-Lima halaman. Semuanya read-only. Semuanya harus terbaca di 375 piksel.
+Enam halaman. Semuanya read-only. Semuanya harus terbaca di 375 piksel.
 
 | Rute | Halaman | Sprint |
 |------|---------|--------|
@@ -210,6 +211,7 @@ Lima halaman. Semuanya read-only. Semuanya harus terbaca di 375 piksel.
 | `/eksekutif/isu` | Isu hangat | 4 |
 | `/eksekutif/media` | Peringkat media | 4 |
 | `/eksekutif/berita` | Arsip berita | 4 |
+| `/eksekutif/laporan` | Laporan kondisi pemberitaan bulanan | 4 |
 
 ### B.3 Panel media, prefix `/portal`
 
@@ -233,7 +235,7 @@ Halaman paling penting di seluruh sistem. Rancang untuk mobile lebih dulu, lalu 
 
 **Susunan mobile, dari atas ke bawah:**
 
-1. **Header.** Nama sistem, sapaan singkat, dan `PemilihRentangTanggal` dengan default 7 hari terakhir. Pemilih tanggal berupa tombol yang membuka sheet dari bawah, bukan dropdown kecil.
+1. **Header.** Nama sistem, sapaan singkat, dan `PemilihRentangTanggal` dengan default minggu kalender saat ini (Senin-Minggu). Pintasannya adalah Hari ini, Minggu ini, Bulan ini, dan 3 bulan; pilihan 3 bulan dimulai tanggal 1 dua bulan sebelumnya dan berakhir hari ini. Pemilih tanggal berupa tombol yang membuka sheet dari bawah, bukan dropdown kecil.
 
 2. **Empat kartu KPI, dua kolom dua baris.** Masing-masing memuat angka besar, label, dan pembanding periode sebelumnya beserta arahnya.
    - Berita masuk
@@ -357,6 +359,14 @@ artikel harian, yang bermasalah ambangnya, bukan admin yang kurang rajin.
 
 **Halaman ini tidak menampilkan skor sentimen.** Ini keputusan produk di dokumen 01 bagian 8, bukan kelalaian. Kalau media bisa melihat nilai sentimennya, sebagian akan menyesuaikan gaya penulisan agar terbaca positif oleh model, dan dalam beberapa bulan data sentimen Anda mengukur kepatuhan terhadap model, bukan nada pemberitaan. Tulis catatan ini sebagai komentar di kode controller-nya, karena enam bulan dari sekarang akan ada yang meminta fiturnya ditambahkan.
 
+### C.4.1 Pemantauan analisis bulanan, `/admin/analisis-bulanan`
+
+- Halaman baca-saja untuk superadmin dan Wali Kota. Menampilkan keadaan `menunggu`, `sedang dianalisis`, `berhasil`, `gagal`, atau `belum ada data` untuk setiap bulan.
+- Pesan kegagalan terakhir ditampilkan utuh bersama waktu proses. Hasil terakhir yang berhasil tetap tersedia saat pemeriksaan terbaru gagal.
+- Bulan berjalan berstatus sementara. Penjadwal memeriksanya setiap hari pukul 04.10 WITA, tetapi Gemini hanya dipanggil bila daftar berita, sentimen, rentang, atau instruksi analisis berubah.
+- Setelah bulan berganti, bulan sebelumnya diperiksa satu kali lagi. Hasilnya lalu ditandai final dan dikunci; pemeriksaan penjadwal berikutnya berhenti sebelum memanggil Gemini.
+- Angka `pemeriksaan` menghitung berapa kali penjadwal memeriksa bulan tersebut, bukan jumlah permintaan Gemini. Pemeriksaan dengan bahan yang sama tidak menghabiskan panggilan AI.
+
 ### C.5 Isu hangat, `/eksekutif/isu`
 
 - `PemilihRentangTanggal` dan `PemilihKonteks` di atas
@@ -366,7 +376,17 @@ artikel harian, yang bermasalah ambangnya, bukan admin yang kurang rajin.
 
 Word cloud di mobile diganti daftar sepuluh teratas. Word cloud di layar sempit tidak terbaca dan hanya menghabiskan bandwidth.
 
-### C.6 Lapor pemuatan, `/portal/lapor`
+### C.6 Laporan kondisi pemberitaan, `/eksekutif/laporan`
+
+- Pemilih periode memakai komponen `Select` shadcn-vue berisi satu bulan kalender. Untuk versi pertama tidak ada rentang bebas.
+- Tombol "Cetak laporan" membuka dialog cetak peramban, sehingga pengguna dapat mencetak ke kertas atau menyimpan PDF. Tombol dinonaktifkan bila bulan yang dipilih belum memiliki pemberitaan.
+- Pratinjau dan hasil cetak memuat volume pemberitaan, komposisi sentimen, media yang aktif memberitakan, status kerja sama, tren mingguan, dan tabel seluruh media aktif termasuk yang belum memberitakan.
+- Bila bulan tersebut sudah memiliki narasi, laporan menampilkan ringkasan analisis Gemini AI yang tanggalnya harus tepat sama dengan bulan laporan. Narasi bulan lain tidak boleh digunakan sebagai pengganti.
+- Rentang tren mingguan dipotong pada batas bulan laporan. Contoh, kelompok Senin 29 Juni sampai Minggu 5 Juli ditampilkan sebagai `1–5 Juli 2026` pada laporan Juli.
+- Hasil cetak selalu light, berukuran A4, menyembunyikan navigasi dan kendali, serta mengulang kepala tabel media bila melewati satu halaman.
+- Angka dibaca dari agregat yang sama dengan dashboard. Laporan wajib menyebut bahwa sentimen dan volume pemberitaan bukan penilaian kinerja pemerintah.
+
+### C.7 Lapor pemuatan, `/portal/lapor`
 
 Prinsip halaman ini: satu isian wajib, sisanya kerja sistem. Menggantikan empat field Google Form lama. Target waktu dari tempel URL sampai konfirmasi di bawah 15 detik.
 

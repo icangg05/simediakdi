@@ -33,9 +33,15 @@ class GeminiClassificationService
     ) {}
 
     /** @template T @param Closure(): T $panggil @return T */
+    public function dalamJedaKunci(Closure $panggil): mixed
+    {
+        return $this->rotasi->dalamJedaKunci($panggil);
+    }
+
+    /** @template T @param Closure(): T $panggil @return T */
     public function dalamKlasifikasiManual(Closure $panggil): mixed
     {
-        return $this->rotasi->dalamKlasifikasiManual($panggil);
+        return $this->dalamJedaKunci($panggil);
     }
 
     public function relevansi(Artikel $artikel): HasilKlasifikasi

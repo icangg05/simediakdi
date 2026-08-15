@@ -10,6 +10,7 @@ use App\Models\Media;
 use App\Models\PelatihanModelRelevansi;
 use App\Models\SnapshotDatasetRelevansi;
 use App\Models\SumberFeed;
+use App\Models\UjiManualRelevansi;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
@@ -74,6 +75,17 @@ class WalikotaTidakBisaMenulisTest extends TestCase
             'dibuat_oleh' => $this->walikota->id,
         ]);
 
+        $uji = UjiManualRelevansi::create([
+            'pelatihan_model_relevansi_id' => $pelatihan->id,
+            'teks' => 'Teks pengujian untuk memastikan route model binding memakai baris nyata.',
+            'label_prediksi' => 'relevan',
+            'probabilitas_relevan' => 0.9,
+            'probabilitas_tidak_relevan' => 0.1,
+            'confidence' => 0.9,
+            'inferensi_ms' => 5,
+            'dibuat_oleh' => $this->walikota->id,
+        ]);
+
         // Id diambil dari baris nyata: kalau route model binding 404 lebih dulu,
         // tes akan lulus tanpa pernah menyentuh middleware yang diuji.
         $this->parameter = [
@@ -89,6 +101,8 @@ class WalikotaTidakBisaMenulisTest extends TestCase
             'kunci' => $kunci->id,
             'snapshot' => $snapshot->id,
             'pelatihan' => $pelatihan->id,
+            'uji' => $uji->id,
+            'bulan' => '2026-07',
             // Cadangan database tidak punya baris di tabel mana pun, parameternya
             // nama berkas. Nilainya tidak perlu benar-benar ada di disk: gerbang
             // peran berada di middleware, jadi ia menjawab 403 sebelum controller

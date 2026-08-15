@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Models\AntreanGemini;
-use App\Models\PengaturanAi;
+use App\Services\Ai\JedaKunciGemini;
 use App\Services\Ai\KlasifikasiArtikel;
 use App\Services\Ai\RotasiKunciGemini;
 use DateTimeInterface;
@@ -28,8 +28,7 @@ use Throwable;
  * bedanya baru terlihat sebagai angka dashboard yang tidak bisa dijelaskan.
  *
  * Yang ditambahkan job ini hanya dua: mencatat kemajuannya ke tabel antrean,
- * dan menunda dirinya sendiri saat kuota habis alih-alih menembak Gemini lalu
- * ditolak.
+ * dan menunda dirinya sendiri saat kunci masih dalam jeda atau kuota habis.
  */
 class KlasifikasiGemini implements ShouldQueue
 {
@@ -41,9 +40,8 @@ class KlasifikasiGemini implements ShouldQueue
      * Penundaan karena kuota habis ikut dihitung sebagai percobaan oleh Laravel,
      * dan kuota harian baru pulih tengah malam waktu Pasifik. Batas percobaan
      * berapa pun yang masuk akal untuk kegagalan nyata akan terlalu kecil untuk
-     * penungguan yang wajar. Batas percobaan yang sebenarnya dijaga kolom
-     * `percobaan` di tabel antrean, dan itu hanya bertambah saat benar-benar
-     * gagal.
+     * penungguan yang wajar. Kegagalan nyata dicatat di kolom `percobaan` dan
+     * dijadwalkan ulang dengan backoff oleh tabel antrean sendiri.
      */
     public int $tries = 0;
 
@@ -90,22 +88,6 @@ class KlasifikasiGemini implements ShouldQueue
             return;
         }
 
-        $indobert = PengaturanAi::aktif()->penyedia_relevansi === 'indobert';
-
-        // Gemini menilai relevansi juga, jadi pekerjaannya memakan kuota sejak
-        // baris pertama dan gerbangnya dipasang di sini. Dengan IndoBERT
-        // gerbangnya turun ke bawah, tepat sebelum sentimen, karena sampai titik
-        // itu belum ada satu pun permintaan yang dikirim ke Google.
-        //
-        // Ditunda, bukan dijalankan lalu ditolak: permintaan yang dijawab 429
-        // tetap dihitung Google sebagai permintaan, jadi mencoba terus justru
-        // memperpanjang masa tunggunya sendiri.
-        if (! $indobert && ($tunggu = $this->tungguGemini($rotasi)) > 0) {
-            $this->tunda($baris, $tunggu);
-
-            return;
-        }
-
         $artikel = $baris->artikel;
 
         if ($artikel === null) {
@@ -114,59 +96,56 @@ class KlasifikasiGemini implements ShouldQueue
             return;
         }
 
-        if ($artikel->isi === null || trim($artikel->isi) === '') {
-            // Bukan gangguan sesaat, jadi percobaannya dihabiskan sekaligus.
-            // Mengulanginya tidak akan memunculkan isi yang memang tidak ada.
+        // Hasil manual yang memenuhi tujuan prioritas ketika job masih tidur
+        // adalah hasil sah. Sinkronkan barisnya dan jangan menilai ulang.
+        if (! AntreanGemini::query()->whereKey($baris->id)->belumTuntas()->exists()) {
             $baris->update([
-                'status' => 'gagal',
-                'percobaan' => AntreanGemini::MAKS_PERCOBAAN,
-                'galat' => 'Artikel belum punya isi, jadi tidak ada yang bisa dinilai.',
+                'status' => 'selesai',
+                'galat' => null,
+                'dijadwalkan_at' => null,
+                'coba_lagi_at' => null,
                 'selesai_at' => now(),
             ]);
 
             return;
         }
 
-        $baris->update(['status' => 'berjalan', 'dimulai_at' => now(), 'galat' => null]);
+        if ($artikel->isi === null || trim($artikel->isi) === '') {
+            // Bukan galat AI dan tidak layak menumpuk di daftar kegagalan.
+            // Pengisi antrean memang hanya memilih artikel berisi; bila isinya
+            // hadir setelah ekstraksi ulang, penyisiran berikutnya membuat baris
+            // baru dan klasifikasi berjalan seperti biasa.
+            $baris->delete();
+
+            return;
+        }
+
+        $baris->update([
+            'status' => 'berjalan',
+            'dimulai_at' => now(),
+            'coba_lagi_at' => null,
+            'galat' => null,
+        ]);
 
         try {
-            // Relevansi lebih dulu, terpisah dari sentimen. Inilah yang membuat
-            // berita tidak relevan tidak ikut mengantre di belakang jeda yang
-            // hanya ada untuk menjaga kuota Gemini: dengan IndoBERT ia selesai
-            // di baris berikutnya tanpa satu pun permintaan ke Google.
-            $hasil = $klasifikasi->jalankanRelevansi($artikel);
+            // Alurnya sama dengan tombol Klasifikasi: setiap panggilan memilih
+            // kunci yang sudah menganggur 15 detik secara atomik. Jika semua
+            // kunci masih dalam jeda, JedaKunciGemini menunda hanya sisa
+            // waktunya, bukan satu menit penuh per artikel.
+            $klasifikasi->jalankanDenganJedaKunci($artikel);
+        } catch (JedaKunciGemini $jeda) {
+            $this->tunda($baris, $jeda->sisaDetik);
 
-            if ($klasifikasi->perluSentimen($artikel)) {
-                // Baru di sini kuotanya benar-benar akan terpakai. Job yang
-                // menunda diri di titik ini tidak kehilangan apa pun: keputusan
-                // relevansinya sudah tersimpan, dan pengulangannya hanya
-                // memanggil IndoBERT sekali lagi yang berjalan di server sendiri
-                // dalam seperlima detik.
-                if ($indobert && ($tunggu = $this->tungguGemini($rotasi)) > 0) {
-                    $this->tunda($baris, $tunggu);
-
-                    return;
-                }
-
-                $hasil = array_merge($hasil, $klasifikasi->jalankanSentimen($artikel));
-            }
-
-            // Penanda jeda dipasang dari hasilnya, bukan dari pengaturannya.
-            // Artikel yang seluruhnya diputuskan IndoBERT tidak boleh menggeser
-            // giliran artikel berikutnya yang mungkin memang butuh Gemini.
-            if (KlasifikasiArtikel::pakaiGemini($hasil)) {
-                $rotasi->tandaiArtikel();
-            }
+            return;
         } catch (RateLimitedException $galat) {
             // Kuota, bukan kerusakan. Pemeriksaan di awal job hanya melihat
             // keadaan sebelum pekerjaan dimulai, sedangkan batas bisa terlampaui
             // di tengah jalan, misalnya karena worker lain memakai kunci yang
             // sama pada menit yang sama.
             //
-            // Jatah percobaan sengaja tidak dikurangi. Kuota harian yang habis
-            // pada sore hari akan menghabiskan ketiga jatah setiap artikel
-            // sebelum tengah malam, dan esok paginya antrean terlihat kosong
-            // bukan karena selesai melainkan karena semuanya sudah menyerah.
+            // Jumlah kegagalan sengaja tidak ditambah. Kuota yang habis bukan
+            // kegagalan artikel, dan job tetap hidup di Redis sampai dapat
+            // giliran berikutnya.
             report($galat);
 
             // Minimal semenit meski kuncinya sudah terlihat siap lagi. Batas
@@ -178,30 +157,18 @@ class KlasifikasiGemini implements ShouldQueue
             return;
         } catch (Throwable $galat) {
             report($galat);
-
-            $baris->update([
-                'status' => 'gagal',
-                'percobaan' => $baris->percobaan + 1,
-                'galat' => mb_substr($galat->getMessage(), 0, 500),
-                'selesai_at' => now(),
-            ]);
+            $this->catatKegagalan($baris, $galat->getMessage());
 
             return;
         }
 
-        $baris->update(['status' => 'selesai', 'galat' => null, 'selesai_at' => now()]);
-    }
-
-    /**
-     * Dua sebab menunggu Gemini, digabung jadi satu angka.
-     *
-     * Yang pertama kuota habis, yang kedua giliran belum tiba. Keduanya berarti
-     * hal yang sama bagi job ini, yaitu tidur sebentar lalu memeriksa lagi, dan
-     * memisahkannya cuma menghasilkan dua cabang yang isinya sama persis.
-     */
-    private function tungguGemini(RotasiKunciGemini $rotasi): int
-    {
-        return max($rotasi->tungguDetik(), $rotasi->jedaArtikel());
+        $baris->update([
+            'status' => 'selesai',
+            'galat' => null,
+            'dijadwalkan_at' => null,
+            'coba_lagi_at' => null,
+            'selesai_at' => now(),
+        ]);
     }
 
     /**
@@ -218,6 +185,7 @@ class KlasifikasiGemini implements ShouldQueue
         $baris->update([
             'status' => 'menunggu',
             'dijadwalkan_at' => now()->addSeconds($tunggu),
+            'coba_lagi_at' => null,
             'galat' => 'Menunggu giliran Gemini berikutnya.',
         ]);
 
@@ -233,10 +201,22 @@ class KlasifikasiGemini implements ShouldQueue
     {
         $baris = AntreanGemini::find($this->antreanId);
 
-        $baris?->update([
+        if ($baris !== null) {
+            $this->catatKegagalan($baris, $galat?->getMessage() ?? 'Pekerjaan berhenti tanpa keterangan.');
+        }
+    }
+
+    /** Mencatat kegagalan dan menentukan kapan scheduler boleh melepasnya lagi. */
+    private function catatKegagalan(AntreanGemini $baris, string $pesan): void
+    {
+        $percobaan = $baris->percobaan + 1;
+
+        $baris->update([
             'status' => 'gagal',
-            'percobaan' => $baris->percobaan + 1,
-            'galat' => mb_substr($galat?->getMessage() ?? 'Pekerjaan berhenti tanpa keterangan.', 0, 500),
+            'percobaan' => $percobaan,
+            'galat' => mb_substr(trim($pesan) ?: 'Pekerjaan berhenti tanpa keterangan.', 0, 500),
+            'dijadwalkan_at' => null,
+            'coba_lagi_at' => now()->addSeconds(AntreanGemini::jedaCobaUlangDetik($percobaan)),
             'selesai_at' => now(),
         ]);
     }

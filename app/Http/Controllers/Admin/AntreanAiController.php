@@ -41,28 +41,25 @@ class AntreanAiController extends Controller
     }
 
     /**
-     * Daftar penuh pekerjaan yang sudah menyerah, untuk modal di layar.
+     * Daftar pekerjaan gagal yang sedang menunggu percobaan otomatis.
      *
      * Terpisah dari `index`, dan itu bukan soal kerapian. Halaman Antrean AI
-     * menarik dirinya sendiri tiap lima detik, dan angka Menyerah bisa bernilai
+     * menarik dirinya sendiri tiap lima detik, dan angka Gagal bisa bernilai
      * ratusan. Menitipkan daftar ini pada muatan polling berarti mengirim
      * ratusan judul beserta pesan galatnya dua belas kali semenit selama
      * halamannya dibiarkan terbuka, padahal isinya hanya dibaca ketika ada yang
      * membuka modalnya. Pola yang sama sudah dipakai `model-relevansi/uji/{uji}`
      * dengan alasan yang sama persis.
      *
-     * Yang dipulangkan hanya yang benar-benar menyerah, bukan seluruh baris
-     * berstatus gagal. Gagal yang masih punya jatah percobaan akan dilepas lagi
-     * dengan sendirinya, dan menampilkannya di daftar bernama Menyerah membuat
-     * admin mengejar kegagalan yang sudah terjadwal ulang semenit kemudian.
-     * Ambang yang dipakai sama dengan yang menghitung angka di kartunya.
+     * Baris yang sudah diselesaikan manual tidak ikut. Satu artikel tetap satu
+     * baris selama seluruh percobaan, jadi daftar tidak bertambah satu baris
+     * setiap kali provider menjawab galat.
      */
     public function gagal(): JsonResponse
     {
         $baris = AntreanGemini::query()
             ->with(['artikel:id,judul,media_id', 'artikel.media:id,nama,partner'])
-            ->where('status', 'gagal')
-            ->where('percobaan', '>=', AntreanGemini::MAKS_PERCOBAAN)
+            ->menungguUlang()
             ->orderByRaw('coalesce(selesai_at, dimulai_at) desc nulls last')
             ->limit(200)
             ->get()
@@ -76,6 +73,7 @@ class AntreanAiController extends Controller
                 'percobaan' => $b->percobaan,
                 'galat' => $b->galat,
                 'waktu' => ($b->selesai_at ?? $b->dimulai_at)?->toIso8601String(),
+                'coba_lagi_at' => $b->coba_lagi_at?->toIso8601String(),
             ])
             ->all();
 
@@ -85,8 +83,7 @@ class AntreanAiController extends Controller
         // harus disisir ulang tiap kali modal dibuka. Di sini ia satu query
         // yang sudah punya indeks pada `status`.
         $kelompok = AntreanGemini::query()
-            ->where('status', 'gagal')
-            ->where('percobaan', '>=', AntreanGemini::MAKS_PERCOBAAN)
+            ->menungguUlang()
             ->selectRaw('left(coalesce(galat, ?), 80) as pesan, count(*) as n', ['Tanpa keterangan'])
             ->groupBy('pesan')
             ->orderByDesc('n')
@@ -101,8 +98,7 @@ class AntreanAiController extends Controller
             // Dikirim terpisah karena `baris` dipotong di 200. Tanpa ini, layar
             // tidak punya cara membedakan 200 kegagalan dari 900 kegagalan.
             'total' => AntreanGemini::query()
-                ->where('status', 'gagal')
-                ->where('percobaan', '>=', AntreanGemini::MAKS_PERCOBAAN)
+                ->menungguUlang()
                 ->count(),
         ]);
     }
@@ -127,11 +123,12 @@ class AntreanAiController extends Controller
         //
         // value() lewat model, bukan max(), supaya cast datetime ikut jalan.
         $terakhir = AntreanGemini::query()
+            ->where('prioritas', 1)
             ->whereNotNull('selesai_at')
             ->latest('selesai_at')
             ->value('selesai_at');
 
-        $sisa = $ringkasan['menunggu'] + $ringkasan['berjalan'];
+        $sisa = $ringkasan['menunggu'] + $ringkasan['berjalan'] + $ringkasan['gagal'];
 
         // Kuota habis berarti tidak ada satu pun kunci yang boleh dipanggil
         // sekarang. Bukan tebakan dari `dijadwalkan_at` pekerjaan yang sedang
@@ -150,10 +147,16 @@ class AntreanAiController extends Controller
         // dari antrean yang sedang menunggu giliran, bukan untuk menyimpulkan
         // soal kuota.
         $lanjut = AntreanGemini::query()
+            ->belumTuntas()
             ->whereIn('status', ['menunggu', 'berjalan'])
             ->whereNotNull('dijadwalkan_at')
             ->orderBy('dijadwalkan_at')
             ->value('dijadwalkan_at');
+        $cobaLagi = AntreanGemini::query()
+            ->menungguUlang()
+            ->whereNotNull('coba_lagi_at')
+            ->orderBy('coba_lagi_at')
+            ->value('coba_lagi_at');
 
         // Dua kali jeda antar artikel, bukan satu kali. Satu kali terlalu
         // ketat: artikel yang butuh dua panggilan Gemini wajar melewatinya
@@ -179,37 +182,50 @@ class AntreanAiController extends Controller
                 // belum tiba gilirannya. Menyebutnya macet mengirim admin
                 // memeriksa worker yang sebenarnya sehat.
                 $lanjut?->isFuture() => 'menunggu',
+                // Kegagalan bukan lagi jalan buntu. Selama jadwal retry ada,
+                // mesinnya sehat walaupun belum ada pekerjaan aktif di Redis.
+                $cobaLagi?->isFuture() => 'menunggu',
                 default => 'macet',
             },
             'terakhir_selesai_at' => $terakhir?->toIso8601String(),
             'dilanjutkan_at' => $pulih?->toIso8601String(),
+            'coba_lagi_at' => $cobaLagi?->toIso8601String(),
         ];
     }
 
     /** @return array<string, int> */
     private function ringkasan(): array
     {
-        $jumlah = AntreanGemini::query()
-            ->selectRaw('status, count(*) as n')
-            ->groupBy('status')
-            ->pluck('n', 'status');
+        // Gagal dipisahkan dari menunggu supaya admin tetap melihat kendalanya,
+        // tetapi semuanya masih menjadi pekerjaan aktif karena scheduler akan
+        // mencoba ulang berdasarkan coba_lagi_at.
+        $menunggu = AntreanGemini::query()
+            ->belumTuntas()
+            ->where('status', 'menunggu')
+            ->count();
 
-        // Gagal yang masih punya jatah percobaan bukan pekerjaan yang batal, ia
-        // hanya belum berhasil, dan tarikan berikutnya akan melepasnya lagi
-        // dengan sendirinya. Karena itu ia dihitung sebagai menunggu. Kalau
-        // tidak, halaman ini berteriak merah untuk gangguan koneksi yang sudah
-        // terjadwal ulang semenit kemudian.
-        $menyerah = AntreanGemini::query()
-            ->where('status', 'gagal')
-            ->where('percobaan', '>=', AntreanGemini::MAKS_PERCOBAAN)
+        $berjalan = AntreanGemini::query()
+            ->belumTuntas()
+            ->where('status', 'berjalan')
+            ->count();
+
+        $gagal = AntreanGemini::query()->menungguUlang()->count();
+
+        $selesai = AntreanGemini::query()
+            ->where('prioritas', 1)
+            ->where(fn ($q) => $q
+                ->where('status', 'selesai')
+                ->orWhere(fn ($efektif) => $efektif
+                    ->where('status', '<>', 'selesai')
+                    ->sudahTuntas()))
             ->count();
 
         return [
-            'menunggu' => (int) ($jumlah['menunggu'] ?? 0) + (int) ($jumlah['gagal'] ?? 0) - $menyerah,
-            'berjalan' => (int) ($jumlah['berjalan'] ?? 0),
-            'selesai' => (int) ($jumlah['selesai'] ?? 0),
-            'menyerah' => $menyerah,
-            'total' => (int) $jumlah->sum(),
+            'menunggu' => $menunggu,
+            'berjalan' => $berjalan,
+            'selesai' => $selesai,
+            'gagal' => $gagal,
+            'total' => $menunggu + $berjalan + $selesai + $gagal,
         ];
     }
 
@@ -221,8 +237,8 @@ class AntreanAiController extends Controller
     private function prioritas(): array
     {
         $jumlah = AntreanGemini::query()
+            ->belumTuntas()
             ->whereIn('status', ['menunggu', 'berjalan', 'gagal'])
-            ->where('percobaan', '<', AntreanGemini::MAKS_PERCOBAAN)
             ->selectRaw('prioritas, count(*) as n')
             ->groupBy('prioritas')
             ->pluck('n', 'prioritas');
@@ -241,9 +257,11 @@ class AntreanAiController extends Controller
     private function laju(): array
     {
         return [
-            'jam' => AntreanGemini::where('status', 'selesai')
+            'jam' => AntreanGemini::where('prioritas', 1)
+                ->where('status', 'selesai')
                 ->where('selesai_at', '>=', now()->subHour())->count(),
-            'hari' => AntreanGemini::where('status', 'selesai')
+            'hari' => AntreanGemini::where('prioritas', 1)
+                ->where('status', 'selesai')
                 ->where('selesai_at', '>=', now()->subDay())->count(),
         ];
     }
@@ -264,15 +282,14 @@ class AntreanAiController extends Controller
             * KunciGemini::where('aktif', true)->count();
 
         $tersisa = AntreanGemini::query()
+            ->belumTuntas()
             ->whereIn('status', ['menunggu', 'berjalan', 'gagal'])
-            ->where('percobaan', '<', AntreanGemini::MAKS_PERCOBAAN)
             ->count();
 
         // Dua pagar, dan yang paling sempit yang menentukan. Kuota harian
-        // membatasi berapa banyak permintaan boleh terkirim seharian, jeda
-        // antar artikel membatasi berapa cepat mereka boleh menyusul satu sama
-        // lain. Menghitung dari kuota saja pernah membuat layar menjanjikan
-        // enam hari untuk antrean yang jedanya menuntut dua kali lipat itu.
+        // membatasi jumlah permintaan, sementara jeda kunci membatasi laju
+        // pekerjaan. Perkiraan memakai keduanya agar tidak menjanjikan laju
+        // yang tidak bisa dijalankan.
         $perHariKuota = $kapasitas / AntreanGemini::PERMINTAAN_PER_ARTIKEL;
         $perHariJeda = 86400 / AntreanGemini::jedaDetik();
         $perHari = min($perHariKuota, $perHariJeda);
@@ -303,6 +320,7 @@ class AntreanAiController extends Controller
     {
         return AntreanGemini::query()
             ->with(['artikel:id,judul,media_id,status_proses', 'artikel.media:id,nama,partner', 'artikel.analisisSentimen'])
+            ->where('prioritas', 1)
             ->whereIn('status', ['berjalan', 'selesai', 'gagal'])
             ->orderByRaw('coalesce(selesai_at, dimulai_at) desc nulls last')
             ->limit(15)

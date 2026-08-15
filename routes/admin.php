@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AnalisisBulananController;
 use App\Http\Controllers\Admin\AntreanAiController;
 use App\Http\Controllers\Admin\ArtikelController;
 use App\Http\Controllers\Admin\AturanAlertController;
@@ -62,11 +63,20 @@ Route::prefix('admin')->name('admin.')->middleware('peran:superadmin,walikota')-
     // artikel baru sudah mengantre sendiri begitu isinya selesai diekstrak.
     Route::get('antrean-ai', [AntreanAiController::class, 'index'])->name('antrean-ai.index');
 
-    // Daftar pekerjaan yang menyerah, dibaca modal di halaman Antrean AI.
+    // Daftar kegagalan sementara yang menunggu retry otomatis, dibaca modal.
     // Terpisah dari rute halaman supaya muatan polling tiap lima detik tidak
     // ikut membawa ratusan judul beserta pesan galatnya. Alasan lengkapnya ada
     // di method `gagal` pada controllernya.
     Route::get('antrean-ai/gagal', [AntreanAiController::class, 'gagal'])->name('antrean-ai.gagal');
+
+    // Status proses laporan dipisahkan dari antrean klasifikasi artikel. Satu
+    // barisnya mewakili satu bulan, bukan satu berita, dan bulan final tidak
+    // lagi bergerak setelah dikunci.
+    Route::get('analisis-bulanan', AnalisisBulananController::class)->name('analisis-bulanan');
+    Route::post('analisis-bulanan/{bulan}/jalankan', [AnalisisBulananController::class, 'jalankan'])
+        ->middleware(['peran:superadmin', 'throttle:3,1,analisis-bulanan-manual'])
+        ->where('bulan', '\d{4}-\d{2}')
+        ->name('analisis-bulanan.jalankan');
 
     Route::get('log-crawl', [LogCrawlController::class, 'index'])->name('log-crawl.index');
     // Satu crawl penuh menarik 28 feed dari 28 server milik orang lain. Dua

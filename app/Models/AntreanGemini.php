@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Ai\RotasiKunciGemini;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,26 +20,9 @@ class AntreanGemini extends Model
 
     protected $guarded = ['id'];
 
-    /**
-     * Tiga sumber pekerjaan, sekaligus urutan pengerjaannya.
-     *
-     * Angka kecil dikerjakan lebih dulu. Artikel yang belum punya analisis sama
-     * sekali paling depan karena ia satu-satunya yang benar-benar belum
-     * terjawab. Dua sisanya sudah punya jawaban, jadi menundanya tidak
-     * meninggalkan lubang di dashboard.
-     *
-     * Labelnya menyebut keadaan datanya, bukan sejarah sistemnya. Dulu keduanya
-     * berbunyi "dari pipeline lama", dan itu berhenti berarti apa-apa bagi admin
-     * yang membaca layar: pipeline yang dimaksud sudah lama tidak ada, dan tidak
-     * ada tempat di antarmuka yang menjelaskan pipeline mana. Yang benar-benar
-     * disaring kandidat prioritas 2 dan 3 adalah `provider` yang kosong, yaitu
-     * baris yang keputusannya tidak mencatat siapa penilainya. Itu yang membuat
-     * keputusannya tidak bisa ditelusuri, dan itu alasan ia dinilai ulang.
-     */
+    /** Satu-satunya pekerjaan otomatis: artikel yang belum pernah dinilai. */
     public const PRIORITAS = [
         1 => 'Belum pernah dinilai',
-        2 => 'Relevan, penilainya tidak tercatat',
-        3 => 'Tidak relevan, penilainya tidak tercatat',
     ];
 
     public const STATUS = ['menunggu', 'berjalan', 'selesai', 'gagal'];
@@ -47,6 +31,7 @@ class AntreanGemini extends Model
     {
         return [
             'dijadwalkan_at' => 'datetime',
+            'coba_lagi_at' => 'datetime',
             'dimulai_at' => 'datetime',
             'selesai_at' => 'datetime',
         ];
@@ -57,23 +42,47 @@ class AntreanGemini extends Model
         return $this->belongsTo(Artikel::class);
     }
 
+    /** Baris prioritas aktif yang artikelnya belum memperoleh keputusan. */
+    public function scopeBelumTuntas(Builder $kueri): void
+    {
+        $kueri
+            ->where('prioritas', 1)
+            ->whereHas('artikel', fn (Builder $artikel) => $artikel->belumDiklasifikasi());
+    }
+
+    /** Kebalikan belumTuntas(), dipakai untuk menyatukan hasil manual dan job. */
+    public function scopeSudahTuntas(Builder $kueri): void
+    {
+        $kueri
+            ->where('prioritas', 1)
+            ->whereHas('artikel', fn (Builder $artikel) => $artikel->sudahDiklasifikasi());
+    }
+
+    /** Kegagalan yang masih menunggu jadwal percobaan otomatis berikutnya. */
+    public function scopeMenungguUlang(Builder $kueri): void
+    {
+        $kueri
+            ->belumTuntas()
+            ->where('status', 'gagal');
+    }
+
     /**
      * Pekerjaan yang siap diambil berikutnya, dalam urutan yang benar.
      *
-     * `gagal` ikut, dan itu disengaja. Kegagalan di sini hampir selalu gangguan
-     * sesaat, misalnya koneksi putus atau Gemini menjawab dengan bentuk yang
-     * tidak terbaca. Membiarkannya mati permanen setelah satu kali gagal berarti
-     * artikelnya tidak akan pernah dinilai, dan tidak ada yang akan menyadarinya
-     * karena barisnya sudah hilang dari daftar menunggu.
+     * Kegagalan ikut lagi setelah `coba_lagi_at` tiba. Waktu ini terpisah dari
+     * `dijadwalkan_at`: yang pertama adalah backoff di basis data, yang kedua
+     * menandakan job nyata sudah hidup di Redis. Menyatukannya membuat penjadwal
+     * mengira retry yang belum dilepas sudah menggantung di worker.
      */
     public function scopeSiapDiambil(Builder $kueri): void
     {
         $kueri
+            ->belumTuntas()
             ->where(fn (Builder $q) => $q
                 // Belum pernah dilepas sama sekali.
                 ->where(fn (Builder $b) => $b->where('status', 'menunggu')->whereNull('dijadwalkan_at'))
-                // Gagal dan masih punya jatah. Pekerjaannya sudah tidak ada di
-                // Redis, jadi melepasnya lagi tidak menggandakan apa pun.
+                // Pekerjaan gagal sudah tidak ada di Redis. Ia baru boleh
+                // dilepas ketika jeda bertahapnya selesai.
                 //
                 // Baris berstatus menunggu dengan `dijadwalkan_at` terisi
                 // sengaja tidak ikut. Itu pekerjaan yang menunda dirinya sendiri
@@ -82,19 +91,31 @@ class AntreanGemini extends Model
                 // dinilai dua kali.
                 ->orWhere(fn (Builder $b) => $b
                     ->where('status', 'gagal')
-                    ->where('percobaan', '<', self::MAKS_PERCOBAAN)))
+                    ->where(fn (Builder $waktu) => $waktu
+                        ->whereNull('coba_lagi_at')
+                        ->orWhere('coba_lagi_at', '<=', now()))))
             ->orderBy('prioritas')
             ->orderBy('id');
     }
 
     /**
-     * Batas percobaan per artikel.
+     * Jeda retry berdasarkan jumlah kegagalan total artikel.
      *
-     * Tiga kali cukup untuk melewati gangguan sesaat. Lebih dari itu artinya
-     * ada yang salah pada artikelnya sendiri, dan mengulanginya terus hanya
-     * membakar kuota harian yang seharusnya dipakai artikel lain.
+     * Gangguan singkat pulih dalam hitungan menit. Artikel yang terus gagal
+     * melambat sampai sekali sehari, sehingga tetap dapat pulih otomatis setelah
+     * penyebabnya diperbaiki tanpa menghabiskan kuota untuk loop tanpa batas.
      */
-    public const MAKS_PERCOBAAN = 3;
+    public static function jedaCobaUlangDetik(int $percobaan): int
+    {
+        return match (true) {
+            $percobaan <= 1 => 60,
+            $percobaan === 2 => 5 * 60,
+            $percobaan === 3 => 15 * 60,
+            $percobaan === 4 => 60 * 60,
+            $percobaan === 5 => 6 * 60 * 60,
+            default => 24 * 60 * 60,
+        };
+    }
 
     /**
      * Rata-rata permintaan Gemini yang dihabiskan satu artikel.
@@ -106,27 +127,19 @@ class AntreanGemini extends Model
     public const PERMINTAAN_PER_ARTIKEL = 1.8;
 
     /**
-     * Jarak antar artikel, dalam detik.
+     * Jeda pengendali antrean, dalam detik.
      *
-     * Dua angka dibandingkan, yang paling longgar yang menang. Yang pertama
-     * jarak pilihan dari config, yang kedua jarak minimum yang dituntut jumlah
-     * kunci yang menyala. Menurunkan angka config tidak akan pernah membuat
-     * antrean menembak lebih cepat daripada yang sanggup ditanggung kuncinya,
-     * dan menambah kunci tidak akan membuatnya melanggar jarak yang sengaja
-     * dipilih admin.
+     * Jalur Gemini mengikuti cooldown kunci yang sama dengan klasifikasi
+     * manual. Setiap panggilan memilih kunci yang sudah menganggur 15 detik;
+     * bila belum ada, job menunda diri sebesar sisa cooldown-nya. Karena itu
+     * antrean tidak perlu lagi menahan setiap artikel 60 detik.
      *
-     * Dipakai bersama oleh pelepas pekerjaan dan halaman pemantauan. Dua salinan
-     * rumus ini pernah berarti perkiraan waktu selesai di layar menjanjikan
-     * kecepatan yang tidak pernah benar-benar dijalankan.
+     * Dipakai halaman pemantauan untuk membaca jeda kunci Gemini, dan pelepas
+     * pekerjaan hanya saat IndoBERT aktif untuk menjaga CPU layanan lokal.
      *
-     * Dengan IndoBERT, jarak ini tidak lagi menjaga kuota sama sekali. Ia hanya
-     * menjaga CPU layanan inferensi, karena berita yang ditolak tidak memanggil
-     * Gemini. Kuotanya dijaga di tempat lain, yaitu jeda antar artikel yang
-     * benar-benar lolos, dan itu ada di RotasiKunciGemini::jedaArtikel().
-     *
-     * Pemisahan itu yang membuat tumpukan berita tidak relevan bisa disapu
-     * cepat. Jarak tunggal yang mengasumsikan setiap artikel memanggil Gemini
-     * menghukum seluruh antrean demi separuh isinya.
+     * Dengan IndoBERT, jarak ini hanya menjaga CPU layanan inferensi. Artikel
+     * yang lolos tetap masuk pemilih kunci 15 detik tepat sebelum sentimen,
+     * sedangkan yang tidak relevan selesai tanpa menyentuh Gemini.
      */
     public static function jedaDetik(): float
     {
@@ -134,12 +147,6 @@ class AntreanGemini extends Model
             return (float) config('ai.antrean.jeda_detik_indobert');
         }
 
-        $kunci = max(1, KunciGemini::where('aktif', true)->count());
-
-        $perMenit = $kunci * (int) config('ai.batas_kunci.rpm');
-
-        $lantaiKapasitas = 60 / max(1, $perMenit / self::PERMINTAAN_PER_ARTIKEL);
-
-        return max((float) config('ai.antrean.jeda_detik'), $lantaiKapasitas);
+        return (float) RotasiKunciGemini::JEDA_KUNCI_DETIK;
     }
 }

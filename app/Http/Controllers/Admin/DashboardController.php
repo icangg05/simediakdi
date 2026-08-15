@@ -158,7 +158,14 @@ class DashboardController extends Controller
     {
         // Bukan max(): fungsi agregat melewati cast, hasilnya string mentah.
         $crawlTerakhir = LogCrawl::query()->latest('dimulai_at')->first()?->dimulai_at;
-        $jamSejakCrawl = $crawlTerakhir ? now()->diffInHours($crawlTerakhir, absolute: true) : null;
+
+        // Jadwal crawl berjalan tiap tiga jam. Selama belum melewati satu
+        // interval penuh, crawler masih sehat; status kuning setelah satu jam
+        // hanya menimbulkan alarm palsu di antara dua jadwal. Timestamp
+        // dibandingkan langsung agar tepat tiga jam masih sehat dan baru
+        // berubah merah sesudah ambangnya benar-benar terlewati.
+        $crawlTerlambat = $crawlTerakhir === null
+            || $crawlTerakhir->lt(now()->subHours(3));
 
         // Diukur dari hitungan gagal saja, bukan dari kolom `aktif`.
         //
@@ -170,12 +177,7 @@ class DashboardController extends Controller
 
         return [
             'crawler' => [
-                'status' => match (true) {
-                    $jamSejakCrawl === null => 'merah',
-                    $jamSejakCrawl > 3 => 'merah',
-                    $jamSejakCrawl > 1 => 'kuning',
-                    default => 'hijau',
-                },
+                'status' => $crawlTerlambat ? 'merah' : 'hijau',
                 'keterangan' => $crawlTerakhir
                     ? 'Crawl terakhir '.$crawlTerakhir->diffForHumans()
                     : 'Crawler belum pernah berjalan. Periksa scheduler dan worker queue.',

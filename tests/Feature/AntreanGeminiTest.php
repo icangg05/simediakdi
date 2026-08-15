@@ -16,6 +16,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\DataProvider;
+use RuntimeException;
 use Tests\TestCase;
 
 /**
@@ -45,8 +46,8 @@ class AntreanGeminiTest extends TestCase
         ]);
     }
 
-    /** Ketiga kelompok masuk antrean dengan nomor prioritas yang benar. */
-    public function test_pengisi_antrean_menandai_prioritas_sesuai_kelompoknya(): void
+    /** Hanya artikel yang belum pernah dinilai masuk antrean otomatis. */
+    public function test_pengisi_antrean_mengabaikan_dua_prioritas_legacy(): void
     {
         $baru = $this->artikel('Belum pernah dinilai');
 
@@ -59,8 +60,8 @@ class AntreanGeminiTest extends TestCase
         $this->artisan('gemini:antre', ['--isi' => true, '--batas' => 0]);
 
         $this->assertSame(1, AntreanGemini::where('artikel_id', $baru->id)->value('prioritas'));
-        $this->assertSame(2, AntreanGemini::where('artikel_id', $lamaRelevan->id)->value('prioritas'));
-        $this->assertSame(3, AntreanGemini::where('artikel_id', $lamaTidak->id)->value('prioritas'));
+        $this->assertFalse(AntreanGemini::where('artikel_id', $lamaRelevan->id)->exists());
+        $this->assertFalse(AntreanGemini::where('artikel_id', $lamaTidak->id)->exists());
     }
 
     /**
@@ -149,13 +150,109 @@ class AntreanGeminiTest extends TestCase
         Queue::assertPushed(KlasifikasiGemini::class, 1);
     }
 
+    /** Label lama tanpa catatan penyedia tidak lagi dinilai ulang otomatis. */
+    public function test_pelepasan_tidak_memproses_label_lama_tanpa_provider(): void
+    {
+        Queue::fake();
+
+        $artikel = $this->artikel('Label lama tanpa penyedia', status: 'selesai');
+        $this->analisis($artikel, relevan: true, label: 'positif', provider: null);
+
+        $this->artisan('gemini:antre', ['--isi' => true, '--batas' => 1]);
+
+        Queue::assertNothingPushed();
+        $this->assertFalse(AntreanGemini::where('artikel_id', $artikel->id)->exists());
+    }
+
+    public function test_kegagalan_dilepas_lagi_otomatis_setelah_jadwalnya_tiba(): void
+    {
+        Queue::fake();
+        $artikel = $this->artikel('Gagal kemarin');
+        $baris = AntreanGemini::create([
+            'artikel_id' => $artikel->id,
+            'prioritas' => 1,
+            'status' => 'gagal',
+            'percobaan' => 8,
+            'galat' => 'Gangguan penyedia sementara.',
+            'coba_lagi_at' => now()->subSecond(),
+            'selesai_at' => now()->subDay(),
+        ]);
+
+        $this->artisan('gemini:antre', ['--batas' => 1]);
+
+        Queue::assertPushed(KlasifikasiGemini::class, 1);
+        $baris->refresh();
+        $this->assertSame('menunggu', $baris->status);
+        $this->assertNull($baris->coba_lagi_at);
+        $this->assertNotNull($baris->dijadwalkan_at);
+        $this->assertSame(8, $baris->percobaan, 'Riwayat kegagalan tidak boleh dihapus saat dicoba ulang.');
+    }
+
+    public function test_kegagalan_belum_dilepas_sebelum_jadwal_retry(): void
+    {
+        Queue::fake();
+        $artikel = $this->artikel('Menunggu backoff');
+        AntreanGemini::create([
+            'artikel_id' => $artikel->id,
+            'prioritas' => 1,
+            'status' => 'gagal',
+            'percobaan' => 5,
+            'coba_lagi_at' => now()->addHour(),
+        ]);
+
+        $this->artisan('gemini:antre', ['--batas' => 1]);
+
+        Queue::assertNothingPushed();
+    }
+
+    public function test_kegagalan_lama_ditutup_jika_artikelnya_sudah_diklasifikasi_manual(): void
+    {
+        Queue::fake();
+        $artikel = $this->artikel('Sudah diputus manual', status: 'tidak_relevan');
+        $baris = AntreanGemini::create([
+            'artikel_id' => $artikel->id,
+            'prioritas' => 1,
+            'status' => 'gagal',
+            'percobaan' => 3,
+            'galat' => 'Galat lama sebelum keputusan manual.',
+            'coba_lagi_at' => now()->subMinute(),
+            'selesai_at' => now()->subHour(),
+        ]);
+
+        $this->artisan('gemini:antre', ['--batas' => 1]);
+
+        Queue::assertNothingPushed();
+        $baris->refresh();
+        $this->assertSame('selesai', $baris->status);
+        $this->assertNull($baris->galat);
+        $this->assertNull($baris->coba_lagi_at);
+    }
+
+    public function test_job_yang_gagal_menyimpan_backoff_bertahap(): void
+    {
+        $this->travelTo(now()->startOfSecond());
+        $artikel = $this->artikel('Job gagal tiga kali');
+        $baris = AntreanGemini::create([
+            'artikel_id' => $artikel->id,
+            'prioritas' => 1,
+            'status' => 'berjalan',
+            'percobaan' => 2,
+        ]);
+
+        (new KlasifikasiGemini($baris->id))->failed(new RuntimeException('Provider sibuk.'));
+
+        $baris->refresh();
+        $this->assertSame('gagal', $baris->status);
+        $this->assertSame(3, $baris->percobaan);
+        $this->assertSame(15 * 60, (int) now()->diffInSeconds($baris->coba_lagi_at));
+        $this->assertSame('Provider sibuk.', $baris->galat);
+    }
+
     /**
      * Kuota habis menunda pekerjaan, bukan menggagalkannya.
      *
-     * Kegagalan menghabiskan jatah percobaan, dan kuota harian yang habis pada
-     * sore hari akan membakar ketiga jatah setiap artikel sebelum tengah malam.
-     * Esok paginya antreannya kosong bukan karena selesai, melainkan karena
-     * semuanya sudah menyerah.
+     * Kuota tidak menambah jumlah kegagalan artikel. Pekerjaan hanya ditunda
+     * sampai kunci siap kembali.
      */
     public function test_kuota_habis_menunda_pekerjaan_tanpa_menambah_percobaan(): void
     {
@@ -223,15 +320,38 @@ class AntreanGeminiTest extends TestCase
         );
     }
 
-    /**
-     * Pekerjaan dilepas berjarak, bukan berbarengan.
-     *
-     * Pada uji jalan pertama, 109 permintaan terkirim untuk 19 artikel yang
-     * berhasil. Sekitar tujuh puluh di antaranya dijawab 429 karena dua puluh
-     * pekerjaan berdesakan di sepuluh detik pertama, dan Google tetap
-     * menghitung permintaan yang ditolaknya.
-     */
-    public function test_pekerjaan_dilepas_berjarak_bukan_berbarengan(): void
+    /** Jeda kunci menunda paling lama 15 detik, bukan satu menit per artikel. */
+    public function test_antrean_menunggu_sisa_jeda_kunci_bukan_60_detik(): void
+    {
+        $artikel = $this->artikel('Menunggu kunci yang baru dipakai', status: 'isi_diambil');
+
+        KunciGemini::create([
+            'label' => 'Kunci A',
+            'kunci' => 'kunci-a-yang-cukup-panjang',
+            'aktif' => true,
+            'terakhir_dipakai_at' => now(),
+        ]);
+
+        $baris = AntreanGemini::create([
+            'artikel_id' => $artikel->id,
+            'prioritas' => 1,
+            'status' => 'menunggu',
+        ]);
+
+        (new KlasifikasiGemini($baris->id))->handle(
+            app(KlasifikasiArtikel::class),
+            app(RotasiKunciGemini::class),
+        );
+
+        $baris->refresh();
+
+        $this->assertSame('menunggu', $baris->status);
+        $this->assertSame(0, $baris->percobaan);
+        $this->assertLessThanOrEqual(15, now()->diffInSeconds($baris->dijadwalkan_at, absolute: true));
+    }
+
+    /** Pekerjaan dilepas langsung; pemilih kunci yang mengatur gilirannya. */
+    public function test_pekerjaan_dilepas_tanpa_jeda_tetap_per_artikel(): void
     {
         Queue::fake();
 
@@ -241,14 +361,35 @@ class AntreanGeminiTest extends TestCase
             $this->artikel("Belum pernah dinilai {$nomor}");
         }
 
+        // Nilai lama tidak lagi menentukan irama antrean. Jeda kunci menjadi
+        // satu-satunya sumber jeda jalur Gemini.
         config(['ai.antrean.jeda_detik' => 60]);
 
         $this->artisan('gemini:antre', ['--isi' => true, '--batas' => 3]);
 
         $jadwal = AntreanGemini::orderBy('id')->pluck('dijadwalkan_at');
 
-        $this->assertSame(60, (int) $jadwal[0]->diffInSeconds($jadwal[1]));
-        $this->assertSame(60, (int) $jadwal[1]->diffInSeconds($jadwal[2]));
+        $this->assertTrue($jadwal->every(fn ($waktu) => $waktu->equalTo($jadwal[0])));
+    }
+
+    /** Jalur IndoBERT tetap berjarak agar tidak membanjiri CPU layanan lokal. */
+    public function test_pekerjaan_indobert_tetap_dilepas_berjarak(): void
+    {
+        Queue::fake();
+
+        PengaturanAi::aktif()->update(['penyedia_relevansi' => 'indobert']);
+        config(['ai.antrean.jeda_detik_indobert' => 5]);
+
+        foreach (range(1, 3) as $nomor) {
+            $this->artikel("Belum pernah dinilai IndoBERT {$nomor}");
+        }
+
+        $this->artisan('gemini:antre', ['--isi' => true, '--batas' => 3]);
+
+        $jadwal = AntreanGemini::orderBy('id')->pluck('dijadwalkan_at');
+
+        $this->assertSame(5, (int) $jadwal[0]->diffInSeconds($jadwal[1]));
+        $this->assertSame(5, (int) $jadwal[1]->diffInSeconds($jadwal[2]));
     }
 
     /**
@@ -325,36 +466,25 @@ class AntreanGeminiTest extends TestCase
         KunciGemini::create(['label' => 'Kunci A', 'kunci' => 'kunci-a', 'aktif' => true]);
 
         config([
-            'ai.antrean.jeda_detik' => 60,
             'ai.antrean.jeda_detik_indobert' => 5,
             'ai.batas_kunci.rpd' => 1000000,
         ]);
 
-        $this->assertSame(60.0, AntreanGemini::jedaDetik());
+        $this->assertSame(15.0, AntreanGemini::jedaDetik());
 
         PengaturanAi::aktif()->update(['penyedia_relevansi' => 'indobert']);
 
         $this->assertSame(5.0, AntreanGemini::jedaDetik());
     }
 
-    /**
-     * Jeda pilihan admin tidak boleh melanggar kapasitas kuncinya.
-     *
-     * Satu kunci pada free tier sanggup 15 permintaan per menit, dan satu
-     * artikel memakan sekitar 1,8 permintaan. Jarak satu detik yang diminta
-     * config berarti menembak jauh lebih cepat daripada itu, dan hasilnya
-     * kembali seperti uji jalan pertama: sebagian besar permintaan dijawab 429
-     * tetapi tetap dihitung Google.
-     */
-    public function test_jeda_tidak_pernah_lebih_rapat_daripada_kapasitas_kunci(): void
+    /** Nilai jeda lama tidak dapat mengalahkan jeda kunci 15 detik. */
+    public function test_jeda_gemini_berasal_dari_jeda_kunci(): void
     {
         KunciGemini::create(['label' => 'Kunci A', 'kunci' => 'kunci-a', 'aktif' => true]);
 
         config(['ai.antrean.jeda_detik' => 1, 'ai.batas_kunci.rpm' => 15]);
 
-        // 15 permintaan per menit dibagi 1,8 permintaan per artikel berarti
-        // paling cepat satu artikel tiap 7,2 detik.
-        $this->assertEqualsWithDelta(7.2, AntreanGemini::jedaDetik(), 0.01);
+        $this->assertSame(15.0, AntreanGemini::jedaDetik());
     }
 
     /** Halaman pemantauan terbuka dan menyebut sisa antrean apa adanya. */
@@ -447,38 +577,44 @@ class AntreanGeminiTest extends TestCase
         $this->assertSame($harapan, $props['aktivitas']['keadaan']);
     }
 
-    /**
-     * Daftar kegagalan hanya berisi yang benar-benar menyerah.
-     *
-     * Batasnya `percobaan >= MAKS_PERCOBAAN`, sama dengan yang menghitung angka
-     * di kartunya. Kalau keduanya sampai berbeda, kartu bertuliskan satu angka
-     * akan membuka daftar berisi angka lain, dan yang akan dipercaya admin
-     * adalah yang salah. Baris gagal yang jatah percobaannya masih ada memang
-     * akan dilepas lagi dengan sendirinya, jadi ia bukan urusan daftar ini.
-     */
-    public function test_daftar_gagal_hanya_memuat_yang_kehabisan_percobaan(): void
+    /** Daftar gagal memuat semua pekerjaan yang menunggu retry otomatis. */
+    public function test_daftar_gagal_memuat_retry_tanpa_menampilkan_yang_sudah_selesai(): void
     {
         $this->media->update(['partner' => true]);
 
-        $menyerah = $this->artikel('Sudah tiga kali gagal');
-        $masihAdaJatah = $this->artikel('Baru sekali gagal');
+        $gagalLama = $this->artikel('Sudah tiga kali gagal', status: 'isi_diambil');
+        $gagalBaru = $this->artikel('Baru sekali gagal', status: 'isi_diambil');
+        $sudahBerhasil = $this->artikel('Sudah berhasil diklasifikasi', status: 'selesai');
 
         AntreanGemini::create([
-            'artikel_id' => $menyerah->id,
+            'artikel_id' => $gagalLama->id,
             'prioritas' => 1,
             'status' => 'gagal',
-            'percobaan' => AntreanGemini::MAKS_PERCOBAAN,
+            'percobaan' => 3,
             'galat' => 'The MAC is invalid.',
+            'coba_lagi_at' => now()->addMinutes(15),
             'selesai_at' => now(),
         ]);
 
         AntreanGemini::create([
-            'artikel_id' => $masihAdaJatah->id,
+            'artikel_id' => $gagalBaru->id,
             'prioritas' => 1,
             'status' => 'gagal',
             'percobaan' => 1,
             'galat' => 'cURL error 28',
+            'coba_lagi_at' => now()->addMinute(),
             'selesai_at' => now(),
+        ]);
+
+        // Baris kegagalannya boleh tetap ada sebagai riwayat. Karena artikel
+        // sudah punya hasil, ia tidak boleh muncul lagi di modal retry.
+        AntreanGemini::create([
+            'artikel_id' => $sudahBerhasil->id,
+            'prioritas' => 1,
+            'status' => 'gagal',
+            'percobaan' => 3,
+            'galat' => 'Galat lama sebelum klasifikasi manual berhasil.',
+            'selesai_at' => now()->subMinute(),
         ]);
 
         $admin = User::factory()->create(['peran' => 'superadmin']);
@@ -493,49 +629,75 @@ class AntreanGeminiTest extends TestCase
             ->assertOk()
             ->json();
 
-        $this->assertSame(1, $isi['total']);
-        $this->assertCount(1, $isi['baris']);
-        $this->assertSame('Sudah tiga kali gagal', $isi['baris'][0]['judul']);
-        $this->assertTrue($isi['baris'][0]['media_partner']);
-        $this->assertSame('The MAC is invalid.', $isi['baris'][0]['galat']);
+        $this->assertSame(2, $isi['total']);
+        $this->assertCount(2, $isi['baris']);
+        $this->assertEqualsCanonicalizing(
+            ['Sudah tiga kali gagal', 'Baru sekali gagal'],
+            collect($isi['baris'])->pluck('judul')->all(),
+        );
+        $this->assertTrue(collect($isi['baris'])->every(fn (array $baris): bool => $baris['media_partner']));
+        $this->assertNotNull(collect($isi['baris'])->firstWhere('judul', 'Sudah tiga kali gagal')['coba_lagi_at']);
 
         // Pengelompokan dihitung di server, dan ia harus menyaring dengan
-        // ambang yang sama. Kalau tidak, jumlah di kelompok tidak akan pernah
+        // saringan yang sama. Kalau tidak, jumlah di kelompok tidak akan pernah
         // cocok dengan jumlah baris di bawahnya pada layar yang sama.
-        $this->assertCount(1, $isi['kelompok']);
-        $this->assertSame(1, $isi['kelompok'][0]['jumlah']);
+        $this->assertCount(2, $isi['kelompok']);
     }
 
     /** Angka pada kartu dan isi daftarnya harus berasal dari ambang yang sama. */
-    public function test_daftar_gagal_cocok_dengan_angka_menyerah_di_halaman(): void
+    public function test_daftar_gagal_cocok_dengan_angka_gagal_di_halaman(): void
     {
-        $artikel = $this->artikel('Gagal terus');
+        $artikel = $this->artikel('Gagal terus', status: 'isi_diambil');
 
         AntreanGemini::create([
             'artikel_id' => $artikel->id,
             'prioritas' => 1,
             'status' => 'gagal',
-            'percobaan' => AntreanGemini::MAKS_PERCOBAAN,
+            'percobaan' => 3,
             'galat' => 'AI provider [gemini] is overloaded.',
             'selesai_at' => now(),
         ]);
 
         $admin = User::factory()->create(['peran' => 'superadmin']);
 
-        $menyerah = $this->actingAs($admin)
+        $gagal = $this->actingAs($admin)
             ->get('/admin/antrean-ai')
             ->assertOk()
-            ->viewData('page')['props']['ringkasan']['menyerah'];
+            ->viewData('page')['props']['ringkasan']['gagal'];
 
         $total = $this->actingAs($admin)
             ->getJson('/admin/antrean-ai/gagal')
             ->assertOk()
             ->json('total');
 
-        $this->assertSame($menyerah, $total);
+        $this->assertSame($gagal, $total);
     }
 
-    private function artikel(string $judul, string $status = 'selesai'): Artikel
+    /** Kegagalan prioritas legacy tidak lagi menjadi pekerjaan aktif. */
+    public function test_daftar_gagal_tidak_memuat_prioritas_legacy(): void
+    {
+        $artikel = $this->artikel('Label lama masih perlu dinilai', status: 'selesai');
+        $this->analisis($artikel, relevan: true, label: 'netral', provider: null);
+
+        AntreanGemini::create([
+            'artikel_id' => $artikel->id,
+            'prioritas' => 2,
+            'status' => 'gagal',
+            'percobaan' => 3,
+            'galat' => 'Penyedia belum berhasil dicatat.',
+            'selesai_at' => now(),
+        ]);
+
+        $isi = $this->actingAs(User::factory()->create(['peran' => 'superadmin']))
+            ->getJson('/admin/antrean-ai/gagal')
+            ->assertOk()
+            ->json();
+
+        $this->assertSame(0, $isi['total']);
+        $this->assertSame([], $isi['baris']);
+    }
+
+    private function artikel(string $judul, string $status = 'isi_diambil'): Artikel
     {
         return Artikel::create([
             'media_id' => $this->media->id,

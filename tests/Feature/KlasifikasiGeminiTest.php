@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Ai\Agents\RelevanceClassifier;
 use App\Ai\Agents\SentimentClassifier;
 use App\Models\AnalisisSentimen as BarisAnalisis;
+use App\Models\AntreanGemini;
 use App\Models\Artikel;
 use App\Models\KunciGemini;
 use App\Models\Media;
@@ -487,6 +488,39 @@ class KlasifikasiGeminiTest extends TestCase
 
         $this->assertSame('positif', BarisAnalisis::firstOrFail()->label_model->value);
         $this->assertSame('selesai', $this->artikel->fresh()->status_proses);
+    }
+
+    /** Klasifikasi manual yang berhasil menutup kegagalan lama di antrean. */
+    public function test_klasifikasi_manual_menghapus_artikel_dari_daftar_gagal(): void
+    {
+        $barisAntrean = AntreanGemini::create([
+            'artikel_id' => $this->artikel->id,
+            'prioritas' => 1,
+            'status' => 'gagal',
+            'percobaan' => 3,
+            'coba_lagi_at' => now()->addHour(),
+            'galat' => 'Galat lama dari worker.',
+            'selesai_at' => now()->subMinute(),
+        ]);
+
+        RelevanceClassifier::fake([$this->jawaban('tidak_relevan')]);
+
+        $admin = User::factory()->create(['peran' => 'superadmin']);
+
+        $this->actingAs($admin)
+            ->post("/admin/artikel/{$this->artikel->id}/klasifikasi")
+            ->assertSessionMissing('galat');
+
+        $barisAntrean->refresh();
+
+        $this->assertSame('selesai', $barisAntrean->status);
+        $this->assertNull($barisAntrean->galat);
+
+        $this->actingAs($admin)
+            ->getJson('/admin/antrean-ai/gagal')
+            ->assertOk()
+            ->assertJsonPath('total', 0)
+            ->assertJsonCount(0, 'baris');
     }
 
     /**

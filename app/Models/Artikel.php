@@ -16,6 +16,9 @@ class Artikel extends Model
 {
     use HasNeighbors;
 
+    /** Status artikel yang berarti mesin sudah menghasilkan keputusan. */
+    public const STATUS_KLASIFIKASI_SELESAI = ['selesai', 'tidak_relevan', 'perlu_review'];
+
     protected $table = 'artikel';
 
     protected $guarded = ['id'];
@@ -51,6 +54,24 @@ class Artikel extends Model
     public function pelapor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'dilaporkan_oleh');
+    }
+
+    /** Apakah artikel ini tidak perlu diproses lagi oleh antrean klasifikasi. */
+    public function klasifikasiSelesai(): bool
+    {
+        return \in_array($this->status_proses, self::STATUS_KLASIFIKASI_SELESAI, true);
+    }
+
+    /** Artikel yang masih membutuhkan keputusan klasifikasi. */
+    public function scopeBelumDiklasifikasi(Builder $kueri): Builder
+    {
+        return $kueri->whereNotIn('status_proses', self::STATUS_KLASIFIKASI_SELESAI);
+    }
+
+    /** Artikel yang sudah mendapat keputusan klasifikasi, termasuk perlu review. */
+    public function scopeSudahDiklasifikasi(Builder $kueri): Builder
+    {
+        return $kueri->whereIn('status_proses', self::STATUS_KLASIFIKASI_SELESAI);
     }
 
     /**

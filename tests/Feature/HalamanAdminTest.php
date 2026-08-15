@@ -2,14 +2,19 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\BuatNarasiBulanan;
 use App\Models\AnalisisSentimen;
 use App\Models\Artikel;
 use App\Models\LogCrawl;
 use App\Models\Media;
+use App\Models\NarasiEksekutif;
+use App\Models\PemantauanNarasiBulanan;
+use App\Models\RingkasanHarian;
 use App\Models\SumberFeed;
 use App\Models\User;
 use App\Support\Waktu;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
 use Tests\TestCase;
 
 /**
@@ -64,6 +69,8 @@ class HalamanAdminTest extends TestCase
             '/admin', '/admin/artikel', '/admin/log-crawl', '/admin/media',
             '/admin/pengguna', '/admin/pengguna/create',
             '/admin/pengaturan',
+            '/admin/analisis-bulanan',
+            '/eksekutif/laporan',
             '/admin/alert', '/admin/alert/create',
             '/admin/media/create',
             // Pengelolaan sumber feed pindah ke sini. Halaman
@@ -75,6 +82,227 @@ class HalamanAdminTest extends TestCase
         foreach ($halaman as $url) {
             $this->get($url)->assertOk("Halaman {$url} tidak mengembalikan 200.");
         }
+    }
+
+    public function test_admin_dapat_melihat_kegagalan_analisis_bulanan(): void
+    {
+        $this->travelTo(now()->setDate(2026, 8, 15)->setTime(12, 0));
+
+        PemantauanNarasiBulanan::create([
+            'bulan' => '2026-08-01',
+            'status' => PemantauanNarasiBulanan::STATUS_GAGAL,
+            'pemeriksaan' => 2,
+            'galat' => 'Kuota Gemini belum tersedia.',
+            'mulai_at' => now()->subMinute(),
+            'gagal_at' => now(),
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->get('/admin/analisis-bulanan')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('admin/AnalisisBulanan')
+                ->where('ringkasan.gagal', 1)
+                ->where('bulan.0.bulan', '2026-08')
+                ->where('bulan.0.status', 'gagal')
+                ->where('bulan.0.galat', 'Kuota Gemini belum tersedia.')
+                ->where('bulan.0.dikunci', false));
+    }
+
+    public function test_proses_bulanan_yang_terlalu_lama_ditandai_gagal_di_pemantauan(): void
+    {
+        $this->travelTo(now()->setDate(2026, 8, 15)->setTime(12, 0));
+
+        PemantauanNarasiBulanan::create([
+            'bulan' => '2026-08-01',
+            'status' => PemantauanNarasiBulanan::STATUS_BERJALAN,
+            'pemeriksaan' => 1,
+            'mulai_at' => now()->subMinutes(31),
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->get('/admin/analisis-bulanan')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('ringkasan.berjalan', 0)
+                ->where('ringkasan.gagal', 1)
+                ->where('bulan.0.status', 'gagal')
+                ->where('bulan.0.galat', 'Proses tidak selesai lebih dari 30 menit. Periksa penjadwal dan log aplikasi, lalu jalankan ulang bila worker sudah aktif.'));
+    }
+
+    public function test_narasi_30_hari_bergulir_tidak_dianggap_sebagai_analisis_bulanan(): void
+    {
+        $this->travelTo(now()->setDate(2026, 8, 15)->setTime(12, 0));
+        $narasiBergulir = NarasiEksekutif::create([
+            'periode' => '30d',
+            'dari' => '2026-07-16',
+            'sampai' => '2026-08-14',
+            'judul' => 'Ringkasan tiga puluh hari terakhir',
+            'jumlah_artikel' => 80,
+            'sidik' => str_repeat('a', 40),
+            'dibuat_at' => now(),
+        ]);
+
+        PemantauanNarasiBulanan::create([
+            'bulan' => '2026-07-01',
+            'status' => PemantauanNarasiBulanan::STATUS_SELESAI,
+            'dikunci' => true,
+            'pemeriksaan' => 1,
+            'narasi_eksekutif_id' => $narasiBergulir->id,
+            'selesai_at' => now(),
+        ]);
+        RingkasanHarian::create([
+            'tanggal' => '2026-07-01',
+            'media_id' => null,
+            'jumlah_artikel' => 1,
+            'jumlah_netral' => 1,
+            'dihitung_at' => now(),
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->get('/admin/analisis-bulanan')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('bolehAnalisisManual', true)
+                ->where('bulan.1.bulan', '2026-07')
+                ->where('bulan.1.status', 'belum_dianalisis')
+                ->where('bulan.1.dikunci', false)
+                ->where('bulan.1.judul', null)
+                ->where('bulan.1.jumlah_bahan', 1)
+                ->where('bulan.1.dapat_dianalisis_manual', true));
+    }
+
+    public function test_superadmin_dapat_menjadwalkan_analisis_bulan_yang_belum_memiliki_hasil(): void
+    {
+        $this->travelTo(now()->setDate(2026, 8, 15)->setTime(12, 0));
+        Bus::fake();
+        RingkasanHarian::create([
+            'tanggal' => '2026-07-07',
+            'media_id' => null,
+            'jumlah_artikel' => 4,
+            'jumlah_positif' => 2,
+            'jumlah_netral' => 2,
+            'dihitung_at' => now(),
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->post('/admin/analisis-bulanan/2026-07/jalankan')
+            ->assertRedirect()
+            ->assertSessionHas('sukses', 'Analisis Juli 2026 dimasukkan ke antrean.');
+
+        $this->assertDatabaseHas('pemantauan_narasi_bulanan', [
+            'bulan' => '2026-07-01',
+            'status' => PemantauanNarasiBulanan::STATUS_MENUNGGU,
+            'dikunci' => false,
+            'narasi_eksekutif_id' => null,
+        ]);
+        $this->assertNotNull(PemantauanNarasiBulanan::firstOrFail()->mulai_at);
+        Bus::assertDispatched(BuatNarasiBulanan::class, fn (BuatNarasiBulanan $job): bool => $job->bulan === '2026-07');
+    }
+
+    public function test_bulan_berjalan_dengan_hasil_lama_tetap_bisa_diperbarui_manual(): void
+    {
+        $this->travelTo(now()->setDate(2026, 8, 15)->setTime(12, 0));
+        Bus::fake();
+        RingkasanHarian::create([
+            'tanggal' => '2026-08-07',
+            'media_id' => null,
+            'jumlah_artikel' => 4,
+            'jumlah_positif' => 2,
+            'jumlah_netral' => 2,
+            'dihitung_at' => now(),
+        ]);
+        $hasil = NarasiEksekutif::create([
+            'periode' => '30d',
+            'dari' => '2026-08-01',
+            'sampai' => '2026-08-31',
+            'judul' => 'Hasil sementara Agustus',
+            'jumlah_artikel' => 4,
+            'sidik' => str_repeat('b', 40),
+            'dibuat_at' => now()->subDay(),
+        ]);
+        PemantauanNarasiBulanan::create([
+            'bulan' => '2026-08-01',
+            'status' => PemantauanNarasiBulanan::STATUS_SELESAI,
+            'dikunci' => false,
+            'pemeriksaan' => 1,
+            'narasi_eksekutif_id' => $hasil->id,
+            'selesai_at' => now()->subDay(),
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->get('/admin/analisis-bulanan')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('bulan.0.judul', 'Hasil sementara Agustus')
+                ->where('bulan.0.dikunci', false)
+                ->where('bulan.0.dapat_dianalisis_manual', true));
+
+        $this->post('/admin/analisis-bulanan/2026-08/jalankan')
+            ->assertRedirect()
+            ->assertSessionHas('sukses');
+
+        $pantauan = PemantauanNarasiBulanan::firstOrFail();
+        $this->assertSame($hasil->id, $pantauan->narasi_eksekutif_id);
+        Bus::assertDispatched(BuatNarasiBulanan::class);
+    }
+
+    public function test_job_bulanan_mencatat_galat_bila_mati_sebelum_service_selesai(): void
+    {
+        $pantauan = PemantauanNarasiBulanan::create([
+            'bulan' => '2026-07-01',
+            'status' => PemantauanNarasiBulanan::STATUS_MENUNGGU,
+            'mulai_at' => now(),
+        ]);
+
+        (new BuatNarasiBulanan($pantauan->id, '2026-07'))->failed(new \RuntimeException('Worker berhenti mendadak.'));
+
+        $pantauan->refresh();
+        $this->assertSame(PemantauanNarasiBulanan::STATUS_GAGAL, $pantauan->status);
+        $this->assertSame('Worker berhenti mendadak.', $pantauan->galat);
+        $this->assertNotNull($pantauan->gagal_at);
+    }
+
+    public function test_analisis_manual_tidak_dijadwalkan_bila_bulannya_tanpa_bahan(): void
+    {
+        Bus::fake();
+
+        $this->actingAs(User::factory()->create())
+            ->post('/admin/analisis-bulanan/2026-07/jalankan')
+            ->assertRedirect()
+            ->assertSessionHas('galat');
+
+        Bus::assertNothingDispatched();
+        $this->assertDatabaseCount('pemantauan_narasi_bulanan', 0);
+    }
+
+    /** Di bawah atau tepat tiga jam sehat; lewat satu detik baru bermasalah. */
+    public function test_status_crawler_mengikuti_interval_tiga_jam(): void
+    {
+        $this->travelTo(now()->startOfSecond());
+        $admin = User::factory()->create();
+
+        LogCrawl::query()->update(['dimulai_at' => now()->subHour()]);
+
+        $this->actingAs($admin)
+            ->get('/admin')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('kesehatan.crawler.status', 'hijau'));
+
+        LogCrawl::query()->update(['dimulai_at' => now()->subHours(3)]);
+
+        $this->get('/admin')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('kesehatan.crawler.status', 'hijau'));
+
+        LogCrawl::query()->update(['dimulai_at' => now()->subHours(3)->subSecond()]);
+
+        $this->get('/admin')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('kesehatan.crawler.status', 'merah'));
     }
 
     /** Status kerja sama ikut sampai ke tabel artikel dan media. */

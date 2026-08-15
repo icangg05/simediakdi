@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Services\Agregasi\RingkasanEksekutif;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
 
 /**
@@ -22,6 +23,34 @@ readonly class Periode
         public CarbonImmutable $dari,
         public CarbonImmutable $sampai,
     ) {}
+
+    /**
+     * Rentang kalender baku untuk panel eksekutif.
+     *
+     * Nama preset lama dipertahankan karena sudah tersimpan di tabel narasi,
+     * tetapi maknanya mengikuti kalender yang dibaca pimpinan:
+     * - 7d adalah Senin sampai Minggu;
+     * - 30d adalah satu bulan kalender penuh;
+     * - 90d dimulai tanggal 1 dua bulan sebelumnya dan berakhir hari ini.
+     */
+    public static function dariPreset(string $preset, ?CarbonImmutable $acuan = null): self
+    {
+        $hariIni = ($acuan ?? CarbonImmutable::parse(Waktu::tanggalWita(now())))->startOfDay();
+
+        return match ($preset) {
+            'today' => new self($hariIni, $hariIni),
+            '30d' => new self($hariIni->startOfMonth(), $hariIni->endOfMonth()->startOfDay()),
+            '90d' => new self($hariIni->subMonthsNoOverflow(2)->startOfMonth(), $hariIni),
+            default => self::mingguKalender($hariIni),
+        };
+    }
+
+    private static function mingguKalender(CarbonImmutable $hari): self
+    {
+        $senin = $hari->startOfWeek(CarbonInterface::MONDAY);
+
+        return new self($senin, $senin->addDays(6));
+    }
 
     public static function dariRequest(Request $request, RingkasanEksekutif $ringkasan): self
     {

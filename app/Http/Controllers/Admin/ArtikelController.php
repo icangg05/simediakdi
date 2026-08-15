@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AnalisisSentimen;
+use App\Models\AntreanGemini;
 use App\Models\Artikel;
 use App\Models\Media;
 use App\Services\Ai\JedaKunciGemini;
@@ -245,6 +246,8 @@ class ArtikelController extends Controller
             return back()->with('galat', 'Penilaian gagal dijalankan: '.$galat->getMessage());
         }
 
+        $this->selesaikanAntrean($artikel);
+
         // Daftar hasil kosong berarti artikelnya sudah punya keputusan manusia
         // dan penilaian sengaja dilewati. Itu tidak terbaca dari hasilnya
         // sendiri, dan tanpa catatan ini toast-nya terlihat sama persis dengan
@@ -333,6 +336,7 @@ class ArtikelController extends Controller
 
         if (! $relevan) {
             $artikel->update(['status_proses' => 'tidak_relevan']);
+            $this->selesaikanAntrean($artikel);
 
             // Tanpa jeda, dan itu inti perbaikannya. Menandai tidak relevan
             // tidak memanggil Gemini sama sekali, jadi menahan admin lima belas
@@ -355,6 +359,8 @@ class ArtikelController extends Controller
             return back()->with('galat', 'Ditandai relevan, tetapi sentimennya gagal dinilai: '
                 .$galat->getMessage());
         }
+
+        $this->selesaikanAntrean($artikel);
 
         return back()
             ->with($this->pesan($artikel, 'Ditandai oleh admin'))
@@ -411,6 +417,8 @@ class ArtikelController extends Controller
             return back()->with('galat', 'Koreksi dicabut, tetapi penilaian ulang gagal: '
                 .$galat->getMessage());
         }
+
+        $this->selesaikanAntrean($artikel);
 
         return back()
             ->with($this->pesan($artikel, 'Koreksi dicabut dan dinilai ulang'))
@@ -483,6 +491,26 @@ class ArtikelController extends Controller
     private function tautan(Artikel $artikel): array
     {
         return ['url' => "/admin/artikel/{$artikel->id}", 'label' => 'Lihat'];
+    }
+
+    /**
+     * Menutup baris antrean yang sudah diselesaikan dari halaman Artikel.
+     *
+     * Job yang masih tidur membaca status ini lalu berhenti, dan daftar gagal
+     * tidak lagi menyimpan berita yang sebenarnya sudah punya hasil.
+     */
+    private function selesaikanAntrean(Artikel $artikel): void
+    {
+        AntreanGemini::query()
+            ->where('artikel_id', $artikel->id)
+            ->where('status', '<>', 'selesai')
+            ->update([
+                'status' => 'selesai',
+                'galat' => null,
+                'dijadwalkan_at' => null,
+                'coba_lagi_at' => null,
+                'selesai_at' => now(),
+            ]);
     }
 
     /**

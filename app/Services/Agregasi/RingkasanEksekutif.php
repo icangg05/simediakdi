@@ -2,6 +2,7 @@
 
 namespace App\Services\Agregasi;
 
+use App\Support\Periode;
 use App\Support\Waktu;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -19,31 +20,31 @@ class RingkasanEksekutif
     /**
      * Satuan waktu grafik menurut panjang rentang yang dipilih.
      *
-     * Rentang tiga bulan yang digambar per hari menghasilkan sembilan puluh
-     * titik yang tidak terbaca. Satuannya ditentukan di sini, bukan dikirim
+     * Rentang tiga bulan yang digambar per hari menghasilkan puluhan titik
+     * yang tidak terbaca. Satuannya ditentukan di sini, bukan dikirim
      * pengguna, jadi tidak ada parameter baru yang perlu divalidasi dan tidak
-     * ada kombinasi ganjil seperti rentang tujuh hari yang diminta per bulan.
+     * ada kombinasi ganjil seperti satu pekan yang diminta per bulan.
      *
      * Ambang harian diturunkan dari 31 hari ke 14. Pemkot dan media daerah
      * bergerak dalam siklus pekanan: kegiatan seremonial menumpuk di hari
      * kerja, redaksi berhenti di akhir pekan, dan satu kunjungan kerja bisa
      * mengangkat satu hari ke angka tiga puluh lalu menjatuhkannya ke tiga
-     * keesokan harinya. Pada rentang tiga puluh hari, garis harian menggambar
+     * keesokan harinya. Pada rentang satu bulan, garis harian menggambar
      * jadwal kerja redaksi, bukan perubahan nada pemberitaan, dan pembacanya
      * melihat gerigi yang tidak menyimpulkan apa pun.
      *
-     * Rentang tiga puluh hari sekarang jadi sekitar lima titik mingguan. Itu
+     * Rentang satu bulan sekarang jadi sekitar lima titik mingguan. Itu
      * sedikit, tapi lima titik yang berarti mengalahkan tiga puluh titik yang
      * tidak. Angka hariannya tidak hilang, hanya tidak lagi menjadi bentuk
      * bawaan grafiknya.
      *
      * Jumlah titik yang dihasilkan aturan ini pada tiga pintasan rentang:
      *
-     * | Rentang  | Satuan   | Titik |
-     * |----------|----------|-------|
-     * | 7 hari   | harian   | 7     |
-     * | 30 hari  | mingguan | 5     |
-     * | 90 hari  | mingguan | 13    |
+     * | Rentang                  | Satuan   | Titik       |
+     * |--------------------------|----------|-------------|
+     * | Minggu (Senin-Minggu)    | harian   | 7           |
+     * | Bulan kalender           | mingguan | 4-5         |
+     * | Tiga bulan berjalan      | mingguan | sekitar 9-14 |
      *
      * Sasarannya lima sampai lima belas titik. Di bawah lima, garis berhenti
      * punya bentuk dan hanya menyisakan dua tiga patahan. Di atas lima belas,
@@ -75,7 +76,7 @@ class RingkasanEksekutif
      * tidak ada yang menunggu selama itu untuk melihat periode terakhir.
      * Tujuh bingkai selesai dalam tiga belas detik.
      *
-     * Sasarannya lima sampai delapan bingkai. Rentang 90 hari yang di grafik
+     * Sasarannya lima sampai delapan bingkai. Rentang tiga bulan yang di grafik
      * garis menjadi tiga belas titik mingguan, di sini menjadi tujuh bingkai
      * dua pekanan.
      */
@@ -265,6 +266,35 @@ class RingkasanEksekutif
         ];
     }
 
+    /**
+     * Bulan yang dapat dipilih di laporan eksekutif, terbaru lebih dulu.
+     *
+     * Bulan berjalan selalu tersedia walaupun ringkasannya masih kosong. Bulan
+     * yang sedang dibuka juga dipertahankan agar tautan lama tidak membuat
+     * pilihan di layar tampak kosong.
+     *
+     * @return list<string>
+     */
+    public function bulanTersedia(?CarbonImmutable $terpilih = null): array
+    {
+        $bulanData = DB::table('ringkasan_harian')
+            ->whereNull('media_id')
+            ->selectRaw("to_char(tanggal, 'YYYY-MM') AS bulan")
+            ->distinct()
+            ->pluck('bulan');
+
+        return collect([
+            CarbonImmutable::now(Waktu::ZONA)->format('Y-m'),
+            $terpilih?->format('Y-m'),
+        ])
+            ->merge($bulanData)
+            ->filter()
+            ->unique()
+            ->sortDesc()
+            ->values()
+            ->all();
+    }
+
     /** @return array<string, int> */
     private function total(CarbonImmutable $dari, CarbonImmutable $sampai): array
     {
@@ -341,6 +371,7 @@ class RingkasanEksekutif
      *
      * @param  int|null  $batas  Null berarti seluruh media, tanpa pemotongan.
      * @param  bool  $termasukTanpaBerita  Sertakan media yang nol berita pada rentang ini.
+     * @param  bool  $hanyaAktif  Abaikan media yang tidak lagi dipantau.
      * @return list<array<string, mixed>>
      */
     public function peringkatMedia(
@@ -348,6 +379,7 @@ class RingkasanEksekutif
         CarbonImmutable $sampai,
         ?int $batas = 10,
         bool $termasukTanpaBerita = false,
+        bool $hanyaAktif = false,
     ): array {
         $jumlahBerlabel = 'sum(r.jumlah_negatif + r.jumlah_netral + r.jumlah_positif)';
 
@@ -359,6 +391,7 @@ class RingkasanEksekutif
             // jadi barisnya masih ada di tabel dan `DB::table` tidak mengenal
             // global scope milik model.
             ->whereNull('m.deleted_at')
+            ->when($hanyaAktif, fn ($q) => $q->where('m.aktif', true))
             ->groupBy('m.id', 'm.nama', 'm.tier', 'm.partner')
             ->orderByRaw("coalesce({$jumlahBerlabel}, 0) DESC")
             // Media yang sama sama nol diurutkan menurut nama, bukan menurut
@@ -391,11 +424,11 @@ class RingkasanEksekutif
             ->all();
     }
 
-    /** Rentang bawaan: tujuh hari terakhir menurut kalender Kendari. */
+    /** Rentang bawaan: Senin sampai Minggu pada pekan Kendari saat ini. */
     public function rentangBawaan(): array
     {
-        $sampai = CarbonImmutable::parse(Waktu::tanggalWita(now()));
+        $periode = Periode::dariPreset('7d');
 
-        return [$sampai->subDays(6), $sampai];
+        return [$periode->dari, $periode->sampai];
     }
 }

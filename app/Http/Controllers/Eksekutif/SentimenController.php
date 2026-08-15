@@ -19,6 +19,7 @@ class SentimenController extends Controller
 
         return Inertia::render('eksekutif/Sentimen', [
             ...$periode->untukInertia(),
+            'opsiBulan' => $ringkasan->bulanTersedia($periode->dari),
             'kpi' => $ringkasan->kpi($periode->dari, $periode->sampai),
             'deret' => $ringkasan->deret($periode->dari, $periode->sampai),
             // Deret kedua, dipecah per media. Grafik batang beranimasi memakai

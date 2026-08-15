@@ -107,10 +107,9 @@ class PengaturanAiController extends Controller
         if ($request->has('rpd_manual')) {
             $rpd = $request->validate([
                 // Batas atas ada supaya salah ketik satu digit tidak
-                // melumpuhkan penjaga kuota diam-diam. Batas harian sejuta
-                // berarti jarak antar artikel jatuh ke nol, dan antrean
-                // menembak Gemini secepat yang sanggup dikirim worker sampai
-                // Google memutusnya.
+                // melumpuhkan penjaga kuota diam-diam. Batas harian yang terlalu
+                // besar membuat antrean terus memakai kunci setiap jeda 15
+                // detik sampai Google memutusnya.
                 'rpd_manual' => ['nullable', 'integer', 'min:1', 'max:100000'],
             ], [
                 'rpd_manual.min' => 'Batas harian minimal 1. Kosongkan kalau ingin kembali memakai angka bawaan.',
