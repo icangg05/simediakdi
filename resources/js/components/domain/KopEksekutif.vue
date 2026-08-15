@@ -36,8 +36,10 @@ withDefaults(
          * mengulangnya di setiap halaman membuatnya berhenti menandai apa pun.
          */
         siluet?: boolean;
+        /** Tingkat judul dapat diturunkan saat kop berada di bawah judul utama. */
+        headingLevel?: 'h1' | 'h2';
     }>(),
-    { keterangan: undefined, siluet: false },
+    { keterangan: undefined, siluet: false, headingLevel: 'h1' },
 );
 
 /**
@@ -115,7 +117,12 @@ const BUSUR = [38, 62, 88, 116].map((jari, urutan) => ({
         <div class="relative space-y-4 p-4 pb-5 sm:p-5 sm:pb-6">
             <div class="flex flex-wrap items-start justify-between gap-4 xl:flex-nowrap">
                 <div class="min-w-0 space-y-1 xl:flex-1">
-                    <h1 class="max-w-[24ch] text-2xl leading-tight font-semibold tracking-tight text-balance sm:text-[1.75rem]">{{ judul }}</h1>
+                    <component
+                        :is="headingLevel"
+                        class="max-w-[24ch] text-2xl leading-tight font-semibold tracking-tight text-balance sm:text-[1.75rem]"
+                    >
+                        {{ judul }}
+                    </component>
                     <p v-if="keterangan" class="max-w-[62ch] text-sm text-white/75">{{ keterangan }}</p>
                 </div>
 

@@ -326,7 +326,7 @@ const KETERANGAN: Record<string, string> = {
     >
         <nav
             v-show="!bilahTerlihat"
-            class="tengah-layar fixed right-1.5 z-40 flex -translate-y-1/2 flex-col gap-0.5 rounded-lg bg-brand-terang p-0.5 shadow-[inset_0_1px_0_0_rgb(255_255_255/0.18),0_12px_32px_-12px_rgb(22_63_108/0.55)] ring-1 ring-white/20 sm:right-3 sm:gap-1 sm:rounded-2xl sm:p-1.5"
+            class="tengah-layar fixed right-1.5 z-40 flex -translate-y-1/2 flex-col gap-0.5 rounded-lg bg-brand-terang p-0.5 shadow-[inset_0_1px_0_0_rgb(255_255_255/0.18),0_12px_32px_-12px_rgb(22_63_108/0.55)] ring-1 ring-white/20 sm:right-3 sm:gap-1 sm:rounded-2xl sm:p-1.5 print:hidden"
             aria-label="Menu utama mengambang"
         >
             <Link

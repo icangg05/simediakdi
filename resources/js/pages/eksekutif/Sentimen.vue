@@ -34,7 +34,7 @@ import { computed } from 'vue';
 interface Berita {
     id: number;
     judul: string;
-    url: string;
+    url: string | null;
     media: string | null;
     media_partner: boolean;
     diambil_at: string;
@@ -422,6 +422,7 @@ const daftarNada = computed(() => [
                                 <KartuArtikel
                                     :judul="b.judul"
                                     :url="b.url"
+                                    :detail-url="`/eksekutif/artikel/${b.id}`"
                                     :media="b.media"
                                     :media-partner="b.media_partner"
                                     :diambil-at="b.diambil_at"

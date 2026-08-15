@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useFormatAngka } from '@/composables/useFormatAngka';
 import LayoutAdmin from '@/layouts/LayoutAdmin.vue';
 import LayoutEksekutif from '@/layouts/LayoutEksekutif.vue';
+import { cetakLaporanF4 } from '@/lib/cetakLaporanF4';
 import type { SharedData } from '@/types';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { format } from 'date-fns';
@@ -69,6 +70,7 @@ const props = defineProps<{
 const { formatAngka, formatProporsi } = useFormatAngka();
 const page = usePage<SharedData>();
 const bulanDipilih = ref(props.bulan);
+const gagalCetak = ref(false);
 const formatWita = new Intl.DateTimeFormat('id-ID', {
     dateStyle: 'long',
     timeStyle: 'short',
@@ -143,7 +145,19 @@ const tren = computed(() =>
 function cetak() {
     if (!adaData.value) return;
 
-    window.print();
+    gagalCetak.value = !cetakLaporanF4({
+        namaBulan: namaBulan.value,
+        rentangPeriode: rentangPeriode.value,
+        waktuPembuatan: waktuPembuatan.value,
+        ringkasan: ringkasan.value,
+        kpi: props.kpi,
+        narasi: props.narasi,
+        tren: tren.value.map((baris) => ({
+            ...baris,
+            rentang: rentangTanggal(baris.rentang_dari, baris.rentang_sampai),
+        })),
+        media: props.peringkatMedia,
+    });
 }
 </script>
 
@@ -158,7 +172,7 @@ function cetak() {
                 keterangan="Pilih bulan, periksa ringkasannya, lalu cetak sebagai dokumen atau simpan sebagai PDF."
             >
                 <template #kendali>
-                    <div class="flex flex-wrap items-end gap-2">
+                    <div class="flex flex-wrap items-end gap-3">
                         <PermukaanKendaliKop>
                             <div class="min-w-52 space-y-1.5 p-1">
                                 <Label for="bulan-laporan" class="text-xs text-muted-foreground">Periode laporan</Label>
@@ -175,22 +189,31 @@ function cetak() {
                                 </Select>
                             </div>
                         </PermukaanKendaliKop>
-                        <PermukaanKendaliKop>
-                            <Button
-                                class="h-9 gap-2"
-                                :disabled="!adaData"
-                                :aria-describedby="!adaData ? 'status-cetak' : undefined"
-                                :title="adaData ? 'Cetak laporan bulan ini' : 'Belum ada pemberitaan pada bulan ini'"
-                                @click="cetak"
-                            >
-                                <Printer class="size-4" aria-hidden="true" />
-                                Cetak laporan
-                            </Button>
-                        </PermukaanKendaliKop>
+                        <Button
+                            type="button"
+                            class="min-h-12 w-full justify-start gap-3 rounded-xl bg-white px-3.5 py-2 text-brand shadow-lg ring-1 shadow-brand/25 ring-white/70 hover:bg-brand-lembut sm:w-auto"
+                            :disabled="!adaData"
+                            :aria-describedby="!adaData ? 'status-cetak' : undefined"
+                            :title="adaData ? 'Cetak laporan F4 bulan ini' : 'Belum ada pemberitaan pada bulan ini'"
+                            @click="cetak"
+                        >
+                            <span class="grid size-8 shrink-0 place-items-center rounded-lg bg-brand text-white" aria-hidden="true">
+                                <Printer class="size-4" />
+                            </span>
+                            <span class="flex flex-col items-start gap-1 leading-none">
+                                <span class="font-semibold">Cetak laporan</span>
+                                <span class="text-[0.6875rem] font-normal text-brand/70">F4 · potret</span>
+                            </span>
+                        </Button>
                     </div>
                     <PermukaanKendaliKop v-if="!adaData" class="mt-2 max-w-sm">
                         <p id="status-cetak" class="px-2 py-1 text-xs leading-relaxed text-muted-foreground">
                             Laporan belum dapat dicetak karena belum ada pemberitaan pada bulan ini.
+                        </p>
+                    </PermukaanKendaliKop>
+                    <PermukaanKendaliKop v-else-if="gagalCetak" class="mt-2 max-w-sm">
+                        <p role="alert" class="px-2 py-1 text-xs leading-relaxed text-muted-foreground">
+                            Jendela cetak diblokir browser. Izinkan pop-up untuk SIMEDIA, lalu tekan “Cetak laporan” kembali.
                         </p>
                     </PermukaanKendaliKop>
                 </template>
@@ -199,7 +222,7 @@ function cetak() {
             </KopEksekutif>
 
             <article class="laporan-cetak overflow-hidden rounded-2xl bg-white text-slate-900 shadow-xl ring-1 ring-slate-200">
-                <header class="bg-brand px-5 py-5 text-white sm:px-8 sm:py-6">
+                <header class="kop-laporan-cetak bg-brand px-5 py-5 text-white sm:px-8 sm:py-6">
                     <div class="flex items-start justify-between gap-5">
                         <div class="flex min-w-0 items-center gap-3.5">
                             <span class="flex shrink-0 items-center gap-2 rounded-xl bg-white/10 p-2 ring-1 ring-white/20">
@@ -233,8 +256,10 @@ function cetak() {
                     </div>
                 </header>
 
-                <div class="space-y-8 px-5 py-6 sm:px-8 sm:py-8">
-                    <section class="jangan-putus grid gap-5 border-b border-slate-200 pb-7 lg:grid-cols-[1fr_auto] lg:items-start">
+                <div class="isi-laporan-cetak space-y-8 px-5 py-6 sm:px-8 sm:py-8">
+                    <section
+                        class="ringkasan-laporan-cetak jangan-putus grid gap-5 border-b border-slate-200 pb-7 lg:grid-cols-[1fr_auto] lg:items-start"
+                    >
                         <div>
                             <h2 class="text-lg font-semibold tracking-tight text-slate-950">Ringkasan keadaan</h2>
                             <p class="mt-2 max-w-[72ch] text-sm leading-relaxed text-slate-600">{{ ringkasan }}</p>
@@ -247,7 +272,7 @@ function cetak() {
 
                     <section
                         v-if="adaData"
-                        class="jangan-putus rounded-xl border border-aksen-ungu/20 bg-aksen-ungu/5 p-5"
+                        class="analisis-laporan-cetak jangan-putus rounded-xl border border-aksen-ungu/20 bg-aksen-ungu/5 p-5"
                         aria-labelledby="analisis-pemberitaan"
                     >
                         <div class="flex items-start gap-3">
@@ -292,7 +317,7 @@ function cetak() {
                         </p>
                     </section>
 
-                    <section class="jangan-putus" aria-labelledby="ikhtisar-laporan">
+                    <section class="ikhtisar-laporan-cetak jangan-putus" aria-labelledby="ikhtisar-laporan">
                         <h2 id="ikhtisar-laporan" class="text-lg font-semibold tracking-tight text-slate-950">Ikhtisar pemberitaan</h2>
                         <div class="mt-4 grid border-y border-slate-200 sm:grid-cols-3">
                             <div class="border-b border-slate-200 py-4 sm:border-r lg:border-b-0">
@@ -325,7 +350,10 @@ function cetak() {
                         </div>
                     </section>
 
-                    <section class="jangan-putus grid gap-6 lg:grid-cols-[0.85fr_1.15fr]" aria-labelledby="komposisi-sentimen">
+                    <section
+                        class="komposisi-laporan-cetak jangan-putus grid gap-6 lg:grid-cols-[0.85fr_1.15fr]"
+                        aria-labelledby="komposisi-sentimen"
+                    >
                         <div>
                             <h2 id="komposisi-sentimen" class="text-lg font-semibold tracking-tight text-slate-950">Komposisi sentimen</h2>
                             <p class="mt-1 text-sm text-slate-500">Perbandingan nada positif, netral, dan negatif pada pemberitaan bulan ini.</p>
@@ -348,7 +376,7 @@ function cetak() {
                         </div>
                     </section>
 
-                    <section aria-labelledby="tren-pemberitaan">
+                    <section class="bagian-tren-cetak" aria-labelledby="tren-pemberitaan">
                         <div class="flex flex-wrap items-end justify-between gap-2">
                             <div>
                                 <h2 id="tren-pemberitaan" class="text-lg font-semibold tracking-tight text-slate-950">Tren dalam bulan</h2>
@@ -357,7 +385,7 @@ function cetak() {
                             <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">{{ tren.length }} periode</span>
                         </div>
 
-                        <div class="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+                        <div class="tabel-laporan-cetak mt-4 overflow-x-auto rounded-xl border border-slate-200">
                             <table class="w-full min-w-[640px] border-collapse text-left text-sm">
                                 <thead class="bg-slate-100 text-xs font-semibold text-slate-600">
                                     <tr>
@@ -386,7 +414,7 @@ function cetak() {
                         </div>
                     </section>
 
-                    <section class="mulai-halaman-baru" aria-labelledby="kondisi-media">
+                    <section class="bagian-media-cetak mulai-halaman-baru" aria-labelledby="kondisi-media">
                         <div class="flex flex-wrap items-end justify-between gap-2">
                             <div>
                                 <h2 id="kondisi-media" class="text-lg font-semibold tracking-tight text-slate-950">Kondisi media aktif</h2>
@@ -399,7 +427,7 @@ function cetak() {
                             </span>
                         </div>
 
-                        <div class="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+                        <div class="tabel-laporan-cetak mt-4 overflow-x-auto rounded-xl border border-slate-200">
                             <table class="w-full min-w-[700px] border-collapse text-left text-sm">
                                 <thead class="bg-slate-100 text-xs font-semibold text-slate-600">
                                     <tr>
@@ -439,7 +467,7 @@ function cetak() {
                         </div>
                     </section>
 
-                    <footer class="jangan-putus border-t border-slate-200 pt-5">
+                    <footer class="kaki-laporan-cetak jangan-putus border-t border-slate-200 pt-5">
                         <div class="flex items-start gap-3 rounded-xl bg-brand-lembut p-4 text-brand">
                             <ShieldCheck class="mt-0.5 size-5 shrink-0" aria-hidden="true" />
                             <div>
@@ -464,86 +492,3 @@ function cetak() {
         </div>
     </component>
 </template>
-
-<style>
-@page {
-    size: A4 portrait;
-    margin: 12mm;
-}
-
-@media print {
-    /*
-     * Admin membuka laporan dari cangkang sidebar, sedangkan Wali Kota memakai
-     * cangkang header. Saat dicetak keduanya harus menghasilkan dokumen yang
-     * sama: chrome aplikasi disembunyikan dan bidang isi dikembalikan ke A4.
-     */
-    body:has([data-laporan-admin]) [data-variant][data-side],
-    body:has([data-laporan-admin]) main > header {
-        display: none !important;
-    }
-
-    body:has([data-laporan-admin]) .group\/sidebar-wrapper {
-        display: block !important;
-        min-height: 0 !important;
-        background: white !important;
-    }
-
-    body:has([data-laporan-admin]) main,
-    body:has([data-laporan-admin]) .bg-latar-admin {
-        min-height: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        border-radius: 0 !important;
-        background: white !important;
-        box-shadow: none !important;
-    }
-
-    html,
-    body {
-        background: white !important;
-    }
-
-    .latar-eksekutif {
-        background: white !important;
-    }
-
-    body {
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-    }
-
-    .sembunyikan-saat-cetak {
-        display: none !important;
-    }
-
-    .laporan-cetak {
-        width: 100% !important;
-        overflow: visible !important;
-        border-radius: 0 !important;
-        box-shadow: none !important;
-        --tw-ring-shadow: 0 0 #0000 !important;
-    }
-
-    .laporan-cetak .overflow-x-auto {
-        overflow: visible !important;
-    }
-
-    .laporan-cetak table {
-        min-width: 0 !important;
-        font-size: 8pt;
-    }
-
-    .laporan-cetak thead {
-        display: table-header-group;
-    }
-
-    .jangan-putus,
-    .laporan-cetak tr {
-        break-inside: avoid;
-    }
-
-    .mulai-halaman-baru {
-        break-before: page;
-    }
-}
-</style>

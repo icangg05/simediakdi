@@ -8,6 +8,7 @@ use App\Models\RiwayatAlert;
 use App\Services\Agregasi\NarasiEksekutif;
 use App\Services\Agregasi\RingkasanEksekutif;
 use App\Support\Periode;
+use App\Support\UrlEksternal;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -96,7 +97,7 @@ class DashboardController extends Controller
             ->map(fn (Artikel $a) => [
                 'id' => $a->id,
                 'judul' => $a->judul,
-                'url' => $a->url,
+                'url' => UrlEksternal::http($a->url),
                 'media' => $a->media?->nama,
                 'media_partner' => (bool) $a->media?->partner,
                 'diambil_at' => $a->diambil_at,

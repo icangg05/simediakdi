@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import BadgeSentimen from '@/components/domain/BadgeSentimen.vue';
 import BadgeTahapPortal from '@/components/domain/BadgeTahapPortal.vue';
+import { Link, usePage } from '@inertiajs/vue3';
 import { formatDistanceToNow } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { ExternalLink, Handshake, Newspaper, PlusCircle } from 'lucide-vue-next';
+import { ChevronRight, ExternalLink, Handshake, Newspaper, PlusCircle } from 'lucide-vue-next';
+import { computed } from 'vue';
 
-defineProps<{
+const props = defineProps<{
     judul: string;
-    url: string;
+    url: string | null;
+    /** Halaman detail internal. Kalau ada, seluruh badan baris menuju ke sini. */
+    detailUrl?: string;
     media: string | null;
     /** Media memiliki kerja sama publikasi dengan Pemerintah Kota. */
     mediaPartner?: boolean;
@@ -46,12 +50,32 @@ defineProps<{
      */
     ringkasanAi?: string | null;
 }>();
+
+const page = usePage();
+
+/**
+ * Halaman asal dibawa ke detail supaya tombol kembali mempertahankan periode,
+ * penyaring, pencarian, dan nomor halaman yang sedang dibaca.
+ */
+const tujuanDetail = computed(() => (props.detailUrl ? `${props.detailUrl}?kembali=${encodeURIComponent(page.url)}` : null));
 </script>
 
 <template>
-    <article class="flex items-start justify-between gap-3 py-2.5">
+    <article class="group relative grid grid-cols-1 items-start gap-x-3 gap-y-2 py-3 sm:grid-cols-[minmax(0,1fr)_auto]">
         <div class="min-w-0 space-y-1">
+            <Link
+                v-if="tujuanDetail"
+                :href="tujuanDetail"
+                class="inline-flex items-start gap-1 text-sm leading-snug font-semibold text-foreground transition-colors after:absolute after:inset-0 after:rounded-lg hover:text-brand focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-hidden"
+            >
+                <span class="line-clamp-2">{{ judul }}</span>
+                <ChevronRight
+                    class="mt-0.5 size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none"
+                    aria-hidden="true"
+                />
+            </Link>
             <a
+                v-else-if="url"
                 :href="url"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -60,6 +84,9 @@ defineProps<{
                 <span class="line-clamp-2">{{ judul }}</span>
                 <ExternalLink class="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
             </a>
+            <p v-else class="inline-flex items-start text-sm leading-snug font-medium text-foreground">
+                <span class="line-clamp-2">{{ judul }}</span>
+            </p>
             <p v-if="ringkasanAi" class="line-clamp-2 text-xs leading-relaxed text-foreground/70">{{ ringkasanAi }}</p>
 
             <!--
@@ -95,7 +122,24 @@ defineProps<{
             </p>
         </div>
 
-        <BadgeSentimen v-if="tampilkanSentimen" :label="label ?? null" :perlu-review="perluReview" class="mt-0.5 shrink-0" />
-        <BadgeTahapPortal v-else-if="tahap" :tahap="tahap" class="mt-0.5 shrink-0" />
+        <div
+            v-if="detailUrl || tampilkanSentimen || tahap"
+            class="relative z-10 flex w-full shrink-0 flex-row items-center justify-between gap-2 sm:w-auto sm:flex-col sm:items-end"
+        >
+            <BadgeSentimen v-if="tampilkanSentimen" :label="label ?? null" :perlu-review="perluReview" class="mt-0.5 shrink-0" />
+            <BadgeTahapPortal v-else-if="tahap" :tahap="tahap" class="mt-0.5 shrink-0" />
+
+            <a
+                v-if="detailUrl && url"
+                :href="url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="tekan ml-auto inline-flex min-h-10 items-center gap-1.5 rounded-md bg-background px-2.5 py-1.5 text-[11px] font-semibold whitespace-nowrap text-foreground shadow-xs ring-1 ring-border transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-hidden sm:min-h-8"
+            >
+                <ExternalLink class="size-3.5" aria-hidden="true" />
+                Lihat artikel asli
+                <span class="sr-only">(dibuka di tab baru)</span>
+            </a>
+        </div>
     </article>
 </template>

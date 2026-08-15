@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Artikel;
 use App\Services\Agregasi\RingkasanEksekutif;
 use App\Support\Periode;
+use App\Support\UrlEksternal;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -72,7 +73,7 @@ class SentimenController extends Controller
         return [
             'id' => $artikel->id,
             'judul' => $artikel->judul,
-            'url' => $artikel->url,
+            'url' => UrlEksternal::http($artikel->url),
             'media' => $artikel->media?->nama,
             'media_partner' => (bool) $artikel->media?->partner,
             'diambil_at' => $artikel->diambil_at,

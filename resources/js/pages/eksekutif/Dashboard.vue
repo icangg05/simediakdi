@@ -68,7 +68,7 @@ import { computed } from 'vue';
 type Berita = {
     id: number;
     judul: string;
-    url: string;
+    url: string | null;
     media: string | null;
     media_partner: boolean;
     diambil_at: string;
@@ -713,6 +713,7 @@ function rupaTopik(nada: LabelSentimen) {
                                 v-bind="{
                                     judul: beritaPerhatian[0].judul,
                                     url: beritaPerhatian[0].url,
+                                    detailUrl: `/eksekutif/artikel/${beritaPerhatian[0].id}`,
                                     media: beritaPerhatian[0].media,
                                     mediaPartner: beritaPerhatian[0].media_partner,
                                     diambilAt: beritaPerhatian[0].diambil_at,
@@ -1035,6 +1036,7 @@ function rupaTopik(nada: LabelSentimen) {
                             v-bind="{
                                 judul: berita.judul,
                                 url: berita.url,
+                                detailUrl: `/eksekutif/artikel/${berita.id}`,
                                 media: berita.media,
                                 mediaPartner: berita.media_partner,
                                 diambilAt: berita.diambil_at,
@@ -1059,6 +1061,7 @@ function rupaTopik(nada: LabelSentimen) {
                             v-bind="{
                                 judul: berita.judul,
                                 url: berita.url,
+                                detailUrl: `/eksekutif/artikel/${berita.id}`,
                                 media: berita.media,
                                 mediaPartner: berita.media_partner,
                                 diambilAt: berita.diambil_at,
@@ -1107,6 +1110,7 @@ function rupaTopik(nada: LabelSentimen) {
                                 v-bind="{
                                     judul: berita.judul,
                                     url: berita.url,
+                                    detailUrl: `/eksekutif/artikel/${berita.id}`,
                                     media: berita.media,
                                     mediaPartner: berita.media_partner,
                                     diambilAt: berita.diambil_at,

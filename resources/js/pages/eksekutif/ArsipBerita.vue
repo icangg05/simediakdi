@@ -37,7 +37,7 @@ type Label = 'negatif' | 'netral' | 'positif';
 interface Baris {
     id: number;
     judul: string;
-    url: string;
+    url: string | null;
     media: string | null;
     media_partner: boolean;
     diambil_at: string;
@@ -153,7 +153,10 @@ function aturUlangSaringan() {
             <template #kendali>
                 <PermukaanKendaliKop class="w-full sm:w-88">
                     <div class="relative">
-                        <Search class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                        <Search
+                            class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                            aria-hidden="true"
+                        />
                         <Input
                             v-model="kata"
                             type="search"
@@ -329,6 +332,7 @@ function aturUlangSaringan() {
                         <KartuArtikel
                             :judul="b.judul"
                             :url="b.url"
+                            :detail-url="`/eksekutif/artikel/${b.id}`"
                             :media="b.media"
                             :media-partner="b.media_partner"
                             :diambil-at="b.diambil_at"

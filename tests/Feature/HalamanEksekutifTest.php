@@ -77,6 +77,116 @@ class HalamanEksekutifTest extends TestCase
             ->assertForbidden();
 
         $this->get('/eksekutif/laporan')->assertForbidden();
+        $this->get('/eksekutif/artikel/'.Artikel::first()->id)->assertForbidden();
+    }
+
+    public function test_detail_artikel_mengirim_isi_ekstraksi_alasan_dan_kutipan_bukti_untuk_pimpinan(): void
+    {
+        $artikel = Artikel::first();
+        $artikel->update([
+            'isi' => "Isi hasil ekstraksi paragraf pertama.\n\nIsi hasil ekstraksi paragraf kedua.",
+            'jumlah_kata' => 10,
+            'ringkasan' => '<p>'.str_repeat('Ringkasan sumber yang aman dibaca. ', 15).'</p>',
+            'penulis' => 'Redaksi Kendari Pos',
+            'dipublikasikan_at' => Waktu::awalHariIni()->addHours(8),
+        ]);
+
+        $artikel->analisisSentimen()->first()->update([
+            'reason_summary' => 'Nada negatif karena berita menyoroti keluhan atas pelayanan publik.',
+            'evidence' => [
+                'Warga menyampaikan keluhan atas pelayanan publik.',
+                'Pemerintah diminta segera melakukan perbaikan.',
+            ],
+            'provider' => 'gemini',
+            'model_versi' => 'gemini-3-flash-lite',
+            'dianalisis_at' => now(),
+        ]);
+
+        $this->actingAs($this->walikota)
+            ->get("/eksekutif/artikel/{$artikel->id}?kembali=".urlencode('/eksekutif/berita?cari=pelayanan'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('eksekutif/DetailArtikel')
+                ->where('artikel.id', $artikel->id)
+                ->where('artikel.judul', $artikel->judul)
+                ->where('artikel.url', $artikel->url)
+                ->where('artikel.isi', "Isi hasil ekstraksi paragraf pertama.\n\nIsi hasil ekstraksi paragraf kedua.")
+                ->where('artikel.jumlah_kata', 10)
+                ->where('artikel.media.nama', 'Kendari Pos')
+                ->where('artikel.media.partner', true)
+                ->where('artikel.analisis.relevan', true)
+                ->where('artikel.analisis.label', 'negatif')
+                ->where('artikel.analisis.alasan', 'Sentimen negatif karena berita menyoroti keluhan atas pelayanan publik.')
+                ->where('artikel.analisis.bukti', [
+                    'Warga menyampaikan keluhan atas pelayanan publik.',
+                    'Pemerintah diminta segera melakukan perbaikan.',
+                ])
+                ->where('artikel.analisis.provider', 'gemini')
+                ->where('artikel.analisis.model_versi', 'gemini-3-flash-lite')
+                ->where('kembali', '/eksekutif/berita?cari=pelayanan')
+                ->where('artikel.ringkasan', fn ($ringkasan) => mb_strlen($ringkasan) > 300 && ! str_contains($ringkasan, '<p>')));
+    }
+
+    public function test_url_sumber_artikel_hanya_menerima_http_dan_https_absolut(): void
+    {
+        $artikel = Artikel::first();
+
+        foreach (['javascript:alert(1)', 'data:text/html,berbahaya', '//contoh.test/berita'] as $url) {
+            $artikel->update(['url' => $url]);
+
+            $this->actingAs($this->walikota)
+                ->get("/eksekutif/artikel/{$artikel->id}")
+                ->assertInertia(fn ($page) => $page->where('artikel.url', null));
+        }
+
+        $artikel->update(['url' => 'https://contoh.test/berita?kanal=kendari']);
+
+        $this->get("/eksekutif/artikel/{$artikel->id}")
+            ->assertInertia(fn ($page) => $page->where('artikel.url', 'https://contoh.test/berita?kanal=kendari'));
+
+        // Boundary yang sama dipakai semua daftar eksekutif, bukan hanya
+        // halaman detail. Satu URL aktif tidak boleh berubah menjadi anchor di
+        // dashboard, halaman sentimen, maupun arsip berita.
+        $artikel->update(['url' => 'javascript:alert(1)']);
+
+        $this->assertNull(collect($this->get('/eksekutif')->viewData('page')['props']['beritaTerbaru'])
+            ->firstWhere('id', $artikel->id)['url']);
+        $this->assertNull(collect($this->get('/eksekutif/sentimen')->viewData('page')['props']['beritaNegatif'])
+            ->firstWhere('id', $artikel->id)['url']);
+        $this->assertNull(collect($this->get('/eksekutif/berita')->viewData('page')['props']['artikel']['data'])
+            ->firstWhere('id', $artikel->id)['url']);
+    }
+
+    public function test_detail_artikel_menolak_berita_di_luar_populasi_eksekutif(): void
+    {
+        $artikel = Artikel::withoutGlobalScopes()->create([
+            'media_id' => Media::first()->id,
+            'judul' => 'Berita di luar pantauan',
+            'url' => 'https://kp.test/di-luar-pantauan',
+            'url_kanonik' => 'https://kp.test/di-luar-pantauan',
+            'isi' => 'Isi yang tidak boleh dilihat pimpinan.',
+            'diambil_at' => Waktu::awalHariIni()->addHours(10),
+            'status_proses' => 'tidak_relevan',
+        ]);
+
+        AnalisisSentimen::create([
+            'artikel_id' => $artikel->id,
+            'relevan' => false,
+            'label_model' => null,
+        ]);
+
+        $this->actingAs($this->walikota)
+            ->get("/eksekutif/artikel/{$artikel->id}")
+            ->assertNotFound();
+    }
+
+    public function test_tujuan_kembali_detail_artikel_tidak_menerima_alamat_luar(): void
+    {
+        $artikel = Artikel::first();
+
+        $this->actingAs($this->walikota)
+            ->get("/eksekutif/artikel/{$artikel->id}?kembali=".urlencode('https://contoh.test/phishing'))
+            ->assertInertia(fn ($page) => $page->where('kembali', '/eksekutif/berita'));
     }
 
     public function test_laporan_memakai_satu_bulan_kalender_dan_hanya_media_aktif(): void
