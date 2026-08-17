@@ -305,6 +305,32 @@ class NarasiEksekutifTest extends TestCase
             ->assertInertia(fn ($halaman) => $halaman->where('narasi.judul', 'Ringkasan kemarin'));
     }
 
+    public function test_bulan_lampau_menampilkan_narasi_bulan_itu(): void
+    {
+        // Bulan lampau bukan salah satu preset, jadi rentangnya dicocokkan tepat
+        // pada tanggalnya. Tanpa itu pemilih bulan menampilkan seluruh angka
+        // bulan lalu di samping bagian ulasan yang kosong.
+        $bulanLalu = CarbonImmutable::now(Waktu::ZONA)->subMonthNoOverflow()->startOfMonth();
+
+        Baris::create([
+            'periode' => '30d',
+            'dari' => $bulanLalu->toDateString(),
+            'sampai' => $bulanLalu->endOfMonth()->toDateString(),
+            'nada' => 'netral',
+            'judul' => 'Ringkasan bulan lalu',
+            'ringkasan' => 'Isi ringkasan bulan lalu.',
+            'sidik' => 'sidik-bulan-lalu',
+            'dibuat_at' => $bulanLalu->endOfMonth(),
+        ]);
+
+        $walikota = User::factory()->walikota()->create();
+
+        $this->actingAs($walikota)
+            ->get('/eksekutif?dari='.$bulanLalu->toDateString().'&sampai='.$bulanLalu->endOfMonth()->toDateString())
+            ->assertOk()
+            ->assertInertia(fn ($halaman) => $halaman->where('narasi.judul', 'Ringkasan bulan lalu'));
+    }
+
     public function test_kartu_topik_membuka_arsip_yang_tersaring_ke_artikelnya(): void
     {
         $walikota = User::factory()->walikota()->create();

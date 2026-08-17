@@ -39,6 +39,11 @@ class DashboardController extends Controller
             'beritaPerhatian' => $this->berita($periode, 'negatif', 4),
             'beritaPositif' => $this->berita($periode, 'positif', 4),
             'beritaTerbaru' => $this->berita($periode, null, 6),
+            // Tanpa batas rentang, jadi kartu ulasan selalu punya satu berita
+            // negatif untuk ditunjuk. Rentang yang bersih dari berita negatif
+            // adalah keadaan yang sering, dan bagian yang menghilang begitu saja
+            // membuat pembaca mengira sistemnya berhenti memeriksa.
+            'negatifTerakhir' => $this->berita(null, 'negatif', 1)[0] ?? null,
             'peringatan' => $this->peringatan(),
             // Footer transparansi. Baris ini yang membuat pengguna berpikir
             // "sistemnya memang tidak sempurna dan itu diakui" saat menemukan
@@ -49,10 +54,12 @@ class DashboardController extends Controller
     /**
      * Ringkasan dan topik tulisan Gemini untuk rentang yang sedang dilihat.
      *
-     * Hanya tersedia untuk empat rentang pintasan. Tanggal yang diketik bebas
-     * mengembalikan null, dan halaman tetap menampilkan seluruh statistiknya.
-     * Membuat narasi untuk setiap kombinasi tanggal berarti satu panggilan
-     * Gemini setiap kali tombol Terapkan ditekan.
+     * Empat rentang pintasan memakai narasi terbaru presetnya. Di luar itu,
+     * rentang dicocokkan tepat pada tanggalnya, sehingga bulan kalender yang
+     * sudah lewat menampilkan ulasan bulan itu sendiri, bukan bagian kosong.
+     * Tanggal yang tidak punya narasi tersimpan tetap mengembalikan null, dan
+     * halaman menampilkan seluruh statistiknya saja. Tidak ada jalur di sini
+     * yang memanggil Gemini, karena narasi hanya dibuat penjadwal.
      *
      * @return array<string, mixed>|null
      */
@@ -61,7 +68,7 @@ class DashboardController extends Controller
         $preset = $narasi->preset($periode->dari, $periode->sampai);
 
         return $preset === null
-            ? null
+            ? $narasi->padaRentang('30d', $periode->dari, $periode->sampai)?->untukInertia()
             : $narasi->terbaru($preset)?->untukInertia();
     }
 
@@ -77,9 +84,12 @@ class DashboardController extends Controller
      * negatif periode itu bisa terdorong keluar dari enam baris teratas justru
      * pada hari pimpinan paling perlu melihatnya.
      *
+     * Periode null berarti seluruh arsip, dipakai kartu ulasan untuk menunjuk
+     * berita negatif terakhir saat rentang yang dibuka tidak memuat satu pun.
+     *
      * @return list<array<string, mixed>>
      */
-    private function berita(Periode $periode, ?string $label, int $batas): array
+    private function berita(?Periode $periode, ?string $label, int $batas): array
     {
         return Artikel::query()
             ->relevanBerlabel()
@@ -90,7 +100,7 @@ class DashboardController extends Controller
             ->with(['media:id,nama,partner', 'analisisSentimen' => fn ($q) => $q
                 ->where('relevan', true),
             ])
-            ->terbitAntara($periode->mulaiUtc(), $periode->akhirUtc())
+            ->when($periode !== null, fn ($q) => $q->terbitAntara($periode->mulaiUtc(), $periode->akhirUtc()))
             ->orderByDesc('diambil_at')
             ->limit($batas)
             ->get(['id', 'media_id', 'judul', 'url', 'diambil_at'])

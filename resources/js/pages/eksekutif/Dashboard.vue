@@ -19,7 +19,7 @@ import { usePeriodeEksekutif } from '@/composables/usePeriodeEksekutif';
 import LayoutEksekutif from '@/layouts/LayoutEksekutif.vue';
 import type { DeretMedia, DeretTren, LabelSentimen } from '@/types';
 import { Head, Link } from '@inertiajs/vue3';
-import { differenceInCalendarDays, format, formatDistanceToNow, isSameDay } from 'date-fns';
+import { differenceInCalendarDays, endOfMonth, format, formatDistanceToNow, isSameDay, isSameMonth, startOfMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
 import {
     ArrowRight,
@@ -137,6 +137,8 @@ const props = defineProps<{
     beritaPerhatian: Berita[];
     beritaPositif: Berita[];
     beritaTerbaru: Berita[];
+    /** Berita negatif terakhir di seluruh arsip, tanpa batas rentang. */
+    negatifTerakhir: Berita | null;
     peringatan: { jumlah: number; terbaru: string; dipicu_at: string } | null;
 }>();
 
@@ -174,6 +176,23 @@ const keteranganKop = computed(() =>
 );
 
 const jumlahHari = computed(() => differenceInCalendarDays(new Date(props.periode.sampai), new Date(props.periode.dari)) + 1);
+
+/**
+ * Bulan kalender yang sudah lewat, dipilih lewat pemilih bulan.
+ *
+ * Keempat pintasan hanya menjawab keadaan yang sedang berjalan. Membiarkannya
+ * tampil saat bulan lampau dibuka berarti menawarkan empat tombol yang semuanya
+ * melempar pengguna kembali ke hari ini tanpa ia meminta.
+ */
+const bulanLampau = computed(() => {
+    const awal = new Date(`${props.periode.dari}T00:00:00`);
+
+    return (
+        format(startOfMonth(awal), 'yyyy-MM-dd') === props.periode.dari &&
+        format(endOfMonth(awal), 'yyyy-MM-dd') === props.periode.sampai &&
+        !isSameMonth(awal, new Date())
+    );
+});
 
 /** Dibulatkan ke bilangan bulat: "58 dari 100 berita" lebih mudah dibaca daripada "58,3%". */
 function per100(bagian: number): number {
@@ -317,6 +336,19 @@ const narasiBasi = computed(() => !!props.narasi && !isSameDay(new Date(props.na
 const narasiUmur = computed(() => (props.narasi ? formatDistanceToNow(new Date(props.narasi.dibuat_at), { addSuffix: true, locale: id }) : ''));
 
 /**
+ * Berita negatif yang ditunjuk kartu ulasan.
+ *
+ * Yang pertama dipakai adalah berita negatif terbaru pada rentang ini. Kalau
+ * rentangnya bersih, yang tampil adalah berita negatif terakhir yang tercatat,
+ * dan kalimat di bawahnya menyatakan bahwa tanggalnya di luar rentang. Bagian
+ * yang menghilang saat tidak ada berita negatif membuat pembaca menyimpulkan
+ * sistemnya berhenti bekerja, bukan bahwa keadaannya memang sedang tenang.
+ */
+const negatifDisorot = computed(() => props.beritaPerhatian[0] ?? props.negatifTerakhir);
+
+const negatifDiLuarRentang = computed(() => props.beritaPerhatian.length === 0 && props.negatifTerakhir !== null);
+
+/**
  * Berita yang jadi bahan ulasan, dikumpulkan dari seluruh topiknya.
  *
  * Satu artikel hanya boleh masuk satu topik, penjagaannya ada di sisi server,
@@ -435,7 +467,13 @@ function rupaTopik(nada: LabelSentimen) {
                             @ubah="(dari, sampai) => pindah({ dari, sampai })"
                         />
                     </PermukaanKendaliKop>
+                    <!--
+                        Pintasan padam saat bulan lampau dibuka. Ulasan bulan
+                        itu tetap tampil, dan pemilih bulan di sebelahnya yang
+                        mengembalikan halaman ke bulan berjalan.
+                    -->
                     <PemilihRentangTanggal
+                        v-if="!bulanLampau"
                         :dari="periode.dari"
                         :sampai="periode.sampai"
                         inline
@@ -689,42 +727,6 @@ function rupaTopik(nada: LabelSentimen) {
                         </ul>
 
                         <!--
-                            Berita negatif terbaru, bukan kalimat tindak lanjut
-                            tulisan model. Kalimat model tidak membawa id
-                            artikel, sehingga pembaca yang ingin memeriksa
-                            sendiri harus mencari beritanya di arsip. Baris ini
-                            membuka portal aslinya langsung.
-
-                            Satu berita saja, yang paling baru. Daftar panjang di
-                            sini mengulang kartu berita negatif di bawah halaman,
-                            dan pengulangan itu membuat keduanya berhenti menarik
-                            perhatian.
-                        -->
-                        <div
-                            v-if="beritaPerhatian.length"
-                            class="mt-4 rounded-xl border border-sentimen-review/30 bg-sentimen-review-lembut px-4 py-3"
-                        >
-                            <p class="flex items-center gap-1.5 text-sm font-semibold text-sentimen-review">
-                                <TriangleAlert class="size-4 shrink-0" aria-hidden="true" />
-                                Berita bersentimen negatif terbaru
-                            </p>
-
-                            <KartuArtikel
-                                v-bind="{
-                                    judul: beritaPerhatian[0].judul,
-                                    url: beritaPerhatian[0].url,
-                                    detailUrl: `/eksekutif/artikel/${beritaPerhatian[0].id}`,
-                                    media: beritaPerhatian[0].media,
-                                    mediaPartner: beritaPerhatian[0].media_partner,
-                                    diambilAt: beritaPerhatian[0].diambil_at,
-                                    label: beritaPerhatian[0].label,
-                                    perluReview: beritaPerhatian[0].perlu_review,
-                                    ringkasanAi: beritaPerhatian[0].ringkasan_ai,
-                                }"
-                            />
-                        </div>
-
-                        <!--
                             Tautan ke berita yang jadi bahan ulasan, bukan ke
                             seluruh arsip rentang ini. Kalimat yang dibaca
                             pimpinan harus bisa ditelusuri sampai ke berita
@@ -755,9 +757,61 @@ function rupaTopik(nada: LabelSentimen) {
                     </template>
 
                     <p v-else class="text-sm leading-relaxed text-muted-foreground">
-                        Ulasan sedang disusun dari berita terbaru, dan tersedia untuk rentang Hari ini, Minggu ini, Bulan ini, dan 3 bulan. Seluruh
-                        angka di halaman ini sudah bisa dibaca sekarang.
+                        Ulasan sedang disusun dari berita terbaru, dan tersedia untuk rentang Hari ini, Minggu ini, 3 bulan, serta tiap bulan
+                        kalender. Seluruh angka di halaman ini sudah bisa dibaca sekarang.
                     </p>
+
+                    <!--
+                        Berita negatif terakhir, bukan kalimat tindak lanjut
+                        tulisan model. Kalimat model tidak membawa id artikel,
+                        sehingga pembaca yang ingin memeriksa sendiri harus
+                        mencari beritanya di arsip. Baris ini membuka portal
+                        aslinya langsung.
+
+                        Satu berita saja, yang paling akhir. Daftar panjang di
+                        sini mengulang kartu berita negatif di bawah halaman, dan
+                        pengulangan itu membuat keduanya berhenti menarik
+                        perhatian.
+
+                        Berdiri di luar blok ulasan supaya tetap tampil saat
+                        ulasan model belum ada, dan tetap terisi saat rentang
+                        yang dibuka tidak memuat satu pun berita negatif.
+                    -->
+                    <div v-if="negatifDisorot" class="mt-4 rounded-xl border border-sentimen-review/30 bg-sentimen-review-lembut px-4 py-3">
+                        <p class="flex items-center gap-1.5 text-sm font-semibold text-sentimen-review">
+                            <TriangleAlert class="size-4 shrink-0" aria-hidden="true" />
+                            Berita bersentimen negatif terakhir
+                        </p>
+
+                        <!--
+                            Rentang berita ini selalu dinyatakan, bukan hanya
+                            saat ia jatuh di luar rentang yang dibuka. Kartu ini
+                            berdiri di halaman yang seluruh angkanya mengikuti
+                            pemilih periode, dan satu berita tanpa keterangan
+                            rentang akan dibaca sebagai berita hari ini.
+                        -->
+                        <p class="mt-1 text-xs leading-relaxed text-muted-foreground">
+                            <template v-if="negatifDiLuarRentang">
+                                Tidak ada berita negatif pada rentang ini. Yang ditampilkan adalah yang terakhir tercatat, di luar rentang yang sedang
+                                dibuka.
+                            </template>
+                            <template v-else> Berita negatif terakhir pada {{ rentangTerbaca }}, rentang yang sedang dibuka. </template>
+                        </p>
+
+                        <KartuArtikel
+                            v-bind="{
+                                judul: negatifDisorot.judul,
+                                url: negatifDisorot.url,
+                                detailUrl: `/eksekutif/artikel/${negatifDisorot.id}`,
+                                media: negatifDisorot.media,
+                                mediaPartner: negatifDisorot.media_partner,
+                                diambilAt: negatifDisorot.diambil_at,
+                                label: negatifDisorot.label,
+                                perluReview: negatifDisorot.perlu_review,
+                                ringkasanAi: negatifDisorot.ringkasan_ai,
+                            }"
+                        />
+                    </div>
                 </KartuEksekutif>
             </div>
 

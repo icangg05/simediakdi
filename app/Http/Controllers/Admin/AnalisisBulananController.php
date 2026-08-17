@@ -32,7 +32,7 @@ class AnalisisBulananController extends Controller
             ->keyBy(fn (PemantauanNarasiBulanan $baris): string => $baris->bulan->format('Y-m'));
 
         // Riwayat lama pernah memakai preset 30 hari bergulir. Baris seperti
-        // 16 Juli–14 Agustus bukan laporan Juli dan tidak boleh dipasangkan ke
+        // 16 Juli-14 Agustus bukan laporan Juli dan tidak boleh dipasangkan ke
         // bulan hanya karena tanggal mulainya berada pada Juli.
         $narasi = BarisNarasi::query()
             ->where('periode', '30d')

@@ -2,13 +2,18 @@
 
 namespace App\Http\Controllers\Eksekutif;
 
+use App\Enums\LabelSentimen;
 use App\Http\Controllers\Controller;
+use App\Models\Artikel;
 use App\Services\Agregasi\NarasiEksekutif;
 use App\Services\Agregasi\RingkasanEksekutif;
 use App\Support\Periode;
 use App\Support\Waktu;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Support\Number;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -50,6 +55,139 @@ class LaporanController extends Controller
                 hanyaAktif: true,
             ),
         ]);
+    }
+
+    /**
+     * Berkas PDF yang langsung terunduh, tanpa melewati dialog cetak peramban.
+     *
+     * Dirender dompdf di server, bukan oleh peramban pembaca. Dialog cetak
+     * menuntut pengguna memilih ukuran kertas, margin, dan latar belakang yang
+     * benar sebelum berkasnya jadi, dan satu pilihan yang keliru di sana
+     * menghasilkan laporan tanpa warna atau terpotong. Di server ukurannya
+     * selalu F4 potret dan hasilnya sama untuk siapa pun yang menekannya.
+     */
+    public function unduh(Request $request, RingkasanEksekutif $ringkasan, NarasiEksekutif $narasi): HttpResponse
+    {
+        $awalBulan = $this->awalBulan($request->query('bulan'));
+        $periode = new Periode(dari: $awalBulan, sampai: $awalBulan->endOfMonth()->startOfDay());
+        $kpi = $ringkasan->kpi($periode->dari, $periode->sampai);
+
+        $pdf = Pdf::loadView('laporan.eksekutif', [
+            'namaBulan' => $awalBulan->locale('id')->translatedFormat('F Y'),
+            'rentangPeriode' => $this->tanggalPanjang($periode->dari).' sampai '.$this->tanggalPanjang($periode->sampai),
+            'waktuPembuatan' => CarbonImmutable::now(Waktu::ZONA)->locale('id')->translatedFormat('j F Y \p\u\k\u\l H.i').' WITA',
+            'ringkasan' => $this->kalimatRingkasan($kpi, $awalBulan),
+            'kpi' => $kpi,
+            'narasi' => $narasi->padaRentang('30d', $periode->dari, $periode->sampai)?->untukInertia(),
+            'tren' => $this->trenLaporan($this->deretLaporan($periode, $ringkasan)),
+            'negatif' => $this->beritaNegatif($periode),
+            'media' => $ringkasan->peringkatMedia(
+                $periode->dari,
+                $periode->sampai,
+                batas: null,
+                termasukTanpaBerita: true,
+                hanyaAktif: true,
+            ),
+        ]);
+
+        // 210 x 330 mm dalam satuan titik, ukuran F4 yang dipakai perkantoran
+        // di Indonesia. Dompdf tidak mengenal nama "f4" dan diam-diam jatuh ke
+        // A4 bila diberi nama yang tidak dikenalnya.
+        $pdf->setPaper([0, 0, 595.28, 935.43]);
+
+        return $pdf->download('laporan-pemberitaan-'.$awalBulan->format('Y-m').'.pdf');
+    }
+
+    /**
+     * Seluruh berita bersentimen negatif pada bulan laporan.
+     *
+     * Dibawa lengkap, tanpa batas jumlah, karena inilah bagian laporan yang
+     * ditindaklanjuti. Ringkasan penilaian ikut dikirim supaya pembaca tahu
+     * alasan sebuah berita dinilai negatif, dan status kerja sama medianya ikut
+     * karena tindak lanjut atas media mitra dan nonmitra tidak sama.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function beritaNegatif(Periode $periode): array
+    {
+        return Artikel::query()
+            ->relevanBerlabel()
+            ->whereHas('analisisSentimen', fn ($s) => $s
+                ->where('relevan', true)
+                ->where('label_efektif', LabelSentimen::Negatif->value))
+            ->with(['media:id,nama,partner', 'analisisSentimen' => fn ($q) => $q->where('relevan', true)])
+            ->terbitAntara($periode->mulaiUtc(), $periode->akhirUtc())
+            ->orderByRaw(Artikel::waktuTerbit().' desc')
+            ->get(['id', 'media_id', 'judul', 'dipublikasikan_at', 'diambil_at'])
+            ->map(fn (Artikel $artikel): array => [
+                'judul' => $artikel->judul,
+                'media' => $artikel->media?->nama ?? 'Tidak diketahui',
+                'partner' => (bool) $artikel->media?->partner,
+                'tanggal' => CarbonImmutable::parse($artikel->dipublikasikan_at ?? $artikel->diambil_at)
+                    ->setTimezone(Waktu::ZONA)
+                    ->locale('id')
+                    ->translatedFormat('j M Y'),
+                'penilaian' => $artikel->analisisSentimen->first()?->reason_summary,
+            ])
+            ->all();
+    }
+
+    /**
+     * @param  array{satuan: string, baris: list<array<string, mixed>>}  $deret
+     * @return list<array<string, mixed>> baris tren yang sudah membawa label rentangnya
+     */
+    private function trenLaporan(array $deret): array
+    {
+        return collect($deret['baris'])
+            ->map(fn (array $baris): array => [
+                ...$baris,
+                'berlabel' => $baris['jumlah_positif'] + $baris['jumlah_netral'] + $baris['jumlah_negatif'],
+                'rentang' => $this->rentangTerbaca((string) $baris['rentang_dari'], (string) $baris['rentang_sampai']),
+            ])
+            ->all();
+    }
+
+    /**
+     * Kalimat pembuka laporan, disusun dari angka yang sudah dihitung.
+     *
+     * @param  array<string, mixed>  $kpi
+     */
+    private function kalimatRingkasan(array $kpi, CarbonImmutable $awalBulan): string
+    {
+        $berlabel = (int) $kpi['berlabel'];
+
+        if ($berlabel === 0) {
+            return 'Belum ada pemberitaan yang tercatat pada '.$awalBulan->locale('id')->translatedFormat('F Y').'.';
+        }
+
+        $nada = collect([
+            'positif' => (int) $kpi['positif'],
+            'netral' => (int) $kpi['netral'],
+            'negatif' => (int) $kpi['negatif'],
+        ])->sortDesc();
+
+        return Number::format($berlabel, locale: 'id').' berita tercatat pada periode ini. '
+            .'Nada '.$nada->keys()->first().' paling banyak muncul, yaitu '
+            .Number::format($nada->first(), locale: 'id').' berita ('
+            .Number::percentage($nada->first() / $berlabel * 100, maxPrecision: 1, locale: 'id').').';
+    }
+
+    private function tanggalPanjang(CarbonImmutable $tanggal): string
+    {
+        return $tanggal->locale('id')->translatedFormat('j F Y');
+    }
+
+    /** "1-7 Juni 2026", dan tanggal utuh bila rentangnya hanya satu hari. */
+    private function rentangTerbaca(string $dari, string $sampai): string
+    {
+        $awal = CarbonImmutable::parse($dari, Waktu::ZONA);
+        $akhir = CarbonImmutable::parse($sampai, Waktu::ZONA);
+
+        if ($awal->isSameDay($akhir)) {
+            return $this->tanggalPanjang($awal);
+        }
+
+        return $awal->format('j').'-'.$this->tanggalPanjang($akhir);
     }
 
     /**

@@ -382,7 +382,7 @@ Word cloud di mobile diganti daftar sepuluh teratas. Word cloud di layar sempit 
 - Tombol "Cetak laporan" membuka dialog cetak peramban, sehingga pengguna dapat mencetak ke kertas atau menyimpan PDF. Tombol dinonaktifkan bila bulan yang dipilih belum memiliki pemberitaan.
 - Pratinjau dan hasil cetak memuat volume pemberitaan, komposisi sentimen, media yang aktif memberitakan, status kerja sama, tren mingguan, dan tabel seluruh media aktif termasuk yang belum memberitakan.
 - Bila bulan tersebut sudah memiliki narasi, laporan menampilkan ringkasan analisis Gemini AI yang tanggalnya harus tepat sama dengan bulan laporan. Narasi bulan lain tidak boleh digunakan sebagai pengganti.
-- Rentang tren mingguan dipotong pada batas bulan laporan. Contoh, kelompok Senin 29 Juni sampai Minggu 5 Juli ditampilkan sebagai `1–5 Juli 2026` pada laporan Juli.
+- Rentang tren mingguan dipotong pada batas bulan laporan. Contoh, kelompok Senin 29 Juni sampai Minggu 5 Juli ditampilkan sebagai `1-5 Juli 2026` pada laporan Juli.
 - Hasil cetak selalu light, berukuran A4, menyembunyikan navigasi dan kendali, serta mengulang kepala tabel media bila melewati satu halaman.
 - Angka dibaca dari agregat yang sama dengan dashboard. Laporan wajib menyebut bahwa sentimen dan volume pemberitaan bukan penilaian kinerja pemerintah.
 

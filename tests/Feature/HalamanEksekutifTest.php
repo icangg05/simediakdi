@@ -648,4 +648,35 @@ class HalamanEksekutifTest extends TestCase
             ->get('/eksekutif')
             ->assertInertia(fn ($page) => $page->where('peringatan', null));
     }
+
+    public function test_laporan_langsung_terunduh_sebagai_pdf(): void
+    {
+        // Tombol laporan tidak membuka dialog cetak, jadi yang diuji di sini
+        // adalah berkasnya benar-benar terkirim sebagai unduhan PDF.
+        $respons = $this->actingAs($this->walikota)->get('/eksekutif/laporan/unduh?bulan=2026-08');
+
+        $respons->assertOk();
+        $this->assertSame('application/pdf', $respons->headers->get('content-type'));
+        $this->assertStringContainsString('laporan-pemberitaan-2026-08.pdf', (string) $respons->headers->get('content-disposition'));
+        $this->assertStringStartsWith('%PDF', $respons->getContent());
+    }
+
+    public function test_unduhan_laporan_tertutup_untuk_pengguna_media(): void
+    {
+        $this->actingAs(User::factory()->media(Media::first())->create())
+            ->get('/eksekutif/laporan/unduh?bulan=2026-08')
+            ->assertForbidden();
+    }
+
+    public function test_berita_negatif_terakhir_tetap_dikirim_saat_rentangnya_bersih(): void
+    {
+        // Rentang tanpa berita negatif adalah keadaan yang sering, dan kartu
+        // ulasan tetap harus bisa menunjuk satu berita negatif yang nyata.
+        $this->actingAs($this->walikota)
+            ->get('/eksekutif?dari=2026-01-01&sampai=2026-01-31')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('beritaPerhatian', [])
+                ->where('negatifTerakhir.judul', 'Berita 0'));
+    }
 }

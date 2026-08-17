@@ -7,12 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useFormatAngka } from '@/composables/useFormatAngka';
 import LayoutAdmin from '@/layouts/LayoutAdmin.vue';
 import LayoutEksekutif from '@/layouts/LayoutEksekutif.vue';
-import { cetakLaporanF4 } from '@/lib/cetakLaporanF4';
 import type { SharedData } from '@/types';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { CalendarDays, Handshake, Newspaper, Printer, Radio, ShieldCheck } from 'lucide-vue-next';
+import { CalendarDays, Download, Handshake, Newspaper, Radio, ShieldCheck } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
 interface KpiLaporan {
@@ -70,7 +69,6 @@ const props = defineProps<{
 const { formatAngka, formatProporsi } = useFormatAngka();
 const page = usePage<SharedData>();
 const bulanDipilih = ref(props.bulan);
-const gagalCetak = ref(false);
 const formatWita = new Intl.DateTimeFormat('id-ID', {
     dateStyle: 'long',
     timeStyle: 'short',
@@ -108,7 +106,7 @@ const rentangTanggal = (dari: string, sampai: string) => {
 
     const awal = format(new Date(`${dari}T00:00:00`), 'd', { locale: id });
 
-    return `${awal}–${tanggalLengkap(sampai)}`;
+    return `${awal}-${tanggalLengkap(sampai)}`;
 };
 const rentangPeriode = computed(() => `${tanggalLengkap(props.periode.dari)} sampai ${tanggalLengkap(props.periode.sampai)}`);
 const adaData = computed(() => props.kpi.berlabel > 0);
@@ -142,23 +140,14 @@ const tren = computed(() =>
     })),
 );
 
-function cetak() {
-    if (!adaData.value) return;
-
-    gagalCetak.value = !cetakLaporanF4({
-        namaBulan: namaBulan.value,
-        rentangPeriode: rentangPeriode.value,
-        waktuPembuatan: waktuPembuatan.value,
-        ringkasan: ringkasan.value,
-        kpi: props.kpi,
-        narasi: props.narasi,
-        tren: tren.value.map((baris) => ({
-            ...baris,
-            rentang: rentangTanggal(baris.rentang_dari, baris.rentang_sampai),
-        })),
-        media: props.peringkatMedia,
-    });
-}
+/**
+ * Berkas PDF dibuat server, jadi tombolnya cukup sebuah tautan unduh.
+ *
+ * Peramban tidak bisa menghasilkan berkas PDF tanpa membuka dialog cetak, jadi
+ * dokumen yang sama disusun ulang sebagai templat Blade dan dirender dompdf.
+ * Rupanya dijaga sama dengan pratinjau di halaman ini.
+ */
+const tautanUnduh = computed(() => `/eksekutif/laporan/unduh?bulan=${props.bulan}`);
 </script>
 
 <template>
@@ -169,7 +158,7 @@ function cetak() {
             <KopEksekutif
                 class="sembunyikan-saat-cetak"
                 judul="Laporan kondisi pemberitaan"
-                keterangan="Pilih bulan, periksa ringkasannya, lalu cetak sebagai dokumen atau simpan sebagai PDF."
+                keterangan="Pilih bulan, periksa ringkasannya, lalu unduh berkas PDF-nya."
             >
                 <template #kendali>
                     <div class="flex flex-wrap items-end gap-3">
@@ -189,31 +178,48 @@ function cetak() {
                                 </Select>
                             </div>
                         </PermukaanKendaliKop>
+                        <!--
+                            Tautan biasa, bukan tombol yang memanggil skrip.
+                            Peramban mengunduhnya sendiri lewat header dari
+                            server, sehingga menu klik kanan, unduhan ulang, dan
+                            penyimpanan ke folder pilihan pengguna semuanya
+                            bekerja tanpa satu baris kode pun.
+                        -->
                         <Button
-                            type="button"
+                            v-if="adaData"
+                            as="a"
+                            :href="tautanUnduh"
                             class="min-h-12 w-full justify-start gap-3 rounded-xl bg-white px-3.5 py-2 text-brand shadow-lg ring-1 shadow-brand/25 ring-white/70 hover:bg-brand-lembut sm:w-auto"
-                            :disabled="!adaData"
-                            :aria-describedby="!adaData ? 'status-cetak' : undefined"
-                            :title="adaData ? 'Cetak laporan F4 bulan ini' : 'Belum ada pemberitaan pada bulan ini'"
-                            @click="cetak"
+                            title="Unduh laporan bulan ini sebagai PDF"
                         >
                             <span class="grid size-8 shrink-0 place-items-center rounded-lg bg-brand text-white" aria-hidden="true">
-                                <Printer class="size-4" />
+                                <Download class="size-4" />
                             </span>
                             <span class="flex flex-col items-start gap-1 leading-none">
-                                <span class="font-semibold">Cetak laporan</span>
-                                <span class="text-[0.6875rem] font-normal text-brand/70">F4 · potret</span>
+                                <span class="font-semibold">Unduh laporan</span>
+                                <span class="text-[0.6875rem] font-normal text-brand/70">PDF · F4 potret</span>
+                            </span>
+                        </Button>
+                        <Button
+                            v-else
+                            type="button"
+                            disabled
+                            class="min-h-12 w-full justify-start gap-3 rounded-xl bg-white px-3.5 py-2 text-brand shadow-lg ring-1 shadow-brand/25 ring-white/70 sm:w-auto"
+                            aria-describedby="status-cetak"
+                            title="Belum ada pemberitaan pada bulan ini"
+                        >
+                            <span class="grid size-8 shrink-0 place-items-center rounded-lg bg-brand text-white" aria-hidden="true">
+                                <Download class="size-4" />
+                            </span>
+                            <span class="flex flex-col items-start gap-1 leading-none">
+                                <span class="font-semibold">Unduh laporan</span>
+                                <span class="text-[0.6875rem] font-normal text-brand/70">PDF · F4 potret</span>
                             </span>
                         </Button>
                     </div>
                     <PermukaanKendaliKop v-if="!adaData" class="mt-2 max-w-sm">
                         <p id="status-cetak" class="px-2 py-1 text-xs leading-relaxed text-muted-foreground">
-                            Laporan belum dapat dicetak karena belum ada pemberitaan pada bulan ini.
-                        </p>
-                    </PermukaanKendaliKop>
-                    <PermukaanKendaliKop v-else-if="gagalCetak" class="mt-2 max-w-sm">
-                        <p role="alert" class="px-2 py-1 text-xs leading-relaxed text-muted-foreground">
-                            Jendela cetak diblokir browser. Izinkan pop-up untuk SIMEDIA, lalu tekan “Cetak laporan” kembali.
+                            Laporan belum dapat diunduh karena belum ada pemberitaan pada bulan ini.
                         </p>
                     </PermukaanKendaliKop>
                 </template>

@@ -15,4 +15,5 @@ Route::prefix('eksekutif')->name('eksekutif.')->middleware('peran:walikota,super
     Route::get('berita', ArsipBeritaController::class)->name('berita');
     Route::get('artikel/{artikel}', ArtikelController::class)->whereNumber('artikel')->name('artikel');
     Route::get('laporan', LaporanController::class)->name('laporan');
+    Route::get('laporan/unduh', [LaporanController::class, 'unduh'])->name('laporan.unduh');
 });

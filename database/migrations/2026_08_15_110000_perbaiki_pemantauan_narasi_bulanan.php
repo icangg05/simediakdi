@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
  *
  * Migrasi pembuat tabel awal sudah diperketat untuk instalasi baru. Migrasi
  * terpisah ini diperlukan bagi server yang telanjur menjalankan versi awalnya,
- * termasuk baris Juli 2026 yang menunjuk rentang 16 Juli–14 Agustus.
+ * termasuk baris Juli 2026 yang menunjuk rentang 16 Juli-14 Agustus.
  */
 return new class extends Migration
 {
