@@ -61,7 +61,7 @@ const props = defineProps<{
 
 const { formatAngka, formatPersen } = useFormatAngka();
 const { sentimenTersedia, alasanSentimen } = useGerbangSentimen();
-const { pindah, kueri } = usePeriodeEksekutif(props.periode, '/eksekutif/sentimen');
+const { pindah, kueri } = usePeriodeEksekutif(() => props.periode, '/eksekutif/sentimen');
 
 /**
  * Rentang dalam kalimat, bukan dua tanggal ISO.
@@ -199,12 +199,20 @@ const daftarNada = computed(() => [
                             @ubah="(dari, sampai) => pindah({ dari, sampai })"
                         />
                     </PermukaanKendaliKop>
+                    <!--
+                        Bentuk kendalinya sama dengan Peringkat media: dua kotak
+                        tanggal berdiri di halaman, dan keempat pintasan padam
+                        begitu rentangnya tidak lagi sama dengan salah satu dari
+                        mereka, digantikan satu tombol pulang ke bulan berjalan.
+                    -->
                     <PemilihRentangTanggal
                         :dari="periode.dari"
                         :sampai="periode.sampai"
                         inline
                         kalender
+                        tanpa-sheet
                         rentang-di-bawah
+                        reset-bulan-ini
                         @ubah="(dari, sampai) => pindah({ dari, sampai })"
                     />
                 </div>
@@ -365,12 +373,16 @@ const daftarNada = computed(() => [
                 panjang.
             -->
             <div v-for="(d, urutan) in daftarNada" :key="d.kunci" class="muncul" :style="{ animationDelay: `${180 + urutan * 60}ms` }">
-                <KartuEksekutif :judul="d.judul" :catatan="d.catatan" :ikon="d.ikon" :rona="d.kunci" bertinta>
+                <KartuEksekutif :judul="d.judul" :catatan="d.catatan" :ikon="d.ikon" :rona="d.kunci" bertinta aksi-pojok>
                     <!--
                         Hitungan di lencana adalah jumlah seluruh berita bernada
                         itu pada rentangnya, bukan jumlah baris yang tampil.
                         Daftarnya dibatasi sepuluh, dan tanpa angka ini pembaca
                         akan mengira sepuluh itulah seluruhnya.
+
+                        Mengapung di pojok kanan atas. Tiga kartu ini ditumpuk ke
+                        bawah, dan di ponsel lencananya dulu turun ke baris
+                        sendiri, tiga kali, hanya untuk memuat dua digit.
                     -->
                     <template v-if="d.jumlah > 0" #aksi>
                         <span :class="d.tile" class="angka rounded-full px-3 py-1 text-xs font-semibold text-white shadow-xs dark:text-background">

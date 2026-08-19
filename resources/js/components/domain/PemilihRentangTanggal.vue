@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { endOfMonth, endOfWeek, format, startOfMonth, startOfWeek, subDays, subMonths } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { CalendarDays } from 'lucide-vue-next';
+import { CalendarDays, RotateCcw } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
 /**
@@ -42,6 +42,13 @@ import { computed, ref, watch } from 'vue';
  * `rentangDiBawah` mempertahankan pemilih rentang khusus, tetapi menaruh
  * tombolnya di bawah pintasan. Dipakai saat lebar kop perlu diringkas tanpa
  * menghilangkan kemampuan memilih tanggal bebas.
+ *
+ * `resetBulanIni` memadamkan deretan pintasan begitu rentang yang berlaku tidak
+ * sama dengan satu pun di antaranya, lalu menggantinya dengan satu tombol yang
+ * mengembalikan halaman ke bulan berjalan. Rentang khusus dan bulan lampau
+ * membuat keempat pintasan menjadi tombol yang semuanya melempar pembaca ke
+ * masa kini tanpa ia meminta, sedangkan yang benar benar dibutuhkannya di
+ * keadaan itu cuma satu: jalan pulang.
  */
 const props = defineProps<{
     dari: string;
@@ -51,6 +58,7 @@ const props = defineProps<{
     tanpaPilih?: boolean;
     rentangDiBawah?: boolean;
     kalender?: boolean;
+    resetBulanIni?: boolean;
 }>();
 const emit = defineEmits<{ ubah: [dari: string, sampai: string] }>();
 
@@ -147,6 +155,18 @@ const pintasanAktif = computed(() => {
     })?.kunci;
 });
 
+/**
+ * Rentang yang tidak dihasilkan satu pun pintasan.
+ *
+ * Hanya berarti sesuatu saat `resetBulanIni` dinyalakan. Tanpa prop itu
+ * komponen ini tetap seperti sedia kala, dan halaman penyaring yang memang
+ * hidup dari rentang bebas tidak kehilangan pintasannya.
+ */
+const rentangKhusus = computed(() => props.resetBulanIni === true && pintasanAktif.value === undefined);
+
+/** Tujuan tombol pulang. Labelnya diambil dari pintasannya sendiri, bukan ditulis ulang. */
+const pintasanBulanIni = computed(() => pintasan.value.find((p) => p.kunci === '30d'));
+
 const ringkas = computed(() => {
     const f = (t: string) => format(new Date(t), 'd MMM yyyy', { locale: id });
 
@@ -155,10 +175,7 @@ const ringkas = computed(() => {
 </script>
 
 <template>
-    <div
-        class="flex gap-1.5"
-        :class="inline && (tanpaPilih || rentangDiBawah) ? 'flex-col items-stretch sm:items-end' : 'flex-wrap items-center'"
-    >
+    <div class="flex gap-1.5" :class="inline && (tanpaPilih || rentangDiBawah) ? 'flex-col items-stretch sm:items-end' : 'flex-wrap items-center'">
         <!--
             Alas deretan pintasan memakai `secondary`, bukan `muted`.
             Di mode gelap `muted` bernilai 6,9% sedangkan latar halaman 3,9%,
@@ -167,7 +184,7 @@ const ringkas = computed(() => {
             bernilai 92,1% di mode terang dan 14,9% di mode gelap, dua-duanya
             terbaca sebagai bidang tersendiri.
         -->
-        <div v-if="inline" class="flex flex-wrap items-center gap-1 rounded-lg bg-secondary p-1">
+        <div v-if="inline && !rentangKhusus" class="flex flex-wrap items-center gap-1 rounded-lg bg-secondary p-1">
             <Button
                 v-for="p in pintasan"
                 :key="p.kunci"
@@ -184,16 +201,43 @@ const ringkas = computed(() => {
         </div>
 
         <!--
+            Batas pekannya ditulis, bukan hanya dijanjikan lewat `title`.
+            "Minggu ini" adalah satu satunya pintasan yang batasnya tidak bisa
+            ditebak dari namanya: pembaca yang membukanya hari Sabtu melihat
+            angka yang mundur sampai Senin, dan tanpa kalimat ini ia akan
+            mengira rentangnya tujuh hari ke belakang.
+
+            Warnanya ditetapkan, bukan diwarisi. Slot kendali di kop dibungkus
+            `text-foreground`, jadi teks yang mewarisi induknya justru menjadi
+            tinta gelap di atas latar navy dan hilang sama sekali.
+
+            Hanya muncul saat pintasan itu yang berlaku. Keterangan yang selalu
+            berdiri di sana akan berhenti dibaca jauh sebelum dibutuhkan.
+        -->
+        <p
+            v-if="inline && !rentangKhusus && kalender && pintasanAktif === '7d'"
+            class="w-full text-xs"
+            :class="rentangDiBawah ? 'text-white/80' : 'text-muted-foreground'"
+        >
+            Minggu ini dihitung Senin sampai Minggu.
+        </p>
+
+        <!--
             Dua kotak tanggal bawaan peramban, bukan kalender buatan sendiri.
             Di ponsel keduanya memanggil pemilih tanggal milik sistem, yang
             sudah dikenal pengguna dan sudah benar soal zona waktu, format, dan
             navigasi papan ketik.
+
+            Beralas hanya saat `rentangDiBawah`, yaitu saat kendali ini berdiri
+            di kop bertinta. Di sana "Dari" dan "sampai" pada rona `muted` hilang
+            ke dalam latar navy, sedangkan di halaman penyaring keduanya duduk di
+            atas kartu putih dan rona itu memang benar.
         -->
-        <div v-if="tanpaSheet" class="flex flex-wrap items-center gap-1.5">
-            <Label for="rentang-dari" class="text-xs text-muted-foreground">Dari</Label>
+        <div v-if="tanpaSheet" class="flex flex-wrap items-center gap-1.5" :class="rentangDiBawah ? 'rounded-lg bg-secondary px-2 py-1.5' : ''">
+            <Label for="rentang-dari" class="text-xs" :class="rentangDiBawah ? 'text-foreground' : 'text-muted-foreground'">Dari</Label>
             <Input id="rentang-dari" v-model="dariLokal" type="date" :max="sampaiLokal" class="h-8 w-38 text-sm" @change="terapkan" />
 
-            <Label for="rentang-sampai" class="text-xs text-muted-foreground">sampai</Label>
+            <Label for="rentang-sampai" class="text-xs" :class="rentangDiBawah ? 'text-foreground' : 'text-muted-foreground'">sampai</Label>
             <Input id="rentang-sampai" v-model="sampaiLokal" type="date" :min="dariLokal" class="h-8 w-38 text-sm" @change="terapkan" />
         </div>
 
@@ -269,5 +313,21 @@ const ringkas = computed(() => {
                 <Button class="w-full" @click="terapkan">Terapkan</Button>
             </SheetContent>
         </Sheet>
+
+        <!--
+            Berdiri sesudah kotak tanggal, bukan sebelumnya. Yang sedang dibaca
+            pengguna di keadaan ini adalah rentang pilihannya sendiri, dan jalan
+            pulang adalah jawaban atas rentang itu.
+        -->
+        <Button
+            v-if="rentangKhusus && pintasanBulanIni"
+            variant="secondary"
+            class="h-10 gap-2 font-semibold text-foreground"
+            :title="pintasanBulanIni.keterangan"
+            @click="pakaiPintasan(pintasanBulanIni)"
+        >
+            <RotateCcw class="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <span class="text-sm">{{ pintasanBulanIni.label }}</span>
+        </Button>
     </div>
 </template>

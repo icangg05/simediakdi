@@ -51,8 +51,18 @@ const props = withDefaults(
         bertinta?: boolean;
         /** Isi menempel ke tepi kartu, untuk daftar yang punya pembatasnya sendiri. */
         padat?: boolean;
+        /**
+         * Aksi mengapung di pojok kanan atas, di luar aliran kepala kartu.
+         *
+         * Untuk aksi sekecil lencana angka. Di layar sempit kepala kartu
+         * menurunkan aksinya ke baris sendiri, dan satu lencana dua digit yang
+         * menghabiskan satu baris penuh adalah ruang yang dibayar terlalu mahal.
+         * Aksi selebar grup tombol tetap harus mengalir, karena yang mengapung
+         * di pojok akan menutupi judulnya sendiri.
+         */
+        aksiPojok?: boolean;
     }>(),
-    { catatan: undefined, bertinta: false, padat: false },
+    { catatan: undefined, bertinta: false, padat: false, aksiPojok: false },
 );
 
 /*
@@ -139,8 +149,15 @@ const garis = computed(() => ({
             Di layar sempit aksi turun ke baris sendiri. Sebelumnya kepala kartu
             selalu sebaris, dan aksi yang tidak bisa menyusut memeras judul
             sampai tersisa satu kata per baris lalu keluar dari tepi kartu.
+
+            Aksi yang mengapung tidak ikut aturan itu. Ia keluar dari aliran,
+            jadi yang perlu disiapkan untuknya cuma ruang kanan, supaya judul
+            dan catatannya berhenti tepat sebelum lencana.
         -->
-        <CardHeader class="relative flex-col items-stretch gap-3 space-y-0 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <CardHeader
+            class="relative flex-col items-stretch gap-3 space-y-0 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"
+            :class="aksiPojok ? 'pr-16 sm:pr-20' : ''"
+        >
             <CardTitle class="flex min-w-0 items-center gap-3 text-base">
                 <span :class="varian.tile" class="grid size-9 shrink-0 place-items-center rounded-xl shadow-xs">
                     <component :is="ikon" class="size-[18px]" aria-hidden="true" />
@@ -151,10 +168,14 @@ const garis = computed(() => ({
                 </span>
             </CardTitle>
 
-            <div v-if="$slots.aksi" class="flex min-w-0 shrink-0 items-center gap-2">
+            <div v-if="$slots.aksi && !aksiPojok" class="flex min-w-0 shrink-0 items-center gap-2">
                 <slot name="aksi" />
             </div>
         </CardHeader>
+
+        <div v-if="$slots.aksi && aksiPojok" class="absolute top-4 right-4 z-10 flex items-center gap-2 sm:top-5 sm:right-5">
+            <slot name="aksi" />
+        </div>
 
         <CardContent class="relative" :class="padat ? 'p-0' : 'p-4 pt-0 sm:p-5 sm:pt-0'">
             <slot />

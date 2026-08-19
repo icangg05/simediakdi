@@ -140,6 +140,13 @@
            dan tanggalnya bertumpu di atas, sejajar dengan judulnya. */
         table.data.berita td { vertical-align: top; }
         .judul-berita { color: #102a48; font-weight: bold; }
+        /*
+         * Judul yang bertaut ke sumbernya dibedakan dengan cara yang sama seperti
+         * tautan di mana pun: biru dan bergaris bawah. Bukan ikon panah, karena
+         * berkas ini dirender dompdf dengan Helvetica bawaan PDF, dan glyph panah
+         * tidak ada di sana. Yang muncul akan berupa kotak kosong di tiap baris.
+         */
+        .judul-tautan { color: #1a5fb4; font-weight: bold; text-decoration: underline; }
         /* Alasan model atas label negatifnya, sengaja lebih kecil dan pucat daripada judul. */
         .penilaian { color: #5b6779; font-size: 7.3pt; line-height: 1.3; padding-top: 0.6mm; }
         .positif-teks { color: #1f7047; }
@@ -458,7 +465,7 @@
         <table class="lebar">
             <tr>
                 <td class="penanda">Berita bersentimen negatif</td>
-                <td class="keterangan-bagian">{{ $angka(count($negatif)) }} berita &middot; terbaru lebih dulu</td>
+                <td class="keterangan-bagian">{{ $angka(count($negatif)) }} berita &middot; judul biru dapat ditekan untuk membuka sumbernya</td>
             </tr>
         </table>
 
@@ -477,7 +484,11 @@
                     <tr class="{{ $urutan % 2 === 1 ? 'selang' : '' }}">
                         <td class="nomor">{{ $urutan + 1 }}.</td>
                         <td>
-                            <div class="judul-berita">{{ $baris['judul'] }}</div>
+                            @if ($baris['url'])
+                                <div><a class="judul-tautan" href="{{ $baris['url'] }}">{{ $baris['judul'] }}</a></div>
+                            @else
+                                <div class="judul-berita">{{ $baris['judul'] }}</div>
+                            @endif
                             @if ($baris['penilaian'])
                                 <div class="penilaian">{{ $baris['penilaian'] }}</div>
                             @endif

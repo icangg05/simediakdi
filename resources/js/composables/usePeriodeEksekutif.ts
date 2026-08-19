@@ -1,4 +1,5 @@
 import { router } from '@inertiajs/vue3';
+import { computed, toValue, type MaybeRefOrGetter } from 'vue';
 
 export type PeriodeEksekutif = { dari: string; sampai: string };
 
@@ -23,17 +24,25 @@ export function hrefDenganPeriodeEksekutif(href: string, periode?: PeriodeEkseku
  *
  * Kalau tidak dibawa, pengguna yang sudah memilih tiga bulan lalu membuka arsip
  * berita akan kembali ke minggu kalender saat ini tanpa penjelasan.
+ *
+ * Rentangnya diminta lewat getter, bukan diterima sebagai objek sekali pakai.
+ * Perpindahan rentang memakai `preserveState`, jadi komponen halaman tidak
+ * pernah dipasang ulang: props-nya diperbarui, sedangkan objek yang tertangkap
+ * saat setup tetap berisi rentang pertama. Akibatnya tautan ke halaman lain
+ * membawa rentang lama walaupun layar sudah menampilkan rentang baru.
  */
-export function usePeriodeEksekutif(periode: PeriodeEksekutif, urlBasis: string) {
+export function usePeriodeEksekutif(sumber: MaybeRefOrGetter<PeriodeEksekutif>, urlBasis: string) {
+    const periode = computed(() => toValue(sumber));
+
     function pindah(parameter: Record<string, string | number | null>) {
-        router.get(urlBasis, { ...periode, ...parameter }, { preserveState: true, preserveScroll: true, replace: true });
+        router.get(urlBasis, { ...periode.value, ...parameter }, { preserveState: true, preserveScroll: true, replace: true });
     }
 
     /** Query string untuk tautan ke halaman eksekutif lain. */
     function kueri(tambahan: Record<string, string | number | null> = {}): string {
         const params = new URLSearchParams();
 
-        Object.entries({ ...periode, ...tambahan }).forEach(([k, v]) => {
+        Object.entries({ ...periode.value, ...tambahan }).forEach(([k, v]) => {
             if (v !== null && v !== undefined && v !== '') params.set(k, String(v));
         });
 

@@ -8,6 +8,7 @@ use App\Models\Artikel;
 use App\Services\Agregasi\NarasiEksekutif;
 use App\Services\Agregasi\RingkasanEksekutif;
 use App\Support\Periode;
+use App\Support\UrlEksternal;
 use App\Support\Waktu;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonImmutable;
@@ -118,9 +119,14 @@ class LaporanController extends Controller
             ->with(['media:id,nama,partner', 'analisisSentimen' => fn ($q) => $q->where('relevan', true)])
             ->terbitAntara($periode->mulaiUtc(), $periode->akhirUtc())
             ->orderByRaw(Artikel::waktuTerbit().' desc')
-            ->get(['id', 'media_id', 'judul', 'dipublikasikan_at', 'diambil_at'])
+            ->get(['id', 'media_id', 'judul', 'url', 'dipublikasikan_at', 'diambil_at'])
             ->map(fn (Artikel $artikel): array => [
                 'judul' => $artikel->judul,
+                // Alamat sumbernya ikut, supaya judul di lembar negatif bisa
+                // ditekan langsung dari berkas PDF. Pembaca laporan yang ingin
+                // memeriksa sebuah berita sebelumnya harus mencarinya sendiri
+                // di mesin pencari dengan menyalin judulnya.
+                'url' => UrlEksternal::http($artikel->url),
                 'media' => $artikel->media?->nama ?? 'Tidak diketahui',
                 'partner' => (bool) $artikel->media?->partner,
                 'tanggal' => CarbonImmutable::parse($artikel->dipublikasikan_at ?? $artikel->diambil_at)

@@ -13,6 +13,7 @@ import {
     CircleAlert,
     CircleCheck,
     CircleX,
+    ExternalLink,
     Globe,
     Handshake,
     History,
@@ -35,6 +36,8 @@ interface Media {
     nama: string;
     slug: string;
     domain: string | null;
+    /** Alamat situs siap pakai, disusun model. Null kalau kedua kolom alamatnya tidak sah. */
+    url_publik: string | null;
     url_website: string | null;
     tier: 'nasional' | 'regional' | 'lokal';
     jenis: string;
@@ -228,6 +231,22 @@ const identitas = computed(() => [
                     <Pencil class="size-3.5" aria-hidden="true" />
                     Ubah identitas
                 </Link>
+
+                <!--
+                    Bobotnya sama dengan Ubah identitas, bukan tombol putih.
+                    Membuka situs media adalah pemeriksaan, bukan tindakan yang
+                    mengubah apa pun di sistem ini.
+                -->
+                <a
+                    v-if="media.url_publik"
+                    :href="media.url_publik"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="tekan inline-flex items-center gap-2 rounded-lg bg-white/10 px-3.5 py-2 text-xs font-medium text-white ring-1 ring-white/25 transition-colors ring-inset hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand focus-visible:outline-hidden"
+                >
+                    <ExternalLink class="size-3.5" aria-hidden="true" />
+                    Buka situs
+                </a>
 
                 <button
                     type="button"

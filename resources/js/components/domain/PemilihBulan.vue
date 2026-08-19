@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { endOfMonth, endOfWeek, format, parseISO, startOfMonth, startOfWeek } from 'date-fns';
+import { endOfMonth, format, parseISO, startOfMonth } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import { CalendarDays } from 'lucide-vue-next';
 import { computed } from 'vue';
@@ -18,29 +18,33 @@ const props = withDefaults(
 const emit = defineEmits<{ ubah: [dari: string, sampai: string] }>();
 
 /**
- * Periode harian dan mingguan tetap menampilkan bulan berjalan agar pemilih
- * bulan tidak tampak kosong. Rentang datanya tidak diubah; nilai ini hanya
- * menyelaraskan label Select dengan konteks kalender yang sedang dibaca.
+ * Bulan yang sedang dibaca, selama rentangnya tidak keluar dari satu bulan.
+ *
+ * Syaratnya bukan lagi tanggal 1 sampai akhir bulan. Rentang 1 sampai 17 Mei
+ * masih menjawab pertanyaan tentang Mei, dan memaksa Select kosong di situ
+ * membuat pembaca melihat "Pilih bulan" padahal bulannya sudah jelas. Hari ini
+ * dan pekan berjalan ikut tercakup tanpa perlu diperiksa sendiri, karena
+ * keduanya jatuh di dalam satu bulan.
+ *
+ * Rentang yang melintasi dua bulan atau lebih tidak punya jawaban di sini, dan
+ * `undefined` memadamkan seluruh komponen. Menawarkan satu nama bulan untuk
+ * rentang tiga bulan adalah keterangan yang salah, bukan keterangan yang
+ * kurang.
+ *
+ * Bulannya juga harus ada di daftar pilihan. Nilai di luar daftar membuat
+ * Select menampilkan pemicu tanpa isi, persis keadaan yang dihindari di sini.
+ * Ini bukan syarat yang mengganggu: `bulanTersedia()` selalu menyertakan bulan
+ * rentang yang sedang dibuka.
  */
 const bulanAktif = computed(() => {
-    const hariIni = new Date();
-    const tanggalHariIni = format(hariIni, 'yyyy-MM-dd');
-    const awalMingguIni = format(startOfWeek(hariIni, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-    const akhirMingguIni = format(endOfWeek(hariIni, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-    const adalahHariIni = props.dari === tanggalHariIni && props.sampai === tanggalHariIni;
-    const adalahMingguIni = props.dari === awalMingguIni && props.sampai === akhirMingguIni;
-
-    if (adalahHariIni || adalahMingguIni) {
-        return format(hariIni, 'yyyy-MM');
-    }
-
     const awal = parseISO(props.dari);
+    const bulan = format(awal, 'yyyy-MM');
 
-    if (format(startOfMonth(awal), 'yyyy-MM-dd') !== props.dari || format(endOfMonth(awal), 'yyyy-MM-dd') !== props.sampai) {
+    if (format(parseISO(props.sampai), 'yyyy-MM') !== bulan) {
         return undefined;
     }
 
-    return format(awal, 'yyyy-MM');
+    return props.opsi.includes(bulan) ? bulan : undefined;
 });
 
 const pilihan = computed(() =>
@@ -60,7 +64,7 @@ function pilih(nilai: unknown) {
 </script>
 
 <template>
-    <Select :model-value="bulanAktif" @update:model-value="pilih">
+    <Select v-if="bulanAktif" :model-value="bulanAktif" @update:model-value="pilih">
         <SelectTrigger
             :id="props.id"
             class="h-10 w-full min-w-44 border-0 bg-background shadow-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-2 focus-visible:ring-brand-terang/60 focus-visible:ring-offset-0 sm:w-48"

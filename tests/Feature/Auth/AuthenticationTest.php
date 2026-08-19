@@ -80,4 +80,21 @@ class AuthenticationTest extends TestCase
         $this->assertGuest();
         $response->assertRedirect('/');
     }
+
+    public function test_login_terakhir_dicatat_saat_pengguna_masuk(): void
+    {
+        $user = User::factory()->create(['login_terakhir_at' => null]);
+
+        $this->post('/login', [
+            'username' => $user->username,
+            'password' => 'password',
+        ]);
+
+        $this->assertAuthenticated();
+
+        $user->refresh();
+
+        $this->assertNotNull($user->login_terakhir_at);
+        $this->assertNotNull($user->ip_login_terakhir);
+    }
 }

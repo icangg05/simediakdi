@@ -29,8 +29,8 @@ class MediaController extends Controller
             $request,
         )
             ->cari(['nama', 'domain', 'kota'])
-            ->saring(['tier' => 'tier', 'jenis' => 'jenis', 'partner' => 'partner', 'aktif' => 'aktif'])
-            ->urut(['nama', 'tier', 'jenis', 'domain', 'created_at'], 'nama')
+            ->saring(['tier' => 'tier', 'partner' => 'partner', 'aktif' => 'aktif'])
+            ->urut(['nama', 'tier', 'domain', 'created_at'], 'nama')
             ->halaman();
 
         return Inertia::render('admin/media/Index', [
@@ -197,12 +197,6 @@ class MediaController extends Controller
                 fn (TierMedia $t) => ['nilai' => $t->value, 'label' => ucfirst($t->value)],
                 TierMedia::cases(),
             ),
-            'jenis' => [
-                ['nilai' => 'online', 'label' => 'Online'],
-                ['nilai' => 'cetak', 'label' => 'Cetak'],
-                ['nilai' => 'tv', 'label' => 'TV'],
-                ['nilai' => 'radio', 'label' => 'Radio'],
-            ],
             'partner' => [
                 ['nilai' => 'true', 'label' => 'Bekerja sama'],
                 ['nilai' => 'false', 'label' => 'Tidak bekerja sama'],

@@ -424,10 +424,17 @@ class RingkasanEksekutif
             ->all();
     }
 
-    /** Rentang bawaan: Senin sampai Minggu pada pekan Kendari saat ini. */
+    /**
+     * Rentang bawaan: bulan kalender Kendari yang sedang berjalan.
+     *
+     * Bulan, bukan pekan. Pertanyaan pertama yang dibawa pimpinan saat membuka
+     * panel ini adalah keadaan bulan berjalan, dan pekan Senin sampai Minggu
+     * membuat halaman yang dibuka setiap Senin pagi hampir selalu kosong.
+     * Halaman yang butuh rentang lain tetap bisa memintanya lewat parameter.
+     */
     public function rentangBawaan(): array
     {
-        $periode = Periode::dariPreset('7d');
+        $periode = Periode::dariPreset('30d');
 
         return [$periode->dari, $periode->sampai];
     }

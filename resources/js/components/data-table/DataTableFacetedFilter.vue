@@ -3,8 +3,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import type { FilterDefinisi } from '@/types/tabel';
-import { Filter, PlusCircle } from 'lucide-vue-next';
+import { Filter, PlusCircle, Search } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 const props = defineProps<{
     filter: FilterDefinisi;
@@ -12,6 +14,29 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{ ubah: [nilai: string[]] }>();
+
+/**
+ * Kotak cari di dalam menu, muncul begitu daftarnya cukup panjang untuk
+ * digulir.
+ *
+ * Filter media memuat tiga puluh nama, dan menemukan satu di antaranya berarti
+ * menggulir daftar sambil membaca setiap baris. Ambangnya delapan, sekitar
+ * setinggi menu sebelum ia mulai memotong isinya: di bawah itu seluruh pilihan
+ * sudah terlihat sekaligus dan kotak cari cuma menambah satu benda yang harus
+ * dilewati.
+ */
+const AMBANG_CARI = 8;
+
+const kata = ref('');
+const pakaiCari = computed(() => props.filter.opsi.length > AMBANG_CARI);
+
+const opsiTersaring = computed(() => {
+    const cari = kata.value.trim().toLowerCase();
+
+    if (cari === '') return props.filter.opsi;
+
+    return props.filter.opsi.filter((o) => o.label.toLowerCase().includes(cari));
+});
 
 function alihkan(nilai: string) {
     const berikutnya = props.terpilih.includes(nilai) ? props.terpilih.filter((n) => n !== nilai) : [...props.terpilih, nilai];
@@ -66,11 +91,35 @@ function labelTerpilih(): string {
                 menempel di kaki menu, supaya jalan keluarnya tidak ikut hilang
                 ke bawah bersama dua puluh baris lainnya.
             -->
+            <!--
+                `keydown.stop` wajib. DropdownMenu menyulap tiap huruf menjadi
+                lompatan ke pilihan yang berawalan huruf itu, dan tanpa penahan
+                ini mengetik nama media memindahkan fokus keluar dari kotak
+                cari pada ketukan pertama.
+            -->
+            <div v-if="pakaiCari" class="relative px-2 pt-1 pb-2">
+                <Search class="pointer-events-none absolute top-1/2 left-4 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <Input
+                    v-model="kata"
+                    type="search"
+                    class="h-8 pl-7 text-sm"
+                    :placeholder="`Cari ${filter.label.toLowerCase()}`"
+                    :aria-label="`Cari ${filter.label.toLowerCase()}`"
+                    @keydown.stop
+                />
+            </div>
+
             <div class="max-h-64 overflow-y-auto">
-                <DropdownMenuItem v-for="opsi in filter.opsi" :key="opsi.nilai" class="gap-2" @select.prevent="alihkan(opsi.nilai)">
+                <DropdownMenuItem v-for="opsi in opsiTersaring" :key="opsi.nilai" class="gap-2" @select.prevent="alihkan(opsi.nilai)">
                     <Checkbox :checked="terpilih.includes(opsi.nilai)" class="pointer-events-none" />
                     <span class="truncate">{{ opsi.label }}</span>
                 </DropdownMenuItem>
+
+                <!--
+                    Menu yang tiba tiba kosong terbaca sebagai menu yang rusak.
+                    Sebutkan bahwa yang habis adalah hasil pencariannya.
+                -->
+                <p v-if="opsiTersaring.length === 0" class="px-2 py-3 text-center text-sm text-muted-foreground">Tidak ada yang cocok.</p>
             </div>
 
             <template v-if="terpilih.length">

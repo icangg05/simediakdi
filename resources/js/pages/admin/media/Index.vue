@@ -5,15 +5,16 @@ import PilKop from '@/components/domain/PilKop.vue';
 import LayoutAdmin from '@/layouts/LayoutAdmin.vue';
 import type { AksiBaris, FilterDefinisi, KolomDefinisi, OpsiFilter, PaginasiMeta } from '@/types/tabel';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { CircleCheck, Handshake, Loader, Newspaper, Plus, TriangleAlert } from 'lucide-vue-next';
+import { CircleCheck, ExternalLink, Handshake, Loader, Newspaper, Plus, TriangleAlert } from 'lucide-vue-next';
 import { computed, type Component } from 'vue';
 
 interface BarisMedia {
     id: number;
     nama: string;
     domain: string | null;
+    /** Alamat situs siap pakai, disusun model. Null kalau kedua kolom alamatnya tidak sah. */
+    url_publik: string | null;
     tier: 'nasional' | 'regional' | 'lokal';
-    jenis: string;
     partner: boolean;
     aktif: boolean;
     sumber_feed_count: number;
@@ -31,14 +32,12 @@ const kolom: KolomDefinisi[] = [
     { kunci: 'nama', judul: 'Nama', bisaDiurutkan: true },
     { kunci: 'domain', judul: 'Domain', bisaDiurutkan: true },
     { kunci: 'tier', judul: 'Tier', bisaDiurutkan: true, lebar: 'w-28' },
-    { kunci: 'jenis', judul: 'Jenis', bisaDiurutkan: true, lebar: 'w-24' },
     { kunci: 'sumber_feed_count', judul: 'Pengambilan', lebar: 'w-48' },
     { kunci: 'aktif', judul: 'Status', lebar: 'w-28' },
 ];
 
 const filter: FilterDefinisi[] = [
     { kunci: 'tier', label: 'Tier', opsi: props.opsi.tier },
-    { kunci: 'jenis', label: 'Jenis', opsi: props.opsi.jenis },
     { kunci: 'partner', label: 'Kerja sama', opsi: props.opsi.partner },
     { kunci: 'aktif', label: 'Status', opsi: props.opsi.aktif },
 ];
@@ -192,18 +191,33 @@ const partner = computed(() => props.media.data.filter((m) => m.partner).length)
                 </span>
             </template>
 
+            <!--
+                Domain jadi tautan, bukan teks mati. Yang dilakukan admin setelah
+                membaca kolom ini hampir selalu membuka situsnya untuk memeriksa,
+                dan sebelumnya alamatnya harus disalin dulu ke bilah alamat.
+                Klik ditahan agar tidak ikut membuka halaman detail media, karena
+                barisnya sendiri sudah bisa diklik.
+            -->
             <template #sel-domain="{ baris }">
-                <span class="text-muted-foreground">{{ baris.domain ?? '-' }}</span>
+                <a
+                    v-if="baris.url_publik"
+                    :href="baris.url_publik"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline"
+                    :aria-label="`Buka situs ${baris.nama} di tab baru`"
+                    @click.stop
+                >
+                    {{ baris.domain ?? baris.url_publik }}
+                    <ExternalLink class="size-3 shrink-0" aria-hidden="true" />
+                </a>
+                <span v-else class="text-muted-foreground">{{ baris.domain ?? '-' }}</span>
             </template>
 
             <template #sel-tier="{ baris }">
                 <span class="rounded-md px-1.5 py-0.5 text-xs font-medium capitalize ring-1 ring-inset" :class="warnaTier[baris.tier]">
                     {{ baris.tier }}
                 </span>
-            </template>
-
-            <template #sel-jenis="{ baris }">
-                <span class="capitalize">{{ baris.jenis }}</span>
             </template>
 
             <!-- Titik berisian, bukan lencana bergaris. Kolom ini dibaca sambil

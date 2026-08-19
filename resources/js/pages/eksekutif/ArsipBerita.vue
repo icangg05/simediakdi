@@ -98,10 +98,17 @@ const nada = [
 
 const nadaTerpilih = computed(() => nilaiFilter('sentimen'));
 
+/**
+ * Satu nada saja, bukan gabungan.
+ *
+ * Menyalakan ketiganya sekaligus menghasilkan daftar yang sama persis dengan
+ * daftar tanpa saringan, dan dua nada yang menyala menjawab pertanyaan yang
+ * tidak pernah dibawa pembaca ke sini: yang dicarinya selalu satu nada
+ * tertentu. Menekan nada yang sedang menyala mematikannya, dan itu jalan
+ * kembali ke seluruh berita.
+ */
 function alihkanNada(nilai: string) {
-    const terpilih = nadaTerpilih.value;
-
-    saring('sentimen', terpilih.includes(nilai) ? terpilih.filter((n) => n !== nilai) : [...terpilih, nilai]);
+    saring('sentimen', nadaTerpilih.value.includes(nilai) ? [] : [nilai]);
 }
 
 /**
@@ -218,12 +225,21 @@ function aturUlangSaringan() {
                         :opsi="opsiBulan"
                         @ubah="(dari, sampai) => kunjungi({ dari, sampai })"
                     />
+                    <!--
+                        `rentangDiBawah` sengaja tidak dipakai di sini. Kendali
+                        halaman ini berdiri di atas kartu putih, bukan di kop
+                        bertinta, jadi kotak tanggalnya tidak butuh alas sendiri
+                        dan barisnya masih muat berdampingan dengan pintasan.
+                        Yang diikutkan adalah perilakunya: pintasan padam saat
+                        rentangnya khusus, dengan satu tombol pulang.
+                    -->
                     <PemilihRentangTanggal
                         :dari="periode.dari"
                         :sampai="periode.sampai"
                         inline
                         kalender
                         tanpa-sheet
+                        reset-bulan-ini
                         @ubah="(dari, sampai) => kunjungi({ dari, sampai })"
                     />
                 </div>

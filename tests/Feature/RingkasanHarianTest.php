@@ -168,4 +168,26 @@ class RingkasanHarianTest extends TestCase
         $this->assertSame(0, $baris()->jumlah_negatif);
         $this->assertSame(1, $baris()->jumlah_positif);
     }
+
+    public function test_baris_media_yang_kehilangan_artikel_ikut_dihapus(): void
+    {
+        $artikel = $this->artikel($this->mediaA);
+        $this->nilai($artikel, LabelSentimen::Netral);
+
+        $this->ringkasan->hitung($this->hariIni);
+
+        $this->assertSame(1, BarisRingkasan::where('media_id', $this->mediaA->id)->first()->jumlah_netral);
+
+        // Artikelnya berpindah ke media lain. Baris lama milik Media A harus
+        // hilang, bukan membeku di angka kemarin, karena Peringkat Media
+        // membacanya sebagai berita yang masih ada dan arsipnya akan kosong
+        // saat baris itu diklik.
+        $mediaB = Media::create(['nama' => 'Media B', 'slug' => 'media-b', 'domain' => 'b.test']);
+        $artikel->forceFill(['media_id' => $mediaB->id])->save();
+
+        $this->ringkasan->hitung($this->hariIni);
+
+        $this->assertNull(BarisRingkasan::where('media_id', $this->mediaA->id)->first());
+        $this->assertSame(1, BarisRingkasan::where('media_id', $mediaB->id)->first()->jumlah_netral);
+    }
 }

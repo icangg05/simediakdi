@@ -325,11 +325,14 @@ class HalamanEksekutifTest extends TestCase
             $this->assertSame($nama, $narasi->preset($periode->dari, $periode->sampai));
         }
 
+        // Halaman yang dibuka tanpa parameter memakai bulan berjalan, bukan
+        // pekannya. Bawaan itu dipakai seluruh halaman eksekutif lewat
+        // RingkasanEksekutif::rentangBawaan().
         $this->actingAs($this->walikota)
             ->get('/eksekutif')
             ->assertInertia(fn ($page) => $page
-                ->where('periode.dari', '2026-08-10')
-                ->where('periode.sampai', '2026-08-16'));
+                ->where('periode.dari', '2026-08-01')
+                ->where('periode.sampai', '2026-08-31'));
     }
 
     /** Status kerja sama media tersedia pada seluruh daftar yang dibaca pimpinan. */
@@ -619,14 +622,14 @@ class HalamanEksekutifTest extends TestCase
                 ->where('periode.sampai', '2026-07-31'));
     }
 
-    public function test_tanggal_ngawur_jatuh_ke_minggu_kalender_saat_ini(): void
+    public function test_tanggal_ngawur_jatuh_ke_bulan_kalender_saat_ini(): void
     {
         $this->actingAs($this->walikota)
             ->get('/eksekutif?dari=bukan-tanggal&sampai=juga-bukan')
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->where('periode.dari', '2026-08-10')
-                ->where('periode.sampai', '2026-08-16'));
+                ->where('periode.dari', '2026-08-01')
+                ->where('periode.sampai', '2026-08-31'));
     }
 
     /** Satu permintaan tidak boleh menyapu bertahun-tahun data. */
@@ -659,6 +662,12 @@ class HalamanEksekutifTest extends TestCase
         $this->assertSame('application/pdf', $respons->headers->get('content-type'));
         $this->assertStringContainsString('laporan-pemberitaan-2026-08.pdf', (string) $respons->headers->get('content-disposition'));
         $this->assertStringStartsWith('%PDF', $respons->getContent());
+
+        // Judul di lembar berita negatif bertaut ke sumbernya, dan tautan itu
+        // harus benar-benar tertanam sebagai anotasi di berkasnya, bukan hanya
+        // tampak biru. Alamatnya ditulis apa adanya di objek anotasi, jadi bisa
+        // dicari langsung di isi berkas.
+        $this->assertStringContainsString('https://kp.test/0', $respons->getContent());
     }
 
     public function test_unduhan_laporan_tertutup_untuk_pengguna_media(): void

@@ -19,7 +19,7 @@ import { usePeriodeEksekutif } from '@/composables/usePeriodeEksekutif';
 import LayoutEksekutif from '@/layouts/LayoutEksekutif.vue';
 import type { DeretMedia, DeretTren, LabelSentimen } from '@/types';
 import { Head, Link } from '@inertiajs/vue3';
-import { differenceInCalendarDays, endOfMonth, format, formatDistanceToNow, isSameDay, isSameMonth, startOfMonth } from 'date-fns';
+import { differenceInCalendarDays, format, formatDistanceToNow, isSameDay } from 'date-fns';
 import { id } from 'date-fns/locale';
 import {
     ArrowRight,
@@ -143,7 +143,7 @@ const props = defineProps<{
 }>();
 
 const { formatAngka } = useFormatAngka();
-const { pindah, kueri } = usePeriodeEksekutif(props.periode, '/eksekutif');
+const { pindah, kueri } = usePeriodeEksekutif(() => props.periode, '/eksekutif');
 
 /**
  * Sentimen tidak tersedia selama belum ada kunci Gemini yang menyala.
@@ -176,23 +176,6 @@ const keteranganKop = computed(() =>
 );
 
 const jumlahHari = computed(() => differenceInCalendarDays(new Date(props.periode.sampai), new Date(props.periode.dari)) + 1);
-
-/**
- * Bulan kalender yang sudah lewat, dipilih lewat pemilih bulan.
- *
- * Keempat pintasan hanya menjawab keadaan yang sedang berjalan. Membiarkannya
- * tampil saat bulan lampau dibuka berarti menawarkan empat tombol yang semuanya
- * melempar pengguna kembali ke hari ini tanpa ia meminta.
- */
-const bulanLampau = computed(() => {
-    const awal = new Date(`${props.periode.dari}T00:00:00`);
-
-    return (
-        format(startOfMonth(awal), 'yyyy-MM-dd') === props.periode.dari &&
-        format(endOfMonth(awal), 'yyyy-MM-dd') === props.periode.sampai &&
-        !isSameMonth(awal, new Date())
-    );
-});
 
 /** Dibulatkan ke bilangan bulat: "58 dari 100 berita" lebih mudah dibaca daripada "58,3%". */
 function per100(bagian: number): number {
@@ -452,11 +435,16 @@ function rupaTopik(nada: LabelSentimen) {
         <KopEksekutif judul="Kondisi pemberitaan Kota Kendari" :keterangan="keteranganKop" siluet>
             <template #kendali>
                 <!--
-                    Rentangnya tampil, tetapi tidak bisa dipilih sendiri.
-                    Halaman ini menjawab keadaan hari ini, pekan kalender,
-                    bulan kalender, dan tiga bulan berjalan. Keempat pintasan memuat
-                    seluruhnya. Rentang khusus dilayani halaman Arsip berita,
-                    tempat penyaring memang jadi pekerjaan utamanya.
+                    Bentuk kendalinya sama dengan Peringkat media, Sentimen, dan
+                    Arsip berita. Empat halaman itu dibuka bergantian lewat menu
+                    di kop, dan kendali yang bentuknya berbeda di tiap halaman
+                    membuat perpindahan terasa seperti masuk aplikasi lain.
+
+                    Rentang khusus kini ikut dilayani di sini. Sebelumnya halaman
+                    ini sengaja hanya menerima keempat pintasan, dengan alasan
+                    rentang bebas adalah pekerjaan Arsip berita. Alasan itu tidak
+                    bertahan: pimpinan yang ingin membandingkan dua pekan tertentu
+                    harus meninggalkan ringkasan hanya untuk mengetik dua tanggal.
                 -->
                 <div class="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-start">
                     <PermukaanKendaliKop tanpa-padding>
@@ -468,17 +456,20 @@ function rupaTopik(nada: LabelSentimen) {
                         />
                     </PermukaanKendaliKop>
                     <!--
-                        Pintasan padam saat bulan lampau dibuka. Ulasan bulan
-                        itu tetap tampil, dan pemilih bulan di sebelahnya yang
-                        mengembalikan halaman ke bulan berjalan.
+                        `resetBulanIni` menggantikan penjagaan bulan lampau yang
+                        dulu berdiri di sini. Bulan lampau memang bukan salah
+                        satu dari keempat pintasan, jadi keadaannya sudah ikut
+                        tercakup, bersama seluruh rentang khusus lain yang dulu
+                        tidak tertangani.
                     -->
                     <PemilihRentangTanggal
-                        v-if="!bulanLampau"
                         :dari="periode.dari"
                         :sampai="periode.sampai"
                         inline
                         kalender
-                        tanpa-pilih
+                        tanpa-sheet
+                        rentang-di-bawah
+                        reset-bulan-ini
                         @ubah="(dari, sampai) => pindah({ dari, sampai })"
                     />
                 </div>

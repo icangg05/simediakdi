@@ -286,8 +286,13 @@ class NarasiEksekutifTest extends TestCase
     {
         // Meniru keadaan setelah Gemini gagal semalam: narasi kemarin masih di
         // tabel, dan halaman harus memakainya, bukan mengosongkan bagian itu.
+        //
+        // Presetnya bulan berjalan, sama dengan rentang bawaan halaman. Yang
+        // diuji di sini rentangnya yang bergeser, bukan presetnya, jadi baris
+        // ini harus memakai preset yang memang dicari dashboard saat dibuka
+        // tanpa parameter.
         Baris::create([
-            'periode' => '7d',
+            'periode' => '30d',
             'dari' => Waktu::tanggalWita(now()->subDays(7)),
             'sampai' => Waktu::tanggalWita(now()->subDay()),
             'nada' => 'netral',

@@ -43,7 +43,7 @@ const props = defineProps<{
 }>();
 
 const { formatAngka } = useFormatAngka();
-const { pindah, kueri } = usePeriodeEksekutif(props.periode, '/eksekutif/media');
+const { pindah, kueri } = usePeriodeEksekutif(() => props.periode, '/eksekutif/media');
 
 /**
  * Rentang dalam kalimat, bentuk yang sama dengan dashboard dan halaman
@@ -77,20 +77,6 @@ const mediaMemberitakan = computed(() => props.peringkat.filter((m) => m.jumlah_
  * persis seperti sumbu bersama pada grafik batang.
  */
 const puncak = computed(() => props.peringkat.reduce((tertinggi, m) => Math.max(tertinggi, m.jumlah_artikel), 0));
-
-/** Porsi dari seluruh berita berlabel pada rentang ini, dibulatkan. */
-function dari100(bagian: number, total: number): string {
-    if (total === 0 || bagian === 0) {
-        return '0';
-    }
-
-    const nilai = Math.round((bagian / total) * 100);
-
-    // Membulatkan 0,4 persen menjadi "0 dari 100" membuat baris yang jelas
-    // punya berita terbaca seperti kosong. Sebutkan bahwa angkanya kecil, jangan
-    // menghilangkannya.
-    return nilai === 0 ? '<1' : String(nilai);
-}
 
 const urutan = ref<'volume' | 'negatif'>('volume');
 
@@ -278,12 +264,29 @@ function rupaNomor(urut: number): string {
                             @ubah="(dari, sampai) => pindah({ dari, sampai })"
                         />
                     </PermukaanKendaliKop>
+                    <!--
+                        Dua kotak tanggal berdiri di halaman, bentuk yang sama
+                        dengan Arsip berita. Rentang di sini dipakai sesering
+                        pemilih bulannya, dan menyembunyikannya di balik lapisan
+                        yang menutupi papan peringkat membuat pengguna membuka
+                        dan menutup lapisan itu hanya untuk melihat akibat
+                        pilihannya. Tempatnya di baris kedua, di bawah pintasan,
+                        supaya deretan kendali di kop tidak memanjang melewati
+                        lebar judulnya.
+
+                        `reset-bulan-ini` memadamkan keempat pintasan begitu
+                        rentangnya tidak lagi sama dengan salah satu dari mereka,
+                        termasuk saat bulan lampau dipilih lewat pemilih bulan,
+                        dan menggantinya dengan satu tombol pulang.
+                    -->
                     <PemilihRentangTanggal
                         :dari="periode.dari"
                         :sampai="periode.sampai"
                         inline
                         kalender
+                        tanpa-sheet
                         rentang-di-bawah
+                        reset-bulan-ini
                         @ubah="(dari, sampai) => pindah({ dari, sampai })"
                     />
                 </div>
@@ -399,9 +402,26 @@ function rupaNomor(urut: number): string {
                                             {{ formatAngka(m.jumlah_artikel) }}
                                             <span class="text-xs font-normal text-muted-foreground">berita</span>
                                         </span>
-                                        <span class="angka block text-xs text-muted-foreground"
-                                            >{{ dari100(m.jumlah_artikel, totalBerita) }} dari 100</span
-                                        >
+                                        <!--
+                                            Positif dan netral berdiri di sini,
+                                            negatifnya tetap di bawah batang.
+                                            Menaruh ketiganya berjejer membuat
+                                            baris ini dibaca sebagai tabel,
+                                            padahal yang menuntut tindakan hanya
+                                            angka negatifnya.
+
+                                            Netral memakai `sentimen-netral`,
+                                            bukan `sentimen-netral-batang`.
+                                            Yang kedua diterangkan sampai 0,64
+                                            khusus untuk potongan batang, dan
+                                            sebagai teks kontrasnya jatuh jauh
+                                            di bawah ambang.
+                                        -->
+                                        <span v-if="m.jumlah_artikel > 0" class="angka block text-xs leading-tight">
+                                            <span class="font-medium text-sentimen-positif">{{ formatAngka(m.jumlah_positif) }} positif</span>
+                                            <span class="text-muted-foreground">, </span>
+                                            <span class="font-medium text-sentimen-netral">{{ formatAngka(m.jumlah_netral) }} netral</span>
+                                        </span>
                                     </span>
 
                                     <ArrowRight
@@ -521,8 +541,7 @@ function rupaNomor(urut: number): string {
                         </span>
 
                         <p class="angka text-xs leading-relaxed text-muted-foreground">
-                            {{ formatAngka(t.jumlahMedia) }} media, {{ dari100(t.jumlahArtikel, totalBerita) }} dari 100 berita,
-                            {{ formatAngka(t.jumlahNegatif) }} di antaranya negatif
+                            {{ formatAngka(t.jumlahMedia) }} media, {{ formatAngka(t.jumlahNegatif) }} berita negatif
                         </p>
                     </div>
                 </div>

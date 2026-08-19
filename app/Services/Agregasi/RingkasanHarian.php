@@ -70,7 +70,19 @@ class RingkasanHarian
             dihitung_at = EXCLUDED.dihitung_at
         SQL;
 
-        return DB::affectingStatement($sql, [$tanggalWita, $mulai, $akhir]);
+        // Baris lama tanggal ini dihapus dulu, bukan hanya ditimpa.
+        //
+        // `ON CONFLICT` hanya menyentuh baris yang muncul di hasil SELECT. Kalau
+        // artikel berpindah tanggal, berpindah media, atau relevansinya dicabut,
+        // baris per media yang lama tidak ikut terhitung ulang dan angkanya
+        // membeku di nilai kemarin. Peringkat Media lalu menyebut sebuah media
+        // memuat puluhan berita, sedangkan arsip yang dibuka dari baris itu
+        // kosong karena artikelnya memang sudah tidak ada di sana.
+        return DB::transaction(function () use ($sql, $tanggalWita, $mulai, $akhir) {
+            DB::table('ringkasan_harian')->where('tanggal', $tanggalWita)->delete();
+
+            return DB::affectingStatement($sql, [$tanggalWita, $mulai, $akhir]);
+        });
     }
 
     /**
