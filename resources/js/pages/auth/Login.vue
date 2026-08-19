@@ -53,7 +53,7 @@ const periksaCapsLock = (event: KeyboardEvent) => {
 /**
  * Empat tahap yang dikerjakan sistem terhadap satu berita.
  *
- * Isinya bukan hiasan. Sebagian besar pengguna halaman ini membuka SIMEDIA
+ * Isinya bukan hiasan. Sebagian besar pengguna halaman ini membuka SIMAK
  * beberapa kali sebulan saja, dan urutan ini yang menjelaskan angka apa yang
  * akan mereka lihat begitu masuk.
  *
@@ -227,7 +227,7 @@ const submit = () => {
                         <span class="text-brand-langit">satu layar.</span>
                     </h2>
                     <p class="penjelas-panel mt-5 max-w-md text-[0.9375rem] leading-relaxed text-pretty text-white/70">
-                        SIMEDIA mengumpulkan berita tentang Kendari, menyaring yang menyangkut Pemerintah Kota, lalu menilai sentimennya.
+                        SIMAK mengumpulkan berita tentang Kendari, menyaring yang menyangkut Pemerintah Kota, lalu menilai sentimennya.
                     </p>
                 </div>
 
@@ -361,7 +361,7 @@ const submit = () => {
                     class="kartu-masuk muncul rounded-3xl bg-card p-6 shadow-[0_28px_64px_-32px_oklch(0.36_0.09_252/0.45)] ring-1 ring-brand/[0.07] sm:p-8 dark:ring-white/10"
                 >
                     <!--
-                        Lambang SIMEDIA dan namanya berdiri berdampingan di dalam
+                        Lambang SIMAK dan namanya berdiri berdampingan di dalam
                         kartu, bukan di kop instansi di atasnya.
 
                         Kop itu sudah membawa lambang Pemerintah Kota, dan dua
@@ -375,12 +375,27 @@ const submit = () => {
                         <span
                             class="lencana-simedia grid size-12 shrink-0 place-items-center rounded-2xl bg-brand/6 ring-1 ring-brand/10 dark:bg-white/10 dark:ring-white/15"
                         >
-                            <img src="/img/logo-simedia.webp" alt="Lambang SIMEDIA" class="size-8 object-contain" width="32" height="32" />
+                            <img src="/img/logo-simedia.webp" alt="Lambang SIMAK" class="size-8 object-contain" width="32" height="32" />
                         </span>
-                        <span class="text-[1.375rem] font-semibold tracking-tight text-brand dark:text-white">SIMEDIA</span>
+                        <span class="min-w-0">
+                            <span class="block text-[1.375rem] leading-tight font-semibold tracking-tight text-brand dark:text-white">SIMAK</span>
+                            <span class="block text-xs leading-snug text-muted-foreground">Sistem Monitoring dan Analisis Kendari</span>
+                        </span>
                     </div>
 
-                    <h1 class="judul-masuk mt-6 text-xl font-semibold tracking-tight text-foreground sm:text-[1.375rem]">Masuk ke SIMEDIA</h1>
+                    <!--
+                        Tagline, satu baris di bawah nama sistem.
+
+                        Ia menjelaskan tujuan sistem dengan kalimat yang bisa
+                        dikutip, sedangkan kepanjangan akronim di atas hanya
+                        menyebut isinya. Keduanya dibedakan tebal hurufnya
+                        supaya tidak terbaca sebagai dua penjelas yang sama.
+                    -->
+                    <p class="tagline-masuk mt-3 text-sm leading-relaxed font-medium text-brand/80 dark:text-white/75">
+                        Membaca Pemberitaan, Mengawal Kendari Semakin Maju.
+                    </p>
+
+                    <h1 class="judul-masuk mt-6 text-xl font-semibold tracking-tight text-foreground sm:text-[1.375rem]">Masuk ke SIMAK</h1>
                     <p class="penjelas-masuk mt-1.5 text-sm leading-relaxed text-muted-foreground">
                         Gunakan akun yang diberikan Diskominfo Kota Kendari.
                     </p>
@@ -511,7 +526,7 @@ const submit = () => {
                         Pemisah dengan lencana perisai di tengahnya.
 
                         Perisainya bukan klaim keamanan yang dikarang. Seluruh akses
-                        SIMEDIA berjalan di atas HTTPS dan itu syarat yang tercatat di
+                        SIMAK berjalan di atas HTTPS dan itu syarat yang tercatat di
                         spesifikasi produk, jadi lencana ini menyebut hal yang memang
                         berlaku. Ia juga memberi jeda antara aksi masuk dan blok
                         bantuan di bawahnya, sehingga keduanya tidak terbaca sebagai
@@ -640,13 +655,15 @@ const submit = () => {
  *
  * Perapatan jarak sudah habis di titik ini, jadi yang tersisa adalah membuang
  * isi. Urutannya dari yang paling murah: kop instansi ringkas hilang lebih dulu
- * karena lambang SIMEDIA di dalam kartu sudah menjelaskan sistem apa yang sedang
- * dimasuki, lalu kalimat penjelas, lalu pemisah berlencana yang memang hiasan.
+ * karena lambang SIMAK di dalam kartu sudah menjelaskan sistem apa yang sedang
+ * dimasuki, lalu tagline, lalu kalimat penjelas, lalu pemisah berlencana yang
+ * memang hiasan.
  * Blok bantuan bertahan paling lama karena ia satu satunya jalan keluar bagi
  * pengguna yang belum punya akun.
  */
 @media (max-height: 640px) {
     .kop-ringkas,
+    .tagline-masuk,
     .pemisah-masuk {
         display: none;
     }

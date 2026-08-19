@@ -182,7 +182,7 @@
     </style>
 </head>
 <body>
-    <div class="tanda-air">SIMEDIA &middot; PEMERINTAH KOTA KENDARI &middot; LAPORAN {{ strtoupper($namaBulan) }}</div>
+    <div class="tanda-air">SIMAK &middot; PEMERINTAH KOTA KENDARI &middot; LAPORAN {{ strtoupper($namaBulan) }}</div>
 
     {{--
         Keping lambang berada dalam satu sel kop, bukan satu sel untuk tiap
@@ -501,7 +501,7 @@
 
     <table class="lebar kaki">
         <tr>
-            <td>Sumber: agregasi berita SIMEDIA Kota Kendari</td>
+            <td>Sumber: agregasi berita SIMAK Kota Kendari</td>
             <td style="width: 62mm; text-align: right;">Dibuat {{ $waktuPembuatan }}</td>
         </tr>
     </table>

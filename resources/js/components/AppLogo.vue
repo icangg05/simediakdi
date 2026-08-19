@@ -22,6 +22,6 @@ defineProps<Props>();
     </div>
     <div class="ml-2 grid flex-1 text-left leading-tight">
         <span class="truncate text-sm font-semibold">Pemerintah Kota Kendari</span>
-        <span class="truncate text-xs opacity-70">Media Monitoring</span>
+        <span class="truncate text-xs opacity-70">SIMAK · Monitoring Media</span>
     </div>
 </template>

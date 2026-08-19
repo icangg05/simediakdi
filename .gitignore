@@ -25,3 +25,5 @@ yarn-error.log
 # Graphify generated output
 /graphify-out/
 /.claude/skills/
+docs/akun-pengguna.md
+docs/akun-pengguna.xlsx

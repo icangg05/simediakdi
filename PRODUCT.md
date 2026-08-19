@@ -18,7 +18,7 @@ Tiga peran pengguna, masing-masing dengan situasi pemakaian yang sangat berbeda.
 
 ## Product Purpose
 
-SIMEDIA Kendari adalah sistem monitoring dan analisis sentimen media untuk Pemerintah Kota Kendari. Sistem mengumpulkan berita tentang Kendari secara otomatis, menilai relevansinya terhadap Pemkot, menganalisis sentimennya, memverifikasi realisasi kontrak kerja sama publikasi dengan media, dan memberi peringatan dini saat berita negatif melonjak.
+SIMAK adalah sistem monitoring dan analisis sentimen media untuk Pemerintah Kota Kendari. Sistem mengumpulkan berita tentang Kendari secara otomatis, menilai relevansinya terhadap Pemkot, menganalisis sentimennya, memverifikasi realisasi kontrak kerja sama publikasi dengan media, dan memberi peringatan dini saat berita negatif melonjak.
 
 Sistem ini menggantikan proses manual: staf mencari berita, menyalin tautan ke spreadsheet, lalu menyusun rekap bulanan. Cara lama menimbulkan tiga masalah yang produk ini ada untuk menutupnya. Verifikasi realisasi kontrak lambat dan mudah diperdebatkan karena tidak ada catatan tunggal yang bisa dirujuk kedua pihak. Berita negatif baru diketahui setelah menyebar. Tidak ada gambaran isu apa yang sedang ramai, karena rekap bulanan menghitung jumlah berita, bukan tema atau sentimennya.
 
@@ -66,7 +66,7 @@ Ada 30 media partner terdaftar. Tiga di antaranya nasional (Tempo, Detikcom, Por
 
 ## Brand Commitments
 
-Nama produk: **SIMEDIA Kendari**. Nama teknis repo: `simedia`.
+Nama produk: **SIMAK**, kepanjangannya Sistem Monitoring dan Analisis Kendari. Tagline: "Membaca Pemberitaan, Mengawal Kendari Semakin Maju." Nama teknis repo tetap `simedia`, termasuk nama basis data, berkas konfigurasi deploy, dan berkas lambang.
 
 Warna utama: **`#163F6C`**, navy pekat, setara `oklch(0.364 0.090 253.3)`. Ditetapkan pengguna pada 10 Agustus 2026 sebagai warna brand yang mengikat. Ini keputusan brand pertama proyek, karena sebelumnya token `--primary` masih memakai nilai bawaan starter kit yaitu nyaris hitam. Warna pendampingnya belum ditetapkan.
 

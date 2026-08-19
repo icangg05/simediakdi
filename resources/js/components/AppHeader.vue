@@ -150,7 +150,7 @@ const KETERANGAN: Record<string, string> = {
                             </span>
                             <span class="min-w-0">
                                 <span class="block truncate text-sm leading-tight">Pemerintah Kota Kendari</span>
-                                <span class="block truncate text-xs font-normal text-muted-foreground">Pemantauan pemberitaan media</span>
+                                <span class="block truncate text-xs font-normal text-muted-foreground">SIMAK · Pemantauan pemberitaan media</span>
                             </span>
                         </SheetTitle>
                     </SheetHeader>
@@ -223,7 +223,7 @@ const KETERANGAN: Record<string, string> = {
                             class="tekan h-auto gap-2 rounded-full py-1 pr-2 pl-1 text-white hover:bg-white/15 hover:text-white focus-visible:ring-white"
                         >
                             <!--
-                                Lambang SIMEDIA, bukan foto pengguna.
+                                Lambang SIMAK, bukan foto pengguna.
 
                                 Bentuknya kotak membulat, bukan lingkaran.
                                 Lambangnya punya busur sinyal di sudut kiri
@@ -237,7 +237,7 @@ const KETERANGAN: Record<string, string> = {
                                 punya bunyi kalau berkas gambarnya gagal dimuat.
                             -->
                             <Avatar class="size-8 overflow-hidden rounded-xl bg-white/10 ring-1 ring-white/25">
-                                <AvatarImage src="/img/logo-simedia.webp" alt="SIMEDIA" class="rounded-xl object-contain p-0.5" />
+                                <AvatarImage src="/img/logo-simedia.webp" alt="SIMAK" class="rounded-xl object-contain p-0.5" />
                                 <AvatarFallback class="rounded-xl bg-white/20 text-xs font-semibold text-white">
                                     {{ getInitials(auth.user?.name) }}
                                 </AvatarFallback>

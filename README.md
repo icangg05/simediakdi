@@ -1,6 +1,8 @@
-# SIMEDIA Kendari V1
+# SIMAK V1
 
-Sistem Monitoring dan Analisis Sentimen Media untuk Pemerintah Kota Kendari.
+Sistem Monitoring dan Analisis Kendari, sistem monitoring dan analisis sentimen media untuk Pemerintah Kota Kendari.
+
+"Membaca Pemberitaan, Mengawal Kendari Semakin Maju."
 
 Spesifikasi lengkap ada di [`docs/`](docs/). Baca [`docs/00-README.md`](docs/00-README.md) lebih dulu.
 

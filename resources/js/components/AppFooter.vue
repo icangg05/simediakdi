@@ -123,7 +123,7 @@ function keAtas() {
                         Dua lambang berdampingan, dipisah satu garis tipis.
 
                         Kiri lambang resmi Pemerintah Kota, kanan lambang
-                        SIMEDIA. Keduanya menyatakan hal yang berbeda: yang
+                        SIMAK. Keduanya menyatakan hal yang berbeda: yang
                         pertama siapa pemilik halaman, yang kedua sistem apa
                         yang sedang dibuka. Menumpuk keduanya jadi satu tile
                         akan menghapus perbedaan itu, dan menaruh salah satunya
@@ -140,11 +140,12 @@ function keAtas() {
                                 height="28"
                             />
                             <span class="h-7 w-px bg-white/20" aria-hidden="true"></span>
-                            <img src="/img/logo-simedia.webp" alt="Lambang SIMEDIA" class="size-7 object-contain" width="28" height="28" />
+                            <img src="/img/logo-simedia.webp" alt="Lambang SIMAK" class="size-7 object-contain" width="28" height="28" />
                         </span>
                         <div class="min-w-0">
-                            <p class="text-sm leading-tight font-semibold">SIMEDIA Pemerintah Kota Kendari</p>
-                            <p class="text-xs leading-relaxed text-white/70">Sistem Pemantauan dan Analisis Pemberitaan Media</p>
+                            <p class="text-sm leading-tight font-semibold">SIMAK Pemerintah Kota Kendari</p>
+                            <p class="text-xs leading-relaxed text-white/70">Sistem Monitoring dan Analisis Kendari</p>
+                            <p class="mt-1 text-xs leading-relaxed font-medium text-white/85">Membaca Pemberitaan, Mengawal Kendari Semakin Maju.</p>
                         </div>
                     </div>
 

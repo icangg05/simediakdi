@@ -1,7 +1,7 @@
 <?php
 
 /*
- * Satu-satunya definisi apa yang dipantau SIMEDIA.
+ * Satu-satunya definisi apa yang dipantau SIMAK.
  *
  * Dulu ini berupa tabel `konteks_pantauan` dengan halaman CRUD tersendiri,
  * dirancang untuk memantau beberapa subjek sekaligus. Selama sistem berjalan

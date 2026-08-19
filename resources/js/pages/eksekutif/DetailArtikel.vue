@@ -93,7 +93,7 @@ watch(
 
 const metadata = computed(() => [
     { label: 'Penulis', nilai: props.artikel.penulis ?? 'Tidak dicantumkan sumber', ikon: PenLine },
-    { label: 'Terdeteksi SIMEDIA', nilai: waktu(props.artikel.diambil_at), ikon: Clock3 },
+    { label: 'Terdeteksi SIMAK', nilai: waktu(props.artikel.diambil_at), ikon: Clock3 },
 ]);
 
 const namaLabel: Record<Label, string> = {
