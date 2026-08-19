@@ -31,9 +31,12 @@
 #    root dan seluruh container yang berjalan sebagai `1000:1000` gagal
 #    menulis:
 #
-#      sudo mkdir -p /mnt/data/simedia/storage-app
-#      sudo rsync -a storage/app/ /mnt/data/simedia/storage-app/
+#      sudo mkdir -p /mnt/data/simedia
+#      sudo mv storage/app /mnt/data/simedia/storage-app
 #      sudo chown -R 1000:1000 /mnt/data/simedia/storage-app
+#      mkdir -p storage/app
+#
+#    Langkah pemulihannya ada di README, di bagian "Menjalankan dari nol".
 services:
   # Caddy memegang port 8000, bukan Laravel.
   #
