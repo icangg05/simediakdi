@@ -1,6 +1,6 @@
 # 09: Panduan Pelabelan Gold Set
 
-SIMEDIA Kendari | Versi 2.1
+SIMAK Kendari | Versi 2.1
 
 ---
 

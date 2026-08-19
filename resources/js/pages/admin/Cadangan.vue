@@ -54,7 +54,7 @@ interface BerkasCadangan {
 const props = defineProps<{
     berkas: BerkasCadangan[];
     total: { jumlah: number; ukuran: number };
-    database: { nama: string; host: string; driver: string; didukung: boolean };
+    database: { nama: string; host: string; driver: string; pengguna: string; didukung: boolean };
     versiPgDump: string | null;
     ruangSisa: number | null;
     ukuranDatabase: number | null;
@@ -198,7 +198,8 @@ function hapus() {
  * meminta orang mengingat nama host.
  */
 const perintahPulih = computed(
-    () => `gunzip -c ${terbaru.value?.nama ?? 'simedia-tanggal-jam.sql.gz'} | psql -h ${props.database.host} -U simedia -d ${props.database.nama}`,
+    () =>
+        `gunzip -c ${terbaru.value?.nama ?? 'simak-tanggal-jam.sql.gz'} | psql -h ${props.database.host} -U ${props.database.pengguna} -d ${props.database.nama}`,
 );
 
 const tersalin = ref(false);

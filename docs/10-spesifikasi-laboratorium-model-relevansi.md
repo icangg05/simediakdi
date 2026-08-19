@@ -1,6 +1,6 @@
 # 10: Spesifikasi Laboratorium Model Relevansi
 
-**SIMEDIA Kendari | Versi 1.0**  
+**SIMAK Kendari | Versi 1.0**  
 **Tanggal:** 4 Agustus 2026  
 **Status:** Spesifikasi implementasi  
 **Ruang lingkup:** Pengumpulan dataset, pelabelan relevansi, fine-tuning IndoBERT, evaluasi, pengujian manual, versioning model, promosi model, rollback, active learning, dan gerbang mutu sebelum analisis sentimen.
@@ -103,7 +103,7 @@ kontrak, entitas, kata kunci, portal media, dan crawler.
 
 ## 1. Instruksi Utama untuk Implementasi
 
-Bangun modul admin bernama **Laboratorium Model Relevansi** untuk melatih, menguji, mengevaluasi, dan mengelola model relevansi artikel SIMEDIA Kendari.
+Bangun modul admin bernama **Laboratorium Model Relevansi** untuk melatih, menguji, mengevaluasi, dan mengelola model relevansi artikel SIMAK Kendari.
 
 Modul ini hanya menjawab satu pertanyaan:
 
@@ -121,7 +121,7 @@ Gunakan model awal:
 apriandito/indobert-relevancy-classifier
 ```
 
-Model tersebut menjadi checkpoint awal. Versi berikutnya dilatih ulang menggunakan dataset lokal SIMEDIA Kendari agar memahami perbedaan antara:
+Model tersebut menjadi checkpoint awal. Versi berikutnya dilatih ulang menggunakan dataset lokal SIMAK Kendari agar memahami perbedaan antara:
 
 - Pemerintah Kota Kendari dan Pemerintah Provinsi Sulawesi Tenggara;
 - Pemkot dan instansi vertikal;
@@ -1235,7 +1235,7 @@ Confidence: 92,4%
 Probabilitas relevan: 92,4%
 Probabilitas tidak relevan: 7,6%
 Threshold aktif: 60%
-Model: simedia-relevancy-v1.3
+Model: simak-relevancy-v1.3
 Base model: apriandito/indobert-relevancy-classifier
 Versi konteks: pemkot-kendari-v3
 Input token: 486/512
@@ -1915,7 +1915,7 @@ Response:
 ```json
 {
   "status": "ok",
-  "active_relevance_model": "simedia-relevancy-v1.3",
+  "active_relevance_model": "simak-relevancy-v1.3",
   "base_model": "apriandito/indobert-relevancy-classifier",
   "model_loaded": true,
   "quality_gate": "passed",
@@ -1934,7 +1934,7 @@ Request:
 
 ```json
 {
-  "model_version": "simedia-relevancy-v1.3",
+  "model_version": "simak-relevancy-v1.3",
   "context_version": "pemkot-kendari-v3",
   "items": [
     {
@@ -1953,7 +1953,7 @@ Response:
 
 ```json
 {
-  "model_version": "simedia-relevancy-v1.3",
+  "model_version": "simak-relevancy-v1.3",
   "results": [
     {
       "id": 101,
@@ -2600,7 +2600,7 @@ Setelah itu saja artikel relevan boleh diteruskan ke model sentimen.
 
 ## 29. Pernyataan Penutup
 
-Laboratorium Model Relevansi adalah fondasi kepercayaan SIMEDIA Kendari.
+Laboratorium Model Relevansi adalah fondasi kepercayaan SIMAK Kendari.
 
 Urutan produk tidak boleh dibalik:
 

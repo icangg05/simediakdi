@@ -1,11 +1,11 @@
 <?php
 
 /*
- * Konfigurasi Laravel AI SDK untuk SIMEDIA. Dokumen 13 bagian 5.
+ * Konfigurasi Laravel AI SDK untuk SIMAK. Dokumen 13 bagian 5.
  *
  * Berkas ini digabung di atas config bawaan paket dengan array_merge dangkal,
  * jadi kunci `providers` di sini menggantikan seluruh daftar provider bawaan.
- * Itu disengaja. SIMEDIA hanya memanggil Gemini, dan daftar provider yang tidak
+ * Itu disengaja. SIMAK hanya memanggil Gemini, dan daftar provider yang tidak
  * pernah dipakai hanya menambah kunci environment yang harus dijelaskan.
  */
 

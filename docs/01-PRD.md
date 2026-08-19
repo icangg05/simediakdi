@@ -1,6 +1,6 @@
 # 01: Product Requirements Document
 
-SIMEDIA Kendari | Versi 1.4
+SIMAK Kendari | Versi 1.4
 
 ---
 

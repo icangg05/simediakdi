@@ -32,6 +32,7 @@ class LogCrawlController extends Controller
             'log' => $log,
             'opsi' => [
                 'status' => [
+                    ['nilai' => 'berjalan', 'label' => 'Berjalan'],
                     ['nilai' => 'sukses', 'label' => 'Sukses'],
                     ['nilai' => 'sebagian', 'label' => 'Sebagian'],
                     ['nilai' => 'gagal', 'label' => 'Gagal'],

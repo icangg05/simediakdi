@@ -7,7 +7,7 @@ import type { FilterDefinisi, KolomDefinisi, OpsiFilter, PaginasiMeta } from '@/
 import { Head, router } from '@inertiajs/vue3';
 import { format, formatDistanceToNow } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { CircleCheck, CircleX, Clock, RefreshCw, Rss, TriangleAlert } from 'lucide-vue-next';
+import { CircleCheck, CircleX, Clock, Loader2, RefreshCw, Rss, TriangleAlert } from 'lucide-vue-next';
 import { onUnmounted, ref, type Component } from 'vue';
 
 interface BarisLog {
@@ -17,7 +17,7 @@ interface BarisLog {
     jumlah_ditemukan: number;
     jumlah_baru: number;
     jumlah_salinan: number;
-    status: 'sukses' | 'sebagian' | 'gagal';
+    status: 'berjalan' | 'sukses' | 'sebagian' | 'gagal';
     pesan: string | null;
     sumber_feed: { id: number; nama: string; media: { nama: string } | null } | null;
 }
@@ -112,11 +112,35 @@ const waktuJadwal = (nilai: string) =>
  * Ikonnya wajib. Kolom ini yang paling sering disisir cepat, dan warna saja
  * tidak cukup untuk pembaca yang kesulitan membedakan merah dan hijau.
  */
-const RUPA_STATUS: Record<BarisLog['status'], { kelas: string; ikon: Component }> = {
-    sukses: { kelas: 'bg-sentimen-positif-lembut text-sentimen-positif', ikon: CircleCheck },
-    sebagian: { kelas: 'bg-sentimen-review-lembut text-sentimen-review', ikon: TriangleAlert },
-    gagal: { kelas: 'bg-sentimen-negatif-lembut text-sentimen-negatif', ikon: CircleX },
+const RUPA_STATUS: Record<BarisLog['status'] | 'terhenti', { kelas: string; label: string; ikon: Component }> = {
+    berjalan: { kelas: 'bg-muted text-muted-foreground', label: 'Berjalan', ikon: Loader2 },
+    sukses: { kelas: 'bg-sentimen-positif-lembut text-sentimen-positif', label: 'Sukses', ikon: CircleCheck },
+    sebagian: { kelas: 'bg-sentimen-review-lembut text-sentimen-review', label: 'Sebagian', ikon: TriangleAlert },
+    gagal: { kelas: 'bg-sentimen-negatif-lembut text-sentimen-negatif', label: 'Gagal', ikon: CircleX },
+    terhenti: { kelas: 'bg-sentimen-negatif-lembut text-sentimen-negatif', label: 'Terhenti', ikon: CircleX },
 };
+
+/*
+ * Baris yang tertinggal di `berjalan` terlalu lama.
+ *
+ * Status itu ditulis sebelum pengambilan dimulai dan diganti begitu selesai,
+ * baik berhasil maupun gagal. Yang tidak pernah berganti berarti prosesnya
+ * berhenti di tengah, misalnya container di-restart saat crawl sedang jalan.
+ * Lima belas menit jauh di atas sumber paling lambat, yang selesai di bawah
+ * satu menit, jadi ambang ini tidak akan menyalakan merah pada pekerjaan yang
+ * masih sehat.
+ */
+const AMBANG_TERHENTI_MENIT = 15;
+
+function rupaStatus(baris: BarisLog) {
+    if (baris.status !== 'berjalan') {
+        return RUPA_STATUS[baris.status];
+    }
+
+    const menit = (Date.now() - new Date(baris.dimulai_at).getTime()) / 60000;
+
+    return menit > AMBANG_TERHENTI_MENIT ? RUPA_STATUS.terhenti : RUPA_STATUS.berjalan;
+}
 </script>
 
 <template>
@@ -182,7 +206,7 @@ const RUPA_STATUS: Record<BarisLog['status'], { kelas: string; ikon: Component }
                     <p
                         v-if="baris.pesan"
                         class="truncate text-xs"
-                        :class="baris.status === 'gagal' ? 'text-sentimen-negatif' : 'text-muted-foreground'"
+                        :class="rupaStatus(baris).label === 'Gagal' ? 'text-sentimen-negatif' : 'text-muted-foreground'"
                     >
                         {{ baris.pesan }}
                     </p>
@@ -200,12 +224,16 @@ const RUPA_STATUS: Record<BarisLog['status'], { kelas: string; ikon: Component }
             </template>
 
             <template #sel-status="{ baris }">
-                <span
-                    class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium capitalize"
-                    :class="RUPA_STATUS[baris.status].kelas"
-                >
-                    <component :is="RUPA_STATUS[baris.status].ikon" class="size-3 shrink-0" aria-hidden="true" />
-                    {{ baris.status }}
+                <span class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium" :class="rupaStatus(baris).kelas">
+                    <component
+                        :is="rupaStatus(baris).ikon"
+                        class="size-3 shrink-0"
+                        :class="
+                            baris.status === 'berjalan' && rupaStatus(baris).label === 'Berjalan' ? 'animate-spin motion-reduce:animate-none' : ''
+                        "
+                        aria-hidden="true"
+                    />
+                    {{ rupaStatus(baris).label }}
                 </span>
             </template>
         </DataTable>

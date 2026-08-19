@@ -66,7 +66,7 @@ Ada 30 media partner terdaftar. Tiga di antaranya nasional (Tempo, Detikcom, Por
 
 ## Brand Commitments
 
-Nama produk: **SIMAK**, kepanjangannya Sistem Monitoring dan Analisis Kendari. Tagline: "Membaca Pemberitaan, Mengawal Kendari Semakin Maju." Nama teknis repo tetap `simedia`, termasuk nama basis data, berkas konfigurasi deploy, dan berkas lambang.
+Nama produk: **SIMAK**, kepanjangannya Sistem Monitoring dan Analisis Kendari. Tagline: "Membaca Pemberitaan, Mengawal Kendari Semakin Maju." Nama teknis mengikuti: basis data, pengguna basis data, awalan berkas cadangan, user agent crawler, berkas konfigurasi deploy, dan berkas lambang semuanya memakai `simak`. Yang belum ikut hanya nama direktori repo di mesin pengembang dan jalur rilis di server, keduanya disebut di README.
 
 Warna utama: **`#163F6C`**, navy pekat, setara `oklch(0.364 0.090 253.3)`. Ditetapkan pengguna pada 10 Agustus 2026 sebagai warna brand yang mengikat. Ini keputusan brand pertama proyek, karena sebelumnya token `--primary` masih memakai nilai bawaan starter kit yaitu nyaris hitam. Warna pendampingnya belum ditetapkan.
 

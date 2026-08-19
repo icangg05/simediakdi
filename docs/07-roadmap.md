@@ -1,6 +1,6 @@
 # 07: Roadmap dan Rencana Sprint
 
-SIMEDIA Kendari | Versi 1.0
+SIMAK Kendari | Versi 1.0
 
 ---
 

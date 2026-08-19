@@ -237,7 +237,7 @@ const KETERANGAN: Record<string, string> = {
                                 punya bunyi kalau berkas gambarnya gagal dimuat.
                             -->
                             <Avatar class="size-8 overflow-hidden rounded-xl bg-white/10 ring-1 ring-white/25">
-                                <AvatarImage src="/img/logo-simedia.webp" alt="SIMAK" class="rounded-xl object-contain p-0.5" />
+                                <AvatarImage src="/img/logo-simak.webp" alt="SIMAK" class="rounded-xl object-contain p-0.5" />
                                 <AvatarFallback class="rounded-xl bg-white/20 text-xs font-semibold text-white">
                                     {{ getInitials(auth.user?.name) }}
                                 </AvatarFallback>

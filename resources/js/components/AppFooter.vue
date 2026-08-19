@@ -140,7 +140,7 @@ function keAtas() {
                                 height="28"
                             />
                             <span class="h-7 w-px bg-white/20" aria-hidden="true"></span>
-                            <img src="/img/logo-simedia.webp" alt="Lambang SIMAK" class="size-7 object-contain" width="28" height="28" />
+                            <img src="/img/logo-simak.webp" alt="Lambang SIMAK" class="size-7 object-contain" width="28" height="28" />
                         </span>
                         <div class="min-w-0">
                             <p class="text-sm leading-tight font-semibold">SIMAK Pemerintah Kota Kendari</p>

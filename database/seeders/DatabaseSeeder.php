@@ -19,7 +19,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         User::updateOrCreate(
-            ['email' => 'admin@simedia.test'],
+            ['email' => 'admin@simak.test'],
             [
                 'name' => 'Admin Diskominfo',
                 'password' => Hash::make('password'),
@@ -32,7 +32,7 @@ class DatabaseSeeder extends Seeder
         // Akun contoh dua peran lain, supaya scoping dan larangan tulis bisa
         // diuji dari browser sejak sprint 1.
         User::updateOrCreate(
-            ['email' => 'walikota@simedia.test'],
+            ['email' => 'walikota@simak.test'],
             [
                 'name' => 'Staf Khusus Wali Kota',
                 'password' => Hash::make('password'),
@@ -43,7 +43,7 @@ class DatabaseSeeder extends Seeder
         );
 
         User::updateOrCreate(
-            ['email' => 'media@simedia.test'],
+            ['email' => 'media@simak.test'],
             [
                 'name' => 'PIC Kendari Pos',
                 'password' => Hash::make('password'),

@@ -1,6 +1,6 @@
 # 03: Skema Database
 
-SIMEDIA Kendari | Versi 1.0 | PostgreSQL 16
+SIMAK Kendari | Versi 1.0 | PostgreSQL 16
 
 ---
 

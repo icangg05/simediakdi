@@ -89,13 +89,21 @@ class CrawlFeeds extends Command
         PembacaScrape $pembacaScrape,
         PencatatArtikel $pencatat,
     ): void {
+        // Lahir berstatus `berjalan`, bukan `gagal`.
+        //
+        // Baris ini dibuat sebelum pengambilan dimulai, dan sifat amannya
+        // tetap sama: proses yang mati di tengah jalan meninggalkan baris yang
+        // tidak pernah menjadi sukses. Bedanya, satu sumber memakan 7 sampai
+        // 16 detik, dan selama itu halaman Log crawl dulu menampilkannya
+        // sebagai Gagal berwarna merah untuk pekerjaan yang sedang berjalan
+        // normal. Kegagalan sungguhan tetap ditulis `tanganiKegagalan()`.
         $log = LogCrawl::create([
             'sumber_feed_id' => $sumber->id,
             'dimulai_at' => now(),
             'jumlah_ditemukan' => 0,
             'jumlah_baru' => 0,
             'jumlah_salinan' => 0,
-            'status' => 'gagal',
+            'status' => 'berjalan',
         ]);
 
         $sumber->update(['dijalankan_terakhir_at' => now()]);

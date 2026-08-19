@@ -1,6 +1,6 @@
 # 02: Spesifikasi Teknis
 
-SIMEDIA Kendari | Versi 1.0
+SIMAK Kendari | Versi 1.0
 
 ---
 
@@ -322,7 +322,7 @@ Base URL `http://127.0.0.1:8001`. Seluruh pemanggilan dari Laravel hanya lewat `
 ```json
 { "status": "ok", "model_sentimen": "apriandito/indobert-sentiment-classifier",
   "model_embedding": "intfloat/multilingual-e5-small",
-  "model_relevansi_aktif": "simedia-relevancy-v1.3",
+  "model_relevansi_aktif": "simak-relevancy-v1.3",
   "model_relevansi_base": "apriandito/indobert-relevancy-classifier",
   "model_relevansi_dimuat": true, "gerbang_mutu": "passed",
   "versi": "3.0.0" }
@@ -501,11 +501,11 @@ SENTIMEN_AMBANG_KEYAKINAN=0.60
 DEDUP_AMBANG_COSINE=0.92
 DEDUP_AMBANG_SIMHASH=4
 
-RELEVANSI_ARTEFAK_PATH=/var/www/simedia/storage/app/private/relevance-models
+RELEVANSI_ARTEFAK_PATH=/var/www/simak/storage/app/private/relevance-models
 RELEVANSI_TRAINING_SECRET=
 RELEVANSI_TRAINING_TIMEOUT=1800
 
-CRAWL_USER_AGENT="SimediaKendariBot/1.0 (+https://simedia.kendarikota.go.id)"
+CRAWL_USER_AGENT="SimakKendariBot/1.0 (+https://simak.kendarikota.go.id)"
 CRAWL_DELAY_MS=1500
 CRAWL_TIMEOUT=20
 ```

@@ -21,11 +21,40 @@ use Spatie\Robots\RobotsTxt;
  */
 class PengunduhHalaman
 {
+    /**
+     * Jumlah percobaan untuk satu pengambilan, termasuk percobaan pertama.
+     *
+     * Dua, bukan tiga atau lima. Yang diserap angka ini adalah kegagalan yang
+     * memang sesaat, dan yang sesaat hampir selalu pulih pada percobaan kedua.
+     * Percobaan ketiga hanya menambah beban ke situs yang sedang bermasalah,
+     * dan crawl berikutnya berjalan tiga jam lagi.
+     */
+    private const MAKS_PERCOBAAN = 2;
+
+    /**
+     * Jeda sebelum percobaan kedua.
+     *
+     * Cukup untuk melewati satu simpul Cloudflare yang sedang menolak dan satu
+     * proses PHP yang sedang habis memorinya di hosting bersama, dua sebab
+     * yang benar-benar muncul di log crawl. Tidak lebih lama, karena satu
+     * putaran crawl menyisir 32 sumber secara berurutan.
+     */
+    private const JEDA_ULANG_DETIK = 2;
+
     private Client $klien;
 
-    public function __construct(private ValidatorUrl $validator)
+    /**
+     * `$opsiKlien` hanya dipakai tes, untuk memasang handler Guzzle palsu.
+     *
+     * Bertipe array, bukan HandlerStack, dan itu disengaja. Parameter bertipe
+     * kelas yang bisa diinstansiasi akan diisi container dengan objek kosong
+     * pada setiap resolusi biasa, dan Guzzle dengan tumpukan handler kosong
+     * menolak mengirim apa pun. Array tidak bisa diresolusi container, jadi
+     * nilai bawaannya yang dipakai di seluruh jalur produksi.
+     */
+    public function __construct(private ValidatorUrl $validator, array $opsiKlien = [])
     {
-        $this->klien = new Client([
+        $this->klien = new Client($opsiKlien + [
             RequestOptions::TIMEOUT => config('crawler.timeout'),
             RequestOptions::CONNECT_TIMEOUT => 10,
             RequestOptions::HEADERS => [
@@ -54,6 +83,22 @@ class PengunduhHalaman
     {
         $this->pastikanBoleh($url);
 
+        for ($percobaan = 1; ; $percobaan++) {
+            try {
+                return $this->ambil($url);
+            } catch (GagalMengunduh $e) {
+                if ($percobaan >= self::MAKS_PERCOBAAN || ! $this->sesaat($e)) {
+                    throw $e;
+                }
+
+                sleep(self::JEDA_ULANG_DETIK);
+            }
+        }
+    }
+
+    /** Satu percobaan pengambilan, tanpa penjagaan dan tanpa coba ulang. */
+    private function ambil(string $url): string
+    {
         try {
             $tanggapan = $this->klien->send(new Request('GET', $url), [RequestOptions::STREAM => true]);
         } catch (GuzzleException $e) {
@@ -70,6 +115,30 @@ class PengunduhHalaman
         }
 
         return $this->bacaTerbatas($tanggapan->getBody(), $url);
+    }
+
+    /**
+     * Kegagalan yang layak dicoba ulang, yaitu yang sebabnya bisa hilang
+     * sendiri dalam dua detik.
+     *
+     * Tiga golongan, dan ketiganya terlihat di log crawl sungguhan:
+     * sambungan yang ditolak atau kehabisan waktu (status null, tapi ada
+     * GuzzleException di baliknya), 429 karena laju dibatasi sesaat, dan 5xx
+     * dari server yang sedang tersendat.
+     *
+     * Yang sengaja tidak diulang: 404 dan 403 membuktikan alamatnya memang
+     * tidak ada atau memang ditolak, mengulanginya hanya menambah beban tanpa
+     * pernah berhasil. Isi yang melebihi batas unduhan juga tidak diulang, dan
+     * itulah gunanya memeriksa GuzzleException di balik status null, karena
+     * kegagalan ukuran juga berstatus null tetapi lahir dari kode kita sendiri.
+     */
+    private function sesaat(GagalMengunduh $e): bool
+    {
+        if ($e->status === null) {
+            return $e->getPrevious() instanceof GuzzleException;
+        }
+
+        return $e->status === 429 || $e->status >= 500;
     }
 
     /**

@@ -373,9 +373,9 @@ const submit = () => {
                     -->
                     <div class="kop-kartu flex items-center gap-3">
                         <span
-                            class="lencana-simedia grid size-12 shrink-0 place-items-center rounded-2xl bg-brand/6 ring-1 ring-brand/10 dark:bg-white/10 dark:ring-white/15"
+                            class="lencana-simak grid size-12 shrink-0 place-items-center rounded-2xl bg-brand/6 ring-1 ring-brand/10 dark:bg-white/10 dark:ring-white/15"
                         >
-                            <img src="/img/logo-simedia.webp" alt="Lambang SIMAK" class="size-8 object-contain" width="32" height="32" />
+                            <img src="/img/logo-simak.webp" alt="Lambang SIMAK" class="size-8 object-contain" width="32" height="32" />
                         </span>
                         <span class="min-w-0">
                             <span class="block text-[1.375rem] leading-tight font-semibold tracking-tight text-brand dark:text-white">SIMAK</span>

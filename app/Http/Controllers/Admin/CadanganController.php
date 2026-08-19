@@ -45,6 +45,11 @@ class CadanganController extends Controller
             'database' => [
                 'nama' => (string) ($db['database'] ?? ''),
                 'host' => (string) ($db['host'] ?? ''),
+                // Ikut dikirim supaya perintah pemulihan di layar tidak
+                // menuliskan nama pengguna secara tetap. Versi sebelumnya
+                // mengetiknya di dalam template Vue, dan perintah itu langsung
+                // salah pada hari nama penggunanya berganti.
+                'pengguna' => (string) ($db['username'] ?? ''),
                 'driver' => (string) ($db['driver'] ?? ''),
                 'didukung' => ($db['driver'] ?? null) === 'pgsql',
             ],

@@ -1,6 +1,6 @@
 # 04: Spesifikasi UI dan Design System
 
-SIMEDIA Kendari | Versi 1.0 | Tailwind CSS 4 + shadcn-vue
+SIMAK Kendari | Versi 1.0 | Tailwind CSS 4 + shadcn-vue
 
 ---
 

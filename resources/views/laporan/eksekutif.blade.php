@@ -199,7 +199,7 @@
                         <tr>
                             <td style="width: 8.5mm; padding-left: 6px;"><img class="logo" src="{{ public_path('img/Lambang_Kota_Kendari.webp') }}" alt=""></td>
                             <td class="sela-logo"></td>
-                            <td style="width: 8.5mm;"><img class="logo" src="{{ public_path('img/logo-simedia.png') }}" alt=""></td>
+                            <td style="width: 8.5mm;"><img class="logo" src="{{ public_path('img/logo-simak.png') }}" alt=""></td>
                         </tr>
                     </table>
                 </div>

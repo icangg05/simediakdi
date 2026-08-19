@@ -66,13 +66,13 @@ class PenggunaTest extends TestCase
     {
         $this->actingAs($this->admin)->post('/admin/pengguna', [
             'name' => 'Admin Baru',
-            'email' => 'admin2@simedia.test',
+            'email' => 'admin2@simak.test',
             'password' => 'rahasia-panjang',
             'peran' => 'superadmin',
             'media_id' => $this->media->id,
         ])->assertSessionHasNoErrors();
 
-        $this->assertNull(User::where('email', 'admin2@simedia.test')->first()->media_id);
+        $this->assertNull(User::where('email', 'admin2@simak.test')->first()->media_id);
     }
 
     public function test_kata_sandi_kosong_saat_menyunting_tidak_mengubahnya(): void

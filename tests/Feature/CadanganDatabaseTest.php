@@ -72,7 +72,7 @@ class CadanganDatabaseTest extends TestCase
         $nakal = [
             '../../../.env',
             '..%2F..%2F.env',
-            'simedia-2026-08-12-101500.sql',
+            'simak-2026-08-12-101500.sql',
             'berkas-lain.sql.gz',
         ];
 
@@ -89,7 +89,7 @@ class CadanganDatabaseTest extends TestCase
 
     public function test_berkas_yang_sah_bisa_diunduh_lalu_dihapus(): void
     {
-        $nama = 'simedia-2026-08-12-101500.sql.gz';
+        $nama = 'simak-2026-08-12-101500.sql.gz';
 
         Storage::disk('local')->put('cadangan/'.$nama, gzencode('-- isi cadangan'));
 
@@ -116,9 +116,9 @@ class CadanganDatabaseTest extends TestCase
      */
     public function test_cadangan_baru_menimpa_cadangan_lain_di_minggu_yang_sama(): void
     {
-        $mingguLalu = 'simedia-2026-08-16-235900.sql.gz';   // Minggu, minggu sebelumnya
-        $senin = 'simedia-2026-08-17-030000.sql.gz';        // Senin, hasil jadwal
-        $rabu = 'simedia-2026-08-19-101500.sql.gz';         // Rabu, hasil tombol manual
+        $mingguLalu = 'simak-2026-08-16-235900.sql.gz';   // Minggu, minggu sebelumnya
+        $senin = 'simak-2026-08-17-030000.sql.gz';        // Senin, hasil jadwal
+        $rabu = 'simak-2026-08-19-101500.sql.gz';         // Rabu, hasil tombol manual
 
         foreach ([$mingguLalu, $senin, $rabu] as $nama) {
             Storage::disk('local')->put('cadangan/'.$nama, gzencode('-- isi'));
@@ -138,7 +138,7 @@ class CadanganDatabaseTest extends TestCase
     /** Berkas asing di folder yang sama tidak boleh muncul sebagai baris arsip. */
     public function test_daftar_hanya_memuat_berkas_berpola_benar(): void
     {
-        Storage::disk('local')->put('cadangan/simedia-2026-08-12-101500.sql.gz', gzencode('-- isi'));
+        Storage::disk('local')->put('cadangan/simak-2026-08-12-101500.sql.gz', gzencode('-- isi'));
         Storage::disk('local')->put('cadangan/catatan.txt', 'bukan cadangan');
 
         $this->actingAs($this->superadmin)
@@ -146,7 +146,7 @@ class CadanganDatabaseTest extends TestCase
             ->assertInertia(fn ($halaman) => $halaman
                 ->component('admin/Cadangan')
                 ->has('berkas', 1)
-                ->where('berkas.0.nama', 'simedia-2026-08-12-101500.sql.gz')
+                ->where('berkas.0.nama', 'simak-2026-08-12-101500.sql.gz')
                 ->where('total.jumlah', 1));
     }
 }

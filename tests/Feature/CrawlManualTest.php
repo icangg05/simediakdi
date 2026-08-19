@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\LogCrawl;
 use App\Models\Media;
 use App\Models\SumberFeed;
 use App\Models\User;
+use App\Services\Crawler\GagalMengunduh;
 use App\Services\Crawler\PengunduhHalaman;
 use Illuminate\Foundation\Console\QueuedCommand;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -39,6 +41,53 @@ class CrawlManualTest extends TestCase
             'url' => 'https://contoh.test/rss',
             'aktif' => $aktif,
         ]);
+    }
+
+    /**
+     * Baris log berstatus `berjalan` selama pengambilan, bukan `gagal`.
+     *
+     * Dulu baris dibuat langsung berstatus gagal sebagai keadaan aman, dan
+     * akibatnya halaman Log crawl menampilkan baris merah selama 7 sampai 16
+     * detik untuk pekerjaan yang berjalan normal. Admin membaca itu sebagai
+     * sistem yang rusak setiap kali menekan tombol Crawl sekarang.
+     *
+     * Statusnya diperiksa dari dalam pengunduh palsu, yaitu satu-satunya titik
+     * ketika pekerjaannya benar-benar sedang berlangsung.
+     */
+    public function test_status_log_berjalan_selama_pengambilan_lalu_sukses(): void
+    {
+        $sumber = $this->sumber(aktif: true);
+
+        $pengunduh = Mockery::mock(PengunduhHalaman::class);
+        $pengunduh->shouldReceive('unduh')->once()->andReturnUsing(function () {
+            $this->assertSame('berjalan', LogCrawl::query()->value('status'));
+
+            return '<?xml version="1.0"?><rss><channel><item><title>Judul</title>'
+                .'<link>https://contoh.test/berita-1</link></item></channel></rss>';
+        });
+        $this->app->instance(PengunduhHalaman::class, $pengunduh);
+
+        $this->artisan('crawl:feeds --paksa')->assertSuccessful();
+
+        $log = LogCrawl::query()->firstOrFail();
+
+        $this->assertSame('sukses', $log->status);
+        $this->assertNotNull($log->selesai_at);
+        $this->assertSame($sumber->id, $log->sumber_feed_id);
+    }
+
+    /** Kegagalan sungguhan tetap tercatat gagal, bukan tertinggal berjalan. */
+    public function test_kegagalan_tetap_tercatat_gagal(): void
+    {
+        $this->sumber(aktif: true);
+
+        $pengunduh = Mockery::mock(PengunduhHalaman::class);
+        $pengunduh->shouldReceive('unduh')->andThrow(new GagalMengunduh('Situsnya sedang tumbang.'));
+        $this->app->instance(PengunduhHalaman::class, $pengunduh);
+
+        $this->artisan('crawl:feeds --paksa')->assertSuccessful();
+
+        $this->assertSame('gagal', LogCrawl::query()->value('status'));
     }
 
     public function test_paksa_tidak_membangunkan_sumber_yang_sudah_dimatikan(): void

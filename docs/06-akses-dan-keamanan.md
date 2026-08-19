@@ -1,6 +1,6 @@
 # 06: Akses dan Keamanan
 
-SIMEDIA Kendari | Versi 1.0
+SIMAK Kendari | Versi 1.0
 
 ---
 

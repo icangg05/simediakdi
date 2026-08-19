@@ -5,9 +5,9 @@ return [
     // sebelumnya. WAF sibernas.id menolak permintaan dengan 403 hanya karena
     // path itu ada di dalam User-Agent, dan situs itu jadi satu-satunya media
     // yang tidak bisa ditarik sama sekali. Token produknya tetap
-    // `SimediaKendariBot`, jadi aturan robots.txt di 29 situs lain tidak
+    // `SimakKendariBot`, jadi aturan robots.txt di 29 situs lain tidak
     // berubah artinya.
-    'user_agent' => env('CRAWL_USER_AGENT', 'SimediaKendariBot/1.0 (+https://simedia.kendarikota.go.id)'),
+    'user_agent' => env('CRAWL_USER_AGENT', 'SimakKendariBot/1.0 (+https://simak.kendarikota.go.id)'),
 
     'timeout' => (int) env('CRAWL_TIMEOUT', 20),
 

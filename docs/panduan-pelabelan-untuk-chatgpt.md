@@ -1,4 +1,4 @@
-# Panduan Pelabelan Relevansi: SIMEDIA Kendari
+# Panduan Pelabelan Relevansi: SIMAK Kendari
 
 Dokumen ini dipakai sebagai instruksi lengkap untuk menilai satu artikel berita.
 Isinya cukup untuk berdiri sendiri, tidak perlu dokumen lain.

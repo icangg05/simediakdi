@@ -50,7 +50,7 @@ class CadanganDatabase
      * Penanda `D` wajib: tanpa itu `$` masih menerima satu baris baru di
      * ujung, dan "berkas.sql.gz\n" akan dianggap sah.
      */
-    public const POLA_NAMA = '/^simedia-\d{4}-\d{2}-\d{2}-\d{6}\.sql\.gz$/D';
+    public const POLA_NAMA = '/^simak-\d{4}-\d{2}-\d{2}-\d{6}\.sql\.gz$/D';
 
     /**
      * Jumlah cadangan yang disimpan. Sisanya dibuang saat cadangan baru dibuat.
@@ -140,7 +140,7 @@ class CadanganDatabase
         // menit yang sama akan menimpa berkas pertama diam-diam, di luar
         // aturan timpa mingguan yang memang disengaja.
         $saat = CarbonImmutable::now(Waktu::ZONA);
-        $nama = 'simedia-'.$saat->format('Y-m-d-His').'.sql.gz';
+        $nama = 'simak-'.$saat->format('Y-m-d-His').'.sql.gz';
 
         // Ditulis dengan nama kerja lebih dulu, lalu diganti nama setelah
         // pg_dump menjawab berhasil. Dump yang mati di tengah jalan, entah

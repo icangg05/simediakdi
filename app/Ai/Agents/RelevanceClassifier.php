@@ -18,7 +18,7 @@ use Stringable;
 /**
  * Penilai relevansi artikel terhadap satu konteks pantauan. Dokumen 13 bagian 7.
  *
- * Dipakai stateless, satu artikel satu konteks satu permintaan. SIMEDIA tidak
+ * Dipakai stateless, satu artikel satu konteks satu permintaan. SIMAK tidak
  * membutuhkan percakapan berkelanjutan, dan menyimpan riwayat percakapan justru
  * membuat hasil satu artikel bergantung pada artikel yang kebetulan dinilai
  * sebelumnya.

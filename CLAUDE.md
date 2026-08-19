@@ -1,4 +1,4 @@
-# SIMEDIA Kendari
+# SIMAK Kendari
 
 ## Bahasa komunikasi
 

@@ -17,7 +17,7 @@ from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 from playwright.async_api import async_playwright
 from pydantic import BaseModel, HttpUrl
 
-app = FastAPI(title="Arsip SIMEDIA")
+app = FastAPI(title="Arsip SIMAK")
 
 # Chromium dijalankan sekali lalu dipakai ulang. Menyalakannya per permintaan
 # menambah sekitar dua detik untuk pekerjaan yang sebenarnya sepersepuluhnya.
@@ -114,7 +114,7 @@ async def render(permintaan: PermintaanRender) -> Response:
     async with kunci:
         konteks = await peramban.new_context(
             viewport={"width": LEBAR, "height": 900},
-            user_agent=os.environ.get("ARSIP_USER_AGENT", "SimediaKendariBot/1.0"),
+            user_agent=os.environ.get("ARSIP_USER_AGENT", "SimakKendariBot/1.0"),
         )
         try:
             halaman = await konteks.new_page()

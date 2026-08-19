@@ -240,7 +240,7 @@ const tautanUnduh = computed(() => `/eksekutif/laporan/unduh?bulan=${props.bulan
                                     height="36"
                                 />
                                 <span class="h-8 w-px bg-white/25" aria-hidden="true"></span>
-                                <img src="/img/logo-simedia.webp" alt="Lambang SIMAK" class="size-9 object-contain" width="36" height="36" />
+                                <img src="/img/logo-simak.webp" alt="Lambang SIMAK" class="size-9 object-contain" width="36" height="36" />
                             </span>
                             <div class="min-w-0">
                                 <p class="text-sm font-semibold text-white">Pemerintah Kota Kendari</p>

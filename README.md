@@ -26,9 +26,9 @@ Akun hasil seeder, semuanya berkata sandi `password`:
 
 | Email | Peran |
 |-------|-------|
-| `admin@simedia.test` | superadmin |
-| `walikota@simedia.test` | walikota |
-| `media@simedia.test` | media (Kendari Pos) |
+| `admin@simak.test` | superadmin |
+| `walikota@simak.test` | walikota |
+| `media@simak.test` | media (Kendari Pos) |
 
 Registrasi mandiri tidak dibuka. Seluruh akun dibuat superadmin.
 
@@ -70,12 +70,12 @@ adalah bind ke `127.0.0.1`, bukan firewall.
 
 Di produksi, reverse proxy milik host yang memegang 80 dan 443 lalu meneruskan
 ke `127.0.0.1:8000`. Worker dan scheduler dijalankan supervisor, lihat
-[`deploy/supervisor/simedia.conf`](deploy/supervisor/simedia.conf).
+[`deploy/supervisor/simak.conf`](deploy/supervisor/simak.conf).
 
 ## Perintah harian
 
 ```bash
-docker compose exec app php artisan test          # butuh database simedia_test
+docker compose exec app php artisan test          # butuh database simak_test
 docker compose exec app php artisan migrate:fresh --seed
 docker compose exec app php artisan tinker
 npm run dev                                        # vite, hot reload
@@ -85,7 +85,7 @@ npm run lint
 Database uji dibuat sekali:
 
 ```bash
-docker compose exec db psql -U simedia -d postgres -c "CREATE DATABASE simedia_test OWNER simedia;"
+docker compose exec db psql -U simak -d postgres -c "CREATE DATABASE simak_test OWNER simak;"
 ```
 
 Test berjalan di PostgreSQL, bukan sqlite. Skemanya memakai pgvector, index

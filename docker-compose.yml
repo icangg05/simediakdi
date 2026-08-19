@@ -184,9 +184,9 @@ services:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
-      POSTGRES_DB: simedia
-      POSTGRES_USER: simedia
-      POSTGRES_PASSWORD: simedia
+      POSTGRES_DB: simak
+      POSTGRES_USER: simak
+      POSTGRES_PASSWORD: simak
       TZ: UTC
     # Tidak menerbitkan port ke host sama sekali.
     #
@@ -198,7 +198,7 @@ services:
     volumes:
       - dbdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U simedia"]
+      test: ["CMD-SHELL", "pg_isready -U simak"]
       interval: 5s
       retries: 10
 

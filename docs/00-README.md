@@ -1,4 +1,4 @@
-# SIMEDIA Kendari: Paket Spesifikasi
+# SIMAK Kendari: Paket Spesifikasi
 
 Sistem Monitoring dan Analisis Sentimen Media untuk Pemerintah Kota Kendari.
 
@@ -81,8 +81,8 @@ Daftar ini menutup perdebatan. Kalau nanti Anda tergoda mengubah salah satunya d
 
 ## Nama dan konvensi
 
-- Nama produk: **SIMEDIA Kendari**
-- Nama teknis repo: `simedia`
+- Nama produk: **SIMAK Kendari**
+- Nama teknis repo: `simak`
 - Bahasa untuk nama tabel dan kolom database: **Bahasa Indonesia**
 - Bahasa untuk nama kelas, method, dan variabel PHP/TypeScript: **Bahasa Inggris**
 - Bahasa antarmuka pengguna: **Bahasa Indonesia**

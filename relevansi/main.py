@@ -60,7 +60,7 @@ from transformers import (
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("relevansi")
 
-app = FastAPI(title="Model Relevansi SIMEDIA")
+app = FastAPI(title="Model Relevansi SIMAK")
 
 # Direktori artefak dibagi dengan Laravel lewat bind mount repositori yang
 # sama. Itu sebabnya jalur yang dikembalikan relatif terhadap disk `local`:

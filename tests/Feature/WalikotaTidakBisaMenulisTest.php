@@ -107,7 +107,7 @@ class WalikotaTidakBisaMenulisTest extends TestCase
             // nama berkas. Nilainya tidak perlu benar-benar ada di disk: gerbang
             // peran berada di middleware, jadi ia menjawab 403 sebelum controller
             // sempat memeriksa keberadaan berkasnya.
-            'nama' => 'simedia-2026-08-12-101500.sql.gz',
+            'nama' => 'simak-2026-08-12-101500.sql.gz',
         ];
     }
 
