@@ -11,6 +11,18 @@ Spesifikasi lengkap ada di [`docs/`](docs/). Baca [`docs/00-README.md`](docs/00-
 Yang perlu ada di mesin: Docker dan Node 20+. PHP, Composer, PostgreSQL, dan
 Redis semuanya jalan di dalam container, tidak ada yang dipasang ke host.
 
+Siapkan dulu direktori data di disk. `storage/app` di-mount ke
+`/mnt/data/simedia/storage-app`, jadi berkas unggahan, cadangan basis data, dan
+artefak model tidak ikut folder rilis. Kalau direktorinya belum ada, Docker
+membuatkannya sebagai root dan seluruh container yang berjalan sebagai UID 1000
+gagal menulis.
+
+```bash
+sudo mkdir -p /mnt/data/simedia/storage-app
+sudo rsync -a storage/app/ /mnt/data/simedia/storage-app/   # pindahkan data lama, kalau ada
+sudo chown -R 1000:1000 /mnt/data/simedia/storage-app
+```
+
 ```bash
 docker compose up -d --build
 npm install
