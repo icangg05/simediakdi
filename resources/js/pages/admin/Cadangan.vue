@@ -28,6 +28,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { id } from 'date-fns/locale';
 import {
     Archive,
+    CalendarClock,
     Check,
     Clock,
     Copy,
@@ -56,6 +57,7 @@ const props = defineProps<{
     database: { nama: string; host: string; driver: string; didukung: boolean };
     versiPgDump: string | null;
     ruangSisa: number | null;
+    ukuranDatabase: number | null;
     simpanTerakhir: number;
 }>();
 
@@ -119,6 +121,21 @@ const basi = computed(() => umurJam.value !== null && umurJam.value > JAM_BASI);
 
 /** Server siap kalau driver-nya PostgreSQL dan pg_dump-nya benar-benar ada. */
 const siap = computed(() => props.database.didukung && props.versiPgDump !== null);
+
+/*
+ * Ambang ruang disk, angka yang sama dengan penjaga di CadanganDatabase.
+ *
+ * Seperempat ukuran basis data. Dump teks yang dimampatkan berukuran sekitar
+ * 13 persen dari basis datanya, jadi ambang ini kira-kira dua kali kebutuhan
+ * nyata. Disalin ke sini sebagai satu angka, bukan dikirim dari server,
+ * karena ia hanya dipakai untuk menandai baris menjadi merah. Yang menolak
+ * pekerjaannya tetap server.
+ */
+const RASIO_RUANG_MINIMAL = 0.25;
+
+const ruangMinimal = computed(() => (props.ukuranDatabase === null ? null : Math.ceil(props.ukuranDatabase * RASIO_RUANG_MINIMAL)));
+
+const ruangCukup = computed(() => ruangMinimal.value === null || props.ruangSisa === null || props.ruangSisa >= ruangMinimal.value);
 
 const ukuranTerbesar = computed(() => Math.max(1, ...props.berkas.map((b) => b.ukuran)));
 
@@ -206,7 +223,7 @@ async function salinPerintah() {
     <LayoutAdmin :breadcrumbs="[{ title: 'Cadangan database', href: '/admin/cadangan' }]">
         <KopHalaman
             judul="Cadangan database"
-            keterangan="Salinan seluruh basis data dalam satu berkas SQL terkompresi. Dibuat manual, disimpan di server ini, dan hanya bisa diunduh dari halaman ini."
+            keterangan="Salinan seluruh basis data dalam satu berkas SQL terkompresi. Dibuat otomatis tiap Senin pukul 03.00 WITA, disimpan di server ini, dan hanya bisa diunduh dari halaman ini."
         >
             <PilKop :ikon="Archive">
                 <span class="angka">{{ formatAngka(total.jumlah) }}</span> dari <span class="angka">{{ simpanTerakhir }}</span> slot
@@ -214,6 +231,10 @@ async function salinPerintah() {
             <PilKop :ikon="HardDrive">
                 Terpakai <span class="angka">{{ formatUkuran(total.ukuran) }}</span>
             </PilKop>
+            <!-- Jadwal disebut di kop, bukan hanya di kartu aksi. Pertanyaan
+                 "kapan terakhir dicadangkan" hampir selalu disusul "apakah ini
+                 jalan sendiri", dan jawabannya harus terbaca tanpa menggulir. -->
+            <PilKop :ikon="CalendarClock">Otomatis tiap Senin 03.00 WITA</PilKop>
             <!-- Nada pil terakhir adalah jawaban atas satu-satunya pertanyaan
                  yang membuat orang membuka halaman ini saat sedang tidak ada
                  masalah: apakah datanya aman sekarang. -->
@@ -277,7 +298,7 @@ async function salinPerintah() {
             class="muncul"
             style="animation-delay: 100ms"
             judul="Buat cadangan baru"
-            catatan="Menyalin seluruh basis data ke satu berkas, lalu memampatkannya. Berjalan langsung di permintaan ini, jadi tunggu sampai halaman menjawab."
+            catatan="Menyalin seluruh basis data ke satu berkas, lalu memampatkannya. Berjalan langsung di permintaan ini, jadi tunggu sampai halaman menjawab. Hasilnya menggantikan cadangan minggu berjalan, bukan menambahnya."
             rona="brand"
             :ikon="DatabaseBackup"
             :bekerja="sedangMembuat"
@@ -406,10 +427,11 @@ async function salinPerintah() {
 
                     <p class="text-[11px] leading-relaxed text-pretty text-muted-foreground">
                         <template v-if="total.jumlah >= simpanTerakhir">
-                            Slot penuh. Cadangan berikutnya akan membuang yang terlama, ditandai kuning di atas.
+                            Slot penuh. Cadangan minggu baru akan membuang yang terlama, ditandai kuning di atas.
                         </template>
                         <template v-else>
-                            Sistem menyimpan {{ simpanTerakhir }} cadangan terakhir. Yang terlama dibuang otomatis saat slot penuh.
+                            Satu berkas per minggu, Senin sampai Minggu. Sistem menyimpan {{ simpanTerakhir }} minggu terakhir, yang terlama dibuang
+                            otomatis saat slot penuh.
                         </template>
                     </p>
                 </div>
@@ -541,7 +563,7 @@ async function salinPerintah() {
                 class="muncul"
                 style="animation-delay: 180ms"
                 judul="Kesiapan server"
-                catatan="Tiga syarat yang harus terpenuhi supaya tombol di atas bekerja. Yang merah menjelaskan sendiri apa yang harus dipasang."
+                catatan="Syarat yang harus terpenuhi supaya tombol di atas bekerja. Yang merah menjelaskan sendiri apa yang harus dipasang."
                 rona="biru"
                 :ikon="Server"
             >
@@ -580,11 +602,34 @@ async function salinPerintah() {
 
                     <div class="flex items-start gap-3 border-t pt-3">
                         <span class="mt-0.5 grid size-6 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground">
+                            <Database class="size-3.5" aria-hidden="true" />
+                        </span>
+                        <div class="min-w-0 flex-1">
+                            <dt class="font-medium">Ukuran basis data</dt>
+                            <dd class="angka text-xs text-muted-foreground">{{ formatUkuran(ukuranDatabase) }}</dd>
+                        </div>
+                    </div>
+
+                    <!--
+                        Ruang disk ditaruh paling bawah dan membawa ambangnya
+                        sendiri. Sistem menolak membuat cadangan saat sisa disk
+                        kurang dari seperempat ukuran basis data, dan penolakan
+                        itu harus bisa diperkirakan sebelum terjadi, bukan baru
+                        terbaca sebagai galat merah setelah tombol ditekan.
+                    -->
+                    <div class="flex items-start gap-3 border-t pt-3">
+                        <span
+                            class="mt-0.5 grid size-6 shrink-0 place-items-center rounded-md"
+                            :class="ruangCukup ? 'bg-muted text-muted-foreground' : 'bg-sentimen-negatif-lembut text-sentimen-negatif'"
+                        >
                             <HardDrive class="size-3.5" aria-hidden="true" />
                         </span>
                         <div class="min-w-0 flex-1">
                             <dt class="font-medium">Ruang disk tersisa</dt>
-                            <dd class="angka text-xs text-muted-foreground">{{ formatUkuran(ruangSisa) }}</dd>
+                            <dd class="angka text-xs text-muted-foreground">
+                                {{ formatUkuran(ruangSisa) }}
+                                <template v-if="ruangMinimal !== null"> dari minimal {{ formatUkuran(ruangMinimal) }}</template>
+                            </dd>
                         </div>
                     </div>
                 </dl>

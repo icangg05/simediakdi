@@ -1,5 +1,5 @@
-# Tiga aturan berlaku untuk seluruh layanan yang berumur panjang di berkas ini.
-# Dua yang pertama lahir dari satu kejadian nyata: 805 galat
+# Dua aturan berlaku untuk seluruh layanan yang berumur panjang di berkas ini,
+# dan keduanya lahir dari satu kejadian nyata: 805 galat
 # "getaddrinfo for redis failed" di log, yang berarti nama `redis` tidak bisa
 # diselesaikan sama sekali karena container-nya memang sedang tidak ada.
 #
@@ -12,31 +12,6 @@
 #    menunggu container tetangga dibuat, bukan siap menerima koneksi, jadi
 #    Laravel tetap bisa menembak Redis dan Postgres yang belum mengangkat
 #    soketnya. Itu yang membuat permintaan pertama setelah setiap `up` gagal.
-#
-# 3. `/mnt/data/simedia/storage-app:/app/storage/app` di setiap layanan yang
-#    memegang `/app`. Repositori memang sudah di-mount seluruhnya, jadi
-#    `storage/app` ikut terbawa, tapi ia lalu menumpang di disk yang sama
-#    dengan kode dan di dalam folder yang di-deploy ulang. Isinya bukan kode:
-#    berkas yang diunggah pengguna, cadangan basis data, dan artefak model
-#    relevansi yang ratusan megabita per pelatihan. Mount ini menaruhnya di
-#    disk data tersendiri, sehingga `git clean`, penggantian folder rilis, atau
-#    disk sistem yang penuh tidak menyentuhnya sama sekali.
-#
-#    Mount bertingkat, dan urutannya di berkas ini tidak berpengaruh. Docker
-#    memasang jalur yang lebih dalam belakangan, jadi `/app/storage/app` selalu
-#    menang atas `.:/app` yang membungkusnya.
-#
-#    Direktori host wajib ada, sudah berisi salinan data lama, dan dimiliki UID
-#    1000 sebelum `up` pertama. Kalau belum ada, Docker membuatkannya sebagai
-#    root dan seluruh container yang berjalan sebagai `1000:1000` gagal
-#    menulis:
-#
-#      sudo mkdir -p /mnt/data/simedia
-#      sudo mv storage/app /mnt/data/simedia/storage-app
-#      sudo chown -R 1000:1000 /mnt/data/simedia/storage-app
-#      mkdir -p storage/app
-#
-#    Langkah pemulihannya ada di README, di bagian "Menjalankan dari nol".
 services:
   # Caddy memegang port 8000, bukan Laravel.
   #
@@ -74,7 +49,6 @@ services:
       HOME: /tmp
     volumes:
       - .:/app
-      - /mnt/data/simedia/storage-app:/app/storage/app
     # Tidak lagi menerbitkan port ke host. Satu-satunya jalan masuk adalah
     # Caddy, supaya tidak ada pintu kedua yang melewatkan kompresi diam-diam.
     expose:
@@ -103,7 +77,6 @@ services:
       HOME: /tmp
     volumes:
       - .:/app
-      - /mnt/data/simedia/storage-app:/app/storage/app
     depends_on:
       db:
         condition: service_healthy
@@ -161,7 +134,6 @@ services:
       HOME: /tmp
     volumes:
       - .:/app
-      - /mnt/data/simedia/storage-app:/app/storage/app
     depends_on:
       db:
         condition: service_healthy
@@ -201,7 +173,6 @@ services:
       HOME: /tmp
     volumes:
       - .:/app
-      - /mnt/data/simedia/storage-app:/app/storage/app
     depends_on:
       db:
         condition: service_healthy
@@ -300,7 +271,6 @@ services:
       RELEVANSI_THREAD: "8"
     volumes:
       - .:/app
-      - /mnt/data/simedia/storage-app:/app/storage/app
       - ./relevansi:/relevansi
       - modeldata:/model
     ports:

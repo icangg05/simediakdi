@@ -11,33 +11,6 @@ Spesifikasi lengkap ada di [`docs/`](docs/). Baca [`docs/00-README.md`](docs/00-
 Yang perlu ada di mesin: Docker dan Node 20+. PHP, Composer, PostgreSQL, dan
 Redis semuanya jalan di dalam container, tidak ada yang dipasang ke host.
 
-Siapkan dulu direktori data di disk. `storage/app` di-mount ke
-`/mnt/data/simedia/storage-app`, jadi berkas unggahan, cadangan basis data, dan
-artefak model tidak ikut folder rilis. Kalau direktorinya belum ada, Docker
-membuatkannya sebagai root dan seluruh container yang berjalan sebagai UID 1000
-gagal menulis.
-
-```bash
-sudo mkdir -p /mnt/data/simedia
-sudo mv storage/app /mnt/data/simedia/storage-app   # atau: sudo mkdir -p, kalau belum ada data lama
-sudo chown -R 1000:1000 /mnt/data/simedia/storage-app
-mkdir -p storage/app                                # titik pasang kosong di dalam repo
-```
-
-Sudah terlanjur `up` sebelum langkah ini? Docker sudah membuat direktorinya
-sebagai root dalam keadaan kosong, dan Laravel menjawab
-`Unable to create a directory at /app/storage/app/private`. Data lama tidak
-hilang, ia hanya tertutup mount. Pulihkan begini:
-
-```bash
-docker compose down
-sudo rmdir /mnt/data/simedia/storage-app            # aman, isinya kosong
-sudo mv storage/app /mnt/data/simedia/storage-app
-sudo chown -R 1000:1000 /mnt/data/simedia/storage-app
-mkdir -p storage/app
-docker compose up -d
-```
-
 ```bash
 docker compose up -d --build
 npm install

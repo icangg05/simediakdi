@@ -95,3 +95,21 @@ Schedule::command('gemini:antre --isi')
 Schedule::command('gemini:antre')
     ->everyMinute()
     ->withoutOverlapping();
+
+// Cadangan basis data, tiap Senin pukul 03.00 WITA.
+//
+// Zona eksplisit, bukan bawaan UTC. Tanpa itu jadwalnya jatuh pukul 11.00 WITA,
+// yaitu jam kerja, dan pg_dump mengunci baca seluruh tabel selama ia berjalan.
+//
+// Satu berkas per minggu, dan aturan itu ada di CadanganDatabase, bukan di
+// jadwal ini. Admin yang menekan tombol manual hari Rabu menimpa hasil Senin,
+// dan jadwal Senin berikutnya menimpa berkas manual minggu sebelumnya hanya
+// kalau keduanya jatuh di minggu kalender yang sama.
+//
+// runInBackground() sengaja tidak dipakai. Perintah ini menulis satu berkas
+// besar dan kode keluarnya adalah satu-satunya tanda bahwa cadangan mingguan
+// gagal, jadi ia harus tercatat di log penjadwal apa adanya.
+Schedule::command('cadangan:buat')
+    ->weeklyOn(1, '03:00')
+    ->timezone(Waktu::ZONA)
+    ->withoutOverlapping();

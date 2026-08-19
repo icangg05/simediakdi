@@ -125,7 +125,7 @@ const RUPA_STATUS: Record<BarisLog['status'], { kelas: string; ikon: Component }
     <LayoutAdmin :breadcrumbs="[{ title: 'Log crawl', href: '/admin/log-crawl' }]">
         <KopHalaman
             judul="Log crawl"
-            :keterangan="`Crawl otomatis berjalan tiap 3 jam untuk ${jumlahSumberAktif} sumber aktif. Log disimpan 90 hari, lalu dihapus otomatis.`"
+            :keterangan="`Crawl otomatis berjalan tiap 3 jam untuk ${jumlahSumberAktif} sumber aktif. Log disimpan 7 hari, lalu dihapus otomatis.`"
         >
             <template #aksi>
                 <!-- Menarik sekarang menjalankan pekerjaan di worker dan memakai

@@ -3,6 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Services\CadanganDatabase;
+use App\Support\Waktu;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -100,6 +103,36 @@ class CadanganDatabaseTest extends TestCase
             ->assertRedirect();
 
         $this->assertFalse(Storage::disk('local')->exists('cadangan/'.$nama));
+    }
+
+    /**
+     * Satu berkas per minggu, Senin sampai Minggu WITA.
+     *
+     * Ini logika yang paling mudah rusak diam-diam di seluruh fitur ini, dan
+     * kerusakannya baru terlihat berminggu-minggu kemudian saat ada yang
+     * mencari cadangan yang ternyata sudah terhapus. Batas mingguannya diuji
+     * dari dua sisi sekaligus: berkas Minggu malam milik minggu sebelumnya
+     * harus selamat, berkas Senin milik minggu yang sama harus dibuang.
+     */
+    public function test_cadangan_baru_menimpa_cadangan_lain_di_minggu_yang_sama(): void
+    {
+        $mingguLalu = 'simedia-2026-08-16-235900.sql.gz';   // Minggu, minggu sebelumnya
+        $senin = 'simedia-2026-08-17-030000.sql.gz';        // Senin, hasil jadwal
+        $rabu = 'simedia-2026-08-19-101500.sql.gz';         // Rabu, hasil tombol manual
+
+        foreach ([$mingguLalu, $senin, $rabu] as $nama) {
+            Storage::disk('local')->put('cadangan/'.$nama, gzencode('-- isi'));
+        }
+
+        $dibuang = app(CadanganDatabase::class)->buangSatuMinggu(
+            CarbonImmutable::create(2026, 8, 19, 10, 15, 0, Waktu::ZONA),
+            $rabu,
+        );
+
+        $this->assertSame(1, $dibuang);
+        $this->assertTrue(Storage::disk('local')->exists('cadangan/'.$rabu));
+        $this->assertTrue(Storage::disk('local')->exists('cadangan/'.$mingguLalu));
+        $this->assertFalse(Storage::disk('local')->exists('cadangan/'.$senin));
     }
 
     /** Berkas asing di folder yang sama tidak boleh muncul sebagai baris arsip. */
